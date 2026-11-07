@@ -1,0 +1,61 @@
+{
+  "format": "coffre",
+  "version": 1,
+  "id": "vf_8e5bfd0592b7a41ef7db1764c9e52ed0",
+  "createdAt": "2026-10-28T08:18:19.958Z",
+  "updatedAt": "2026-10-28T08:18:20.011Z",
+  "kdf": {
+    "algorithm": "argon2id",
+    "salt": "nqQv3f1uWdttPDNpBx5vTQ==",
+    "memoryKiB": 8192,
+    "iterations": 1,
+    "parallelism": 1,
+    "keyLength": 32
+  },
+  "vaults": [
+    {
+      "id": "v_c3276d4c156dc0083c76fb4bf84db90a",
+      "key": {
+        "n": "diQgY+Sx/GsEMtBS",
+        "c": "TfHtf9hfOoIRn+DzCzwcw6uKR7jD42UqMssd00AedK3kymtJiMqLuSsOFhUFrc9U"
+      },
+      "name": {
+        "n": "D7mZrGUV5DA7OPOo",
+        "c": "zsYQmd3oooOgnJ/XQpfOQ7bPFk1ENqVTnLJn5Sq/NiOYVUPY3t+s8g=="
+      },
+      "createdAt": "2026-10-28T08:18:20.000Z",
+      "updatedAt": "2026-10-28T08:18:20.000Z"
+    }
+  ],
+  "items": [
+    {
+      "id": "i_1edde68fba19f3da3671fe997eae23e8",
+      "vaultId": "v_c3276d4c156dc0083c76fb4bf84db90a",
+      "key": {
+        "n": "gyNjnNYuFtKAkoTV",
+        "c": "q8uQxroRIVqWcgjs0M0QFXjmDY0dXqHlpGg7dz5k4drsWBNaxl4zrYo9TEpY31pS"
+      },
+      "content": {
+        "n": "iO5FNYWYShrWqHHW",
+        "c": "4D3SJ+8oi777oGH2/Q8jz77Gjwz+j4/7s6b21dUs6xI4hd7NaUW7+ph3AhF1sD1VdTOSblcXJTvdqw8gjafp74adtDhmDYwc/JurGMHgxHAjNTAsjRa1bbXP/Ff+yOH0fWifKY5+u+gTfTAxwDQOX9zfurworZ8cCuOxEnQrVHN1IHoHmGmRJWW0b4h2e8jkZIfJaQ8FBJ2uunx1+pykQcffW2QeDl5CojPnWQl0dXzW7b9ZNpe5xlGC81/XFY2lQ6XobPXsaSMBNJ/nzi1ZEyAxcDEC+bRJcV8Fr3cXE21HL+885WCdQZOM+ZCHSnpWuy+I"
+      },
+      "createdAt": "2026-10-28T08:18:20.011Z",
+      "updatedAt": "2026-10-28T08:18:20.011Z"
+    },
+    {
+      "id": "i_ef9fec83d1fc24b1534479319ec68ada",
+      "vaultId": "v_c3276d4c156dc0083c76fb4bf84db90a",
+      "key": {
+        "n": "65cE7587BZlF1ytw",
+        "c": "0unEjlA/sJhxJNHkfFhdAqi47/gjeOhp/Zh8qQnKdD1qGHEQ11Oe5A5aEu0Veyr0"
+      },
+      "content": {
+        "n": "CIJcvzijf1QcuTuX",
+        "c": "9C7CECdRzgt/k3jw2wEepKfuaCsZwn5TakArp2Mg42AxSWnaEPEzEw8xRkavTJaEbfqjca/tisLnbis1dGFHeS5yG588WXBhMBq1fWcKxvR/opogOJKZIKvHlHeSMaSfcEjWBubhu94tGCoJ062a+OV3R5VB+lE7Je59YEP7kKnfLSLvvP+fjY2VS1Ll5uAt+wDRie6VxKHPPQj+6G6xDHQJDOjltGbAZNt+37JHTQ=="
+      },
+      "createdAt": "2026-10-28T08:18:20.011Z",
+      "updatedAt": "2026-10-28T08:18:20.011Z"
+    }
+  ],
+  "attachments": []
+}

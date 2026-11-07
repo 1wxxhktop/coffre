@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Réglages — Coffre</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <img src="./icons/icon-192.png" alt="" width="48" height="48" />
+        <div>
+          <h1>Extension Coffre</h1>
+          <p>Remplissage automatique local, sans serveur ni télémétrie.</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>Adresse de l’application</h2>
+        <p>
+          L’extension interroge l’onglet Coffre déverrouillé pour récupérer les
+          identifiants du site courant. Elle ne stocke aucun secret.
+        </p>
+        <label class="field">
+          <span>URL de Coffre</span>
+          <input id="app-url" type="url" spellcheck="false" placeholder="http://localhost:1420" />
+        </label>
+        <div class="actions">
+          <button id="save" class="button button--primary" type="button">
+            Enregistrer et autoriser
+          </button>
+          <button id="test" class="button" type="button">Tester la connexion</button>
+          <button id="open" class="button" type="button">Ouvrir Coffre</button>
+        </div>
+        <p id="status" class="status" role="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>Fonctionnement</h2>
+        <ol>
+          <li>Ouvrez Coffre et déverrouillez votre coffre.</li>
+          <li>Sur un site, cliquez sur l’icône Coffre dans la barre d’outils.</li>
+          <li>Choisissez « Remplir » : les champs sont complétés dans la page active.</li>
+        </ol>
+        <p class="muted">
+          Le mot de passe maître et les clés ne quittent jamais l’onglet Coffre.
+          Les identifiants transitent uniquement en mémoire, entre cet onglet et
+          la page active. Fermez l’onglet Coffre ou verrouillez-le pour couper
+          l’accès.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Permissions</h2>
+        <p class="muted">
+          L’extension demande l’accès à l’onglet actif au moment du remplissage,
+          et à l’adresse de Coffre configurée ci-dessus. Elle n’a pas accès aux
+          autres onglets en dehors de votre action.
+        </p>
+      </section>
+    </main>
+    <script type="module" src="./options.ts"></script>
+  </body>
+</html>

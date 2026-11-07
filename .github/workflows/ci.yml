@@ -1,0 +1,238 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.4.3
+
+jobs:
+  quality:
+    name: Qualité
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Auditer les dépendances
+        run: bun audit --audit-level=high
+
+      - name: Vérifier la cohérence des versions
+        run: node scripts/check-versions.mjs
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Vérification TypeScript
+        run: bun run typecheck
+
+      - name: Tests unitaires
+        run: bun run test
+
+      - name: Build PWA
+        run: bun run build
+
+      - name: Build extension navigateur
+        run: bun run extension:build
+
+      - name: Conserver le build
+        uses: actions/upload-artifact@v4
+        with:
+          name: coffre-dist
+          path: |
+            dist
+            dist-extension
+          retention-days: 7
+
+  e2e:
+    name: Parcours Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Installer Chromium et WebKit
+        run: bunx playwright install --with-deps chromium webkit
+
+      - name: Exécuter les parcours
+        run: bun run test:e2e
+
+      - name: Conserver les traces en cas d’échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  rust:
+    name: Rust (fmt, clippy, tests, audit)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer les dépendances Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            libssl-dev
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Mettre en cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Vérifier le formatage
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Tests Rust
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+
+      - name: Installer cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Auditer les crates
+        working-directory: src-tauri
+        run: cargo audit
+
+  smoke-extension:
+    name: Extension Chromium (smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Installer Chromium et xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          bunx playwright install --with-deps chromium
+
+      - name: Construire l’extension
+        run: bun run extension:build
+
+      - name: Démarrer l’application et le formulaire de test
+        run: |
+          bun run dev -- --host 127.0.0.1 --port 1420 --strictPort > /tmp/vite.log 2>&1 &
+          node scripts/smoke-target.mjs > /tmp/target.log 2>&1 &
+          for i in $(seq 1 40); do
+            curl -sf http://127.0.0.1:1420/ > /dev/null && \
+            curl -sf http://127.0.0.1:8099/ > /dev/null && break
+            sleep 1
+          done
+
+      - name: Tester recherche, remplissage et verrouillage
+        env:
+          COFFRE_APP_URL: http://127.0.0.1:1420
+          COFFRE_TARGET_URL: http://127.0.0.1:8099
+        run: xvfb-run -a node scripts/smoke-extension.mjs
+
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    # macOS et Windows sont coûteux : build uniquement sur main ou à la demande.
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer les dépendances Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            libssl-dev
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Mettre en cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Compiler le bundle desktop
+        run: bun run desktop:build
+
+      - name: Conserver les artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coffre-desktop-${{ matrix.os }}
+          path: |
+            src-tauri/target/release/bundle/**
+          if-no-files-found: warn
+          retention-days: 7

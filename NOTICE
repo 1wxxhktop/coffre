@@ -1,0 +1,113 @@
+Coffre
+Copyright (C) 2026 Les contributeurs de Coffre
+
+Coffre est distribué sous GNU General Public License v3.0 seulement
+(GPL-3.0-only). Le texte de la licence se trouve dans le fichier LICENSE.
+
+Ce produit inclut ou adapte des éléments de projets tiers. Les attributions
+ci-dessous doivent être conservées dans toute redistribution.
+
+================================================================================
+1. INSPIRATION ARCHITECTURALE — PROTON PASS
+================================================================================
+
+Coffre est un projet indépendant, sans affiliation avec Proton AG.
+
+L’architecture, le modèle d’éléments, la hiérarchie de clés et certains choix
+d’ergonomie ont été inspirés par Proton Pass, publié par Proton AG sous
+GNU General Public License v3.0 ou ultérieure (GPL-3.0-or-later).
+
+Dépôts examinés :
+  - https://github.com/protonpass/proton-pass-common
+    commit b0c9fd0 (14 octobre 2026)
+  - https://github.com/protonpass/pass-cli
+    commit 5d0cfbf (21 octobre 2026)
+  - https://github.com/protonpass/android-pass
+    commit d03bd11 (15 octobre 2026)
+  - https://github.com/protonpass/pass-contents-proto-definition
+    commit 8c88394 (25 mars 2026)
+
+Aucun code source, composant, style, texte, icône, schéma Protocol Buffers ni
+format de fichier de Proton Pass n’a été copié dans Coffre. L’analyse complète
+figure dans docs/PROTON-PASS.md.
+
+« Proton », « Proton Pass » et les logos associés sont des marques de Proton AG.
+Coffre n’est ni affilié, ni approuvé, ni sponsorisé par Proton AG.
+
+================================================================================
+2. EFF LARGE WORDLIST
+================================================================================
+
+Fichier : src/assets/eff_large_wordlist.txt
+Source  : https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt
+Auteur  : Electronic Frontier Foundation (EFF)
+Licence : Creative Commons Attribution 3.0 (CC BY 3.0)
+          https://creativecommons.org/licenses/by/3.0/
+
+La liste contient 7 776 mots. Elle a été reprise du dépôt
+protonpass/proton-pass-common (GPL-3.0-or-later), où elle est distribuée avec
+les autres fichiers de données. Le fichier est conservé tel quel ; le générateur
+de phrases de passe n’utilise que la colonne des mots et ignore les numéros de
+dé. Aucun mot n’a été ajouté, retiré ou modifié.
+
+Attribution à conserver :
+  « EFF Large Wordlist », Electronic Frontier Foundation, CC BY 3.0.
+
+================================================================================
+3. DÉPENDANCES LOGICIELLES
+================================================================================
+
+Coffre est construit avec les bibliothèques suivantes. Les versions exactes
+sont verrouillées dans bun.lock. Les licences indiquées sont celles déclarées
+par les paquets au moment de la rédaction ; se référer aux fichiers LICENSE de
+chaque paquet pour le texte intégral.
+
+Runtime web :
+  - React, React DOM                  MIT
+  - hash-wasm                         MIT
+  - idb                               ISC
+  - Zod                               MIT
+  - Lucide (lucide-react)             ISC
+
+Build et développement :
+  - Vite                              MIT
+  - TypeScript                        Apache-2.0
+  - vite-plugin-pwa                   MIT
+  - Workbox                           MIT
+  - Vitest                            MIT
+  - fake-indexeddb                    Apache-2.0
+  - oxlint                            MIT
+  - sharp                             Apache-2.0
+
+Desktop et mobile :
+  - Tauri (crate tauri)               Apache-2.0 OR MIT
+  - @tauri-apps/cli                   Apache-2.0 OR MIT
+  - tauri-build                       Apache-2.0 OR MIT
+  - keyring                           MIT OR Apache-2.0
+  - serde                             MIT OR Apache-2.0
+  - objc2 / objc2-foundation          MIT
+  - objc2-local-authentication        Zlib OR Apache-2.0 OR MIT
+  - block2                            MIT
+
+Les polices utilisées par l’interface sont les polices système de l’appareil ;
+aucune police distante n’est embarquée ni téléchargée. Les icônes de l’interface
+proviennent de Lucide (ISC). Les icônes de l’application ont été générées pour
+Coffre à partir de son propre logo.
+
+================================================================================
+4. TEXTES ET DOCUMENTATION
+================================================================================
+
+La documentation (README.md, docs/, commentaires) a été rédigée pour Coffre.
+Elle décrit le fonctionnement du projet et ne reproduit pas de documentation
+Proton.
+
+================================================================================
+5. ABSENCE DE GARANTIE
+================================================================================
+
+Coffre est fourni « en l’état », sans garantie d’aucune sorte, dans les limites
+prévues par la GNU GPL v3.0. Voir les sections 15 et 16 du fichier LICENSE.
+
+Pour toute question relative à ces attributions, ouvrir une issue dans le
+dépôt du projet.

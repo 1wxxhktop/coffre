@@ -1,0 +1,3 @@
+# Application monopage : toutes les routes inconnues servent l’index.
+# Les fichiers réellement présents (assets, sw.js, manifeste) sont servis avant.
+/*    /index.html    200
