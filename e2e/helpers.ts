@@ -24,6 +24,7 @@ export async function addLogin(
   title = 'GitHub',
   username = 'studio26',
   password = 's3cret!',
+  url = '',
 ): Promise<Locator> {
   await page.getByRole('button', { name: 'Nouvel élément' }).click()
   const dialog = page.getByRole('dialog')
@@ -32,6 +33,9 @@ export async function addLogin(
   await dialog.getByLabel('Titre', { exact: true }).fill(title)
   await dialog.getByLabel('Identifiant', { exact: true }).fill(username)
   await dialog.getByLabel('Mot de passe', { exact: true }).fill(password)
+  if (url) {
+    await dialog.getByPlaceholder('https://exemple.com').fill(url)
+  }
   await dialog.getByRole('button', { name: 'Enregistrer' }).click()
 
   await expect(dialog.getByRole('heading', { name: title })).toBeVisible()

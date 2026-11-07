@@ -7,6 +7,8 @@
   migration automatique depuis IndexedDB.
 - Retrait complet du portage expérimental Zig/nanoui et de ses dépendances
   vendorisées.
+- Export CSV : format Mots de passe (Apple) pour les connexions et format
+  complet Coffre pour tous les éléments, réimportable.
 - Trousseau natif macOS/Windows/Linux et déverrouillage rapide optionnel.
 - Déverrouillage Touch ID sur macOS, avec service de trousseau séparé.
 - Interface desktop en colonnes (navigation, liste, détail persistant).

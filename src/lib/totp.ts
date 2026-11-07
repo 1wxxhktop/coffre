@@ -87,6 +87,23 @@ export function parseTotpUri(uri: string): TotpConfig {
   }
 }
 
+/**
+ * Normalise un secret TOTP base32 en URI `otpauth://` quand c’est possible.
+ * Les valeurs déjà au format URI sont renvoyées telles quelles.
+ */
+export function normalizeTotpUri(raw: string, title: string): string {
+  const value = raw.trim()
+  if (!value) return ''
+  if (/^otpauth:\/\//i.test(value)) return value
+
+  const secret = value.replace(/[\s-]/g, '').toUpperCase()
+  if (secret.length < 8 || !/^[A-Z2-7]+=*$/.test(secret)) return value
+
+  const label = encodeURIComponent(title || 'Compte')
+  const issuer = encodeURIComponent(title || 'Coffre')
+  return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}`
+}
+
 export function isTotpUri(value: string): boolean {
   if (!value.trim()) return false
   try {

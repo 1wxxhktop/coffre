@@ -18,7 +18,7 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 
 | Plateforme | État | Verdict |
 | --- | --- | --- |
-| Web / PWA | Fonctionnelle, 32/32 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
+| Web / PWA | Fonctionnelle, 34/34 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
 | Extension Chromium | Fonctionnelle, non publiée, installation manuelle | **Bêta technique** |
 | Desktop macOS arm64 | Compile, stockage natif, se lance, Touch ID, signé ad hoc | **Bêta technique locale** |
 | Desktop macOS Intel | Non testé | **Non validé** |
@@ -47,7 +47,7 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 145 tests unitaires (13 fichiers), 32 exécutions Playwright,
+- **Tests** : 157 tests unitaires (14 fichiers), 34 exécutions Playwright,
   3 tests Rust, smoke extension avec CSP production, Lighthouse accessibilité
   1,0.
 - **Documentation** : SECURITY, audit, AutoFill, Proton Pass, native, README.
@@ -113,7 +113,7 @@ signature stable.
 
 Aucun audit cryptographique ni test d’intrusion externe n’a été réalisé. Pour un
 produit qui contient tous les mots de passe d’une personne, c’est un prérequis
-de confiance, même avec 145 tests.
+de confiance, même avec 157 tests.
 
 ### B-08 — Validation Windows/Linux et macOS Intel
 
@@ -121,11 +121,17 @@ La CI compile Windows/Linux, mais aucune exécution réelle, aucun test
 d’installation, aucun test de trousseau ni de WebView n’a été réalisé. Le build
 local est arm64 uniquement.
 
-### B-09 — Portabilité des données
+### B-09 — Portabilité des données — **traité en 0.8.0**
 
-L’import est très large, mais l’export se limite au format `.coffre`. Un export
-CSV compatible avec les gestionnaires courants et Mots de passe d’Apple
-manque pour éviter l’enfermement.
+L’import est très large et Coffre exporte désormais en CSV :
+- format **Mots de passe (Apple)**, avec les colonnes
+  `Title,URL,Username,Password,Notes,OTPAuth` pour les connexions actives ;
+- format **Coffre complet**, avec tous les types d’éléments et les champs
+  personnalisés, réimportable par Coffre.
+
+Le CSV est un fichier en clair et ne contient pas les pièces jointes ; l’export
+`.coffre` reste la sauvegarde chiffrée complète. Il reste à valider un import
+réel dans Mots de passe sur une machine Apple.
 
 ### B-10 — Détails d’accessibilité et de finition
 
@@ -146,7 +152,8 @@ manuelle avec lecteur d’écran et navigation clavier complète reste à faire.
 6. Touch ID protégé au niveau du trousseau/Secure Enclave.
 7. Audit externe et correction des constats.
 8. Tests d’installation/exécution Windows, Linux, macOS Intel.
-9. Export CSV et migration sortante.
+9. Export CSV et migration sortante (implémenté ; valider l’import réel dans
+   Mots de passe).
 10. Revue d’accessibilité manuelle et documentation utilisateur.
 
 ---
@@ -160,7 +167,7 @@ manuelle avec lecteur d’écran et navigation clavier complète reste à faire.
   signées, puis AutoFill macOS et audit externe.
 - **Ne pas présenter** Coffre comme un remplaçant grand public de 1Password ou
   Mots de passe d’Apple tant que les bloquants restants (B-01, B-02, B-04 à
-  B-10) ne sont pas traités.
+  B-08 et B-10) ne sont pas traités.
 
 La sécurité du coffre local, de la cryptographie, du format et des tests est
 déjà d’un bon niveau. Les bloquants restants sont principalement des sujets de

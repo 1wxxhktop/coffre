@@ -7,8 +7,8 @@ chiffré sur votre appareil. Aucun compte, aucun serveur, aucune synchronisation
 aucune télémétrie. L’interface est en français.
 
 > **État du projet — 0.8.0 (trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 145 tests unitaires et
-> 16 parcours Playwright exécutés sur Chromium et WebKit (32 exécutions). Une
+> La version web/PWA est fonctionnelle et couverte par 157 tests unitaires et
+> 17 parcours Playwright exécutés sur Chromium et WebKit (34 exécutions). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
 > rapide optionnel par le trousseau du système et une disposition en colonnes
@@ -88,7 +88,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   d’un nouveau mot de passe maître.
 - **Sauvegarde** : export/import d’un fichier `.coffre` chiffré et trois
   générations de copie locale de secours, restaurables depuis l’écran de
-  récupération.
+  récupération. Export CSV en clair au format **Mots de passe (Apple)** pour les
+  connexions, ou au format **Coffre complet** pour tous les types d’éléments.
 - **PWA installable** : fonctionnement hors ligne, icônes, service worker.
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
   de détail persistant, avec édition sur place et navigation clavier.
@@ -295,7 +296,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run preview` | Prévisualisation du build |
 | `bun run test` | Tests Vitest (117 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (32 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (34 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
@@ -373,7 +374,7 @@ trousseau et de la nouvelle interface) :
 - l’application se lance, initialise le stockage natif
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB, reste stable et n’ouvre aucune connexion réseau ;
-- les 32 exécutions Playwright passent sur Chromium et WebKit, moteur des
+- les 34 exécutions Playwright passent sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
 - `cargo test --lib` exécute 3 tests : stockage natif (rotation, permissions,
   effacement) et détection de LocalAuthentication/Touch ID sur la machine de
@@ -437,8 +438,10 @@ le partage du coffre, la signature
 et la feuille de route sont décrits dans
 [docs/MACOS-AUTOFILL.md](docs/MACOS-AUTOFILL.md).
 
-L’**export CSV compatible Mots de passe** reste l’alternative immédiate, sans
-Xcode ni signature.
+L’**export CSV compatible Mots de passe** est disponible dans les réglages,
+sans Xcode ni signature. Le format Apple ne contient que les connexions
+actives ; le format « Coffre complet » inclut les autres types d’éléments mais
+pas les pièces jointes.
 
 ### Mobile — à initialiser
 
@@ -465,7 +468,7 @@ de presse-papiers propres aux WebViews mobiles devront être validées.
 src/
   components/     Interface React (auth, coffres, éléments, générateur, réglages)
   hooks/          Verrouillage automatique
-  lib/            Crypto, format de coffre, import, stockage, TOTP, générateur
+  lib/            Crypto, format de coffre, import/export CSV, stockage, TOTP, générateur
   state/          Providers React (coffre, réglages, notifications)
   styles/         CSS par domaine
   assets/         Liste EFF des 7 776 mots
@@ -531,7 +534,8 @@ le stockage local (fichier natif ou IndexedDB), jamais la phrase elle-même.
 - Préférences : `localStorage`, clé `coffre:settings:v1` (aucune donnée
   sensible) ;
 - Export : fichier JSON `.coffre`, chiffré, **format v3** (les fichiers v1 et
-  v2 sont lus puis migrés à l’écriture).
+  v2 sont lus puis migrés à l’écriture) ; export CSV en clair pour les
+  migrations (Mots de passe Apple ou format complet Coffre).
 
 Le format complet et les garanties sont documentés dans
 [docs/SECURITY.md](docs/SECURITY.md).
@@ -596,6 +600,11 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 - Les trois sauvegardes locales vivent sur le même appareil et le même disque :
   elles ne protègent ni d’une panne matérielle, ni d’une perte de l’appareil, ni
   d’un effacement du stockage. Exportez régulièrement un fichier `.coffre`.
+- L’export CSV est **en clair** : il doit être importé puis supprimé, sans être
+  ouvert dans un tableur (des champs peuvent commencer par `=`, `+`, `-` ou
+  `@`). Le format Apple ne contient que les connexions actives ; les pièces
+  jointes ne sont jamais incluses dans un CSV. Le `.coffre` reste la sauvegarde
+  complète.
 - L’enveloppe de récupération est incluse dans chaque export `.coffre` ; elle
   protège les clés par la phrase, mais révèle qu’une récupération est configurée.
 - Les identifiants, dates et nombres d’éléments restent visibles dans le
@@ -606,7 +615,7 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   complet.
 - Pas de protection contre un OS compromis, un keylogger, une extension
   malveillante ou une injection de code dans la page.
-- Le bundle initial fait environ 655 Ko minifiés (206 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
+- Le bundle initial fait environ 660 Ko minifiés (207 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
   `hash-wasm` pourront être chargés à la demande dans une version ultérieure.
 - Les tests de bout en bout utilisent Chromium et WebKit ; Firefox et les
   WebViews Android/iOS réelles doivent encore être validés.

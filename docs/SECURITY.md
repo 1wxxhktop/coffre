@@ -399,6 +399,13 @@ L’export produit un fichier JSON `.coffre` contenant le coffre chiffré comple
 Il ne contient pas le mot de passe maître. Sans ce mot de passe, le fichier est
 inutilisable.
 
+L’export CSV est une option de migration : il contient des secrets **en clair**
+et ne doit être conservé que le temps de l’import. Le format Apple
+(`Title,URL,Username,Password,Notes,OTPAuth`) ne contient que les connexions
+actives ; le format complet Coffre inclut tous les types d’éléments et les
+champs personnalisés, mais jamais les pièces jointes. Le fichier `.coffre`
+reste la sauvegarde chiffrée de référence.
+
 Recommandations :
 
 - exporter après chaque ajout important ;

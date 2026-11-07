@@ -12,6 +12,7 @@
  */
 
 import { randomId } from './crypto'
+import { normalizeTotpUri } from './totp'
 import {
   emptyDraft,
   MAX_CUSTOM_FIELDS,
@@ -885,23 +886,6 @@ function enpassFolderPaths(root: Record<string, unknown>): Map<string, string> {
   return paths
 }
 
-/**
- * Enpass stocke les secrets TOTP en base32 brut. Le coffre attend une URI
- * `otpauth://`, on la reconstruit quand c’est possible.
- */
-function normalizeTotp(raw: string, title: string): string {
-  const value = raw.trim()
-  if (!value) return ''
-  if (/^otpauth:\/\//i.test(value)) return value
-
-  const secret = value.replace(/[\s-]/g, '').toUpperCase()
-  if (secret.length < 8 || !/^[A-Z2-7]+=*$/.test(secret)) return value
-
-  const label = encodeURIComponent(title || 'Compte')
-  const issuer = encodeURIComponent(title || 'Coffre')
-  return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}`
-}
-
 const ENPASS_CARD_NUMBER =
   /\b(card ?number|cardnumber|credit card number|cc number|numero de carte)\b/
 const ENPASS_CARDHOLDER =
@@ -1115,7 +1099,7 @@ function parseEnpassJson(raw: unknown, vaultId: string): ParsedImport {
         } else if (ENPASS_URL.test(kind)) {
           if (urls.length < 10) urls.push(value)
         } else if (ENPASS_TOTP.test(kind)) {
-          if (!totp) totp = normalizeTotp(value, title)
+          if (!totp) totp = normalizeTotpUri(value, title)
           else pushEnpassCustom(customFields, label, value, true)
         } else {
           pushEnpassCustom(customFields, label, value, sensitive)
@@ -1474,6 +1458,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   type: ['type', 'category', 'item type', 'kind'],
   folder: ['folder', 'folder name', 'grouping', 'group', 'group name', 'collection', 'vault', 'category name', 'path'],
   tags: ['tags', 'tag', 'labels'],
+  customFields: ['coffre custom fields'],
   fullName: ['full name', 'fullname', 'nom complet'],
   cardholder: [
     'cardholder',
@@ -1651,6 +1636,45 @@ function customFieldsFromRow(
   return fields
 }
 
+/**
+ * Relit la colonne JSON produite par l’export CSV complet de Coffre. Les
+ * fichiers d’autres gestionnaires ne sont pas concernés : leur éventuelle
+ * colonne « custom fields » reste traitée comme un champ inconnu.
+ */
+function parseCoffreCustomFields(value: string): CustomField[] {
+  const raw = value.trim()
+  if (!raw) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+
+  const fields: CustomField[] = []
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== 'object') continue
+    const record = entry as Record<string, unknown>
+    const label = typeof record.label === 'string' ? record.label.slice(0, 80) : ''
+    const fieldValue =
+      typeof record.value === 'string' ? record.value.slice(0, 10_000) : ''
+    if (!label && !fieldValue) continue
+    const type =
+      record.type === 'hidden' || record.type === 'url' || record.type === 'multiline'
+        ? record.type
+        : 'text'
+    fields.push({
+      id: randomId('f'),
+      label: label || 'Champ',
+      value: fieldValue,
+      type,
+    })
+    if (fields.length >= MAX_CUSTOM_FIELDS) break
+  }
+  return fields
+}
+
 function cell(row: Row, headers: string[], name: string): string {
   const index = headers.indexOf(normalizeHeader(name))
   return index >= 0 ? (row[index] ?? '').trim() : ''
@@ -1709,7 +1733,10 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
       notes: pick(row, headers, 'notes').slice(0, 100_000),
       tags,
       favorite: parseFavorite(pick(row, headers, 'favorite')),
-      customFields: customFieldsFromRow(row, headers, originalHeaders),
+      customFields: [
+        ...customFieldsFromRow(row, headers, originalHeaders),
+        ...parseCoffreCustomFields(pick(row, headers, 'customFields')),
+      ].slice(0, MAX_CUSTOM_FIELDS),
     }
 
     const expMonth = pick(row, headers, 'expiry')
@@ -1717,7 +1744,7 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
       username: pick(row, headers, 'username').slice(0, 500),
       password: pick(row, headers, 'password').slice(0, 2_000),
       urls,
-      totp: normalizeTotp(pick(row, headers, 'totp'), title).slice(0, 4_096),
+      totp: normalizeTotpUri(pick(row, headers, 'totp'), title).slice(0, 4_096),
       cardholder: pick(row, headers, 'cardholder').slice(0, 200),
       number: pick(row, headers, 'number').slice(0, 40),
       expiry: expMonth.slice(0, 10),

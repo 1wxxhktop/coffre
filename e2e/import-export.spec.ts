@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import { addLogin, closeDialog, createVault, openSettings, PASSWORD } from './helpers'
 
@@ -157,6 +158,41 @@ test.describe('import et sauvegarde', () => {
     await expect(panel.getByText('s3cret!')).toBeVisible()
     await panel.getByRole('button', { name: 'Afficher Clé API' }).click()
     await expect(panel.getByText('abc-123')).toBeVisible()
+  })
+
+
+  test('exporte en CSV Apple puis au format complet', async ({
+    page,
+  }, testInfo) => {
+    await createVault(page)
+    await addLogin(page, 'GitHub', 'studio26', 's3cret!', 'https://github.com')
+    await closeDialog(page)
+
+    const settings = await openSettings(page)
+    await expect(settings.getByLabel('Format CSV')).toHaveValue('apple')
+
+    const downloadPromise = page.waitForEvent('download')
+    await settings.getByRole('button', { name: 'Exporter en CSV' }).click()
+    const download = await downloadPromise
+    const csvPath = testInfo.outputPath('mots-de-passe.csv')
+    await download.saveAs(csvPath)
+
+    const content = await readFile(csvPath, 'utf8')
+    const [header, row] = content.split('\r\n')
+    expect(header).toBe('Title,URL,Username,Password,Notes,OTPAuth')
+    expect(row).toContain('GitHub,https://github.com,studio26,s3cret!')
+    expect(content.endsWith('\r\n')).toBe(true)
+
+    await settings.getByLabel('Format CSV').selectOption('coffre')
+    const fullDownloadPromise = page.waitForEvent('download')
+    await settings.getByRole('button', { name: 'Exporter en CSV' }).click()
+    const fullDownload = await fullDownloadPromise
+    const fullPath = testInfo.outputPath('coffre-complet.csv')
+    await fullDownload.saveAs(fullPath)
+    const fullContent = await readFile(fullPath, 'utf8')
+    const [fullHeader] = fullContent.split('\r\n')
+    expect(fullHeader).toContain('type,title,url,username,password')
+    expect(fullContent).toContain('GitHub')
   })
 
   test('exporte puis réimporte le coffre', async ({ page }, testInfo) => {

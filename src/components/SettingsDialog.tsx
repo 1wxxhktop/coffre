@@ -31,7 +31,8 @@ import {
   parseImport,
   type ParsedImport,
 } from '../lib/import'
-import { formatBytes, formatDateTime, pluralize } from '../lib/settings'
+import { downloadFile, formatBytes, formatDateTime, pluralize } from '../lib/settings'
+import { exportCsv, type CsvExportFormat } from '../lib/export'
 import {
   getPersistentStorageStatus,
   getStorageEstimate,
@@ -100,6 +101,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimate | null>(null)
+  const [csvFormat, setCsvFormat] = useState<CsvExportFormat>('apple')
 
   const [verifyBusy, setVerifyBusy] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
@@ -159,6 +161,21 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       )
     } finally {
       setPersistBusy(false)
+    }
+  }
+
+  const exportCsvFile = () => {
+    try {
+      const result = exportCsv(items, vaults, csvFormat)
+      downloadFile(result.content, result.filename, 'text/csv;charset=utf-8')
+      const label =
+        result.exported === 1 ? '1 élément exporté' : `${result.exported} éléments exportés`
+      toast(
+        `${label} en CSV.${result.warnings.length > 0 ? ` ${result.warnings.join(' ')}` : ''}`,
+        result.warnings.length > 0 ? 'info' : 'success',
+      )
+    } catch (caught) {
+      toast(caught instanceof Error ? caught.message : 'Export CSV impossible', 'error')
     }
   }
 
@@ -689,6 +706,39 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
               >
                 <Download size={16} />
                 Exporter le coffre
+              </button>
+            </div>
+
+            <div className="settings-divider" />
+
+            <h4 className="settings-subtitle">Exporter en CSV</h4>
+            <p className="settings-copy">
+              Le CSV est un fichier <strong>en clair</strong> : importez-le immédiatement,
+              puis supprimez-le. Le format Mots de passe ne contient que les connexions
+              actives ; le format complet inclut tous les éléments, sans les pièces
+              jointes.
+            </p>
+
+            <label className="field field--full">
+              <span className="field__label">Format CSV</span>
+              <select
+                className="input"
+                value={csvFormat}
+                onChange={(event) => setCsvFormat(event.target.value as CsvExportFormat)}
+              >
+                <option value="apple">Mots de passe (Apple) — connexions</option>
+                <option value="coffre">Coffre complet — tous les éléments</option>
+              </select>
+            </label>
+
+            <div className="settings-actions settings-actions--start">
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={exportCsvFile}
+              >
+                <Download size={16} />
+                Exporter en CSV
               </button>
             </div>
 
