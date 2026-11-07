@@ -178,7 +178,7 @@ compte et logique de partage.
 | Compte | Compte Proton obligatoire | Aucun compte |
 | Backend | Service Proton | Aucun serveur |
 | Synchronisation | Chiffrée de bout en bout via Proton | Aucune ; export/import manuel `.coffre` |
-| Stockage | Serveur + cache local | IndexedDB local, fichier chiffré |
+| Stockage | Serveur + cache local | Fichier natif desktop ou IndexedDB Web, chiffré |
 | Format | Protobuf + enveloppes Proton | JSON versionné + AES-256-GCM |
 | Partage | Coffres partagés, invitations | Absent |
 | Alias e-mail | Intégrés au service | Absents |

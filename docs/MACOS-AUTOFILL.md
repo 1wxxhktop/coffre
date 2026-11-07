@@ -57,26 +57,27 @@ l’AutoFill.
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 3.1 Le blocage actuel : le coffre vit dans IndexedDB
+### 3.1 Le stockage natif est en place ; reste l’App Group
 
-Aujourd’hui, le fichier `.coffre` est stocké dans l’**IndexedDB de la WebView
-Tauri**. Une extension native ne peut pas lire cette base : elle est confinée
-au processus WebKit et à son profil.
+Le coffre desktop est désormais stocké dans un fichier natif chiffré
+(`app_data_dir()/vault/vault.coffre`), avec écritures atomiques, permissions
+restrictives, trois sauvegardes tournantes et migration automatique depuis
+l’ancien coffre IndexedDB. Les commandes Rust `vault_read`, `vault_write`,
+`vault_backup_read`, `vault_backup_write` et `vault_clear` sont exposées à la
+WebView, et `src/lib/storage.ts` conserve IndexedDB comme backend Web/PWA.
 
-Avant toute extension, il faut donc **déplacer le stockage du coffre vers un
-fichier natif** partagé :
+Pour l’AutoFill, il reste à **déplacer ce fichier dans un conteneur App Group**
+partagé entre l’application et l’extension native :
 
-- ajouter des commandes Rust `vault_read` / `vault_write` (ou un module
-  `storage` natif) ;
-- écrire dans `~/Library/Application Support/app.coffre.desktop/` puis, pour
-  l’intégration, dans le conteneur App Group ;
-- conserver le même format `.coffre` v3, les mêmes AAD et les mêmes sauvegardes
-  tournantes ;
-- adapter `src/lib/storage.ts` pour appeler ces commandes sur Tauri et garder
-  IndexedDB comme repli Web/PWA.
+- signer l’application et l’extension avec la même équipe Developer ID ;
+- ajouter l’entitlement App Group aux deux cibles ;
+- écrire `vault.coffre` et ses sauvegardes dans le conteneur partagé ;
+- conserver le même format `.coffre` v3 et les mêmes AAD ;
+- migrer une dernière fois un éventuel fichier de `Application Support` vers
+  l’App Group.
 
-Sans cette étape, l’extension devrait dupliquer le coffre ou dépendre d’un pont
-fragile. C’est le prérequis numéro un.
+Le stockage natif n’est donc plus le blocage : l’App Group, la signature stable
+et l’extension AutoFill elle-même restent à réaliser.
 
 ### 3.2 Extension AutoFill
 
@@ -292,8 +293,8 @@ Après chaque opération qui change les éléments :
 ## 8. Feuille de route proposée
 
 1. **Export CSV compatible Mots de passe** — court terme, sans Xcode.
-2. **Stockage natif du coffre** dans `Application Support` puis dans l’App
-   Group, avec le même format v3 et les mêmes sauvegardes.
+2. **App Group** : déplacer le fichier natif déjà en place dans le conteneur
+   partagé, avec le même format v3 et les mêmes sauvegardes.
 3. **Crate `coffre-core`** partagé, avec FFI C/UniFFI et tests de vecteurs
    communs.
 4. **Squelette de l’extension** : `ASCredentialProviderViewController`,

@@ -24,6 +24,7 @@ import { useToast } from '../state/ToastProvider'
 import { estimateEntropy } from '../lib/crypto'
 import { keychainAvailable } from '../lib/keychain'
 import { biometricAvailable } from '../lib/biometrics'
+import { isTauriRuntime } from '../lib/external'
 import {
   dedupeImport,
   importSourceLabel,
@@ -432,37 +433,51 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
 
             <div className="settings-divider" />
 
-            <h4 className="settings-subtitle">Stockage du navigateur</h4>
-            <p className="settings-copy">
-              {persisted === true
-                ? 'Stockage persistant activé : le navigateur s’engage à conserver le coffre.'
-                : persisted === false
-                  ? 'Stockage non persistant : le navigateur peut effacer le coffre en cas de manque d’espace. Exportez régulièrement une sauvegarde.'
-                  : 'Ce navigateur ne permet pas de connaître le statut du stockage persistant. Exportez régulièrement une sauvegarde.'}
-              {storageEstimate && storageEstimate.quota > 0
-                ? ` Espace utilisé : ${formatBytes(storageEstimate.usage)} sur ${formatBytes(storageEstimate.quota)}.`
-                : ''}
-            </p>
+            {isTauriRuntime() ? (
+              <>
+                <h4 className="settings-subtitle">Stockage natif</h4>
+                <p className="settings-copy">
+                  Le coffre chiffré est enregistré dans le dossier de données de
+                  l’application, avec trois sauvegardes tournantes, des écritures
+                  atomiques et des permissions réservées à votre compte. Aucune donnée
+                  n’est envoyée sur Internet.
+                </p>
+              </>
+            ) : (
+              <>
+                <h4 className="settings-subtitle">Stockage du navigateur</h4>
+                <p className="settings-copy">
+                  {persisted === true
+                    ? 'Stockage persistant activé : le navigateur s’engage à conserver le coffre.'
+                    : persisted === false
+                      ? 'Stockage non persistant : le navigateur peut effacer le coffre en cas de manque d’espace. Exportez régulièrement une sauvegarde.'
+                      : 'Ce navigateur ne permet pas de connaître le statut du stockage persistant. Exportez régulièrement une sauvegarde.'}
+                  {storageEstimate && storageEstimate.quota > 0
+                    ? ` Espace utilisé : ${formatBytes(storageEstimate.usage)} sur ${formatBytes(storageEstimate.quota)}.`
+                    : ''}
+                </p>
 
-            <div className="settings-actions settings-actions--start">
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => void enablePersistence()}
-                disabled={persistBusy || persisted === true}
-              >
-                {persistBusy ? (
-                  <LoaderCircle size={16} className="spin" />
-                ) : (
-                  <HardDrive size={16} />
-                )}
-                {persisted === true
-                  ? 'Stockage persistant activé'
-                  : persistBusy
-                    ? 'Demande en cours…'
-                    : 'Rendre le stockage persistant'}
-              </button>
-            </div>
+                <div className="settings-actions settings-actions--start">
+                  <button
+                    type="button"
+                    className="button button--secondary"
+                    onClick={() => void enablePersistence()}
+                    disabled={persistBusy || persisted === true}
+                  >
+                    {persistBusy ? (
+                      <LoaderCircle size={16} className="spin" />
+                    ) : (
+                      <HardDrive size={16} />
+                    )}
+                    {persisted === true
+                      ? 'Stockage persistant activé'
+                      : persistBusy
+                        ? 'Demande en cours…'
+                        : 'Rendre le stockage persistant'}
+                  </button>
+                </div>
+              </>
+            )}
 
             <div className="settings-actions">
               <button type="button" className="button button--secondary" onClick={() => setShowLockConfirm(true)}>

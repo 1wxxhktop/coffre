@@ -1,15 +1,19 @@
 /**
  * Persistance locale.
  *
- * Le fichier de coffre (déjà chiffré) est stocké tel quel dans IndexedDB.
- * Aucune clé, aucun mot de passe et aucune donnée en clair n’y sont écrits.
- * Une copie de la version précédente est conservée pour permettre une
- * récupération en cas d’écriture interrompue.
+ * Sur le Web, le fichier de coffre (déjà chiffré) est stocké tel quel dans
+ * IndexedDB. Dans l’application desktop Tauri, il est écrit dans le dossier de
+ * données de l’application via des commandes Rust : fichier natif, écriture
+ * atomique, permissions restrictives et trois sauvegardes tournantes. Une
+ * migration automatique copie un éventuel coffre IndexedDB vers le stockage
+ * natif au premier lancement.
  */
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
+import { invoke } from '@tauri-apps/api/core'
+import { isTauriRuntime } from './external'
 import type { VaultFile } from './types'
-import { parseVaultFile } from './vault'
+import { parseVaultFile, parseVaultFileText, serializeVault } from './vault'
 
 const DB_NAME = 'coffre'
 const DB_VERSION = 1
@@ -65,7 +69,11 @@ function database(): Promise<IDBPDatabase<CoffreDb>> {
   return dbPromise
 }
 
-export async function loadVaultFile(): Promise<VaultFile | null> {
+/* ------------------------------------------------------------------ */
+/* Backend IndexedDB (Web)                                             */
+/* ------------------------------------------------------------------ */
+
+async function loadIndexedDbVaultFile(): Promise<VaultFile | null> {
   try {
     const db = await database()
     const raw = await db.get(STORE, CURRENT_KEY)
@@ -77,17 +85,7 @@ export async function loadVaultFile(): Promise<VaultFile | null> {
   }
 }
 
-export async function hasVaultFile(): Promise<boolean> {
-  try {
-    const db = await database()
-    const count = await db.count(STORE)
-    return count > 0
-  } catch (error) {
-    throw new StorageError('Impossible d’accéder au stockage local', { cause: error })
-  }
-}
-
-export async function saveVaultFile(file: VaultFile): Promise<void> {
+async function saveIndexedDbVaultFile(file: VaultFile): Promise<void> {
   try {
     const db = await database()
     const tx = db.transaction(STORE, 'readwrite')
@@ -108,12 +106,125 @@ export async function saveVaultFile(file: VaultFile): Promise<void> {
   }
 }
 
-export async function loadBackupVaultFile(generation = 1): Promise<VaultFile | null> {
+async function loadIndexedDbBackup(generation: number): Promise<VaultFile | null> {
+  const db = await database()
+  const raw = await db.get(STORE, backupKey(generation))
+  if (!raw) return null
+  return parseVaultFile(raw)
+}
+
+async function clearIndexedDbStorage(): Promise<void> {
   try {
     const db = await database()
-    const raw = await db.get(STORE, backupKey(generation))
-    if (!raw) return null
-    return parseVaultFile(raw)
+    await db.clear(STORE)
+  } catch (error) {
+    throw new StorageError('Impossible d’effacer les données locales', { cause: error })
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Backend natif Tauri                                                 */
+/* ------------------------------------------------------------------ */
+
+function nativeJson(file: VaultFile): string {
+  return serializeVault(file, false)
+}
+
+async function nativeInvoke<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
+  try {
+    return await invoke<T>(command, args)
+  } catch (error) {
+    throw new StorageError('Le stockage natif du coffre est indisponible', { cause: error })
+  }
+}
+
+function parseNative(raw: string, label: string): VaultFile {
+  try {
+    return parseVaultFileText(raw)
+  } catch (error) {
+    throw new StorageError(`${label} est illisible ou corrompu`, { cause: error })
+  }
+}
+
+/**
+ * Lit le coffre natif. S’il n’existe pas encore mais qu’un coffre IndexedDB
+ * existe (mise à jour d’une version précédente), le migre vers le stockage
+ * natif et ses sauvegardes.
+ */
+async function loadNativeVaultFile(): Promise<VaultFile | null> {
+  const raw = await nativeInvoke<string | null>('vault_read')
+  if (raw) return parseNative(raw, 'Le coffre natif')
+
+  // Si IndexedDB est totalement absent (WebView restrictive), il n’y a rien à
+  // migrer. En revanche, une base présente mais illisible doit remonter une
+  // erreur : la masquer ferait croire à un coffre vide et risquerait d’en
+  // créer un nouveau par-dessus l’ancien.
+  let legacy: VaultFile | null = null
+  if (typeof indexedDB !== 'undefined') {
+    legacy = await loadIndexedDbVaultFile()
+  }
+  if (!legacy) return null
+
+  // Les sauvegardes sont écrites avant le fichier courant : si la migration
+  // est interrompue, `vault_read` renvoie encore `null` et elle sera rejouée
+  // au prochain lancement.
+  for (let generation = 1; generation <= MAX_LOCAL_BACKUPS; generation++) {
+    try {
+      const backup = await loadIndexedDbBackup(generation)
+      if (backup) {
+        await nativeInvoke('vault_backup_write', {
+          generation,
+          contents: nativeJson(backup),
+        })
+      }
+    } catch {
+      // Les sauvegardes sont migrées au mieux ; le coffre courant reste la
+      // source de vérité.
+    }
+  }
+  await nativeInvoke('vault_write', { contents: nativeJson(legacy) })
+  return legacy
+}
+
+/* ------------------------------------------------------------------ */
+/* API publique                                                        */
+/* ------------------------------------------------------------------ */
+
+export async function loadVaultFile(): Promise<VaultFile | null> {
+  if (isTauriRuntime()) return loadNativeVaultFile()
+  return loadIndexedDbVaultFile()
+}
+
+export async function hasVaultFile(): Promise<boolean> {
+  if (isTauriRuntime()) {
+    const raw = await nativeInvoke<string | null>('vault_read')
+    if (raw) return true
+    return (await loadIndexedDbVaultFile()) !== null
+  }
+  try {
+    const db = await database()
+    const count = await db.count(STORE)
+    return count > 0
+  } catch (error) {
+    throw new StorageError('Impossible d’accéder au stockage local', { cause: error })
+  }
+}
+
+export async function saveVaultFile(file: VaultFile): Promise<void> {
+  if (isTauriRuntime()) {
+    await nativeInvoke('vault_write', { contents: nativeJson(file) })
+    return
+  }
+  await saveIndexedDbVaultFile(file)
+}
+
+export async function loadBackupVaultFile(generation = 1): Promise<VaultFile | null> {
+  if (isTauriRuntime()) {
+    const raw = await nativeInvoke<string | null>('vault_backup_read', { generation })
+    return raw ? parseNative(raw, 'La sauvegarde native') : null
+  }
+  try {
+    return await loadIndexedDbBackup(generation)
   } catch (error) {
     throw new StorageError('Impossible de lire la sauvegarde locale', { cause: error })
   }
@@ -131,9 +242,29 @@ export interface LocalBackupInfo {
  * Le contenu reste chiffré ; seuls des compteurs et des dates sont exposés.
  */
 export async function listLocalBackups(): Promise<LocalBackupInfo[]> {
+  const backups: LocalBackupInfo[] = []
   try {
+    if (isTauriRuntime()) {
+      for (let generation = 1; generation <= MAX_LOCAL_BACKUPS; generation++) {
+        const raw = await nativeInvoke<string | null>('vault_backup_read', { generation })
+        if (!raw) continue
+        try {
+          const file = parseNative(raw, 'La sauvegarde native')
+          backups.push({
+            generation,
+            id: file.id,
+            updatedAt: file.updatedAt,
+            items: file.items.length,
+          })
+        } catch {
+          // Une sauvegarde illisible est ignorée de la liste ; l’écran de
+          // récupération reste utilisable avec les autres générations.
+        }
+      }
+      return backups
+    }
+
     const db = await database()
-    const backups: LocalBackupInfo[] = []
     for (let generation = 1; generation <= MAX_LOCAL_BACKUPS; generation++) {
       const raw = await db.get(STORE, backupKey(generation))
       if (!raw) continue
@@ -158,16 +289,21 @@ export async function restoreBackup(generation = 1): Promise<VaultFile | null> {
 }
 
 export async function clearVaultStorage(): Promise<void> {
-  try {
-    const db = await database()
-    await db.clear(STORE)
-  } catch (error) {
-    throw new StorageError('Impossible d’effacer les données locales', { cause: error })
+  if (isTauriRuntime()) {
+    try {
+      await nativeInvoke('vault_clear')
+    } finally {
+      // Nettoie aussi les anciennes données IndexedDB issues d’une version
+      // précédente ou d’une migration interrompue.
+      await clearIndexedDbStorage().catch(() => undefined)
+    }
+    return
   }
+  await clearIndexedDbStorage()
 }
 
 /* ------------------------------------------------------------------ */
-/* Stockage persistant                                                 */
+/* Stockage persistant (Web)                                           */
 /* ------------------------------------------------------------------ */
 
 /**

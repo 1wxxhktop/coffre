@@ -2,6 +2,9 @@
 
 ## 0.8.0 — 2026-11-07
 
+- Stockage natif desktop : `app_data_dir()/vault/vault.coffre`, écritures
+  atomiques, permissions restrictives, trois sauvegardes tournantes et
+  migration automatique depuis IndexedDB.
 - Trousseau natif macOS/Windows/Linux et déverrouillage rapide optionnel.
 - Déverrouillage Touch ID sur macOS, avec service de trousseau séparé.
 - Interface desktop en colonnes (navigation, liste, détail persistant).
@@ -10,7 +13,8 @@
 - Fenêtre macOS sans barre de titre native (feux de circulation en surcouche).
 - Durcissements d’audit : clé de session après déverrouillage rapide, plafond
   KDF, vérification de l’enveloppe de récupération, liens externes Tauri,
-  `strict` TypeScript, verrou multi-onglets, single-instance, tests Rust/CI.
+  `strict` TypeScript, verrou multi-onglets, single-instance, effacement du
+  presse-papiers au verrouillage, tests Rust/CI.
 
 ## 0.7.0
 

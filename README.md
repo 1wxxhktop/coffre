@@ -7,8 +7,8 @@ chiffré sur votre appareil. Aucun compte, aucun serveur, aucune synchronisation
 aucune télémétrie. L’interface est en français.
 
 > **État du projet — 0.8.0 (trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 137 tests unitaires et
-> 15 parcours Playwright exécutés sur Chromium et WebKit (30 exécutions). Une
+> La version web/PWA est fonctionnelle et couverte par 145 tests unitaires et
+> 16 parcours Playwright exécutés sur Chromium et WebKit (32 exécutions). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
 > rapide optionnel par le trousseau du système et une disposition en colonnes
@@ -76,8 +76,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   et purge automatique configurable.
 - **Historique des versions** : chaque modification réelle conserve le contenu
   précédent, consultable et restaurable depuis la fiche de l’élément.
-- **Stockage persistant** demandé au navigateur pour limiter l’éviction
-  automatique, avec statut et espace utilisé affichés dans les réglages.
+- **Stockage durable** : fichier natif atomique et trois sauvegardes tournantes
+  dans l’application desktop ; sur le Web, IndexedDB avec stockage persistant
+  demandé au navigateur, statut et espace utilisé affichés dans les réglages.
 - **Vérification d’intégrité** à la demande : déchiffre chaque coffre, élément,
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
@@ -129,16 +130,19 @@ ajouts/suppressions de pièces jointes ne créent pas de version.
 ### Sauvegardes locales
 
 Chaque enregistrement du coffre conserve les **trois dernières versions** du
-fichier chiffré dans IndexedDB (`backup`, `backup:2`, `backup:3`). Si le fichier
-courant ne peut plus être lu ou déchiffré, l’écran d’erreur propose de choisir
-une génération et de la restaurer avec le mot de passe maître correspondant.
-Seuls des compteurs et des dates sont affichés : le contenu reste chiffré et
-aucune clé n’est conservée en clair.
+fichier chiffré. Dans l’application desktop, le fichier courant et ses
+sauvegardes (`vault.coffre`, `vault.coffre.bak1` à `bak3`) vivent dans le
+dossier de données de l’application, avec des permissions réservées au compte.
+Sur le Web, ils sont stockés dans IndexedDB (`backup`, `backup:2`, `backup:3`).
+Si le fichier courant ne peut plus être lu ou déchiffré, l’écran d’erreur
+propose de choisir une génération et de la restaurer avec le mot de passe maître
+correspondant. Seuls des compteurs et des dates sont affichés : le contenu reste
+chiffré et aucune clé n’est conservée en clair.
 
-Ces copies vivent sur le même appareil et dans le même profil de navigateur :
-elles protègent d’une corruption logique, **pas** d’une perte de l’appareil,
-d’une éviction du stockage ni d’un profil effacé. Exportez régulièrement un
-fichier `.coffre` vers un support distinct.
+Ces copies vivent sur le même appareil : elles protègent d’une corruption
+logique, **pas** d’une perte de l’appareil, d’un disque défaillant, d’une
+éviction du stockage ni d’un profil effacé. Exportez régulièrement un fichier
+`.coffre` vers un support distinct.
 
 ### Phrase de récupération
 
@@ -291,7 +295,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run preview` | Prévisualisation du build |
 | `bun run test` | Tests Vitest (117 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (30 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (32 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
@@ -364,14 +368,16 @@ bun run desktop:build
 Le build a été validé sur macOS arm64 (0.7.0, puis 0.8.0 après l’ajout du
 trousseau et de la nouvelle interface) :
 
-- `Coffre.app` (10,12 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,29 Mio) générés
+- `Coffre.app` (10,25 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,33 Mio) générés
   dans `src-tauri/target/release/bundle/` ;
-- l’application se lance, initialise IndexedDB (`coffre` / magasin `vault`),
-  reste stable et n’ouvre aucune connexion réseau ;
-- les 30 exécutions Playwright passent sur Chromium et WebKit, moteur des
+- l’application se lance, initialise le stockage natif
+  (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
+  IndexedDB, reste stable et n’ouvre aucune connexion réseau ;
+- les 32 exécutions Playwright passent sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
-- `cargo test --lib` vérifie que LocalAuthentication répond et que Touch ID est
-  détecté sur la machine de build.
+- `cargo test --lib` exécute 3 tests : stockage natif (rotation, permissions,
+  effacement) et détection de LocalAuthentication/Touch ID sur la machine de
+  build.
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
 système). La clé maîtresse encodée en base64 est rangée sous le service
@@ -425,8 +431,9 @@ n’expose pas d’API publique pour cela. Une intégration système passe par u
 **extension AutoFill native** (`ASCredentialProviderViewController`), embarquée
 dans `Coffre.app`, avec App Group, identités `ASCredentialIdentityStore`,
 signature Developer ID et notarisation. Tauri ne sait pas générer cette
-extension seul, et le coffre devra d’abord quitter IndexedDB pour un fichier
-partagé. L’architecture, les entitlements, le partage du coffre, la signature
+extension seul ; le coffre utilise désormais un fichier natif, qu’il reste à
+partager avec l’extension via un App Group. L’architecture, les entitlements,
+le partage du coffre, la signature
 et la feuille de route sont décrits dans
 [docs/MACOS-AUTOFILL.md](docs/MACOS-AUTOFILL.md).
 
@@ -537,17 +544,20 @@ phrase de récupération (10 mots EFF)
 ```
 
 L’enveloppe est facultative. Elle est stockée dans le fichier `.coffre` et dans
-IndexedDB, jamais la phrase elle-même.
+le stockage local (fichier natif ou IndexedDB), jamais la phrase elle-même.
 
 ### Stockage
 
-- Base IndexedDB `coffre`, magasin `vault` ;
-- clé `current` : coffre courant (déjà chiffré) ;
-- clés `backup`, `backup:2`, `backup:3` : trois générations précédentes, pour
-  restaurer une écriture interrompue ou un fichier devenu illisible ;
-- préférences : `localStorage`, clé `coffre:settings:v1` (aucune donnée
+- **Desktop (Tauri)** : `app_data_dir()/vault/vault.coffre`, plus trois
+  sauvegardes `vault.coffre.bak1` à `bak3`. Écritures atomiques, dossier en
+  `0700`, fichiers en `0600`, plafond de 100 Mo. Un ancien coffre IndexedDB est
+  migré automatiquement au premier lancement.
+- **Web** : base IndexedDB `coffre`, magasin `vault` ; clé `current` pour le
+  coffre courant (déjà chiffré) et clés `backup`, `backup:2`, `backup:3` pour
+  les trois générations précédentes.
+- Préférences : `localStorage`, clé `coffre:settings:v1` (aucune donnée
   sensible) ;
-- export : fichier JSON `.coffre`, chiffré, **format v3** (les fichiers v1 et
+- Export : fichier JSON `.coffre`, chiffré, **format v3** (les fichiers v1 et
   v2 sont lus puis migrés à l’écriture).
 
 Le format complet et les garanties sont documentés dans
@@ -575,8 +585,8 @@ Le format complet et les garanties sont documentés dans
   persistées en clair.
 - Verrouillage immédiat lorsque l’onglet passe en arrière-plan (par défaut) et
   à la fermeture de la page.
-- Stockage persistant demandé au navigateur, avec contrôle d’intégrité complet
-  à la demande.
+- Stockage natif atomique sur desktop, ou IndexedDB persistant sur le Web, avec
+  contrôle d’intégrité complet à la demande.
 - Aucune requête réseau : polices système, icônes locales, aucune analytique.
 - Le presse-papiers est effacé au mieux après le délai choisi.
 - L’extension navigateur ne stocke aucun secret : elle lit les identifiants
@@ -610,8 +620,9 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 - La récupération est optionnelle : sans phrase configurée, perdre le mot de
   passe maître revient à perdre les données. Une phrase compromise et un fichier
   `.coffre` obtenu suffisent à ouvrir le coffre.
-- Les trois sauvegardes locales vivent dans le même profil de navigateur : elles
-  ne protègent ni d’une perte de l’appareil ni d’un effacement du stockage.
+- Les trois sauvegardes locales vivent sur le même appareil et le même disque :
+  elles ne protègent ni d’une panne matérielle, ni d’une perte de l’appareil, ni
+  d’un effacement du stockage. Exportez régulièrement un fichier `.coffre`.
 - L’enveloppe de récupération est incluse dans chaque export `.coffre` ; elle
   protège les clés par la phrase, mais révèle qu’une récupération est configurée.
 - Les identifiants, dates et nombres d’éléments restent visibles dans le
@@ -622,7 +633,7 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   complet.
 - Pas de protection contre un OS compromis, un keylogger, une extension
   malveillante ou une injection de code dans la page.
-- Le bundle initial fait environ 654 Ko minifiés (205 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
+- Le bundle initial fait environ 655 Ko minifiés (206 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
   `hash-wasm` pourront être chargés à la demande dans une version ultérieure.
 - Les tests de bout en bout utilisent Chromium et WebKit ; Firefox et les
   WebViews Android/iOS réelles doivent encore être validés.

@@ -1,13 +1,15 @@
 //! Coffre — hôte desktop Tauri.
 //!
-//! L’interface reste dans la WebView ; ce module n’expose que le trousseau
-//! du système et l’authentification biométrique macOS. Aucune autre commande
-//! n’est ouverte à la WebView.
+//! L’interface reste dans la WebView ; ce module expose le trousseau du
+//! système, l’authentification biométrique macOS, le stockage natif du coffre
+//! et l’ouverture contrôlée des liens externes. Aucune autre commande n’est
+//! ouverte à la WebView.
 
-#[cfg(desktop)]
 use tauri::Manager;
 use tauri::Runtime;
 use tauri::plugin::Plugin;
+
+mod vault_store;
 
 const KEYCHAIN_SERVICE: &str = "app.coffre.desktop";
 /// Service séparé : une clé biométrique ne peut pas être lue par
@@ -216,6 +218,47 @@ mod biometric {
     }
 }
 
+fn vault_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join("vault"))
+        .map_err(|error| error.to_string())
+}
+
+/// Lit le coffre courant depuis le stockage natif ; `None` s’il n’existe pas.
+#[tauri::command(async)]
+fn vault_read(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    vault_store::read_current(&vault_dir(&app)?)
+}
+
+/// Écrit le coffre courant et fait tourner les trois sauvegardes.
+#[tauri::command(async)]
+fn vault_write(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    vault_store::write_current(&vault_dir(&app)?, &contents)
+}
+
+/// Lit une sauvegarde native (génération 1 à 3).
+#[tauri::command(async)]
+fn vault_backup_read(app: tauri::AppHandle, generation: u32) -> Result<Option<String>, String> {
+    vault_store::read_backup(&vault_dir(&app)?, generation)
+}
+
+/// Écrit une sauvegarde native (migration depuis IndexedDB).
+#[tauri::command(async)]
+fn vault_backup_write(
+    app: tauri::AppHandle,
+    generation: u32,
+    contents: String,
+) -> Result<(), String> {
+    vault_store::write_backup(&vault_dir(&app)?, generation, &contents)
+}
+
+/// Supprime le coffre courant et ses sauvegardes natives.
+#[tauri::command(async)]
+fn vault_clear(app: tauri::AppHandle) -> Result<(), String> {
+    vault_store::clear(&vault_dir(&app)?)
+}
+
 /// Vrai pour les URL internes de l’application (production et développement).
 fn is_local_url(url: &tauri::Url) -> bool {
     match url.scheme() {
@@ -310,7 +353,12 @@ pub fn run() {
             biometric_store,
             biometric_delete,
             biometric_load,
-            open_external_url
+            open_external_url,
+            vault_read,
+            vault_write,
+            vault_backup_read,
+            vault_backup_write,
+            vault_clear
         ]);
 
     #[cfg(desktop)]

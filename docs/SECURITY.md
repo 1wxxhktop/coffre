@@ -112,7 +112,7 @@ scellée par la clé de phrase, une copie de cette clé scellée par la clé
 maîtresse (`guard`) et les clés de coffre scellées par la clé de récupération.
 Le `guard` permet de maintenir l’enveloppe lors d’un ajout de coffre ou d’un
 changement de mot de passe sans redemander la phrase. Sans le fichier `.coffre`
-(ou la base IndexedDB) et sans la phrase, l’enveloppe ne révèle rien.
+(ou le stockage local) et sans la phrase, l’enveloppe ne révèle rien.
 
 ### 2.3 Corbeille et historique
 
@@ -170,8 +170,8 @@ Le changement de mot de passe :
 
 Les éléments ne sont pas réchiffrés : leurs clés et leurs contenus restent
 inchangés. Cette opération est atomique du point de vue du fichier produit, mais
-la sauvegarde IndexedDB peut encore contenir la version précédente. Voir
-[§ 5.2](#52-sauvegarde-locale).
+la sauvegarde locale (fichier natif ou IndexedDB) peut encore contenir la
+version précédente. Voir [§ 5.2](#52-sauvegarde-locale).
 
 ### 2.6 Ce qui est visible dans un fichier `.coffre`
 
@@ -258,9 +258,34 @@ passerelle en mémoire supprimée au verrouillage.
 
 ## 3. Stockage local
 
-### 3.1 IndexedDB
+### 3.1 Application desktop (Tauri)
 
-Les données sont stockées dans la base IndexedDB `coffre`, magasin `vault` :
+Le coffre est un fichier JSON chiffré dans le dossier de données de
+l’application :
+
+| Chemin | Contenu |
+| --- | --- |
+| `vault/vault.coffre` | Fichier de coffre courant, déjà chiffré |
+| `vault/vault.coffre.bak1` | Version précédente, déjà chiffrée |
+| `vault/vault.coffre.bak2` | Version antérieure à `bak1` |
+| `vault/vault.coffre.bak3` | Version la plus ancienne conservée |
+
+Chaque écriture passe par un fichier temporaire, `fsync`, puis un renommage
+atomique. Trois générations sont conservées. Le dossier est créé en `0700` et
+les fichiers en `0600` sur macOS/Linux ; les écritures sont sérialisées et la
+taille est plafonnée à 100 Mo. Aucune clé, aucun mot de passe et aucun contenu
+en clair ne sont écrits sur disque. Un coffre IndexedDB d’une version antérieure
+est migré automatiquement au premier lancement, sauvegardes comprises.
+
+Les sauvegardes partagent le même disque et le même compte que le fichier
+courant : elles protègent d’une corruption logique, pas d’une panne matérielle,
+d’un compte compromis ni d’un rançongiciel. Le chiffrement du disque
+(FileVault/BitLocker/LUKS) et un export hors appareil restent recommandés.
+
+### 3.2 Application web (IndexedDB)
+
+Sur le Web, les données sont stockées dans la base IndexedDB `coffre`, magasin
+`vault` :
 
 | Clé | Contenu |
 | --- | --- |
@@ -273,7 +298,7 @@ Aucune clé, aucun mot de passe et aucun contenu en clair ne sont écrits dans
 IndexedDB. Le fichier stocké est identique à celui exporté. Il peut contenir une
 enveloppe de récupération optionnelle, elle aussi chiffrée (voir 2.2).
 
-### 3.2 Préférences
+### 3.3 Préférences
 
 Les préférences non sensibles sont dans `localStorage` sous
 `coffre:settings:v1` : délai de verrouillage automatique, verrouillage lorsque
@@ -288,7 +313,7 @@ d’utilisation reste visible pour un tiers ayant accès au profil du navigateur
 La table est effacée à la réinitialisation du coffre ; elle n’est jamais incluse
 dans un export `.coffre`.
 
-### 3.3 Cycle de vie
+### 3.4 Cycle de vie
 
 - Au chargement, Coffre lit `current` et valide le format.
 - Le déverrouillage dérive la clé maîtresse et ouvre les clés de coffre en
@@ -297,7 +322,8 @@ dans un export `.coffre`.
   appliquée avant l’affichage.
 - À chaque mutation, le fichier courant est remplacé ; les trois versions
   précédentes glissent de `backup` vers `backup:2` puis `backup:3`, la plus
-  ancienne étant écrasée.
+  ancienne étant écrasée. Dans l’application desktop, la rotation est effectuée
+  par Rust avant le renommage atomique du nouveau fichier.
 - Le verrouillage efface les clés en mémoire et vide l’état React.
 - Un rechargement de page, un `pagehide` ou une fermeture d’onglet verrouille le
   coffre : les clés ne sont jamais persistées. Un retour depuis le cache
@@ -306,15 +332,22 @@ dans un export `.coffre`.
   versions et pièces jointes — et compare la taille des pièces jointes à leurs
   métadonnées ; elle ne modifie pas le fichier.
 
-### 3.4 Limites du stockage navigateur
+### 3.5 Limites du stockage local
 
-- Le navigateur peut évincer les données d’un site. Les réglages permettent de
-  demander `navigator.storage.persist()` et d’afficher le statut obtenu ainsi que
-  l’espace utilisé ; le navigateur reste libre d’accorder ou de refuser.
+- **Desktop** : un processus du même compte utilisateur peut lire ou modifier le
+  fichier s’il contourne les permissions — comme pour tout gestionnaire de mots
+  de passe local. Le fichier reste chiffré ; un malware déjà présent au moment
+  du déverrouillage peut toutefois agir dans le processus de l’application.
+- **Desktop** : une sauvegarde système (Time Machine, clone de disque) copie le
+  fichier chiffré. Le mot de passe maître reste la protection principale.
+- **Web** : le navigateur peut évincer les données d’un site. Les réglages
+  permettent de demander `navigator.storage.persist()` et d’afficher le statut
+  obtenu ainsi que l’espace utilisé ; le navigateur reste libre d’accorder ou de
+  refuser.
 - Le mode privé, la navigation restreinte ou certains WebViews peuvent refuser
   IndexedDB.
-- Les données sont liées à l’origine (schéma + domaine + port). Changer de
-  domaine ou de port crée un coffre vide distinct.
+- Sur le Web, les données sont liées à l’origine (schéma + domaine + port).
+  Changer de domaine ou de port crée un coffre vide distinct.
 - Une sauvegarde système ou une synchronisation de profil navigateur peut
   copier la base chiffrée sur un autre support. Le chiffrement reste la
   protection principale.
@@ -376,17 +409,18 @@ Recommandations :
 
 ### 5.2 Sauvegardes locales
 
-IndexedDB conserve automatiquement les **trois versions précédentes** du fichier
-chiffré (`backup`, `backup:2`, `backup:3`). Si le fichier courant est corrompu
-ou illisible, l’écran d’erreur liste les générations disponibles — date et
-nombre d’éléments, sans contenu — et permet d’en restaurer une après saisie du
-mot de passe maître. La génération restaurée redevient `current` et la rotation
-reprend normalement.
+Le stockage local conserve automatiquement les **trois versions précédentes**
+du fichier chiffré : `vault.coffre.bak1` à `bak3` dans l’application desktop,
+clés `backup`, `backup:2` et `backup:3` dans IndexedDB sur le Web. Si le fichier
+courant est corrompu ou illisible, l’écran d’erreur liste les générations
+disponibles — date et nombre d’éléments, sans contenu — et permet d’en restaurer
+une après saisie du mot de passe maître. La génération restaurée redevient le
+fichier courant et la rotation reprend normalement.
 
 Limites :
 
-- ce ne sont pas des sauvegardes hors appareil : elles partagent le même profil
-  de navigateur, le même appareil et la même origine ;
+- ce ne sont pas des sauvegardes hors appareil : elles partagent le même
+  appareil, le même compte et le même disque ;
 - la plus ancienne est écrasée à chaque nouvelle écriture ;
 - après un changement de mot de passe maître, les générations antérieures
   restent protégées par l’**ancien** mot de passe jusqu’à leur écrasement ;
@@ -588,13 +622,15 @@ surface d’attaque : tout code exécuté dans la WebView, ou tout processus
 capable de lire le trousseau de la session, peut demander la clé. Laissez
 l’option désactivée sur un appareil partagé.
 
-Les WebViews desktop utilisent IndexedDB ; le stockage est propre à
-l’application et à l’identifiant Tauri.
+Le desktop Tauri utilise un fichier natif dans le dossier de données de
+l’application (`vault/vault.coffre`). Le stockage est propre à l’application et
+à l’identifiant Tauri ; un ancien coffre IndexedDB est migré au premier
+lancement.
 
-Le build macOS arm64 a été validé : l’application démarre, crée la base
-IndexedDB `coffre` (magasin `vault`), reste stable et n’ouvre aucune connexion
-réseau. Les parcours Playwright passent sur WebKit, moteur des WebViews
-macOS/iOS. Le bundle produit n’est ni signé ni notarisé, et les cibles
+Le build macOS arm64 a été validé : l’application démarre, initialise le
+stockage natif, migre un éventuel coffre IndexedDB, reste stable et n’ouvre
+aucune connexion réseau. Les parcours Playwright passent sur WebKit, moteur des
+WebViews macOS/iOS. Le bundle produit n’est ni signé ni notarisé, et les cibles
 Windows/Linux restent à valider.
 
 ### 7.2 Application native (expérimental, mis de côté)

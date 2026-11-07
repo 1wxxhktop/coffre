@@ -7,10 +7,10 @@ n’est **pas encore prêt pour une distribution grand public**. C’est une
 **bêta technique utilisable localement** sur Web/PWA, Chromium et macOS arm64.
 
 Le mot « grand public » implique ici : installation sans avertissement
-Gatekeeper, mises à jour, AutoFill système, mobile, support multi-plateforme,
-assurance externe et stockage durable. Ces points ne sont pas tous du code : ils
-demandent des certificats Apple, une infrastructure de release, du matériel de
-test et un audit externe.
+Gatekeeper, mises à jour, AutoFill système, mobile, support multi-plateforme et
+assurance externe. Ces points ne sont pas tous du code : ils demandent des
+certificats Apple, une infrastructure de release, du matériel de test et un
+audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 
 ---
 
@@ -18,9 +18,9 @@ test et un audit externe.
 
 | Plateforme | État | Verdict |
 | --- | --- | --- |
-| Web / PWA | Fonctionnelle, 30/30 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
+| Web / PWA | Fonctionnelle, 32/32 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
 | Extension Chromium | Fonctionnelle, non publiée, installation manuelle | **Bêta technique** |
-| Desktop macOS arm64 | Compile, signé ad hoc, se lance, Touch ID | **Bêta technique locale** |
+| Desktop macOS arm64 | Compile, stockage natif, se lance, Touch ID, signé ad hoc | **Bêta technique locale** |
 | Desktop macOS Intel | Non testé | **Non validé** |
 | Windows | Build CI, pas de test d’exécution | **Non validé** |
 | Linux | Build CI, pas de test d’exécution | **Non validé** |
@@ -43,8 +43,13 @@ test et un audit externe.
   l’enveloppe à l’intégrité.
 - **Desktop** : Tauri v2, capability minimale, navigation externe contrôlée,
   Touch ID avec service de trousseau séparé, hardened runtime.
-- **Tests** : 137 tests unitaires, 30 exécutions Playwright, 2 tests Rust,
-  smoke extension avec CSP production, Lighthouse accessibilité 1,0.
+- **Stockage natif** : fichier `vault/vault.coffre` dans
+  `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
+  sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
+  IndexedDB.
+- **Tests** : 145 tests unitaires (13 fichiers), 32 exécutions Playwright,
+  3 tests Rust, smoke extension avec CSP production, Lighthouse accessibilité
+  1,0.
 - **Documentation** : SECURITY, audit, AutoFill, Proton Pass, native, README.
 
 ---
@@ -70,13 +75,18 @@ Aucun mécanisme de mise à jour n’est présent. Un gestionnaire de mots de pa
 grand public doit pouvoir corriger une faille rapidement. Il faut un canal de
 release signé (Tauri Updater ou serveur statique) et une politique de versions.
 
-### B-03 — Stockage durable des données
+### B-03 — Stockage durable des données — **traité en 0.8.0**
 
-Le coffre desktop vit dans IndexedDB de la WebView. Une éviction, une mise à
-jour de WebView ou une réinstallation peut le rendre inaccessible. Il faut un
-fichier natif dans `Application Support` (ou App Group), des écritures
-atomiques, trois sauvegardes et une restauration. C’est aussi le prérequis de
-l’AutoFill.
+Le coffre desktop ne dépend plus d’IndexedDB : il est écrit dans
+`app_data_dir()/vault/vault.coffre`, avec écritures atomiques, permissions
+`0600`/`0700`, trois sauvegardes (`bak1` à `bak3`), une restauration depuis
+l’écran d’erreur et une migration automatique de l’ancien coffre IndexedDB. Le
+code Rust est couvert par un test de rotation et le frontend par des tests de
+migration, de sauvegarde et d’effacement.
+
+Reste à valider sur une **installation réelle signée** : migration d’un coffre
+0.7, redémarrage, sauvegarde Time Machine et restauration. C’est un prérequis de
+l’AutoFill, qui devra partager ce fichier via un App Group.
 
 ### B-04 — AutoFill système et Safari
 
@@ -103,7 +113,7 @@ signature stable.
 
 Aucun audit cryptographique ni test d’intrusion externe n’a été réalisé. Pour un
 produit qui contient tous les mots de passe d’une personne, c’est un prérequis
-de confiance, même avec 137 tests.
+de confiance, même avec 145 tests.
 
 ### B-08 — Validation Windows/Linux et macOS Intel
 
@@ -129,7 +139,8 @@ manuelle avec lecteur d’écran et navigation clavier complète reste à faire.
 
 1. Bundle macOS signé Developer ID, notarié, agrafé et validé `spctl`.
 2. Mécanisme de mise à jour signé et documenté.
-3. Stockage natif atomique + sauvegardes + export/restauration testés.
+3. Stockage natif atomique + sauvegardes + export/restauration validés sur une
+   installation réelle (code et tests unitaires déjà en place).
 4. AutoFill macOS/iOS et Safari (ou périmètre officiellement limité).
 5. Applications iOS/Android initialisées et testées.
 6. Touch ID protégé au niveau du trousseau/Secure Enclave.
@@ -143,11 +154,13 @@ manuelle avec lecteur d’écran et navigation clavier complète reste à faire.
 ## 5. Recommandation
 
 - **Aujourd’hui** : distribuer comme **bêta technique 0.8**, avec un avertissement
-  clair sur Gatekeeper, IndexedDB, AutoFill absent et l’absence d’audit externe.
-- **Prochaine étape recommandée** : stockage natif + Developer ID/notarisation,
-  puis AutoFill macOS et audit externe.
+  clair sur Gatekeeper, l’absence d’AutoFill système et l’absence d’audit
+  externe.
+- **Prochaine étape recommandée** : Developer ID/notarisation et mises à jour
+  signées, puis AutoFill macOS et audit externe.
 - **Ne pas présenter** Coffre comme un remplaçant grand public de 1Password ou
-  Mots de passe d’Apple tant que B-01 à B-07 ne sont pas traités.
+  Mots de passe d’Apple tant que les bloquants restants (B-01, B-02, B-04 à
+  B-10) ne sont pas traités.
 
 La sécurité du coffre local, de la cryptographie, du format et des tests est
 déjà d’un bon niveau. Les bloquants restants sont principalement des sujets de
