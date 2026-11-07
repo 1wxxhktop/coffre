@@ -5,6 +5,8 @@
 - Stockage natif desktop : `app_data_dir()/vault/vault.coffre`, écritures
   atomiques, permissions restrictives, trois sauvegardes tournantes et
   migration automatique depuis IndexedDB.
+- Retrait complet du portage expérimental Zig/nanoui et de ses dépendances
+  vendorisées.
 - Trousseau natif macOS/Windows/Linux et déverrouillage rapide optionnel.
 - Déverrouillage Touch ID sur macOS, avec service de trousseau séparé.
 - Interface desktop en colonnes (navigation, liste, détail persistant).

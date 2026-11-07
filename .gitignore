@@ -29,9 +29,3 @@ blob-report
 *.njsproj
 *.sln
 *.sw?
-
-# Application native (Zig + nanoui)
-native/.tools/
-native/.zig-cache/
-native/zig-out/
-native/vendor/nanoui/.git/

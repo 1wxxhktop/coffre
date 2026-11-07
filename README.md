@@ -440,33 +440,6 @@ et la feuille de route sont décrits dans
 L’**export CSV compatible Mots de passe** reste l’alternative immédiate, sans
 Xcode ni signature.
 
-### Desktop natif — mis de côté (Zig + nanoui)
-
-Le dossier `native/` contient un portage natif expérimental : cœur et interface
-en Zig, rendu par [nanoui](https://github.com/justrach/nanoui), sans WebView. Il
-lit les fichiers `.coffre` v1, v2 et v3 avec les mêmes primitives et les mêmes
-AAD que l’application web, affiche les coffres et les éléments, crée des
-coffres neufs, permet de créer ou de modifier des connexions et des notes,
-importe les exports Bitwarden, Proton Pass, Enpass et CSV, génère des mots de
-passe, affiche les codes TOTP et se verrouille après inactivité. Chaque
-enregistrement est atomique et conserve trois sauvegardes tournantes.
-
-> **Projet mis de côté au profit de Tauri.** Le code compile (`zig build test` :
-> 58 tests) et reste disponible comme archive technique, mais il n’est plus
-> maintenu activement. Les pièces jointes, l’historique des versions et la
-> phrase de récupération n’y sont pas finalisés.
-
-```bash
-cd native
-./scripts/fetch-deps.sh          # si vendor/nanoui est absent
-./.tools/zig/zig build           # nécessite Zig 0.17.0 dans .tools/zig
-./.tools/zig/zig build test      # cœur + interface hors écran
-./.tools/zig/zig build demo      # jeu d’essai v3, mot de passe public
-```
-
-Voir [docs/NATIVE.md](docs/NATIVE.md) pour l’architecture, les tests, les
-limites et la feuille de route du portage.
-
 ### Mobile — à initialiser
 
 Tauri v2 permet de cibler iOS et Android avec la même interface. Il faut :
@@ -658,9 +631,6 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
    mobiles iOS/Android.
 7. Synchronisation chiffrée optionnelle de bout en bout (hors périmètre actuel).
 8. Optimisation du bundle et du temps de déverrouillage.
-9. Portage natif Zig + nanoui : **mis de côté** au profit de Tauri. Le code
-   reste dans `native/` et compile (58 tests), mais ne fait plus partie de la
-   cible produit ; voir [docs/NATIVE.md](docs/NATIVE.md).
 
 ---
 

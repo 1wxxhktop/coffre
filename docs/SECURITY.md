@@ -508,11 +508,6 @@ Le projet dépend de React, Vite, `hash-wasm`, `idb`, Zod, Lucide,
 ou de la chaîne de build peut compromettre l’application. Verrouillez les
 versions (`bun.lock`) et auditez les mises à jour avant de publier.
 
-Le portage natif ajoute nanoui v0.11.0 (MIT), vendorisé dans
-`native/vendor/nanoui` et épinglé dans `native/build.zig.zon`. Il n’est pas
-encore couvert par `bun audit` ; sa mise à jour passe par
-`native/scripts/fetch-deps.sh` et les tests du dossier `native/`.
-
 La CI exécute `bun audit --audit-level=high` à chaque poussée et Dependabot
 propose les mises à jour chaque semaine. Dernier état connu (0.8.0) : aucune
 vulnérabilité `high` ou `critical`, mais trois alertes de gravité inférieure,
@@ -564,20 +559,21 @@ lisent pas `_headers`, configurez les en-têtes dans le reverse proxy ou le CDN.
 La configuration `src-tauri/tauri.conf.json` applique une CSP stricte en
 production (avec `'wasm-unsafe-eval'` et `blob:` pour les pièces jointes),
 désactive la CSP en développement (pour Vite/HMR) et active `freezePrototype`.
-La WebView ne peut appeler que trois commandes IPC, toutes dédiées au trousseau
-du système :
+La WebView n’accède au système que par des commandes IPC explicites :
 
-| Commande | Rôle |
+| Groupe | Rôle |
 | --- | --- |
-| `keychain_store(account, secret)` | enregistre la clé maîtresse encodée en base64 |
-| `keychain_load(account)` | relit la clé, ou `null` si l’entrée est absente |
-| `keychain_delete(account)` | supprime l’entrée ; une absence n’est pas une erreur |
+| `keychain_store`, `keychain_load`, `keychain_delete` | trousseau de session |
+| `biometric_available`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS |
+| `vault_read`, `vault_write`, `vault_backup_read`, `vault_backup_write`, `vault_clear` | stockage natif du coffre |
+| `open_external_url` | ouverture contrôlée de liens http(s) |
 
-Le service est `app.coffre.desktop` et le compte est l’identifiant du fichier
-`.coffre` (`file.id`). Le backend est fourni par la caisse `keyring` 3.6, avec
-`apple-native` sur macOS, `windows-native` sur Windows et `sync-secret-service`
-sur Linux. Aucune autre commande n’est ouverte à la WebView, et le trousseau
-n’est jamais utilisé pour les coffres ouverts dans un navigateur.
+Le service du trousseau est `app.coffre.desktop` et le compte est l’identifiant
+du fichier `.coffre` (`file.id`). Le backend est fourni par la caisse `keyring`
+3.6, avec `apple-native` sur macOS, `windows-native` sur Windows et
+`sync-secret-service` sur Linux. Le trousseau n’est jamais utilisé pour les
+coffres ouverts dans un navigateur. Aucun accès générique aux fichiers, au
+réseau ou au shell n’est exposé.
 
 La seule permission Tauri supplémentaire est
 `core:window:allow-start-dragging`, nécessaire pour déplacer la fenêtre macOS
@@ -633,66 +629,6 @@ aucune connexion réseau. Les parcours Playwright passent sur WebKit, moteur des
 WebViews macOS/iOS. Le bundle produit n’est ni signé ni notarisé, et les cibles
 Windows/Linux restent à valider.
 
-### 7.2 Application native (expérimental, mis de côté)
-
-> Le portage Zig + nanoui n’est plus la cible produit ; il est conservé à titre
-> d’archive technique et ne doit pas contenir de coffre réel. Le desktop actif
-> est Tauri.
-
-Le portage `native/` (Zig + nanoui) réutilise le format, Argon2id,
-AES-256-GCM et les AAD de l’application web. Il n’ouvre aucune connexion
-réseau. Il lit et déchiffre un `.coffre` choisi par l’utilisateur, sait créer
-un coffre neuf, modifier des connexions et des notes, et importer des exports
-non chiffrés.
-
-- La clé maîtresse, les clés de coffre et le contenu déchiffré vivent dans une
-  arène libérée au verrouillage ; les clés et les tampons intermédiaires sont
-  effacés avec `std.crypto.secureZero`.
-- Le champ de phrase de passe et sa confirmation sont effacés après le
-  déverrouillage, la création et au verrouillage.
-- La lecture est plafonnée à 128 Mo ; les paramètres KDF et les identifiants
-  sont validés avant tout déchiffrement.
-- La création dérive une clé maîtresse et une clé de coffre aléatoires, puis
-  écrit le fichier de façon atomique : fichier temporaire dans le même dossier,
-  synchronisation, renommage. Les trois versions précédentes sont conservées en
-  `.bak1` à `.bak3` ; les nouvelles créations reçoivent les permissions `0600`
-  sur macOS et Linux.
-- La création et la modification d’un élément génèrent une clé d’élément
-  aléatoire, scellée avec la clé du coffre, puis scellent le contenu JSON avec
-  cette clé. Les AAD d’élément sont identiques à celles de l’application web.
-  Les tampons du formulaire (dont le mot de passe) sont effacés à la fermeture
-  et au verrouillage.
-- L’import lit le fichier choisi en mémoire, plafonné à 128 Mo, et n’en
-  conserve rien : l’analyse se fait dans une arène temporaire dont les chaînes
-  sont effacées à la sortie, puis seules les copies des éléments retenus sont
-  chiffrées et écrites. Le texte brut du fichier est effacé au verrouillage.
-  Le fichier source n’est ni copié ni modifié. Les doublons sont ignorés avant
-  tout chiffrement, et les exports chiffrés ou les fichiers `.coffre` sont
-  refusés.
-- Le générateur utilise `std.Io.random` (source du système) avec rejet des
-  valeurs hors bornes, sans biais modulo. Le mot de passe généré est copié
-  dans le champ du formulaire puis effacé avec le reste des tampons.
-- Le code TOTP est calculé en mémoire à partir du secret de l’URI ; le secret
-  décodé et les tampons HMAC sont effacés après usage. Seul le code affiché
-  ou copié quitte la mémoire. Aucun secret n’est journalisé.
-- Le verrouillage automatique est réglable (jamais, 1, 5, 15 ou 60 minutes) et
-  mémorisé dans les préférences. À l’échéance, il efface les clés, l’arène
-  déchiffrée, les tampons du formulaire, le texte d’import et la recherche.
-- Les copies de secrets sont effacées du presse-papiers au verrouillage.
-  nanoui n’expose pas de lecture du presse-papiers : un effacement différé
-  risquerait de détruire un contenu copié ensuite par l’utilisateur. Cette
-  limite est assumée et documentée.
-- Les raccourcis clavier (`Cmd/Ctrl+L`, `N`, `F`, `I`, `Échap`) et le menu
-  « Fichier » n’accèdent qu’aux actions déjà exposées par l’interface.
-- Une vérification manuelle a confirmé qu’un fichier créé par le portage natif,
-  y compris un élément chiffré, est relu par `src/lib/vault.ts`.
-- Le déverrouillage bloque le fil de l’interface pendant Argon2id. Ce n’est
-  pas une faille, mais une limite d’ergonomie à corriger.
-- **Cette implémentation n’a pas été auditée.** Elle ne doit pas encore
-  contenir le seul exemplaire d’un coffre réel.
-
----
-
 ## 8. Risques résiduels
 
 | Risque | Impact | Atténuation actuelle |
@@ -711,7 +647,6 @@ non chiffrés.
 | Métadonnées visibles | Fuite d’information limitée | Chiffrement du contenu ; métadonnées assumées |
 | Historique et corbeille conservés | Données supprimées encore présentes dans le fichier | Chiffrés, plafonnés (20 versions/élément), purge configurable |
 | Dépendance compromise | Exécution arbitraire | Versions verrouillées, revue, build reproductible à venir |
-| Implémentation native non auditée | Défaut cryptographique ou mémoire | Même format et mêmes primitives que le web ; lecture seule ; audit avant usage réel |
 
 ---
 
@@ -727,8 +662,8 @@ un vrai mot de passe.
 
 ## 10. Feuille de route sécurité
 
-- audit cryptographique et test d’intrusion externes, y compris du cœur natif
-  en Zig ;
+- audit cryptographique et test d’intrusion externes, y compris du cœur
+  Rust/Tauri ;
 - augmentation et calibration des paramètres Argon2id selon l’appareil ;
 - extension du trousseau natif au mobile (iOS/Android) et validation des backends Windows/Linux ;
 - extension des tests de bout en bout à Firefox et aux WebViews Android/iOS ;

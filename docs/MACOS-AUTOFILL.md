@@ -114,10 +114,10 @@ Il n’est pas réutilisable tel quel dans une extension Swift.
 
 Trois options :
 
-1. **Bibliothèque Rust partagée** (recommandé) : exposer le cœur `native/` ou un
-   nouveau crate `coffre-core` en `staticlib`/`cdylib` avec une FFI C ou
-   UniFFI. L’extension et l’app Tauri utilisent le même code de déchiffrement,
-   les mêmes AAD et les mêmes validations.
+1. **Bibliothèque Rust partagée** (recommandé) : exposer un crate
+   `coffre-core` en `staticlib`/`cdylib` avec une FFI C ou UniFFI. L’extension
+   et l’app Tauri utilisent le même code de déchiffrement, les mêmes AAD et les
+   mêmes validations.
 2. **Réimplémentation Swift** : Argon2id (aucun support natif dans CryptoKit),
    AES-GCM via CryptoKit, parsing JSON. Plus de code à auditer et risque de
    divergence de format.
