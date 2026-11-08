@@ -78,6 +78,11 @@
 - Nouveau type `ssh-key` : clé privée, clé publique, empreinte et commentaire
   chiffrés, avec formulaire, fiche détaillée et filtre « Clés SSH ». Aucune clé
   privée n’est incluse dans les exports CSV.
+- Déverrouillage FIDO2/PRF optionnel : credential WebAuthn résident avec
+  vérification utilisateur, sortie PRF transformée par HKDF-SHA-256 et
+  enveloppe AES-256-GCM liée au fichier. Enrôlement/révocation dans les
+  réglages, bouton de déverrouillage et suppression automatique lors d’un
+  changement de mot de passe ou d’une récupération.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation

@@ -737,6 +737,29 @@ aucun socket n’est créé par défaut.
   faire), et la mémorisation porte sur une clé pendant 15 secondes, pas sur un
   hôte.
 
+### 2.20 Déverrouillage FIDO2/PRF
+
+Le déverrouillage par clé de sécurité est optionnel et désactivé tant qu’aucune
+enveloppe n’est configurée.
+
+- La cérémonie WebAuthn crée un credential résident avec `userVerification:
+  'required'` et l’extension `prf` ; le champ `prf.results.first` fournit
+  32 octets.
+- Une KEK AES-256 est dérivée par HKDF-SHA-256 avec un sel aléatoire de
+  32 octets et l’identifiant du fichier. La clé maîtresse est scellée par
+  AES-256-GCM avec l’AAD `coffre:v1:prf-unlock:<idFichier>`.
+- Le résultat PRF ne quitte jamais la mémoire et est effacé après dérivation.
+  Aucun secret PRF, aucune clé maîtresse et aucun sel ne sont journalisés.
+- L’enveloppe `prf` est révocable depuis les réglages. Elle est supprimée lors
+  d’un changement de mot de passe maître ou d’une récupération, car elle est
+  scellée avec l’ancienne clé.
+- Le MAC global ne couvre pas l’enveloppe PRF, comme l’enveloppe de récupération.
+  L’AEAD et l’identifiant de fichier empêchent sa réutilisation sur un autre
+  fichier ; retirer l’enveloppe ne fait que revenir au mot de passe.
+- Limites : la clé doit prendre en charge PRF ; le support des WebViews
+  desktop varie ; la validation avec une YubiKey 5 réelle reste à effectuer.
+  Aucun repli silencieux vers un authentificateur non PRF n’est effectué.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

@@ -351,6 +351,14 @@ const recoveryWrapSchema = z.object({
   key: sealedSchema,
 })
 
+const prfEnvelopeSchema = z.object({
+  version: z.literal(1),
+  credentialId: z.string().min(1).max(2_000),
+  salt: z.string().min(1).max(128),
+  createdAt: z.string().min(1).max(40),
+  wrap: sealedSchema,
+})
+
 const recoveryEnvelopeSchema = z.object({
   version: z.literal(1),
   kdf: kdfSchema,
@@ -383,6 +391,7 @@ const vaultFileSchema = z.object({
   attachments: z.array(attachmentRecordSchema).max(20_000).default([]),
   versions: z.array(versionRecordSchema).max(20_000).default([]),
   recovery: recoveryEnvelopeSchema.optional(),
+  prf: prfEnvelopeSchema.optional(),
   writer: idSchema.optional(),
   revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
   keyEpoch: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
@@ -591,7 +600,8 @@ export function parseVaultFile(raw: unknown): VaultFile {
     file.revision !== undefined ||
     file.keyEpoch !== undefined ||
     file.tombstones !== undefined ||
-    file.integrity !== undefined
+    file.integrity !== undefined ||
+    file.prf !== undefined
 
   if (file.version === 4) {
     if (

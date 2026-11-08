@@ -35,6 +35,7 @@ import { useToast } from '../state/ToastProvider'
 import { estimateEntropy } from '../lib/crypto'
 import { keychainAvailable } from '../lib/keychain'
 import { biometricAvailable } from '../lib/biometrics'
+import { prfSupported } from '../lib/prf'
 import { isTauriRuntime } from '../lib/external'
 import { ensureNotificationPermission } from '../lib/notifications'
 import { LOCALES, type Locale } from '../lib/i18n'
@@ -91,6 +92,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     verify,
     reset,
     resetBiometricKey,
+    enrollPrf,
+    removePrf,
     emptyTrash,
   } = useVault()
   const { toast } = useToast()
@@ -101,6 +104,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordDone, setPasswordDone] = useState(false)
+  const [prfBusy, setPrfBusy] = useState(false)
 
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importPassword, setImportPassword] = useState('')
@@ -478,6 +482,40 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       )
     } finally {
       setKdbxBusy(false)
+    }
+  }
+
+  const setupPrf = async () => {
+    setPrfBusy(true)
+    try {
+      await enrollPrf()
+      toast(tt('Clé de sécurité configurée'), 'success')
+    } catch (caught) {
+      toast(
+        caught instanceof Error
+          ? caught.message
+          : tt('Configuration de la clé de sécurité impossible'),
+        'error',
+      )
+    } finally {
+      setPrfBusy(false)
+    }
+  }
+
+  const revokePrf = async () => {
+    setPrfBusy(true)
+    try {
+      await removePrf()
+      toast(tt('Clé de sécurité révoquée'), 'success')
+    } catch (caught) {
+      toast(
+        caught instanceof Error
+          ? caught.message
+          : tt('Révocation de la clé de sécurité impossible'),
+        'error',
+      )
+    } finally {
+      setPrfBusy(false)
     }
   }
 
@@ -1024,6 +1062,73 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     </details>
                   </section>
                 )}
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <KeyRound size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt('Clé de sécurité FIDO2')}</h3>
+                      <p>{tt('Déverrouillage par FIDO2/PRF, sans mot de passe.')}</p>
+                    </div>
+                  </div>
+
+                  {file?.prf ? (
+                    <p className="settings-copy">
+                      Clé configurée le{' '}
+                      <strong>{formatDateTime(file.prf.createdAt)}</strong>. Le
+                      mot de passe maître reste requis après tout changement de
+                      clé ou de fichier.
+                    </p>
+                  ) : (
+                    <p className="settings-copy">
+                      Configurez une clé compatible PRF (YubiKey 5, clé de
+                      plateforme récente) pour déverrouiller ce coffre sans
+                      saisir le mot de passe.
+                    </p>
+                  )}
+
+                  <div className="settings-actions settings-actions--start">
+                    {file?.prf ? (
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() => void revokePrf()}
+                        disabled={prfBusy}
+                      >
+                        {prfBusy ? (
+                          <LoaderCircle size={16} className="spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                        {prfBusy ? tt('Révocation…') : tt('Révoquer la clé')}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() => void setupPrf()}
+                        disabled={prfBusy || !prfSupported()}
+                      >
+                        {prfBusy ? (
+                          <LoaderCircle size={16} className="spin" />
+                        ) : (
+                          <KeyRound size={16} />
+                        )}
+                        {prfBusy ? tt('Configuration…') : tt('Configurer une clé')}
+                      </button>
+                    )}
+                  </div>
+                  <details className="settings-help">
+                    <summary>{tt('En savoir plus')}</summary>
+                    <p>
+                      {tt(
+                        'La sortie PRF de la clé dérive une KEK qui scelle la clé maîtresse dans le fichier. Le mot de passe maître reste le secret racine ; l’enveloppe est révocable et supprimée lors d’un changement de mot de passe ou d’une récupération.',
+                      )}
+                    </p>
+                  </details>
+                </section>
 
                 <SshAgentSettings />
 

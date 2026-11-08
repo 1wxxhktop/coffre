@@ -377,6 +377,19 @@ export const EN_TEXT: Record<string, string> = {
   '-----BEGIN OPENSSH PRIVATE KEY-----': '-----BEGIN OPENSSH PRIVATE KEY-----',
   'ssh-ed25519 AAAA…': 'ssh-ed25519 AAAA…',
   'SHA256:…': 'SHA256:…',
+  'Clé de sécurité FIDO2': 'FIDO2 security key',
+  'Déverrouillage par FIDO2/PRF, sans mot de passe.':
+    'FIDO2/PRF unlock, without a password.',
+  'Clé de sécurité configurée': 'Security key configured',
+  'Clé de sécurité révoquée': 'Security key revoked',
+  'Configuration de la clé de sécurité impossible':
+    'Could not configure the security key',
+  'Révocation de la clé de sécurité impossible':
+    'Could not revoke the security key',
+  'Révoquer la clé': 'Revoke key',
+  'Configurer une clé': 'Configure a key',
+  'Configuration…': 'Configuring…',
+  'Révocation…': 'Revoking…',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

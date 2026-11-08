@@ -156,6 +156,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
 - **Compatibilité KeePass** : import et export KDBX 4 avec un mot de passe
   dédié (et fichier clé à l’import), sans pièces jointes ni historique Coffre.
+- **Déverrouillage FIDO2/PRF** : une clé de sécurité compatible PRF peut
+  envelopper la clé maîtresse dans le fichier. Le mot de passe maître reste le
+  secret racine ; l’enveloppe est révocable, liée au fichier et supprimée lors
+  d’un changement de mot de passe ou d’une récupération.
 - **PWA installable** : fonctionnement hors ligne, icônes, service worker.
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
   de détail persistant. La création passe par une modale ; la lecture et
