@@ -1,5 +1,7 @@
 import { hostFromUrl, type ExtensionLoginSummary } from '../src/lib/extensionProtocol'
 
+const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
+
 interface AppStatus {
   appOpen: boolean
   unlocked: boolean
@@ -55,7 +57,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 }
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
-  return chrome.runtime.sendMessage(payload) as Promise<T>
+  return api.runtime.sendMessage(payload) as Promise<T>
 }
 
 function showMessage(text: string, kind: 'info' | 'error' | 'success' = 'info') {
@@ -207,7 +209,7 @@ async function fillEntry(itemId: string) {
 }
 
 async function init() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true })
   currentTab = tab ?? null
   const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
   site.textContent = host || 'Page non prise en charge'
@@ -239,7 +241,7 @@ focusAppButton.addEventListener('click', () => {
 })
 
 settingsButton.addEventListener('click', () => {
-  void chrome.runtime.openOptionsPage()
+  void api.runtime.openOptionsPage()
 })
 
 showAllButton.addEventListener('click', () => {

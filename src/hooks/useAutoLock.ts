@@ -11,6 +11,7 @@ import { useEffect, useRef } from 'react'
 export function useAutoLock(
   minutes: number,
   lockOnHide: boolean,
+  lockOnFocusLoss: boolean,
   onLock: () => void,
 ): void {
   const onLockRef = useRef(onLock)
@@ -53,6 +54,9 @@ export function useAutoLock(
     }
 
     const onPageHide = () => lock()
+    const onBlur = () => {
+      if (lockOnFocusLoss) lock()
+    }
 
     const events: Array<keyof WindowEventMap> = [
       'pointerdown',
@@ -68,6 +72,7 @@ export function useAutoLock(
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
     window.addEventListener('pagehide', onPageHide)
+    if (lockOnFocusLoss) window.addEventListener('blur', onBlur)
 
     const interval =
       timeout > 0
@@ -82,7 +87,8 @@ export function useAutoLock(
       for (const event of events) window.removeEventListener(event, touch)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('blur', onBlur)
       if (interval !== null) window.clearInterval(interval)
     }
-  }, [minutes, lockOnHide])
+  }, [minutes, lockOnHide, lockOnFocusLoss])
 }

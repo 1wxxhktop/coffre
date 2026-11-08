@@ -31,6 +31,7 @@ import {
   parseImport,
   type ParsedImport,
 } from '../lib/import'
+import { parse1pux } from '../lib/onePassword'
 import { downloadFile, formatBytes, formatDateTime, pluralize } from '../lib/settings'
 import { exportCsv, type CsvExportFormat } from '../lib/export'
 import {
@@ -39,7 +40,7 @@ import {
   requestPersistentStorage,
   type StorageEstimate,
 } from '../lib/storage'
-import { itemTypeLabel } from '../lib/types'
+import { itemTypeLabel, type ThemePreference } from '../lib/types'
 import type { VaultIntegrityReport } from '../lib/vault'
 
 interface SettingsDialogProps {
@@ -80,6 +81,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
 
   const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [sourceText, setSourceText] = useState('')
+  const [sourceBytes, setSourceBytes] = useState<Uint8Array | null>(null)
   const [sourceItems, setSourceItems] = useState<ParsedImport | null>(null)
   const [sourceVaultId, setSourceVaultId] = useState(vaults[0]?.id ?? '')
   const [sourceBusy, setSourceBusy] = useState(false)
@@ -250,14 +252,19 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const selectSourceFile = async (selected: File | null) => {
     setSourceFile(selected)
     setSourceText('')
+    setSourceBytes(null)
     setSourceItems(null)
     setSourceError(null)
     setSourceReport(null)
     setSkipDuplicates(true)
     if (!selected) return
 
-    if (selected.size > 20_000_000) {
-      setSourceError('Fichier trop volumineux (20 Mo maximum pour un import).')
+    const isP1ux = selected.name.toLowerCase().endsWith('.1pux')
+    const limit = isP1ux ? 50_000_000 : 20_000_000
+    if (selected.size > limit) {
+      setSourceError(
+        `Fichier trop volumineux (${isP1ux ? '50' : '20'} Mo maximum pour un import).`,
+      )
       return
     }
 
@@ -268,10 +275,17 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     }
 
     try {
-      const text = await selected.text()
-      const parsed = parseImport(text, target)
-      setSourceText(text)
-      setSourceItems(parsed)
+      if (isP1ux) {
+        const bytes = new Uint8Array(await selected.arrayBuffer())
+        const parsed = await parse1pux(bytes, target)
+        setSourceBytes(bytes)
+        setSourceItems(parsed)
+      } else {
+        const text = await selected.text()
+        const parsed = parseImport(text, target)
+        setSourceText(text)
+        setSourceItems(parsed)
+      }
       setSourceVaultId(target)
     } catch (caught) {
       setSourceError(
@@ -280,12 +294,16 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     }
   }
 
-  const changeSourceVault = (vaultId: string) => {
+  const changeSourceVault = async (vaultId: string) => {
     setSourceVaultId(vaultId)
     setSourceReport(null)
-    if (!sourceText) return
+    if (!sourceText && !sourceBytes) return
     try {
-      setSourceItems(parseImport(sourceText, vaultId))
+      const parsed =
+        sourceBytes !== null
+          ? await parse1pux(sourceBytes, vaultId)
+          : parseImport(sourceText, vaultId)
+      setSourceItems(parsed)
       setSourceError(null)
     } catch (caught) {
       setSourceItems(null)
@@ -318,6 +336,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
         setSourceItems(null)
         setSourceFile(null)
         setSourceText('')
+        setSourceBytes(null)
         setSkipDuplicates(true)
       }
     } catch (caught) {
@@ -447,6 +466,42 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
               Recommandé : dès que Coffre n’est plus visible, les clés sont effacées de la
               mémoire. Ce verrouillage s’applique même si le délai d’inactivité est désactivé.
             </p>
+
+            {isTauriRuntime() && (
+              <>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={settings.lockOnFocusLoss}
+                    onChange={(event) =>
+                      updateSettings({ lockOnFocusLoss: event.target.checked })
+                    }
+                  />
+                  <span>Verrouiller lorsque la fenêtre perd le focus</span>
+                </label>
+                <p className="settings-copy">
+                  Utile sur desktop : cliquer dans une autre application verrouille le coffre.
+                  Laissez désactivé si vous utilisez souvent des dialogues système.
+                </p>
+              </>
+            )}
+
+            <div className="settings-divider" />
+
+            <label className="field field--full">
+              <span className="field__label">Apparence</span>
+              <select
+                className="input"
+                value={settings.theme}
+                onChange={(event) =>
+                  updateSettings({ theme: event.target.value as ThemePreference })
+                }
+              >
+                <option value="dark">Sombre</option>
+                <option value="light">Clair</option>
+                <option value="system">Suivre le système</option>
+              </select>
+            </label>
 
             <div className="settings-divider" />
 
@@ -917,12 +972,12 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
               />
               <Upload size={20} />
               <span>
-                {sourceFile ? sourceFile.name : 'Choisir un fichier JSON ou CSV'}
+                {sourceFile ? sourceFile.name : 'Choisir un fichier JSON, CSV ou 1PUX'}
               </span>
               <small>
                 {sourceFile
                   ? `${Math.ceil(sourceFile.size / 1024)} Ko`
-                  : 'Bitwarden, Proton Pass, Enpass, 1Password, LastPass, Chrome, Firefox, Safari, Dashlane, KeePass…'}
+                  : 'Bitwarden, Proton Pass, Enpass, 1Password (1PUX), LastPass, Chrome, Firefox, Safari, Dashlane, KeePass…'}
               </small>
             </label>
 
@@ -940,7 +995,11 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                   <span>
                     élément{sourceItems.items.length > 1 ? 's' : ''} détecté
                     {sourceItems.items.length > 1 ? 's' : ''} ·{' '}
-                    {sourceItems.format === 'csv' ? 'CSV' : 'JSON'}{' '}
+                    {sourceItems.format === 'csv'
+                      ? 'CSV'
+                      : sourceItems.format === '1pux'
+                        ? '1PUX'
+                        : 'JSON'}{' '}
                     {importSourceLabel(sourceItems.source)}
                     {sourcePreview.duplicates.length > 0 &&
                       ` · ${sourcePreview.duplicates.length} doublon${

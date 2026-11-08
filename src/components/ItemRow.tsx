@@ -1,4 +1,4 @@
-import { Paperclip, Star } from 'lucide-react'
+import { Check, Paperclip, Star } from 'lucide-react'
 import { ItemIcon } from './ItemIcon'
 import { formatDate } from '../lib/settings'
 import { itemSubtitle, itemTypeLabel, type VaultItem } from '../lib/types'
@@ -8,11 +8,21 @@ interface ItemRowProps {
   vaultName: string
   showVault: boolean
   selected: boolean
+  selectable?: boolean
+  checked?: boolean
   onSelect: () => void
 }
 
 /** Ligne compacte de la liste, dans l’esprit de la barre latérale 1Password. */
-export function ItemRow({ item, vaultName, showVault, selected, onSelect }: ItemRowProps) {
+export function ItemRow({
+  item,
+  vaultName,
+  showVault,
+  selected,
+  selectable = false,
+  checked = false,
+  onSelect,
+}: ItemRowProps) {
   return (
     <button
       type="button"
@@ -20,9 +30,15 @@ export function ItemRow({ item, vaultName, showVault, selected, onSelect }: Item
         item.deletedAt ? 'item-row--trash' : ''
       } ${selected ? 'is-selected' : ''}`}
       onClick={onSelect}
-      aria-current={selected ? 'true' : undefined}
+      aria-current={!selectable && selected ? 'true' : undefined}
+      aria-pressed={selectable ? checked : undefined}
       title={`${item.title} — ${itemTypeLabel(item.type)}`}
     >
+      {selectable && (
+        <span className={`item-row__check ${checked ? 'is-checked' : ''}`} aria-hidden="true">
+          {checked && <Check size={13} />}
+        </span>
+      )}
       <span className={`item-icon item-icon--${item.type}`}>
         <ItemIcon type={item.type} size={18} />
       </span>

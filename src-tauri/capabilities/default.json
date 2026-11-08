@@ -6,6 +6,7 @@
     "main"
   ],
   "permissions": [
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "core:event:default"
   ]
 }

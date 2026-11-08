@@ -29,3 +29,7 @@ blob-report
 *.njsproj
 *.sln
 *.sw?
+
+# Outils d’agents locaux
+.claude/
+.workbuddy-ai/
