@@ -56,6 +56,8 @@ import {
 } from './crypto'
 import { normalizeDateOnly } from './expiry'
 import { normalizeRecoveryPhrase } from './recovery'
+import { openSharingIdentity, resealSharingIdentity } from './sharingVault'
+import type { SharingIdentity } from './sharing'
 import type {
   ActivityEvent,
   AliasKeyService,
@@ -165,6 +167,7 @@ export interface OpenedVault {
   templates: ItemTemplate[]
   activity: ActivityEvent[]
   aliasKeys: Partial<Record<AliasKeyService, string>>
+  sharing: SharingIdentity | null
   warnings: string[]
   /**
    * Vrai lorsque le MAC global est absent ou invalide sur un fichier v4 : le
@@ -367,6 +370,15 @@ const recoveryWrapSchema = z.object({
   key: sealedSchema,
 })
 
+const sharingIdentitySchema = z.object({
+  version: z.literal(1),
+  encryptionPublicKey: z.string().min(1).max(200),
+  signingPublicKey: z.string().min(1).max(200),
+  fingerprint: z.string().min(1).max(200),
+  privateKeys: sealedSchema,
+  createdAt: z.string().min(1).max(40),
+})
+
 const prfEnvelopeSchema = z.object({
   version: z.literal(1),
   credentialId: z.string().min(1).max(2_000),
@@ -454,6 +466,7 @@ const vaultFileSchema = z.object({
   aliasKeys: z.array(aliasKeyRecordSchema).max(10).default([]),
   recovery: recoveryEnvelopeSchema.optional(),
   prf: prfEnvelopeSchema.optional(),
+  sharing: sharingIdentitySchema.optional(),
   writer: idSchema.optional(),
   revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
   keyEpoch: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
@@ -711,7 +724,8 @@ export function parseVaultFile(raw: unknown): VaultFile {
     file.keyEpoch !== undefined ||
     file.tombstones !== undefined ||
     file.integrity !== undefined ||
-    file.prf !== undefined
+    file.prf !== undefined ||
+    file.sharing !== undefined
 
   if (file.version === 4) {
     if (
@@ -805,7 +819,15 @@ export function parseVaultFileText(text: string): VaultFile {
 /* ------------------------------------------------------------------ */
 
 interface ManifestRecord {
-  type: 'vault' | 'item' | 'attachment' | 'version' | 'template' | 'activity' | 'alias-key'
+  type:
+    | 'vault'
+    | 'item'
+    | 'attachment'
+    | 'version'
+    | 'template'
+    | 'activity'
+    | 'alias-key'
+    | 'sharing'
   id: string
   vaultId: string
   /** Élément parent pour une pièce jointe ou une version. */
@@ -862,6 +884,7 @@ const RECORD_TYPE_ORDER: Record<ManifestRecord['type'], number> = {
   template: 4,
   activity: 5,
   'alias-key': 6,
+  sharing: 7,
 }
 
 /**
@@ -945,6 +968,17 @@ export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
       rev: alias.clock?.rev ?? 0,
       writer: alias.clock?.writer ?? '',
       ciphertext: await sealedDigest(alias.data),
+    })
+  }
+
+  if (file.sharing) {
+    records.push({
+      type: 'sharing',
+      id: file.sharing.fingerprint,
+      vaultId: '',
+      rev: 0,
+      writer: '',
+      ciphertext: await sealedDigest(file.sharing.privateKeys),
     })
   }
 
@@ -1348,6 +1382,7 @@ export async function createVaultFile(
       templates: [],
       activity: [],
       aliasKeys: {},
+      sharing: null,
       warnings: [],
       readOnly: false,
       integrity: 'valid',
@@ -1607,6 +1642,15 @@ export async function openVaultFileWithMasterKey(
     }
   }
 
+  let sharing: SharingIdentity | null = null
+  if (file.sharing) {
+    try {
+      sharing = await openSharingIdentity(file.sharing, session.masterKey, file.id)
+    } catch {
+      warnings.push('L’identité de partage n’a pas pu être déchiffrée.')
+    }
+  }
+
   return {
     file,
     session,
@@ -1615,6 +1659,7 @@ export async function openVaultFileWithMasterKey(
     templates,
     activity,
     aliasKeys,
+    sharing,
     warnings,
     readOnly: integrityState === 'invalid',
     integrity: integrityState,
@@ -1886,6 +1931,9 @@ export async function recoverVaultFileWithRecoveryKey(
       // indisponible après une récupération : le journal repart vide.
       next.activity = []
       next.aliasKeys = []
+      // L’identité de partage est scellée par l’ancienne clé maîtresse ;
+      // elle est régénérée après une récupération.
+      delete next.sharing
       // L’ancien MAC ne couvre plus les clés ré-enveloppées : on le remplace
       // par une signature calculée sous la nouvelle époque.
       delete next.integrity
@@ -3507,6 +3555,16 @@ export async function changeMasterPassword(
       }
     }
 
+    let sharing = file.sharing
+    if (sharing) {
+      sharing = await resealSharingIdentity(
+        sharing,
+        session.masterKey,
+        nextMasterKey,
+        file.id,
+      )
+    }
+
     session.replaceMasterKey(nextMasterKey)
     // Rotation de l’époque : nouvelle clé HMAC, scellée sous la nouvelle clé
     // maîtresse. Le MAC est recalculé par `signVaultFile` avant l’écriture.
@@ -3518,7 +3576,8 @@ export async function changeMasterPassword(
       vaults,
       ...(templates.length > 0 ? { templates } : {}),
       ...(activity.length > 0 ? { activity } : {}),
-    ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
+      ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
+      ...(sharing ? { sharing } : {}),
       updatedAt: new Date().toISOString(),
       keyEpoch: (file.keyEpoch ?? 1) + 1,
       recovery,

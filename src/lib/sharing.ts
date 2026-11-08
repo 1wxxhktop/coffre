@@ -86,7 +86,10 @@ function canonicalRole(role: Omit<SignedShareRole, 'signature'>): string {
   ].join('|')
 }
 
-async function fingerprint(encryptionPublicKey: string, signingPublicKey: string): Promise<string> {
+export async function sharingFingerprint(
+  encryptionPublicKey: string,
+  signingPublicKey: string,
+): Promise<string> {
   const digest = await sha256(utf8(canonicalIdentity(encryptionPublicKey, signingPublicKey)))
   return `SHA256:${toBase64(digest)}`
 }
@@ -112,7 +115,7 @@ export async function generateSharingIdentity(): Promise<SharingIdentity> {
     encryptionPrivateKey,
     signingPublicKey,
     signingPrivateKey,
-    fingerprint: await fingerprint(encryptionPublicKey, signingPublicKey),
+    fingerprint: await sharingFingerprint(encryptionPublicKey, signingPublicKey),
   }
 }
 

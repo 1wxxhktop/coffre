@@ -584,6 +584,7 @@ export function mergeVaultFiles(
   const warnings: string[] = []
   const recovery = selectRecovery(files, liveVaultIds)
   if (recovery.warning) warnings.push(recovery.warning)
+  const sharing = local.sharing ?? files.find((file) => file.sharing)?.sharing
 
   const revision = Math.max(...files.map((file) => file.revision ?? 0))
   const writer = files
@@ -629,6 +630,7 @@ export function mergeVaultFiles(
     revision,
     keyEpoch: local.keyEpoch as number,
     recovery: recovery.recovery,
+    ...(sharing ? { sharing } : {}),
   }
   delete merged.integrity
 

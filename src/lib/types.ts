@@ -388,6 +388,16 @@ export interface RecoveryEnvelope {
   templateWraps?: Array<{ templateId: string; key: Sealed }>
 }
 
+/** Identité de partage persistée : clés publiques en clair, privées scellées. */
+export interface SealedSharingIdentity {
+  version: 1
+  encryptionPublicKey: string
+  signingPublicKey: string
+  fingerprint: string
+  privateKeys: Sealed
+  createdAt: string
+}
+
 /**
  * Enveloppe de déverrouillage par clé FIDO2/PRF. La clé maîtresse est scellée
  * par une KEK dérivée de la sortie PRF et de l’identifiant du fichier.
@@ -461,6 +471,8 @@ export interface VaultFile {
   recovery?: RecoveryEnvelope
   /** Déverrouillage optionnel par clé de sécurité FIDO2/PRF. */
   prf?: PrfEnvelope
+  /** Identité de partage du fichier. */
+  sharing?: SealedSharingIdentity
   /** Identifiant aléatoire de l’appareil qui a écrit en dernier (v4). */
   writer?: string
   /** Compteur monotone du fichier, incrémenté à chaque écriture (v4). */
