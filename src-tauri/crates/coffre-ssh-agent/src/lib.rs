@@ -19,7 +19,12 @@ use ssh_key::{HashAlg, PrivateKey, PublicKey};
 use std::fmt;
 use std::io::{self, Read, Write};
 #[cfg(unix)]
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+};
 use zeroize::Zeroizing;
 
 /// Taille maximale d’un message agent, en octets.
@@ -475,22 +480,158 @@ pub fn bind_socket(path: &std::path::Path) -> io::Result<std::os::unix::net::Uni
     Ok(listener)
 }
 
-/// Sert les connexions entrantes. Chaque connexion obtient son propre fil.
+/// Nombre maximal de connexions simultanées acceptées par l’agent.
+#[cfg(unix)]
+pub const MAX_CONNECTIONS: usize = 16;
+
+/// Sert les connexions entrantes jusqu’à ce que `shutdown` soit positionné.
+#[cfg(unix)]
+pub fn serve_with_shutdown(
+    listener: std::os::unix::net::UnixListener,
+    identities: Arc<Vec<Identity>>,
+    approval: Arc<dyn Approval>,
+    shutdown: Arc<AtomicBool>,
+) -> io::Result<()> {
+    listener.set_nonblocking(true)?;
+    let active = Arc::new(AtomicUsize::new(0));
+    while !shutdown.load(Ordering::Relaxed) {
+        match listener.accept() {
+            Ok((stream, _)) => {
+                if stream.set_nonblocking(false).is_err() {
+                    drop(stream);
+                    continue;
+                }
+                if active.fetch_add(1, Ordering::Relaxed) >= MAX_CONNECTIONS {
+                    active.fetch_sub(1, Ordering::Relaxed);
+                    drop(stream);
+                    continue;
+                }
+                let identities = Arc::clone(&identities);
+                let approval = Arc::clone(&approval);
+                let active = Arc::clone(&active);
+                std::thread::spawn(move || {
+                    let _ = handle_connection(stream, &identities, approval.as_ref());
+                    active.fetch_sub(1, Ordering::Relaxed);
+                });
+            }
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+
+/// Sert les connexions sans arrêt programmé.
 #[cfg(unix)]
 pub fn serve(
     listener: std::os::unix::net::UnixListener,
     identities: Arc<Vec<Identity>>,
     approval: Arc<dyn Approval>,
 ) -> io::Result<()> {
-    for stream in listener.incoming() {
-        let Ok(stream) = stream else { continue };
-        let identities = Arc::clone(&identities);
-        let approval = Arc::clone(&approval);
-        std::thread::spawn(move || {
-            let _ = handle_connection(stream, &identities, approval.as_ref());
-        });
+    serve_with_shutdown(
+        listener,
+        identities,
+        approval,
+        Arc::new(AtomicBool::new(false)),
+    )
+}
+
+/// Garde le socket tant que le thread de l’agent l’utilise.
+#[cfg(unix)]
+struct SocketGuard {
+    path: PathBuf,
+    device: u64,
+    inode: u64,
+}
+
+#[cfg(unix)]
+impl SocketGuard {
+    fn new(path: &Path) -> io::Result<Self> {
+        use std::os::unix::fs::MetadataExt;
+        let metadata = std::fs::symlink_metadata(path)?;
+        Ok(Self {
+            path: path.to_path_buf(),
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        })
     }
-    Ok(())
+}
+
+#[cfg(unix)]
+impl Drop for SocketGuard {
+    fn drop(&mut self) {
+        use std::os::unix::fs::MetadataExt;
+        if let Ok(metadata) = std::fs::symlink_metadata(&self.path)
+            && metadata.dev() == self.device
+            && metadata.ino() == self.inode
+        {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
+}
+
+/// Agent démarré dans un thread, avec arrêt propre et suppression du socket.
+#[cfg(unix)]
+pub struct AgentHandle {
+    shutdown: Arc<AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+    socket: PathBuf,
+}
+
+#[cfg(unix)]
+impl AgentHandle {
+    /// Crée le socket et démarre le thread de service.
+    pub fn start(
+        socket: &Path,
+        identities: Vec<Identity>,
+        approval: Arc<dyn Approval>,
+    ) -> io::Result<Self> {
+        let listener = bind_socket(socket)?;
+        let guard = SocketGuard::new(socket)?;
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&shutdown);
+        let identities = Arc::new(identities);
+        let thread = std::thread::Builder::new()
+            .name("coffre-ssh-agent".into())
+            .spawn(move || {
+                let _guard = guard;
+                let _ = serve_with_shutdown(listener, identities, approval, flag);
+            })?;
+        Ok(Self {
+            shutdown,
+            thread: Some(thread),
+            socket: socket.to_path_buf(),
+        })
+    }
+
+    /// Chemin du socket servi.
+    pub fn socket_path(&self) -> &Path {
+        &self.socket
+    }
+
+    /// Arrête le thread et attend sa fin.
+    pub fn stop(&mut self) {
+        self.shutdown.store(true, Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+
+    /// Attend la fin du thread, sans demander l’arrêt.
+    pub fn wait(mut self) {
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for AgentHandle {
+    fn drop(&mut self) {
+        self.stop();
+    }
 }
 
 #[cfg(test)]
@@ -686,6 +827,34 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
         assert_eq!(response[0], SSH_AGENT_IDENTITIES_ANSWER);
         drop(client);
         worker.join().unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn agent_handle_demarre_et_s_arrete() {
+        use std::os::unix::net::UnixStream;
+
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let dir = std::path::PathBuf::from("/tmp").join(format!(
+            "coffre-agent-handle-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        let path = dir.join("agent.sock");
+        let identity = key(Algorithm::Ed25519);
+        let approval: Arc<dyn Approval> = Arc::new(|_: &ApprovalRequest| true);
+        let mut handle = AgentHandle::start(&path, vec![identity], approval).unwrap();
+        assert_eq!(handle.socket_path(), path);
+
+        let mut client = UnixStream::connect(&path).unwrap();
+        write_frame(&mut client, &request_identities()).unwrap();
+        let response = read_frame(&mut client).unwrap().unwrap();
+        assert_eq!(response[0], SSH_AGENT_IDENTITIES_ANSWER);
+
+        drop(client);
+        handle.stop();
+        assert!(!path.exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[cfg(unix)]
