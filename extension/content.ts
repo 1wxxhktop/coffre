@@ -358,6 +358,7 @@ document.addEventListener('focusin', handleFocus, true)
 document.addEventListener('submit', handleSubmit, true)
 window.addEventListener('scroll', positionMenu, true)
 window.addEventListener('resize', positionMenu)
+scheduleDetection()
 
 const observer = new MutationObserver(scheduleDetection)
 observer.observe(document.documentElement, { childList: true, subtree: true })
