@@ -1022,6 +1022,11 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   la fusion de synchronisation conserve l’identité locale si elle existe ;
 - l’identité peut être créée depuis **Réglages → Sécurité → Identité de
   partage**. L’export affiché ne contient que les clés publiques et l’empreinte ;
+- un paquet de partage contient la clé du coffre enveloppée pour chaque membre,
+  les rôles signés et les identités publiques. Il ne contient aucune clé privée
+  ni contenu déchiffré ; son import vérifie la signature du rôle et l’identité
+  du destinataire avant d’ouvrir la clé. Le paquet révèle l’identifiant du
+  coffre et la liste des membres : le transmettre par un canal de confiance ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;
