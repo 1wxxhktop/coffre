@@ -1,8 +1,7 @@
 # Vérification du lot design D1–D9
 
-Date : 8 novembre 2026. Branche de travail : `design/d1-d9`, basée sur
-`main` (`10de4a9`). Ce rapport accompagne les captures de
-[`design-captures/`](design-captures/).
+Date : 8 novembre 2026. État vérifié sur `main` (`d98e667`). Ce rapport
+accompagne les captures de [`design-captures/`](design-captures/).
 
 ## Résultats
 
@@ -11,15 +10,15 @@ Date : 8 novembre 2026. Branche de travail : `design/d1-d9`, basée sur
 | TypeScript | `bun run typecheck` | OK |
 | Lint + jetons | `bun run lint` | OK, 0 erreur ; seuls des avertissements `oxlint` préexistants |
 | Jetons seuls | `bun run lint:design` | OK, aucune valeur littérale hors jetons |
-| Tests unitaires | `bun run test` | 38 fichiers, 338 tests |
-| E2E Chromium + WebKit | `bun run test:e2e` | 115 tests passés, 5 ignorés (120 exécutions) |
+| Tests unitaires | `bun run test` | 40 fichiers, 367 tests |
+| E2E Chromium + WebKit | `bun run test:e2e` | 117 tests passés, 5 ignorés (122 exécutions) |
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |
 | Build extension | `bun run extension:build` | OK |
 | Versions | `bun run version:check` | 0.8.0 cohérente |
 | Rust format | `cargo fmt -- --check` | OK |
 | Rust lint | `cargo clippy --all-targets -- -D warnings` | OK |
-| Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 13 tests desktop + 7 tests cœur |
+| Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 13 tests desktop + 11 tests cœur + 1 test FFI |
 | axe A/AA | `e2e/accessibility.spec.ts` | 0 violation sur les écrans scannés |
 
 ## Couverture e2e design
@@ -32,7 +31,7 @@ Date : 8 novembre 2026. Branche de travail : `design/d1-d9`, basée sur
 - le menu « … » du détail (historique, duplication, suppression) ;
 - le thème clair et la couleur d’état de sécurité ;
 - la navigation aux flèches dans la liste ;
-- le parcours créer → lire → modifier → supprimer sans modale sur desktop ;
+- le parcours créer en modale → lire et modifier dans le panneau de détail ;
 - la génération d’un mot de passe depuis le bandeau de sécurité ;
 - le glissement vers la droite pour revenir à la liste ;
 - la navigation en pages des réglages sur mobile ;
@@ -42,9 +41,9 @@ Date : 8 novembre 2026. Branche de travail : `design/d1-d9`, basée sur
 `e2e/layout.spec.ts` vérifie le redimensionnement de la barre latérale et de la
 liste, la mémorisation des largeurs après rechargement, le repli en rail
 d’icônes, sa persistance, et l’absence de poignées sur mobile.
-`e2e/dashboard.spec.ts` vérifie le tableau de bord, l’ouverture des catégories,
-des éléments et de la création, ainsi que son comportement mobile sans
-débordement.
+`e2e/dashboard.spec.ts` vérifie que le tableau de bord est la vue par défaut,
+l’ouverture des catégories, des éléments et de la création, l’état du stockage,
+ainsi que son comportement mobile sans débordement.
 
 `e2e/accessibility.spec.ts` vérifie en plus les noms accessibles, le piège à
 focus des modales, `prefers-reduced-motion` et l’audit axe sur
@@ -62,9 +61,11 @@ baseline de régression : les rendus de police varient entre macOS et Linux.
 
 ## Limites connues
 
-- La vérification manuelle **VoiceOver/NVDA** n’a pas été réalisée dans cet
-  environnement ; l’audit axe automatisé et les tests de focus la complètent
-  sans la remplacer.
+- La vérification manuelle **VoiceOver/NVDA**, le zoom 200 %, le tactile réel
+  et Safari/iOS n’ont pas été réalisés dans cet environnement ; l’audit axe
+  automatisé et les tests de focus la complètent sans la remplacer. La
+  checklist à exécuter est dans
+  [`ACCESSIBILITY-MANUAL.md`](ACCESSIBILITY-MANUAL.md).
 - La régression visuelle `toHaveScreenshot` est optionnelle (`VISUAL=1`) et
   les baselines versionnées sont spécifiques à macOS/Chromium. Pour la CI
   Linux, il faut générer les baselines `-linux` dans un environnement

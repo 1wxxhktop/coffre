@@ -6,6 +6,7 @@ const tauri = JSON.parse(read('src-tauri/tauri.conf.json'))
 const extension = JSON.parse(read('extension/public/manifest.json'))
 const cargo = read('src-tauri/Cargo.toml').match(/^version\s*=\s*"([^"]+)"/m)?.[1]
 const core = read('src-tauri/crates/coffre-core/Cargo.toml').match(/^version\s*=\s*"([^"]+)"/m)?.[1]
+const ffi = read('src-tauri/crates/coffre-core-ffi/Cargo.toml').match(/^version\s*=\s*"([^"]+)"/m)?.[1]
 
 const versions = {
   package: pkg.version,
@@ -13,6 +14,7 @@ const versions = {
   extension: extension.version,
   cargo,
   core,
+  ffi,
 }
 const values = new Set(Object.values(versions))
 if (values.size !== 1 || [...values].some((value) => !value)) {

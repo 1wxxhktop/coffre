@@ -1,0 +1,17 @@
+[package]
+name = "coffre-core-ffi"
+version = "0.8.0"
+edition = "2024"
+rust-version = "1.90"
+license = "GPL-3.0-only"
+description = "Façade UniFFI JSON pour coffre-core"
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+coffre-core = { path = "../coffre-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uniffi = { version = "0.29", features = ["cli"] }

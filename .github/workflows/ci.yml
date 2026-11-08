@@ -173,10 +173,10 @@ jobs:
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
       - name: Clippy du cœur
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml -p coffre-core --all-targets -- -D warnings
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -p coffre-core -p coffre-core-ffi --all-targets -- -D warnings
 
       - name: Tests et vecteurs croisés
-        run: cargo test --manifest-path src-tauri/Cargo.toml -p coffre-core
+        run: cargo test --manifest-path src-tauri/Cargo.toml -p coffre-core -p coffre-core-ffi
 
   smoke-extension:
     name: Extension Chromium (smoke)
