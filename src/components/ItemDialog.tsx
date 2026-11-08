@@ -1866,6 +1866,7 @@ export function ItemDialog({
         <GeneratorDialog
           onClose={() => setShowGenerator(false)}
           onUse={(value) => void applyGeneratedPassword(value)}
+          url={draft.type === 'login' ? draft.urls[0] : undefined}
         />
       )}
 

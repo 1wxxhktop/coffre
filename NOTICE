@@ -54,7 +54,34 @@ Attribution à conserver :
   « EFF Large Wordlist », Electronic Frontier Foundation, CC BY 3.0.
 
 ================================================================================
-3. DÉPENDANCES LOGICIELLES
+3. APPLE PASSWORD MANAGER RESOURCES
+================================================================================
+
+Fichier : src/assets/password-rules.json
+Source  : https://github.com/apple/password-manager-resources
+Licence : MIT
+Copyright 2020 - 2026 Apple Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+4. DÉPENDANCES LOGICIELLES
 ================================================================================
 
 Coffre est construit avec les bibliothèques suivantes. Les versions exactes
@@ -110,7 +137,7 @@ proviennent de Lucide (ISC). Les icônes de l’application ont été générée
 Coffre à partir de son propre logo.
 
 ================================================================================
-4. TEXTES ET DOCUMENTATION
+5. TEXTES ET DOCUMENTATION
 ================================================================================
 
 La documentation (README.md, docs/, commentaires) a été rédigée pour Coffre.
@@ -124,7 +151,7 @@ distribué sous GPL-3.0, et de KeePassXC, distribué sous GPL-2.0/GPL-3.0. Ils n
 contiennent que des identifiants fictifs.
 
 ================================================================================
-5. ABSENCE DE GARANTIE
+6. ABSENCE DE GARANTIE
 ================================================================================
 
 Coffre est fourni « en l’état », sans garantie d’aucune sorte, dans les limites
