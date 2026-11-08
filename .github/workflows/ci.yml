@@ -55,7 +55,7 @@ jobs:
         run: bun run extension:build
 
       - name: Conserver le build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coffre-dist
           path: |
@@ -87,7 +87,7 @@ jobs:
 
       - name: Conserver les traces en cas d’échec
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-results
           path: |
@@ -229,7 +229,7 @@ jobs:
         run: bun run desktop:build
 
       - name: Conserver les artefacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coffre-desktop-${{ matrix.os }}
           path: |
