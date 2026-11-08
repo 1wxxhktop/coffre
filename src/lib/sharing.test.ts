@@ -5,7 +5,10 @@ import {
   openEmergencyEnvelope,
   openVaultKeyFromMember,
   publicSharingIdentity,
+  rotateSharedVaultKey,
   sealVaultKeyForMember,
+  unwrapVaultKeyForMember,
+  wrapVaultKeyForMembers,
   signShareRole,
   verifyShareRole,
 } from './sharing'
@@ -60,6 +63,50 @@ describe('socle de partage L10', () => {
     expect(
       await verifyShareRole({ ...role, role: 'write' }, alice.signingPublicKey),
     ).toBe(false)
+  })
+
+  it('enveloppe une clé pour plusieurs membres et la retrouve', async () => {
+    const alice = await generateSharingIdentity()
+    const bob = await generateSharingIdentity()
+    const wraps = await wrapVaultKeyForMembers(
+      vaultKey,
+      [
+        { identity: publicSharingIdentity(alice), role: 'write' },
+        { identity: publicSharingIdentity(bob), role: 'read' },
+      ],
+      'v_shared',
+    )
+    expect(wraps).toHaveLength(2)
+    expect(Array.from(await unwrapVaultKeyForMember(wraps, alice, 'v_shared'))).toEqual(
+      Array.from(vaultKey),
+    )
+    expect(Array.from(await unwrapVaultKeyForMember(wraps, bob, 'v_shared'))).toEqual(
+      Array.from(vaultKey),
+    )
+    const eve = await generateSharingIdentity()
+    await expect(unwrapVaultKeyForMember(wraps, eve, 'v_shared')).rejects.toThrow()
+  })
+
+  it('révoque un membre en tournant la clé partagée', async () => {
+    const alice = await generateSharingIdentity()
+    const bob = await generateSharingIdentity()
+    const first = await rotateSharedVaultKey(
+      [
+        { identity: publicSharingIdentity(alice), role: 'write' },
+        { identity: publicSharingIdentity(bob), role: 'read' },
+      ],
+      'v_shared',
+    )
+    const second = await rotateSharedVaultKey(
+      [{ identity: publicSharingIdentity(alice), role: 'write' }],
+      'v_shared',
+    )
+    expect(Array.from(second.vaultKey)).not.toEqual(Array.from(first.vaultKey))
+    expect(second.wraps).toHaveLength(1)
+    expect(
+      Array.from(await unwrapVaultKeyForMember(second.wraps, alice, 'v_shared')),
+    ).toEqual(Array.from(second.vaultKey))
+    await expect(unwrapVaultKeyForMember(second.wraps, bob, 'v_shared')).rejects.toThrow()
   })
 
   it('crée et ouvre une enveloppe d’accès d’urgence', async () => {

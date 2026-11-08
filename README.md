@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 421 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 423 tests unitaires et
 > 62 parcours Playwright exécutés sur Chromium et WebKit (124 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -642,7 +642,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (421 tests) |
+| `bun run test` | Tests Vitest (423 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (124 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |

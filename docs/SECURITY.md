@@ -1019,6 +1019,9 @@ d’urgence. Il n’est pas encore relié au format `.coffre` ni à l’interfac
   incluant le coffre, le membre, le rôle, la date et l’émetteur ;
 - les empreintes sont des SHA-256 des clés publiques, affichées avec le préfixe
   `SHA256:` ;
+- une clé de coffre partagé peut être enveloppée pour plusieurs membres ;
+  la révocation prépare une nouvelle clé et de nouvelles enveloppes pour les
+  membres restants, sans réutiliser l’ancienne ;
 - aucune requête réseau n’est effectuée ;
 - limites : la distribution des clés, la révocation par rotation, le stockage
   des identités dans le fichier et l’interface de partage restent à intégrer.
