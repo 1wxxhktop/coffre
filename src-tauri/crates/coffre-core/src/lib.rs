@@ -525,3 +525,378 @@ pub fn verify(file: &VaultFile, session: &Session) -> Result<VerifyReport, CoreE
         integrity,
     })
 }
+
+impl Session {
+    pub fn set_integrity_key(&mut self, key: &[u8]) -> Result<(), CoreError> {
+        if key.len() != crypto::KEY_BYTES {
+            return Err(CoreError::Crypto("clé d’intégrité invalide".into()));
+        }
+        self.integrity_key = Some(Zeroizing::new(key.to_vec()));
+        Ok(())
+    }
+
+    pub fn replace_master_key(&mut self, key: &[u8]) -> Result<(), CoreError> {
+        if key.len() != crypto::KEY_BYTES {
+            return Err(CoreError::Crypto("clé maîtresse invalide".into()));
+        }
+        self.master_key = Zeroizing::new(key.to_vec());
+        Ok(())
+    }
+
+    pub fn set_vault_key(&mut self, vault_id: &str, key: &[u8]) -> Result<(), CoreError> {
+        if key.len() != crypto::KEY_BYTES {
+            return Err(CoreError::Crypto("clé de coffre invalide".into()));
+        }
+        self.vault_keys
+            .insert(vault_id.to_string(), Zeroizing::new(key.to_vec()));
+        Ok(())
+    }
+}
+
+fn vault_changed(previous: Option<&VaultRecord>, next: &VaultRecord) -> bool {
+    match previous {
+        None => true,
+        Some(previous) => previous.key != next.key || previous.name != next.name,
+    }
+}
+
+fn item_changed(previous: Option<&ItemRecord>, next: &ItemRecord) -> bool {
+    match previous {
+        None => true,
+        Some(previous) => previous.key != next.key || previous.content != next.content,
+    }
+}
+
+fn clock_for(previous: Option<&Clock>, changed: bool, revision: u64, writer: &str) -> Clock {
+    if !changed && let Some(clock) = previous {
+        return clock.clone();
+    }
+    Clock {
+        rev: revision,
+        writer: writer.to_string(),
+    }
+}
+
+fn merge_tombstones(previous: Option<&VaultFile>, next: &VaultFile, now: &str) -> Vec<Tombstone> {
+    let mut merged: std::collections::BTreeMap<String, Tombstone> =
+        std::collections::BTreeMap::new();
+    let mut add = |tombstone: Tombstone| {
+        let key = format!("{}:{}", tombstone.kind, tombstone.id);
+        let replace = merged
+            .get(&key)
+            .map(|existing| existing.deleted_at < tombstone.deleted_at)
+            .unwrap_or(true);
+        if replace {
+            merged.insert(key, tombstone);
+        }
+    };
+
+    if let Some(previous) = previous {
+        for tombstone in previous.tombstones.clone().unwrap_or_default() {
+            add(tombstone);
+        }
+    }
+    for tombstone in next.tombstones.clone().unwrap_or_default() {
+        add(tombstone);
+    }
+    if let Some(previous) = previous {
+        let next_item_ids: std::collections::HashSet<&str> =
+            next.items.iter().map(|item| item.id.as_str()).collect();
+        let next_vault_ids: std::collections::HashSet<&str> =
+            next.vaults.iter().map(|vault| vault.id.as_str()).collect();
+        for item in &previous.items {
+            if !next_item_ids.contains(item.id.as_str()) {
+                add(Tombstone {
+                    kind: "item".into(),
+                    id: item.id.clone(),
+                    deleted_at: now.to_string(),
+                });
+            }
+        }
+        for vault in &previous.vaults {
+            if !next_vault_ids.contains(vault.id.as_str()) {
+                add(Tombstone {
+                    kind: "vault".into(),
+                    id: vault.id.clone(),
+                    deleted_at: now.to_string(),
+                });
+            }
+        }
+    }
+
+    let mut values: Vec<Tombstone> = merged.into_values().collect();
+    values.sort_by(|a, b| b.deleted_at.cmp(&a.deleted_at));
+    values.truncate(50_000);
+    values.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.id.cmp(&b.id)));
+    values
+}
+
+/// Prépare une écriture v4 signée. Les horloges ne changent que pour les
+/// enregistrements réellement modifiés ; les tombstones sont fusionnées.
+pub fn sign(
+    mut file: VaultFile,
+    session: &mut Session,
+    previous: Option<&VaultFile>,
+    writer: &str,
+    now: &str,
+) -> Result<VaultFile, CoreError> {
+    let was_v4 = file.version == 4;
+    let mut highest_revision = file
+        .revision
+        .unwrap_or(0)
+        .max(previous.and_then(|previous| previous.revision).unwrap_or(0));
+    for clock in file
+        .items
+        .iter()
+        .filter_map(|item| item.clock.as_ref())
+        .chain(file.vaults.iter().filter_map(|vault| vault.clock.as_ref()))
+    {
+        highest_revision = highest_revision.max(clock.rev);
+    }
+    let revision = highest_revision.saturating_add(1);
+    let key_epoch = file.key_epoch.unwrap_or(1).max(
+        previous
+            .and_then(|previous| previous.key_epoch)
+            .unwrap_or(1),
+    );
+
+    let previous_items: std::collections::BTreeMap<&str, &ItemRecord> = previous
+        .map(|previous| {
+            previous
+                .items
+                .iter()
+                .map(|item| (item.id.as_str(), item))
+                .collect()
+        })
+        .unwrap_or_default();
+    let previous_vaults: std::collections::BTreeMap<&str, &VaultRecord> = previous
+        .map(|previous| {
+            previous
+                .vaults
+                .iter()
+                .map(|vault| (vault.id.as_str(), vault))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    for vault in &mut file.vaults {
+        let previous = previous_vaults.get(vault.id.as_str()).copied();
+        let changed = vault_changed(previous, vault);
+        vault.clock = Some(clock_for(
+            previous.and_then(|vault| vault.clock.as_ref()),
+            changed,
+            revision,
+            writer,
+        ));
+    }
+    for item in &mut file.items {
+        let previous = previous_items.get(item.id.as_str()).copied();
+        let changed = item_changed(previous, item);
+        item.clock = Some(clock_for(
+            previous.and_then(|item| item.clock.as_ref()),
+            changed,
+            revision,
+            writer,
+        ));
+    }
+
+    let tombstones = merge_tombstones(previous, &file, now);
+    if session.integrity_key.is_none() {
+        session.integrity_key = Some(Zeroizing::new(crypto::random_bytes(crypto::KEY_BYTES)?));
+    }
+    let integrity_key = session
+        .integrity_key
+        .as_ref()
+        .ok_or_else(|| CoreError::Crypto("clé d’intégrité absente".into()))?;
+    let sealed_integrity_key = crypto::seal_bytes(
+        integrity_key,
+        session.master_key(),
+        crypto::integrity_key_aad(),
+    )?;
+
+    file.version = 4;
+    file.writer = Some(writer.to_string());
+    file.revision = Some(revision);
+    file.key_epoch = Some(key_epoch);
+    file.tombstones = Some(tombstones);
+    file.updated_at = if was_v4 {
+        file.updated_at
+    } else {
+        now.to_string()
+    };
+    file.integrity = Some(Integrity {
+        mac: String::new(),
+        key: sealed_integrity_key,
+    });
+    let manifest = Manifest::compute(&file)?;
+    let mac = crypto::hmac_sha256(
+        integrity_key,
+        canonical_json(&manifest.to_json()).as_bytes(),
+    )?;
+    if let Some(integrity) = &mut file.integrity {
+        integrity.mac = to_base64(&mac);
+    }
+    Ok(file)
+}
+
+fn open_item_key(
+    file: &VaultFile,
+    session: &Session,
+    item_id: &str,
+) -> Result<Zeroizing<Vec<u8>>, CoreError> {
+    let record = file
+        .items
+        .iter()
+        .find(|item| item.id == item_id)
+        .ok_or_else(|| CoreError::InvalidFormat("élément introuvable".into()))?;
+    let vault_key = session
+        .vault_key(&record.vault_id)
+        .ok_or_else(|| CoreError::Crypto("clé de coffre absente".into()))?;
+    let key = crypto::open_bytes(
+        &record.key,
+        vault_key,
+        &crypto::item_key_aad(&record.vault_id, &record.id),
+    )?;
+    if key.len() != crypto::KEY_BYTES {
+        return Err(CoreError::Crypto("clé d’élément invalide".into()));
+    }
+    Ok(key)
+}
+
+/// Crée un élément dans un coffre et renvoie son identifiant.
+pub fn create_item(
+    file: &mut VaultFile,
+    session: &Session,
+    vault_id: &str,
+    content: serde_json::Value,
+    now: &str,
+) -> Result<String, CoreError> {
+    let vault_key = session
+        .vault_key(vault_id)
+        .ok_or_else(|| CoreError::Crypto("clé de coffre absente".into()))?;
+    if !content.is_object() {
+        return Err(CoreError::InvalidFormat(
+            "contenu d’élément invalide".into(),
+        ));
+    }
+    let item_id = crypto::random_id("i")?;
+    let item_key = Zeroizing::new(crypto::random_bytes(crypto::KEY_BYTES)?);
+    let bytes = serde_json::to_vec(&content)
+        .map_err(|_| CoreError::InvalidFormat("contenu non sérialisable".into()))?;
+    let key = crypto::seal_bytes(
+        &item_key,
+        vault_key,
+        &crypto::item_key_aad(vault_id, &item_id),
+    )?;
+    let sealed_content = crypto::seal_bytes(
+        &bytes,
+        &item_key,
+        &crypto::item_content_aad(vault_id, &item_id),
+    )?;
+    file.items.push(ItemRecord {
+        id: item_id.clone(),
+        vault_id: vault_id.to_string(),
+        key,
+        content: sealed_content,
+        created_at: now.to_string(),
+        updated_at: now.to_string(),
+        clock: None,
+    });
+    Ok(item_id)
+}
+
+/// Remplace le contenu d’un élément sans changer sa clé.
+pub fn update_item(
+    file: &mut VaultFile,
+    session: &Session,
+    item_id: &str,
+    content: serde_json::Value,
+    now: &str,
+) -> Result<(), CoreError> {
+    if !content.is_object() {
+        return Err(CoreError::InvalidFormat(
+            "contenu d’élément invalide".into(),
+        ));
+    }
+    let item_key = open_item_key(file, session, item_id)?;
+    let record = file
+        .items
+        .iter_mut()
+        .find(|item| item.id == item_id)
+        .ok_or_else(|| CoreError::InvalidFormat("élément introuvable".into()))?;
+    let bytes = serde_json::to_vec(&content)
+        .map_err(|_| CoreError::InvalidFormat("contenu non sérialisable".into()))?;
+    record.content = crypto::seal_bytes(
+        &bytes,
+        &item_key,
+        &crypto::item_content_aad(&record.vault_id, &record.id),
+    )?;
+    record.updated_at = now.to_string();
+    Ok(())
+}
+
+/// Supprime définitivement un élément, ses pièces jointes et ses versions.
+/// La tombstone est ajoutée par `sign` à partir du fichier précédent.
+pub fn remove_item(file: &mut VaultFile, item_id: &str) -> Result<(), CoreError> {
+    let before = file.items.len();
+    file.items.retain(|item| item.id != item_id);
+    if file.items.len() == before {
+        return Err(CoreError::InvalidFormat("élément introuvable".into()));
+    }
+    file.attachments
+        .retain(|attachment| attachment.item_id != item_id);
+    file.versions.retain(|version| version.item_id != item_id);
+    Ok(())
+}
+
+/// Change le mot de passe maître, re-enveloppe les clés de coffre et tourne
+/// l’époque d’intégrité. L’appelant doit ensuite appeler `sign`.
+pub fn rotate_password(
+    file: &VaultFile,
+    session: &mut Session,
+    new_password: &str,
+    new_kdf: &KdfParams,
+    now: &str,
+) -> Result<VaultFile, CoreError> {
+    crate::crypto::validate_kdf(new_kdf)?;
+    let next_master = derive_master_key(new_password, new_kdf)?;
+    let mut vaults = Vec::with_capacity(file.vaults.len());
+    for record in &file.vaults {
+        let vault_key = crypto::open_bytes(
+            &record.key,
+            session.master_key(),
+            &crypto::vault_key_aad(&record.id),
+        )?;
+        vaults.push(VaultRecord {
+            key: crypto::seal_bytes(&vault_key, &next_master, &crypto::vault_key_aad(&record.id))?,
+            updated_at: now.to_string(),
+            ..record.clone()
+        });
+    }
+
+    let mut recovery = file.recovery.clone();
+    if let Some(envelope) = &mut recovery {
+        let recovery_key = session.recovery_key.as_ref().ok_or_else(|| {
+            CoreError::Crypto(
+                "clé de récupération indisponible ; régénérez la phrase avant la rotation".into(),
+            )
+        })?;
+        envelope.guard =
+            crypto::seal_bytes(recovery_key, &next_master, crypto::recovery_guard_aad())?;
+    }
+
+    let next_integrity = Zeroizing::new(crypto::random_bytes(crypto::KEY_BYTES)?);
+    let next_key_epoch = file.key_epoch.unwrap_or(1).saturating_add(1);
+    session.replace_master_key(&next_master)?;
+    session.integrity_key = Some(next_integrity);
+
+    Ok(VaultFile {
+        kdf: new_kdf.clone(),
+        vaults,
+        recovery,
+        updated_at: now.to_string(),
+        key_epoch: Some(next_key_epoch),
+        integrity: None,
+        ..file.clone()
+    })
+}

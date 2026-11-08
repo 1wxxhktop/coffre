@@ -1,0 +1,107 @@
+{
+  "format": "coffre",
+  "version": 4,
+  "id": "vf_rust_vector",
+  "createdAt": "2026-11-08T20:00:00.000Z",
+  "updatedAt": "2026-11-08T20:00:00.000Z",
+  "kdf": {
+    "algorithm": "argon2id",
+    "salt": "AAECAwQFBgcICQoLDA0ODw==",
+    "memoryKiB": 8192,
+    "iterations": 1,
+    "parallelism": 1,
+    "keyLength": 32
+  },
+  "vaults": [
+    {
+      "id": "v_rust_vector",
+      "key": {
+        "n": "AQEBAQEBAQEBAQEB",
+        "c": "57zI/4qzhuc2xdYTRErpWh09fszeaX9ee7usL9kyJMldxSP4f3MNsekOurZ0Z8m0"
+      },
+      "name": {
+        "n": "AgICAgICAgICAgIC",
+        "c": "ORJgT4skFWCNnSp8v+0yizhBS2CeN+EVDZy8ieVZXU66IcZivrsT"
+      },
+      "createdAt": "2026-11-08T20:00:00.000Z",
+      "updatedAt": "2026-11-08T20:00:00.000Z",
+      "clock": {
+        "rev": 1,
+        "writer": "w_rust_vector"
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "i_rust_vector",
+      "vaultId": "v_rust_vector",
+      "key": {
+        "n": "AwMDAwMDAwMDAwMD",
+        "c": "EFt2XgKqL+Slr+CLU2lIiOB99q7ja/Bj5QVR5TvPu1+ksCYYBYukKzkqgPxGO0+x"
+      },
+      "content": {
+        "n": "BAQEBAQEBAQEBAQE",
+        "c": "me9FgwzulEAKg4j8G97BSn6AcjWx+L4ww+6vmYnhpilP6hHgRMGDINdidXpejRwr3elTIUkYETGEJhYcozEGNKn7wogNIsycR3YMTaQtaa62+tWDS1mRkxsan0zCJKEq6gdG83bml0LFwXlUOKBbh3XMboTGwqDwUw5JQTqFi0VxA0M3IgAt2p7lmefh2aIChtNiuZG5CFHw1C5JROr+V/GYan3oeOMOIdBQGIA9oZIqzrlE6/zQCLSrK0EaUWEyvVuMzEdTVsc6a6vPi+bEBb/6pbUio+Oe2p26SlI6XvVU9UXdOJoTrg8jLH7pgN8XebW6+zFx+Q5ffi3627xxjMtfLdDIHerJEi1fkI8m2jk+dIZFNsrwSOaptbzuEK2LPUQ10GpRXEmOj23muuPo3RChQW6p6hQNgk+dur0vwIvHApNf5OcuMTQOArItiLLWdrfC0dumgsMiMqplafUsHnbuZA=="
+      },
+      "createdAt": "2026-11-08T20:00:00.000Z",
+      "updatedAt": "2026-11-08T20:00:00.000Z",
+      "clock": {
+        "rev": 1,
+        "writer": "w_rust_vector"
+      }
+    },
+    {
+      "id": "i_f1934fc5b968d1196fac1681f711a4fb",
+      "vaultId": "v_rust_vector",
+      "key": {
+        "n": "qjHkvS/16lVzZ2D3",
+        "c": "JSycY0okZun7OeE8ek+fymGfTuOvAgt+pBIDYY7oQR5ey7NFQiojvyNsdlofzq07"
+      },
+      "content": {
+        "n": "YqqFmmenRRcvIFNK",
+        "c": "RLdDRU1imvV4GlGsskkXuBPJoQ/hqny9PUcz+lJUoAZ+jMuJeq4Gb77JNRFm2ElfaKLr6ZTeTZqISl90CEkUVXD5qnLLzK364kxUWODVJcjlm/4HvHxcE9sALKXyBB0Q+Uj53lyrELS3m9JI9Axchipxh/FBBpg1f/O8BOXDwyJuYQ6nosFhLmmdGcirlM+zB5XK3GHRvPhvW+Ppqva0oYUb3EyhaqsadRJ7J394Zi9DUP2PBN9KIiHjC/Oji9WpaT7nW21FoA25OQhLiRlO08YD5CHXrllaAWRXC+ql5ELSksEVotwhgUpiRyCtoX6tZmNh/F1T62QU6pSrW4PAiPxGNj/qjLQvfXyOlyX5TY7El84="
+      },
+      "createdAt": "2026-11-08T21:20:00.000Z",
+      "updatedAt": "2026-11-08T21:20:00.000Z",
+      "clock": {
+        "rev": 2,
+        "writer": "w_rust_mutation"
+      }
+    }
+  ],
+  "attachments": [
+    {
+      "id": "att_rust_vector",
+      "itemId": "i_rust_vector",
+      "vaultId": "v_rust_vector",
+      "data": {
+        "n": "BgYGBgYGBgYGBgYG",
+        "c": "99yptNP5nMoJM8b9aFFWw6gi1DGyjV2Bm1oZzLaCCg=="
+      },
+      "createdAt": "2026-11-08T20:00:00.000Z"
+    }
+  ],
+  "versions": [
+    {
+      "id": "ver_rust_vector",
+      "itemId": "i_rust_vector",
+      "vaultId": "v_rust_vector",
+      "content": {
+        "n": "BQUFBQUFBQUFBQUF",
+        "c": "yN+8JC2LqhhxBNsBYHl/8CHUep+3nr8AwBM+D4snByoWAbt44G0lZLDcv2FETboJliCdNAcbCHurqtUlxNla8YEuOmJU+BVwjI/x7EnZPINdK5YJ82/VzFPvOTThZxjGvJmpPTBFgnNpsldJCCSloyXCB3ePNWCAae7Me6pKVbppRJxMEQL4d0bT7nYiP/6iYXWsaZpAHJKaWvzL8sdXOuY8DbDE++AV3AkhyNFxr+ormpwf/mhEqwJ13JS74hrpwIyk9CXOxTdDyaM+Cj2DfIl3uqlJahaxxzNQwbOAsdK00jgNcHtiZ6WTHzNY0BxLZlrifFKKfeS7SK+HXlvX6qasHbZ+A07SLnv3nVCY8HrWWESZ6j5m5mXFibMthodDrOJHQQSxjgHh/SPUTtHwQhoAslJ3MmVFIKUvMiQs36Iw3fccpORnTJVlmPmwbjmmwc0riTSqGHD6fcJZQlhC"
+      },
+      "createdAt": "2026-11-08T20:00:00.000Z"
+    }
+  ],
+  "writer": "w_rust_mutation",
+  "revision": 2,
+  "keyEpoch": 1,
+  "tombstones": [],
+  "integrity": {
+    "mac": "tFqLfT7UODKmjKQzdWW7qNs6YCPIeJQJP/JA+Qx69rc=",
+    "key": {
+      "n": "7pIRR0rhP43tZagw",
+      "c": "/+1yPtMEIkH3D8x1UJScMaRhfZjS4GDM8VEPgJw73u1lAy676Rs/SQlrADevePsW"
+    }
+  }
+}

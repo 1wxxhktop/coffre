@@ -1,4 +1,5 @@
 import { hostFromUrl, type ExtensionLoginSummary } from '../src/lib/extensionProtocol'
+import { DEFAULT_PASSWORD_OPTIONS, generatePassword } from '../src/lib/password'
 import { localizeDocument, t } from './i18n'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
@@ -36,6 +37,12 @@ const site = $<HTMLParagraphElement>('site')
 const message = $<HTMLParagraphElement>('message')
 const searchWrap = $<HTMLDivElement>('search-wrap')
 const searchInput = $<HTMLInputElement>('search')
+const generateButton = $<HTMLButtonElement>('generate')
+const generatorPanel = $<HTMLElement>('generator')
+const generatedPassword = $<HTMLOutputElement>('generated-password')
+const regenerateButton = $<HTMLButtonElement>('regenerate')
+const copyGeneratedButton = $<HTMLButtonElement>('copy-generated')
+const generatorCloseButton = $<HTMLButtonElement>('generator-close')
 const results = $<HTMLUListElement>('results')
 const empty = $<HTMLParagraphElement>('empty')
 const showAllButton = $<HTMLButtonElement>('show-all')
@@ -54,6 +61,7 @@ const footerStatus = $<HTMLSpanElement>('footer-status')
 let currentTab: chrome.tabs.Tab | null = null
 let status: AppStatus = { appOpen: false, unlocked: false, appUrl: '' }
 let entries: ExtensionLoginSummary[] = []
+let generatedValue = ''
 let busy = false
 let searchTimer: number | undefined
 let searchListenerReady = false
@@ -105,7 +113,8 @@ function renderStatus() {
   pairButton.hidden = true
   activateInlineButton.hidden = true
   focusAppButton.hidden = true
-  searchWrap.hidden = true
+  searchWrap.hidden = false
+  searchInput.disabled = true
   results.replaceChildren()
   empty.hidden = true
   showAllButton.hidden = true
@@ -149,6 +158,7 @@ function renderStatus() {
   }
 
   searchWrap.hidden = false
+  searchInput.disabled = false
   if (status.hostAccess === false) {
     showMessage(
       'Activez le menu dans les champs pour remplir les formulaires directement.',
@@ -288,6 +298,32 @@ async function fillEntry(itemId: string) {
   }
 }
 
+function regeneratePassword(): void {
+  try {
+    generatedValue = generatePassword(DEFAULT_PASSWORD_OPTIONS)
+    generatedPassword.textContent = generatedValue
+  } catch {
+    generatedValue = ''
+    generatedPassword.textContent = ''
+    showMessage(t('error_generic'), 'error')
+  }
+}
+
+function openGenerator(): void {
+  generatorPanel.hidden = false
+  regeneratePassword()
+}
+
+async function copyGeneratedPassword(): Promise<void> {
+  if (!generatedValue) return
+  try {
+    await navigator.clipboard.writeText(generatedValue)
+    showMessage(t('popup_copied'), 'success')
+  } catch {
+    showMessage(t('error_generic'), 'error')
+  }
+}
+
 async function init() {
   const [tab] = await api.tabs.query({ active: true, currentWindow: true })
   currentTab = tab ?? null
@@ -315,6 +351,20 @@ async function init() {
     })
   }
 }
+
+generateButton.addEventListener('click', () => {
+  if (generatorPanel.hidden) openGenerator()
+  else generatorPanel.hidden = true
+})
+
+generatorCloseButton.addEventListener('click', () => {
+  generatorPanel.hidden = true
+})
+
+regenerateButton.addEventListener('click', regeneratePassword)
+copyGeneratedButton.addEventListener('click', () => {
+  void copyGeneratedPassword()
+})
 
 openAppButton.addEventListener('click', () => {
   void send({ type: 'OPEN_APP' }).then(() => window.close())

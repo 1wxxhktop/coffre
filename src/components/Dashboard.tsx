@@ -6,10 +6,12 @@ import {
   CreditCard,
   Fingerprint,
   Folder,
+  HardDrive,
   KeyRound,
   LayoutGrid,
   Link2,
   Plus,
+  RefreshCw,
   ShieldAlert,
   ShieldCheck,
   Star,
@@ -18,7 +20,7 @@ import {
 } from 'lucide-react'
 import { ItemIcon } from './ItemIcon'
 import { useI18n } from '../state/I18nProvider'
-import { formatDate } from '../lib/settings'
+import { formatDate, formatDateTime } from '../lib/settings'
 import {
   expiryBadgeLabel,
   expiryTone,
@@ -47,6 +49,8 @@ interface DashboardProps {
   securityReport: SecurityReport
   expiryEvents: ExpiryEvent[]
   readOnly: boolean
+  syncPending: boolean
+  lastSavedAt: string | null
   onNewItem: () => void
   onGeneratePassword: () => void
   onOpenSecurity: () => void
@@ -55,6 +59,7 @@ interface DashboardProps {
   onOpenFilter: (filter: ItemFilter) => void
   onOpenVault: (vaultId: string) => void
   onAddVault: () => void
+  onOpenSettings: () => void
 }
 
 interface WatchCategory {
@@ -73,6 +78,8 @@ export function Dashboard({
   securityReport,
   expiryEvents,
   readOnly,
+  syncPending,
+  lastSavedAt,
   onNewItem,
   onGeneratePassword,
   onOpenSecurity,
@@ -81,6 +88,7 @@ export function Dashboard({
   onOpenFilter,
   onOpenVault,
   onAddVault,
+  onOpenSettings,
 }: DashboardProps) {
   const { tt } = useI18n()
   const activeItems = items.filter((item) => !item.deletedAt)
@@ -481,7 +489,7 @@ export function Dashboard({
                       <strong>{vault.name}</strong>
                       <small>
                         {vault.itemCount === 0
-                          ? 'Aucun élément'
+                          ? tt('Aucun élément')
                           : `${vault.itemCount} élément${vault.itemCount > 1 ? 's' : ''}`}
                         {issues > 0 ? ` · ${issues} à revoir` : ' · aucun problème'}
                       </small>
@@ -491,6 +499,42 @@ export function Dashboard({
                 )
               })}
             </div>
+          </section>
+
+          <section className="dashboard-card">
+            <header className="dashboard-card__head">
+              <div>
+                <h3>{tt('Stockage')}</h3>
+                <p>{tt('Chiffré localement, sans serveur.')}</p>
+              </div>
+            </header>
+            <div className="dashboard-status">
+              <span className={`dashboard-status__icon ${syncPending ? 'is-warning' : ''}`}>
+                {syncPending ? <RefreshCw size={17} /> : <HardDrive size={17} />}
+              </span>
+              <span className="dashboard-status__body">
+                <strong>
+                  {tt(syncPending ? 'Synchronisation en attente' : 'Coffre local à jour')}
+                </strong>
+                <small>
+                  {lastSavedAt
+                    ? `${tt('Dernière écriture :')} ${formatDateTime(lastSavedAt)}`
+                    : tt('Aucune écriture locale')}
+                </small>
+              </span>
+              {syncPending && (
+                <button
+                  type="button"
+                  className="button button--secondary button--sm"
+                  onClick={onOpenSettings}
+                >
+                  {tt('Réglages')}
+                </button>
+              )}
+            </div>
+            <p className="dashboard-storage-note">
+              {tt('3 sauvegardes locales tournantes · AES-256-GCM')}
+            </p>
           </section>
 
           <section className="dashboard-card">

@@ -110,3 +110,113 @@ fn ouvre_le_vecteur_genere_par_rust() {
         Some("old-rust")
     );
 }
+
+#[test]
+fn cree_modifie_supprime_et_signe_un_element() {
+    let original = fixture("v4.coffre.json");
+    let mut opened = open(&original, PASSWORD).expect("v4");
+    let content = serde_json::json!({
+        "type": "login",
+        "title": "Créé par Rust",
+        "favorite": false,
+        "notes": "",
+        "tags": [],
+        "customFields": [],
+        "attachments": [],
+        "deletedAt": null,
+        "expiresAt": "",
+        "username": "rust",
+        "password": "s3cret-rust",
+        "urls": ["https://rust.example"],
+        "totp": "",
+    });
+    let new_id = coffre_core::create_item(
+        &mut opened.file,
+        &opened.session,
+        &opened.vaults[0].id,
+        content.clone(),
+        "2026-11-08T21:00:00.000Z",
+    )
+    .expect("création");
+
+    let mut updated = content;
+    updated["title"] = serde_json::json!("Créé puis modifié par Rust");
+    coffre_core::update_item(
+        &mut opened.file,
+        &opened.session,
+        &new_id,
+        updated,
+        "2026-11-08T21:01:00.000Z",
+    )
+    .expect("modification");
+
+    let signed = coffre_core::sign(
+        opened.file.clone(),
+        &mut opened.session,
+        Some(&original),
+        "w_test_rust",
+        "2026-11-08T21:02:00.000Z",
+    )
+    .expect("signature");
+    assert!(signed.revision.unwrap_or(0) > 7);
+    let reopened = open(&signed, PASSWORD).expect("réouverture");
+    assert_eq!(reopened.integrity, IntegrityState::Valid);
+    assert_eq!(reopened.items.len(), 3);
+    assert!(reopened.items.iter().any(|item| {
+        item.id == new_id
+            && item.content.get("title").and_then(|value| value.as_str())
+                == Some("Créé puis modifié par Rust")
+    }));
+
+    let mut deletion_file = signed.clone();
+    let mut deletion_session = open(&signed, PASSWORD).expect("session").session;
+    coffre_core::remove_item(&mut deletion_file, &new_id).expect("suppression");
+    let deleted = coffre_core::sign(
+        deletion_file,
+        &mut deletion_session,
+        Some(&signed),
+        "w_test_rust",
+        "2026-11-08T21:03:00.000Z",
+    )
+    .expect("signature suppression");
+    assert!(
+        deleted
+            .tombstones
+            .as_ref()
+            .unwrap()
+            .iter()
+            .any(|tombstone| tombstone.kind == "item" && tombstone.id == new_id)
+    );
+    let reopened = open(&deleted, PASSWORD).expect("après suppression");
+    assert!(reopened.items.iter().all(|item| item.id != new_id));
+}
+
+#[test]
+fn change_le_mot_de_passe_et_reenveloppe_les_cles() {
+    let original = fixture("v4.coffre.json");
+    let mut opened = open(&original, PASSWORD).expect("v4");
+    let new_password = "nouveau mot de passe de test solide";
+    let rotated = coffre_core::rotate_password(
+        &opened.file,
+        &mut opened.session,
+        new_password,
+        &opened.file.kdf,
+        "2026-11-08T21:10:00.000Z",
+    )
+    .expect("rotation");
+    assert_eq!(rotated.key_epoch, Some(2));
+    let signed = coffre_core::sign(
+        rotated,
+        &mut opened.session,
+        Some(&original),
+        "w_test_rust",
+        "2026-11-08T21:11:00.000Z",
+    )
+    .expect("signature rotation");
+    let reopened = open(&signed, new_password).expect("nouveau mot de passe");
+    assert_eq!(reopened.integrity, IntegrityState::Valid);
+    assert!(matches!(
+        open(&signed, PASSWORD),
+        Err(CoreError::WrongPassword)
+    ));
+}

@@ -1362,7 +1362,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                   <label className="file-drop">
                     <input
                       type="file"
-                      accept=".json,.csv,application/json,text/csv"
+                      accept=".json,.csv,.xml,.1pux,application/json,text/csv,application/xml,text/xml"
                       onChange={(event) => {
                         void selectSourceFile(event.target.files?.[0] ?? null)
                         event.target.value = ''
@@ -1371,7 +1371,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     />
                     <Upload size={20} />
                     <span>
-                      {sourceFile ? sourceFile.name : 'Choisir un fichier JSON, CSV ou 1PUX'}
+                      {sourceFile ? sourceFile.name : 'Choisir un fichier JSON, CSV, XML ou 1PUX'}
                     </span>
                     <small>{tt("Les éléments sont ajoutés au coffre choisi, puis chiffrés.")}</small>
                   </label>
@@ -1394,7 +1394,9 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                             ? 'CSV'
                             : sourceItems.format === '1pux'
                               ? '1PUX'
-                              : 'JSON'}{' '}
+                              : sourceItems.format === 'keepass-xml'
+                                ? 'XML KeePass'
+                                : 'JSON'}{' '}
                           {importSourceLabel(sourceItems.source)}
                           {sourcePreview.duplicates.length > 0 &&
                             ` · ${sourcePreview.duplicates.length} doublon${

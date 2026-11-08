@@ -52,10 +52,10 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   k-anonymat (préfixe SHA-1 de 5 caractères, `Add-Padding`). Résultats en
   mémoire uniquement, intégrés au score et aux catégories ; desktop via Rust,
   Web via un hôte CSP dédié.
-- **Cœur Rust partagé** : crate `coffre-core` en lecture seule v1 à v4,
-  crypto identique, manifeste/MAC v4, buffers `Zeroizing`, vecteurs croisés
-  TypeScript ↔ Rust et CI Linux/macOS/Windows. Les mutations et la fusion
-  restent à porter.
+- **Cœur Rust partagé** : crate `coffre-core` v1 à v4, crypto identique,
+  manifeste/MAC v4, mutations d’éléments, signature v4 et rotation de mot de
+  passe, buffers `Zeroizing`, vecteurs croisés TypeScript ↔ Rust et CI
+  Linux/macOS/Windows. La fusion L3 et `uniffi` restent à porter.
 - **Synchronisation** : dossier choisi par l’utilisateur, un fichier par
   appareil, fusion v4 par horloges et pierres tombales, vérification du MAC
   distant, adoption d’une nouvelle époque de clés, archivage des conflits et
@@ -73,8 +73,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 333 tests unitaires (38 fichiers), 120 exécutions Playwright
-  (58 parcours sur Chromium et WebKit), 13 tests Rust desktop + 5 tests
+- **Tests** : 338 tests unitaires (38 fichiers), 120 exécutions Playwright
+  (60 parcours sur Chromium et WebKit), 13 tests Rust desktop + 7 tests
   `coffre-core`, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
   verrouillage), vérification HIBP interceptée, relais natif simulé et

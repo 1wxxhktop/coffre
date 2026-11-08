@@ -160,5 +160,23 @@
   },
   "error_generic": {
     "message": "Opération impossible."
+  },
+  "popup_generate": {
+    "message": "Générer un mot de passe"
+  },
+  "popup_generateClose": {
+    "message": "Fermer le générateur"
+  },
+  "popup_generatedTitle": {
+    "message": "Mot de passe généré"
+  },
+  "popup_regenerate": {
+    "message": "Régénérer"
+  },
+  "popup_copy": {
+    "message": "Copier"
+  },
+  "popup_copied": {
+    "message": "Mot de passe copié."
   }
 }
