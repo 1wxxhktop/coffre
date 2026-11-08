@@ -538,6 +538,16 @@ function makeDraft(
         fingerprint: '',
         comment: '',
       } as ItemDraft
+    case 'wifi':
+      return {
+        ...emptyDraft('wifi', vaultId),
+        ...common,
+        type: 'wifi',
+        ssid: '',
+        password: '',
+        security: 'WPA',
+        hidden: false,
+      } as ItemDraft
   }
 }
 
@@ -1391,6 +1401,8 @@ function fingerprintKey(item: FingerprintItem): string {
       return `passkey|${title}|${normalizeText(item.rpId)}|${normalizeText(item.userName)}`
     case 'ssh-key':
       return `ssh-key|${title}|${normalizeText(item.fingerprint)}`
+    case 'wifi':
+      return `wifi|${title}|${normalizeText(item.ssid)}`
   }
 }
 

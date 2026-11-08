@@ -557,6 +557,15 @@ const sshKeyContentSchema = z.object({
   comment: z.string().max(500),
 })
 
+const wifiContentSchema = z.object({
+  ...itemBaseSchema,
+  type: z.literal('wifi'),
+  ssid: z.string().max(100),
+  password: z.string().max(500),
+  security: z.enum(['WPA', 'WEP', 'nopass']),
+  hidden: z.boolean(),
+})
+
 const itemContentSchema = z.discriminatedUnion('type', [
   loginContentSchema,
   noteContentSchema,
@@ -564,6 +573,7 @@ const itemContentSchema = z.discriminatedUnion('type', [
   identityContentSchema,
   passkeyContentSchema,
   sshKeyContentSchema,
+  wifiContentSchema,
 ])
 
 /** Valide le contenu déchiffré d’un élément (imports, partages hors ligne). */
@@ -2004,6 +2014,18 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         publicKey: cleanText(draft.publicKey, 20_000),
         fingerprint: cleanText(draft.fingerprint, 500),
         comment: cleanText(draft.comment, 500),
+      }
+    case 'wifi':
+      return {
+        ...common,
+        type: 'wifi',
+        ssid: cleanText(draft.ssid, 100),
+        password: (draft.password ?? '').slice(0, 500),
+        security:
+          draft.security === 'WEP' || draft.security === 'nopass'
+            ? draft.security
+            : 'WPA',
+        hidden: Boolean(draft.hidden),
       }
   }
 }

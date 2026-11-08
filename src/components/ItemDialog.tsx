@@ -67,6 +67,8 @@ import {
 import { changePasswordUrl, safeExternalUrl as safeUrl } from '../lib/url'
 import { handleExternalClick, isTauriRuntime, openExternal } from '../lib/external'
 import { isTotpUri } from '../lib/totp'
+import { qrDataUrl } from '../lib/qr'
+import { wifiQrPayload } from '../lib/wifi'
 import {
   CUSTOM_FIELD_TYPES,
   emptyDraft,
@@ -75,11 +77,13 @@ import {
   MAX_ATTACHMENTS_PER_ITEM,
   MAX_ATTACHMENTS_TOTAL_BYTES,
   MAX_CUSTOM_FIELDS,
+  WIFI_SECURITY,
   type AttachmentMeta,
   type CustomField,
   type CustomFieldType,
   type ItemDraft,
   type ItemType,
+  type WifiSecurity,
   type VaultItem,
   type VaultSummary,
 } from '../lib/types'
@@ -953,7 +957,7 @@ export function ItemDialog({
                   role="tablist"
                   aria-label={tt('Type d’élément')}
                 >
-                  {(['login', 'note', 'card', 'identity', 'ssh-key'] as ItemType[]).map((type) => (
+                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi'] as ItemType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -1395,6 +1399,58 @@ export function ItemDialog({
                 </div>
               )}
 
+              {draft.type === 'wifi' && (
+                <div className="form-grid">
+                  <label className="field field--full">
+                    <span className="field__label">{tt('SSID')}</span>
+                    <input
+                      className="input"
+                      value={draft.ssid}
+                      onChange={(event) => patch({ ssid: event.target.value })}
+                      maxLength={100}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Mot de passe')}</span>
+                    <input
+                      className="input"
+                      type="password"
+                      value={draft.password}
+                      onChange={(event) => patch({ password: event.target.value })}
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Sécurité')}</span>
+                    <select
+                      className="input"
+                      value={draft.security}
+                      onChange={(event) =>
+                        patch({ security: event.target.value as WifiSecurity })
+                      }
+                    >
+                      {WIFI_SECURITY.map((security) => (
+                        <option key={security} value={security}>
+                          {security === 'WPA'
+                            ? tt('WPA/WPA2/WPA3')
+                            : security === 'WEP'
+                              ? tt('WEP')
+                              : tt('Sans mot de passe')}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="checkbox field--full">
+                    <input
+                      type="checkbox"
+                      checked={draft.hidden}
+                      onChange={(event) => patch({ hidden: event.target.checked })}
+                    />
+                    <span>{tt('Réseau masqué')}</span>
+                  </label>
+                </div>
+              )}
+
               <label className="field">
                 <span className="field__label">{tt("Notes")}</span>
                 <textarea
@@ -1782,6 +1838,7 @@ function ItemDetails({
   onDeleteAttachment,
 }: ItemDetailsProps) {
   const { tt } = useI18n()
+  const [showWifiQr, setShowWifiQr] = useState(false)
   const changeUrl = item.type === 'login' ? changePasswordUrl(item.urls) : null
 
   return (
@@ -2023,6 +2080,49 @@ function ItemDetails({
           />
           <DetailRow label="Commentaire" value={item.comment} />
         </div>
+      )}
+
+      {item.type === 'wifi' && (
+        <>
+          <div className="detail-list">
+            <DetailRow
+              label="SSID"
+              value={item.ssid}
+              onCopy={() => void copyValue(item.ssid, 'SSID')}
+              copied={copied === 'SSID'}
+            />
+            <SecretRow
+              label="Mot de passe"
+              value={item.password}
+              revealed={revealed.has('wifi-password')}
+              onToggle={() => toggleReveal('wifi-password')}
+              onCopy={() => void copyValue(item.password, 'Mot de passe')}
+              copied={copied === 'Mot de passe'}
+            />
+            <DetailRow
+              label="Sécurité"
+              value={item.security === 'nopass' ? tt('Sans mot de passe') : item.security}
+            />
+            <DetailRow label="Réseau masqué" value={item.hidden ? tt('Oui') : tt('Non')} />
+          </div>
+          <div className="detail-list detail-list--custom">
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => setShowWifiQr((visible) => !visible)}
+            >
+              {showWifiQr
+                ? tt('Masquer le QR code Wi-Fi')
+                : tt('Afficher le QR code Wi-Fi')}
+            </button>
+            {showWifiQr && (
+              <div className="offline-share__qr">
+                <img src={qrDataUrl(wifiQrPayload(item))} alt={tt('QR code Wi-Fi')} />
+                <span>{tt('Scannez ce code pour rejoindre le réseau.')}</span>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {item.expiresAt && (

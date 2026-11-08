@@ -6,7 +6,11 @@
  * sections personnalisées. Le format de fichier, lui, est propre à Coffre.
  */
 
-export const ITEM_TYPES = ['login', 'note', 'card', 'identity', 'passkey', 'ssh-key'] as const
+export const ITEM_TYPES = ['login', 'note', 'card', 'identity', 'passkey', 'ssh-key', 'wifi'] as const
+
+export const WIFI_SECURITY = ['WPA', 'WEP', 'nopass'] as const
+
+export type WifiSecurity = (typeof WIFI_SECURITY)[number]
 
 export type ItemType = (typeof ITEM_TYPES)[number]
 
@@ -143,6 +147,15 @@ export interface SshKeyItem extends ItemBase {
   comment: string
 }
 
+/** Réseau Wi-Fi stocké avec son mot de passe et sa sécurité. */
+export interface WifiItem extends ItemBase {
+  type: 'wifi'
+  ssid: string
+  password: string
+  security: WifiSecurity
+  hidden: boolean
+}
+
 export type VaultItem =
   | LoginItem
   | NoteItem
@@ -150,6 +163,7 @@ export type VaultItem =
   | IdentityItem
   | PasskeyItem
   | SshKeyItem
+  | WifiItem
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -533,6 +547,15 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         fingerprint: '',
         comment: '',
       }
+    case 'wifi':
+      return {
+        ...base,
+        type: 'wifi',
+        ssid: '',
+        password: '',
+        security: 'WPA',
+        hidden: false,
+      }
   }
 }
 
@@ -552,6 +575,8 @@ export function itemSubtitle(item: VaultItem): string {
       return item.userName || item.rpId || 'Passkey'
     case 'ssh-key':
       return item.comment || item.fingerprint || 'Clé SSH'
+    case 'wifi':
+      return item.ssid || 'Wi-Fi'
   }
 }
 
@@ -569,5 +594,7 @@ export function itemTypeLabel(type: ItemType): string {
       return 'Passkey'
     case 'ssh-key':
       return 'Clé SSH'
+    case 'wifi':
+      return 'Wi-Fi'
   }
 }
