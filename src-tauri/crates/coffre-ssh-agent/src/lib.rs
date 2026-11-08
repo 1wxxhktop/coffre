@@ -779,6 +779,34 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
     }
 
     #[test]
+    fn signe_rsa_sha2_512() {
+        let identity = Identity::from_openssh(RSA_TEST_KEY, "RSA de test").unwrap();
+        let data = b"session RSA 512";
+        let response = handle_request(
+            &request_sign(&identity, data, SSH_AGENT_RSA_SHA2_512),
+            std::slice::from_ref(&identity),
+            &|_: &ApprovalRequest| true,
+        );
+        let (algorithm, signature) = signature_from_response(&response);
+        assert_eq!(algorithm, "rsa-sha2-512");
+        let public = identity.public_key.key_data().rsa().unwrap();
+        let n = rsa::BigUint::from_bytes_be(public.n.as_positive_bytes().unwrap());
+        let e = rsa::BigUint::from_bytes_be(public.e.as_positive_bytes().unwrap());
+        let verifying =
+            rsa::pkcs1v15::VerifyingKey::<Sha512>::new(rsa::RsaPublicKey::new(n, e).unwrap());
+        let signature = rsa::pkcs1v15::Signature::try_from(signature.as_slice()).unwrap();
+        rsa::signature::Verifier::verify(&verifying, data, &signature).unwrap();
+    }
+
+    #[test]
+    fn refuse_les_messages_hors_limites() {
+        let too_large = (MAX_MESSAGE_SIZE as u32 + 1).to_be_bytes().to_vec();
+        assert!(read_frame(&mut too_large.as_slice()).is_err());
+        let empty = 0u32.to_be_bytes().to_vec();
+        assert!(read_frame(&mut empty.as_slice()).is_err());
+    }
+
+    #[test]
     fn refuse_une_cle_chiffree() {
         let mut key = PrivateKey::random(&mut OsRng, Algorithm::Ed25519).unwrap();
         key.set_comment("test");
