@@ -110,6 +110,13 @@ export const EN_TEXT: Record<string, string> = {
   'Sel unique par coffre, clé AES de 256 bits.': 'Unique salt per vault, 256-bit AES key.',
   Sombre: 'Dark',
   Stockage: 'Storage',
+  'Chiffré localement, sans serveur.': 'Encrypted locally, no server.',
+  'Coffre local à jour': 'Local vault up to date',
+  'Synchronisation en attente': 'Sync pending',
+  'Dernière écriture :': 'Last write:',
+  'Aucune écriture locale': 'No local write yet',
+  '3 sauvegardes locales tournantes · AES-256-GCM':
+    '3 rotating local backups · AES-256-GCM',
   'Suivre le système': 'Follow system',
   Sécurité: 'Security',
   'Thème sombre, clair ou aligné sur le système.': 'Dark, light or system theme.',
