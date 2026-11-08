@@ -18,6 +18,7 @@ use ssh_key::private::{KeypairData, RsaKeypair};
 use ssh_key::{HashAlg, PrivateKey, PublicKey};
 use std::fmt;
 use std::io::{self, Read, Write};
+#[cfg(unix)]
 use std::sync::Arc;
 use zeroize::Zeroizing;
 
@@ -688,7 +689,7 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
     #[test]
     fn socket_avec_permissions_restrictives() {
         use std::os::unix::fs::PermissionsExt;
-        let dir = std::env::temp_dir().join(format!(
+        let dir = std::path::PathBuf::from("/tmp").join(format!(
             "coffre-agent-test-{}-{}",
             std::process::id(),
             rand_core::RngCore::next_u64(&mut OsRng)
