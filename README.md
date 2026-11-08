@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 367 tests unitaires et
-> 61 parcours Playwright exécutés sur Chromium et WebKit (122 exécutions, 5 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 398 tests unitaires et
+> 62 parcours Playwright exécutés sur Chromium et WebKit (124 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
 > rapide optionnel par le trousseau du système et une disposition en colonnes
@@ -116,6 +116,34 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   vérification du MAC distant, changement d’époque de clés géré et conflits
   archivés dans l’historique. Sur Web, le handle de dossier est conservé dans
   IndexedDB ; Safari/Firefox gardent l’export/import manuel.
+- **Synchronisation locale directe** (desktop) : appairage par code/QR,
+  transport TCP chiffré par Noise XX, réception à la demande et fusion avec les
+  mêmes règles que la synchronisation par dossier. Aucun serveur, aucune
+  connexion Internet ; le port d’écoute n’est ouvert que pendant une réception.
+- **Modèles d’éléments personnalisés** : éditeur de types avec nom, icône et
+  champs texte, secret, URL, date ou texte long ; modèles chiffrés dans le
+  coffre avec une clé et une AAD dédiées, synchronisés avec le fichier et
+  conservés lors des changements de mot de passe et de la récupération.
+- **Coffre de fichiers chiffrés en flux** : blobs hors du fichier `.coffre`,
+  chiffrés par blocs de 64 Kio avec AES-256-GCM et construction STREAM,
+  détection de troncature, réordonnancement et substitution. Le noyau Rust et
+  le client Tauri sont en place ; le rattachement à l’interface et
+  l’enveloppe des clés par élément restent à faire.
+- **Alias e-mail hors ligne** : générateur d’adresses « plus »
+  (`prenom+site@domaine`) ou catch-all sur un domaine personnel, enregistré dans
+  l’élément, sans aucun appel réseau.
+- **Saisie automatique desktop** : depuis une connexion, masque Coffre, attend
+  que la fenêtre cible soit active puis tape une séquence compatible KeePass
+  (`{USERNAME}`, `{PASSWORD}`, `{TOTP}`, `{TAB}`, `{ENTER}`, `{DELAY n}`). Le
+  focus est vérifié avant chaque jeton et la saisie s’arrête s’il change.
+- **Journal d’activité chiffré** : déverrouillages, exports, changements de mot
+  de passe, appairages, partages et remplissages par l’extension, stockés
+  événement par événement dans le coffre et exportables en JSON.
+- **Mode voyage** (desktop) : seuls les coffres marqués « sûrs pour le voyage »
+  restent dans le fichier local ; les autres en sont retirés, y compris des
+  sauvegardes locales, sans pierre tombale de synchronisation. La désactivation
+  exige le mot de passe maître et restaure les coffres depuis la synchronisation
+  par dossier.
 - **Vérification d’intégrité** à la demande : déchiffre chaque coffre, élément,
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
@@ -409,6 +437,127 @@ explicite avant l’export ; le fichier doit être transféré uniquement vers u
 gestionnaire de confiance, puis supprimé. Le chiffrement du transport CXP n’est
 pas implémenté.
 
+### Modèles d’éléments
+
+Dans **Réglages → Modèles**, créez un type d’élément avec un nom, une icône et
+jusqu’à 30 champs. Chaque champ peut être un texte, un secret, une URL, une date
+ou un texte long, et peut être marqué comme remplissable.
+
+Les modèles sont stockés dans une section chiffrée du fichier `.coffre` avec une
+clé aléatoire par modèle et une AAD propre. Ils sont donc synchronisés et
+exportés avec le coffre, sans apparaître en clair. La clé de récupération et le
+changement de mot de passe ré-enveloppent aussi ces clés. Le bouton « Créer un
+élément » d’un modèle crée une note avec ses champs personnalisés et conserve
+la référence `templateId`. Les champs marqués `fillable` sont proposés dans l’onglet
+**Modèles** du menu de l’extension et remplis par rapprochement de libellé.
+
+### Coffre de fichiers chiffrés en flux
+
+Les documents volumineux sont stockés hors du fichier `.coffre`, dans
+`vault/blobs/<id>`. Chaque blob est chiffré par blocs de 64 Kio avec
+AES-256-GCM ; le nonce STREAM combine un préfixe aléatoire, un compteur et un
+drapeau de dernier bloc authentifié. La troncature, le réordonnancement et la
+substitution de blocs sont détectés avant toute écriture en clair.
+
+Dans la fiche d’un élément, le bouton **Document volumineux** choisit un
+fichier local, le chiffre en blob et ajoute une pièce jointe dont la clé est
+stockée dans le contenu chiffré de l’élément. Le téléchargement déchiffre vers
+un emplacement choisi par l’utilisateur ; la suppression retire aussi le blob.
+Les images et PDF peuvent être prévisualisés en mémoire depuis la fiche. La
+synchronisation par dossier copie les blobs référencés dans
+`Coffre/<idFichier>/blobs/` et importe ceux qui manquent. Les réglages de
+stockage affichent le nombre et la taille des blobs et permettent de supprimer
+les blobs orphelins. Les tests couvrent troncature, substitution et
+réordonnancement ; un test manuel de 1 Gio est disponible avec
+`cargo test -p coffre --lib blob_store::tests::fichier_1_gio -- --ignored`. La
+synchronisation locale F2 échange aussi les blobs manquants après le fichier
+`.coffre`, par blocs de 256 Kio et avec vérification des identifiants. Un test
+Rust en boucle locale vérifie le transfert entre deux dossiers de blobs.
+
+### Alias e-mail
+
+Depuis une connexion, le bouton **Alias e-mail** génère localement une adresse
+« plus » (`prenom+site@domaine`) ou catch-all (`site@domaine`) à partir d’une
+adresse de base et d’une étiquette de site. L’adresse est enregistrée dans
+l’élément (`emailAlias`) et devient l’identifiant si celui-ci est vide. Les
+préférences d’adresse de base et de mode sont mémorisées localement.
+
+Le générateur est entièrement hors ligne. Une intégration **opt-in**
+SimpleLogin/addy.io permet aussi de demander un alias au service choisi : la
+requête part uniquement après saisie d’une clé API et clic explicite. La clé
+peut être enregistrée chiffrée dans le coffre (`aliasKeys`, une clé par
+service) et réutilisée. Le menu de l’extension propose aussi **Créer un alias
+e-mail** et copie l’adresse générée, sans requête réseau.
+
+### Saisie automatique desktop
+
+Depuis une connexion, le bouton **Saisie automatique** lance un compte à
+rebours de trois secondes. Coffre masque alors sa fenêtre ; activez
+l’application cible. La séquence par défaut est
+`{USERNAME}{TAB}{PASSWORD}{ENTER}`. Les jetons `{TOTP}`, `{TAB}`, `{ENTER}`,
+`{SPACE}`, `{BACKSPACE}`, `{ESC}`, `{DELAY n}` et `{{` / `}}` sont pris en
+charge.
+
+Rust vérifie la fenêtre active avant chaque jeton et annule la saisie si le
+focus change. Sur macOS, l’autorisation **Accessibilité** est requise et
+expliquée par le message d’erreur. Le raccourci global **Cmd+Shift+A** (Ctrl+Shift+A sur Windows/Linux) capture la
+fenêtre active avant d’ouvrir Coffre, propose les connexions dont le titre ou
+l’URL correspond, puis lance la saisie après masquage. La séquence est stockée
+dans le champ optionnel `autotypeSequence` de l’élément, mais l’éditeur de champ
+dédié n’est pas encore exposé. Les validations Windows/Linux restent à faire.
+
+### Journal d’activité
+
+Dans **Réglages → Journal d’activité**, consultez les événements sensibles
+conservés dans le coffre : déverrouillages, exports, changements de mot de
+passe, appairages, partages et remplissages par l’extension. Chaque événement
+est chiffré séparément avec la clé maîtresse et une AAD propre, puis fusionné
+entre appareils par identifiant. Le journal est plafonné à 5 000 événements et
+peut être exporté en JSON.
+
+Limites : les échecs de déverrouillage ne peuvent pas être chiffrés tant que le
+coffre est verrouillé et ne sont donc pas enregistrés ; une récupération par
+phrase ou parts réinitialise le journal, car les anciens événements sont scellés
+par l’ancienne clé maîtresse.
+
+### Mode voyage
+
+Dans **Réglages → Synchronisation → Mode voyage**, cochez les coffres à
+conserver sur l’appareil, puis saisissez le mot de passe maître. Les autres
+coffres sont retirés du fichier local et des trois sauvegardes, sans créer de
+pierre tombale : les autres appareils ne voient pas de suppression.
+
+La désactivation vérifie le mot de passe maître et lit les fichiers d’une
+synchronisation par dossier déjà configurée. Elle fusionne les coffres
+manquants, réécrit le fichier local et efface l’état de voyage. Si l’autre
+appareil a changé de mot de passe, un second champ permet de saisir le mot de
+passe de la nouvelle époque.
+
+Cette protection vise l’inspection de l’appareil, **pas une contrainte exercée
+sur la personne** : un adversaire qui peut forcer le déverrouillage ou exiger le
+mot de passe n’est pas arrêté par le mode voyage. Une source de synchronisation
+ou une sauvegarde contenant les coffres masqués est indispensable avant de
+désactiver le mode.
+
+### Synchronisation locale directe
+
+Sur desktop, deux appareils du même réseau Wi-Fi peuvent s’appairer sans
+dossier partagé ni service cloud :
+
+1. dans **Réglages → Synchronisation → Synchronisation locale**, créer un code
+   d’appairage sur le premier appareil ;
+2. scanner le QR code ou coller le code `coffre-lan://pair/…` sur le second ;
+3. lancer **Recevoir une synchronisation** sur un appareil, puis
+   **Synchroniser** sur l’autre.
+
+Le transport utilise Noise `XX_25519_ChaChaPoly_BLAKE2s` ; les clés statiques
+des appareils sont conservées localement et un appareil non appairé est refusé
+avant tout échange de fichier. Le port TCP `47823` n’est ouvert que pendant la
+fenêtre de réception (deux minutes). Pendant cette fenêtre, l’appareil
+s’annonce en mDNS sous `_coffre._tcp.local.` ; le bouton **Découvrir les
+appareils** liste les pairs connus et permet de mettre à jour leur adresse si
+elle a changé. Les applications mobiles et le scan caméra restent à faire.
+
 ## Démarrage rapide
 
 Prérequis : [Bun](https://bun.sh/) ≥ 1.4 (recommandé) ou Node.js ≥ 22.12.
@@ -489,9 +638,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (367 tests) |
+| `bun run test` | Tests Vitest (398 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (122 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (124 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
@@ -647,17 +796,17 @@ trousseau et de la nouvelle interface) :
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB et reste stable ; hors vérification optionnelle des fuites, elle
   n’ouvre aucune connexion réseau ;
-- les 122 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
+- les 124 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
-- `cargo test --lib` exécute 13 tests : stockage natif (rotation, permissions,
+- `cargo test --lib` exécute 18 tests : stockage natif (rotation, permissions,
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
 - `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent`
-  (11 + 1 + 9 + 17 tests) ouvre les
-  fixtures TypeScript v1 à v4, crée/modifie/supprime, signe en v4, tourne le
-  mot de passe, fusionne deux fichiers, exerce la façade UniFFI et relit les
-  vecteurs Rust par le test TypeScript (`src/lib/coffreCoreVector.test.ts`).
+  (11 + 1 + 9 + 17 tests) ouvre les fixtures TypeScript v1 à v4, crée/modifie/supprime, signe
+  en v4, tourne le mot de passe, fusionne deux fichiers, exerce la façade
+  UniFFI et relit les vecteurs Rust par le test TypeScript
+  (`src/lib/coffreCoreVector.test.ts`).
 
 Le crate `coffre-core-ffi` expose les opérations en JSON via UniFFI. Après
 `cargo build -p coffre-core-ffi`, les bindings se génèrent depuis `src-tauri` :
@@ -706,6 +855,62 @@ valeurs uniquement par l’environnement du processus enfant et propage son code
 de sortie. Le mot de passe maître n’apparaît jamais dans `argv`. Les secrets ne
 sont écrits sur stdout que pour `get`, `totp` et la commande lancée par `run`.
 
+**Fichiers `.env`.** `run --env-file` lit des références
+`coffre://<coffre>/<élément>/<champ>` sans jamais écrire les valeurs sur disque.
+`*` remplace le nom du coffre pour chercher dans tous les coffres ; le champ
+peut être `password`, `username`, `notes`, `url` ou le libellé d’un champ
+personnalisé.
+
+```bash
+cat > .env.coffre <<'EOF'
+API_KEY=coffre://Personnel/API%20interne/password
+API_USER=coffre://*/API%20interne/username
+EOF
+./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre run \
+  --env-file .env.coffre -- ./dev.sh
+```
+
+**Signature SSH.** `ssh-sign <clé> <fichier> --namespace git` produit une
+signature `SSHSIG` compatible `ssh-keygen -Y verify`, sans écrire la clé privée
+sur disque. Elle peut servir à signer un commit ou un tag hors de Git.
+
+```bash
+coffre-cli ~/vault.coffre ssh-sign deploy commit.txt --namespace git
+```
+
+Pour Git :
+
+```bash
+export COFFRE_VAULT=~/Documents/vault.coffre
+git config --global gpg.format ssh
+git config --global gpg.ssh.program /chemin/coffre-git-sign
+git config --global user.signingkey deploy
+git commit -S -m "commit signé"
+```
+
+Le programme lit `COFFRE_VAULT` et, si présent, `COFFRE_PASSWORD` ; sinon il
+demande le mot de passe sur le terminal.
+
+**Configuration SSH.** `ssh-config --agent <socket>` imprime un bloc `Host`
+par clé SSH du coffre, avec `IdentityAgent` et `IdentitiesOnly yes`. Le socket
+doit être servi par l’agent SSH Coffre ; aucun fichier de clé privée n’est
+écrit.
+
+```bash
+./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre \
+  ssh-config --agent ~/.coffre/ssh-agent.sock
+```
+
+**Assistant Git.** `git-credential get --approve` lit `host`/`url` et
+`username` sur stdin et renvoie `username=` / `password=` pour un élément de
+connexion dont l’URL correspond à l’hôte. Sans `--approve`, aucune valeur n’est
+divulguée. `store` et `erase` ne modifient pas le coffre.
+
+```bash
+git config --global credential.helper \
+  '!f() { ./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre git-credential "$1" --approve; }; f'
+```
+
 Cette première version lit le mot de passe dans le terminal. Le déverrouillage
 via le socket de l’application desktop (L4) reste à raccorder dans une tranche
 ultérieure de L11.
@@ -732,7 +937,9 @@ Lorsque le déverrouillage par Touch ID est activé, l’approbation d’une
 signature demande aussi une authentification biométrique réussie. Une case
 optionnelle, décochée par défaut, permet d’autoriser la même clé pendant
 15 secondes pour les opérations qui enchaînent plusieurs signatures. Le named
-pipe Windows reste à implémenter.
+pipe Windows reste à implémenter. Les clés FIDO2 (`sk-ssh-ed25519`, `sk-ecdsa-*`) sont refusées avec
+un message explicite : leur signature exige le matériel, que le noyau ne pilote
+pas encore. La génération de `~/.ssh/config` par hôte reste à implémenter.
 
 Le binaire `coffre-ssh-agent` permet de l’utiliser dès maintenant dans un
 terminal :
@@ -1055,6 +1262,8 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 8. Optimisation du bundle et du temps de déverrouillage.
 
 ---
+
+La recette des jalons restants (deux machines, permissions système, mobile, audit) est décrite dans [`docs/QA-FINAL.md`](docs/QA-FINAL.md).
 
 ## Licence et attributions
 

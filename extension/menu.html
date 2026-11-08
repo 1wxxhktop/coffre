@@ -27,6 +27,17 @@
 
       <p id="message" class="message" hidden></p>
 
+      <div id="tabs" class="tabs" hidden>
+        <button id="tab-login" class="tab tab--active" type="button" data-kind="login" data-i18n="menu_tabLogins">Connexions</button>
+        <button id="tab-card" class="tab" type="button" data-kind="card" data-i18n="menu_tabCards">Cartes</button>
+        <button id="tab-identity" class="tab" type="button" data-kind="identity" data-i18n="menu_tabIdentities">Identités</button>
+        <button id="tab-custom" class="tab" type="button" data-kind="custom" data-i18n="menu_tabCustom">Modèles</button>
+      </div>
+
+      <div id="alias-wrap" class="search" hidden>
+        <button id="alias-button" class="button button--secondary" type="button" data-i18n="menu_alias">Créer un alias e-mail</button>
+      </div>
+
       <div id="search-wrap" class="search" hidden>
         <input
           id="search"
@@ -37,6 +48,12 @@
           aria-label="Rechercher un identifiant" data-i18n-aria-label="menu_searchLabel"
         />
       </div>
+
+      <label id="sensitive-wrap" class="sensitive" hidden>
+        <input id="include-sensitive" type="checkbox" />
+        <span data-i18n="menu_includeSensitive">Inclure le CVC et le PIN (action explicite)</span>
+      </label>
+
       <ul id="results" class="results"></ul>
       <p id="empty" class="empty" hidden></p>
 

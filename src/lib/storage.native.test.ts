@@ -52,6 +52,7 @@ import {
   loadBackupVaultFile,
   loadVaultFile,
   loadVaultState,
+  overwriteVaultBackups,
   restoreBackup,
   saveVaultFile,
   saveVaultState,
@@ -153,6 +154,18 @@ describe('stockage natif Tauri', () => {
     expect(
       native.calls.filter((call) => call.command === 'vault_write'),
     ).toHaveLength(1)
+  })
+
+  it('écrase les trois sauvegardes pour le mode voyage', async () => {
+    const file = await makeVault()
+    await overwriteVaultBackups(file)
+    const calls = native.calls.filter(
+      (call) => call.command === 'vault_backup_write',
+    )
+    expect(calls.map((call) => call.args.generation)).toEqual([1, 2, 3])
+    for (const generation of [1, 2, 3]) {
+      expect(native.backups.get(generation)).toContain(file.id)
+    }
   })
 
   it('lit un coffre natif existant sans consulter IndexedDB', async () => {

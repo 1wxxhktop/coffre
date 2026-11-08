@@ -29,6 +29,11 @@ import {
   itemAttachmentAad,
   itemContentAad,
   itemKeyAad,
+  activityAad,
+  aliasKeyAad,
+  templateContentAad,
+  templateKeyAad,
+  templateRecoveryAad,
   itemVersionAad,
   KDF_DEFAULTS,
   KDF_LIMITS,
@@ -52,16 +57,24 @@ import {
 import { normalizeDateOnly } from './expiry'
 import { normalizeRecoveryPhrase } from './recovery'
 import type {
+  ActivityEvent,
+  AliasKeyService,
   AttachmentMeta,
+  EncryptedAliasKeyRecord,
+  EncryptedActivityRecord,
   EncryptedAttachmentRecord,
   EncryptedItemRecord,
   EncryptedVaultRecord,
+  EncryptedTemplateRecord,
   EncryptedVersionRecord,
   ItemContent,
+  ItemTemplate,
+  TemplateField,
   ItemDraft,
   KdfParams,
   RecordClock,
   RecoveryEnvelope,
+  Sealed,
   RecoveryWrap,
   VaultFile,
   VaultIntegrity,
@@ -149,6 +162,9 @@ export interface OpenedVault {
   session: VaultSession
   vaults: VaultSummary[]
   items: VaultItem[]
+  templates: ItemTemplate[]
+  activity: ActivityEvent[]
+  aliasKeys: Partial<Record<AliasKeyService, string>>
   warnings: string[]
   /**
    * Vrai lorsque le MAC global est absent ou invalide sur un fichier v4 : le
@@ -366,10 +382,16 @@ const recoveryEnvelopeSchema = z.object({
   key: sealedSchema,
   guard: sealedSchema,
   wraps: z.array(recoveryWrapSchema).min(1).max(50),
+  templateWraps: z
+    .array(
+      z.object({ templateId: idSchema, key: sealedSchema }),
+    )
+    .max(500)
+    .optional(),
 })
 
 const tombstoneSchema = z.object({
-  kind: z.enum(['item', 'vault']),
+  kind: z.enum(['item', 'vault', 'template']),
   id: idSchema,
   deletedAt: z.string().min(1).max(40),
 })
@@ -377,6 +399,43 @@ const tombstoneSchema = z.object({
 const integritySchema = z.object({
   mac: z.string().min(1).max(128),
   key: sealedSchema,
+})
+
+const templateFieldSchema = z.object({
+  id: z.string().min(1).max(80),
+  label: z.string().min(1).max(80),
+  type: z.enum(['text', 'secret', 'url', 'date', 'multiline']),
+  required: z.boolean().optional(),
+  fillable: z.boolean().optional(),
+})
+
+const templateContentSchema = z.object({
+  name: z.string().min(1).max(80),
+  icon: z.string().max(16).default('📦'),
+  fields: z.array(templateFieldSchema).max(30),
+})
+
+const aliasKeyRecordSchema = z.object({
+  service: z.enum(['simplelogin', 'addy']),
+  data: sealedSchema,
+  createdAt: z.string().min(1).max(40),
+  clock: clockSchema.optional(),
+})
+
+const activityRecordSchema = z.object({
+  id: idSchema,
+  data: sealedSchema,
+  createdAt: z.string().min(1).max(40),
+  clock: clockSchema.optional(),
+})
+
+const templateRecordSchema = z.object({
+  id: idSchema,
+  key: sealedSchema,
+  content: sealedSchema,
+  createdAt: z.string().min(1).max(40),
+  updatedAt: z.string().min(1).max(40),
+  clock: clockSchema.optional(),
 })
 
 const vaultFileSchema = z.object({
@@ -390,6 +449,9 @@ const vaultFileSchema = z.object({
   items: z.array(itemRecordSchema).max(20_000),
   attachments: z.array(attachmentRecordSchema).max(20_000).default([]),
   versions: z.array(versionRecordSchema).max(20_000).default([]),
+  templates: z.array(templateRecordSchema).max(500).default([]),
+  activity: z.array(activityRecordSchema).max(5_000).default([]),
+  aliasKeys: z.array(aliasKeyRecordSchema).max(10).default([]),
   recovery: recoveryEnvelopeSchema.optional(),
   prf: prfEnvelopeSchema.optional(),
   writer: idSchema.optional(),
@@ -410,8 +472,12 @@ const attachmentMetaSchema = z.object({
   id: z.string().min(1).max(80),
   name: z.string().min(1).max(200),
   mime: z.string().max(100),
-  size: z.number().int().min(0).max(MAX_ATTACHMENT_BYTES),
+  size: z.number().int().min(0),
   createdAt: z.string().min(1).max(40),
+  storage: z.enum(['inline', 'blob']).optional(),
+  blobId: z.string().max(80).optional(),
+  blobKey: z.string().max(200).optional(),
+  sha256: z.string().max(128).optional(),
 })
 
 const itemBaseSchema = {
@@ -420,6 +486,7 @@ const itemBaseSchema = {
   notes: z.string().max(100_000),
   tags: z.array(z.string().max(40)).max(30),
   customFields: z.array(customFieldSchema).max(MAX_CUSTOM_FIELDS).default([]),
+  templateId: z.string().min(1).max(80).optional(),
   attachments: z.array(attachmentMetaSchema).max(MAX_ATTACHMENTS_PER_ITEM).default([]),
   deletedAt: z.string().max(40).nullable().optional(),
   expiresAt: z.string().max(40).default(''),
@@ -432,6 +499,8 @@ const loginContentSchema = z.object({
   password: z.string().max(2_000),
   urls: z.array(z.string().max(2_000)).max(30),
   totp: z.string().max(4_096),
+  autotypeSequence: z.string().max(4_000).optional(),
+  emailAlias: z.string().max(320).optional(),
 })
 
 const noteContentSchema = z.object({
@@ -695,7 +764,7 @@ export function parseVaultFileText(text: string): VaultFile {
 /* ------------------------------------------------------------------ */
 
 interface ManifestRecord {
-  type: 'vault' | 'item' | 'attachment' | 'version'
+  type: 'vault' | 'item' | 'attachment' | 'version' | 'template' | 'activity' | 'alias-key'
   id: string
   vaultId: string
   /** Élément parent pour une pièce jointe ou une version. */
@@ -749,6 +818,9 @@ const RECORD_TYPE_ORDER: Record<ManifestRecord['type'], number> = {
   item: 1,
   attachment: 2,
   version: 3,
+  template: 4,
+  activity: 5,
+  'alias-key': 6,
 }
 
 /**
@@ -821,6 +893,47 @@ export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
       rev: itemClocks.get(attachment.itemId)?.rev ?? 0,
       writer: itemClocks.get(attachment.itemId)?.writer ?? '',
       ciphertext: await sealedDigest(attachment.data),
+    })
+  }
+
+  for (const alias of file.aliasKeys ?? []) {
+    records.push({
+      type: 'alias-key',
+      id: alias.service,
+      vaultId: '',
+      rev: alias.clock?.rev ?? 0,
+      writer: alias.clock?.writer ?? '',
+      ciphertext: await sealedDigest(alias.data),
+    })
+  }
+
+  for (const event of file.activity ?? []) {
+    records.push({
+      type: 'activity',
+      id: event.id,
+      vaultId: '',
+      rev: event.clock?.rev ?? 0,
+      writer: event.clock?.writer ?? '',
+      ciphertext: await sealedDigest(event.data),
+    })
+  }
+
+  for (const template of file.templates ?? []) {
+    records.push({
+      type: 'template',
+      id: template.id,
+      vaultId: '',
+      rev: template.clock?.rev ?? 0,
+      writer: template.clock?.writer ?? '',
+      ciphertext: await sealedDigest(template.key),
+    })
+    records.push({
+      type: 'template',
+      id: `${template.id}:content`,
+      vaultId: '',
+      rev: template.clock?.rev ?? 0,
+      writer: template.clock?.writer ?? '',
+      ciphertext: await sealedDigest(template.content),
     })
   }
 
@@ -902,6 +1015,12 @@ function mergeTombstones(
   if (previous) {
     const nextItemIds = new Set(next.items.map((item) => item.id))
     const nextVaultIds = new Set(next.vaults.map((vault) => vault.id))
+    const nextTemplateIds = new Set((next.templates ?? []).map((template) => template.id))
+    for (const template of previous.templates ?? []) {
+      if (!nextTemplateIds.has(template.id)) {
+        add({ kind: 'template', id: template.id, deletedAt: now })
+      }
+    }
     for (const item of previous.items) {
       if (!nextItemIds.has(item.id)) {
         add({ kind: 'item', id: item.id, deletedAt: now })
@@ -932,23 +1051,29 @@ function mergeTombstones(
 function changedRecord(
   previous:
     | {
-        key: { n: string; c: string }
+        key?: { n: string; c: string }
         name?: { n: string; c: string }
         content?: { n: string; c: string }
+        data?: { n: string; c: string }
       }
     | undefined,
   next: {
-    key: { n: string; c: string }
+    key?: { n: string; c: string }
     name?: { n: string; c: string }
     content?: { n: string; c: string }
+    data?: { n: string; c: string }
   },
 ): boolean {
   if (!previous) return true
   if (
-    previous.key.n !== next.key.n ||
-    previous.key.c !== next.key.c
+    previous.key &&
+    next.key &&
+    (previous.key.n !== next.key.n || previous.key.c !== next.key.c)
   ) {
     return true
+  }
+  if (previous.data && next.data) {
+    return previous.data.n !== next.data.n || previous.data.c !== next.data.c
   }
   if (previous.name && next.name) {
     return previous.name.n !== next.name.n || previous.name.c !== next.name.c
@@ -971,7 +1096,7 @@ export async function signVaultFile(
   file: VaultFile,
   session: VaultSession,
   previous?: VaultFile,
-  options: { minimumRevision?: number } = {},
+  options: { minimumRevision?: number; createTombstones?: boolean } = {},
 ): Promise<VaultFile> {
   assertUnlocked(session)
 
@@ -980,6 +1105,15 @@ export async function signVaultFile(
   )
   const previousVaults = new Map(
     (previous?.vaults ?? []).map((vault) => [vault.id, vault]),
+  )
+  const previousTemplates = new Map(
+    (previous?.templates ?? []).map((template) => [template.id, template]),
+  )
+  const previousActivity = new Map(
+    (previous?.activity ?? []).map((event) => [event.id, event]),
+  )
+  const previousAliasKeys = new Map(
+    (previous?.aliasKeys ?? []).map((entry) => [entry.service, entry]),
   )
 
   let highestRev = Math.max(
@@ -993,7 +1127,10 @@ export async function signVaultFile(
   const revision = highestRev + 1
   const keyEpoch = Math.max(file.keyEpoch ?? 1, previous?.keyEpoch ?? 1)
   const now = new Date().toISOString()
-  const tombstones = mergeTombstones(previous, file, now)
+  const tombstones =
+    options.createTombstones === false
+      ? (file.tombstones ?? [])
+      : mergeTombstones(previous, file, now)
 
   const clockFor = (
     previousRecord: { clock?: RecordClock } | undefined,
@@ -1021,6 +1158,30 @@ export async function signVaultFile(
     ),
   }))
 
+  const templates = (file.templates ?? []).map((template) => ({
+    ...template,
+    clock: clockFor(
+      previousTemplates.get(template.id),
+      changedRecord(previousTemplates.get(template.id), template),
+    ),
+  }))
+
+  const aliasKeys = (file.aliasKeys ?? []).map((entry) => ({
+    ...entry,
+    clock: clockFor(
+      previousAliasKeys.get(entry.service),
+      changedRecord(previousAliasKeys.get(entry.service), entry),
+    ),
+  }))
+
+  const activity = (file.activity ?? []).map((event) => ({
+    ...event,
+    clock: clockFor(
+      previousActivity.get(event.id),
+      changedRecord(previousActivity.get(event.id), event),
+    ),
+  }))
+
   if (!session.hasIntegrityKey) {
     session.setIntegrityKey(randomBytes(KDF_DEFAULTS.keyLength))
   }
@@ -1034,6 +1195,9 @@ export async function signVaultFile(
     tombstones,
     vaults,
     items,
+    ...(templates.length > 0 ? { templates } : {}),
+    ...(activity.length > 0 ? { activity } : {}),
+    ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
     updatedAt: file.version === 4 ? file.updatedAt : now,
     integrity: {
       mac: '',
@@ -1140,6 +1304,9 @@ export async function createVaultFile(
       session,
       vaults: [vaultSummary(record, name, [])],
       items: [],
+      templates: [],
+      activity: [],
+      aliasKeys: {},
       warnings: [],
       readOnly: false,
       integrity: 'valid',
@@ -1279,6 +1446,71 @@ export async function openVaultFileWithMasterKey(
 
   const openVaultMap = new Map(vaults.map((vault) => [vault.id, vault]))
 
+  const templates: ItemTemplate[] = []
+  for (const record of file.templates ?? []) {
+    let templateKey: Uint8Array | null = null
+    try {
+      templateKey = await openBytes(
+        record.key,
+        masterKey,
+        templateKeyAad(record.id),
+      )
+      const content = await openJson<unknown>(
+        record.content,
+        templateKey,
+        templateContentAad(record.id),
+      )
+      const parsed = templateContentSchema.parse(content)
+      templates.push({
+        id: record.id,
+        name: parsed.name,
+        icon: parsed.icon,
+        fields: parsed.fields,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      })
+    } catch {
+      warnings.push('Un modèle d’élément n’a pas pu être déchiffré et a été ignoré.')
+    } finally {
+      if (templateKey) wipe(templateKey)
+    }
+  }
+
+  const activity: ActivityEvent[] = []
+  for (const record of file.activity ?? []) {
+    try {
+      const event = await openJson<ActivityEvent>(
+        record.data,
+        masterKey,
+        activityAad(record.id),
+      )
+      activity.push({
+        ...event,
+        id: record.id,
+        at: event.at || record.createdAt,
+        detail: event.detail.slice(0, 500),
+        ...(event.host ? { host: event.host.slice(0, 253) } : {}),
+      })
+    } catch {
+      warnings.push('Un événement du journal d’activité n’a pas pu être déchiffré.')
+    }
+  }
+  activity.sort((a, b) => b.at.localeCompare(a.at))
+
+  const aliasKeys: Partial<Record<AliasKeyService, string>> = {}
+  for (const record of file.aliasKeys ?? []) {
+    try {
+      const value = await openJson<{ key?: unknown }>(
+        record.data,
+        masterKey,
+        aliasKeyAad(record.service),
+      )
+      if (typeof value.key === 'string') aliasKeys[record.service] = value.key
+    } catch {
+      warnings.push('Une clé API d’alias n’a pas pu être déchiffrée.')
+    }
+  }
+
   for (const record of file.items) {
     if (!openVaultIds.has(record.vaultId)) {
       warnings.push('Un élément appartient à un coffre inaccessible.')
@@ -1339,6 +1571,9 @@ export async function openVaultFileWithMasterKey(
     session,
     vaults,
     items,
+    templates,
+    activity,
+    aliasKeys,
     warnings,
     readOnly: integrityState === 'invalid',
     integrity: integrityState,
@@ -1383,6 +1618,27 @@ async function buildRecoveryEnvelope(
         ),
       })
     }
+    const templateWraps: Array<{ templateId: string; key: Sealed }> = []
+    for (const record of file.templates ?? []) {
+      let templateKey: Uint8Array | null = null
+      try {
+        templateKey = await openBytes(
+          record.key,
+          session.masterKey,
+          templateKeyAad(record.id),
+        )
+        templateWraps.push({
+          templateId: record.id,
+          key: await sealBytes(
+            templateKey,
+            recoveryKey,
+            templateRecoveryAad(record.id),
+          ),
+        })
+      } finally {
+        if (templateKey) wipe(templateKey)
+      }
+    }
 
     return {
       envelope: {
@@ -1392,6 +1648,7 @@ async function buildRecoveryEnvelope(
         key,
         guard,
         wraps,
+        ...(templateWraps.length > 0 ? { templateWraps } : {}),
       },
       recoveryKey,
     }
@@ -1542,16 +1799,52 @@ export async function recoverVaultFileWithRecoveryKey(
         })
       }
 
+      const templateWraps = new Map(
+        (recovery.templateWraps ?? []).map((wrap) => [wrap.templateId, wrap]),
+      )
+      const templates: EncryptedTemplateRecord[] = []
+      for (const record of file.templates ?? []) {
+        const wrap = templateWraps.get(record.id)
+        if (!wrap) {
+          templates.push(record)
+          continue
+        }
+        let templateKey: Uint8Array | null = null
+        try {
+          templateKey = await openBytes(
+            wrap.key,
+            recoveryKey,
+            templateRecoveryAad(record.id),
+          )
+          templates.push({
+            ...record,
+            key: await sealBytes(
+              templateKey,
+              masterKey,
+              templateKeyAad(record.id),
+            ),
+            updatedAt: now,
+          })
+        } finally {
+          if (templateKey) wipe(templateKey)
+        }
+      }
+
       const guard = await sealBytes(recoveryKey, masterKey, recoveryGuardAad())
       const integrityKey = randomBytes(KDF_DEFAULTS.keyLength)
       const next: VaultFile = {
         ...file,
         kdf,
         vaults,
+        ...(templates.length > 0 ? { templates } : {}),
         updatedAt: now,
         keyEpoch: (file.keyEpoch ?? 1) + 1,
         recovery: { ...recovery, guard },
       }
+      // Les événements du journal sont scellés par l’ancienne clé maîtresse,
+      // indisponible après une récupération : le journal repart vide.
+      next.activity = []
+      next.aliasKeys = []
       // L’ancien MAC ne couvre plus les clés ré-enveloppées : on le remplace
       // par une signature calculée sous la nouvelle époque.
       delete next.integrity
@@ -1610,6 +1903,7 @@ function cleanDraft(draft: ItemDraft): ItemContent {
           .filter(Boolean),
       ),
     ).slice(0, 30),
+    templateId: cleanText(draft.templateId ?? '', 80) || undefined,
     customFields: (draft.customFields ?? [])
       .map((field) => ({
         id: cleanText(field.id, 80) || randomId('f'),
@@ -1629,6 +1923,14 @@ function cleanDraft(draft: ItemDraft): ItemContent {
           Math.min(MAX_ATTACHMENT_BYTES, Math.floor(attachment.size)),
         ),
         createdAt: cleanText(attachment.createdAt, 40) || new Date().toISOString(),
+        ...(attachment.storage === 'blob'
+          ? {
+              storage: 'blob' as const,
+              blobId: cleanText(attachment.blobId ?? '', 80) || undefined,
+              blobKey: (attachment.blobKey ?? '').slice(0, 200) || undefined,
+              sha256: cleanText(attachment.sha256 ?? '', 128) || undefined,
+            }
+          : {}),
       }))
       .filter((attachment) => attachment.id)
       .slice(0, MAX_ATTACHMENTS_PER_ITEM),
@@ -1648,6 +1950,9 @@ function cleanDraft(draft: ItemDraft): ItemContent {
           .filter(Boolean)
           .slice(0, 30),
         totp: cleanText(draft.totp, 4_096),
+        autotypeSequence:
+          cleanText(draft.autotypeSequence ?? '', 4_000) || undefined,
+        emailAlias: cleanText(draft.emailAlias ?? '', 320) || undefined,
       }
     case 'note':
       return { ...common, type: 'note' }
@@ -3058,6 +3363,63 @@ export async function changeMasterPassword(
       }
     }
 
+    const templates: EncryptedTemplateRecord[] = []
+    for (const record of file.templates ?? []) {
+      let templateKey: Uint8Array | null = null
+      try {
+        templateKey = await openBytes(
+          record.key,
+          session.masterKey,
+          templateKeyAad(record.id),
+        )
+        templates.push({
+          ...record,
+          key: await sealBytes(
+            templateKey,
+            nextMasterKey,
+            templateKeyAad(record.id),
+          ),
+          updatedAt: new Date().toISOString(),
+        })
+      } finally {
+        if (templateKey) wipe(templateKey)
+      }
+    }
+
+    const activity: EncryptedActivityRecord[] = []
+    for (const record of file.activity ?? []) {
+      try {
+        const event = await openJson<ActivityEvent>(
+          record.data,
+          session.masterKey,
+          activityAad(record.id),
+        )
+        activity.push({
+          ...record,
+          data: await sealJson(event, nextMasterKey, activityAad(record.id)),
+        })
+      } catch {
+        // Un événement illisible ne doit pas empêcher le changement de mot de passe.
+      }
+    }
+
+    const aliasKeys: EncryptedAliasKeyRecord[] = []
+    for (const record of file.aliasKeys ?? []) {
+      try {
+        const value = await openJson<{ key?: unknown }>(
+          record.data,
+          session.masterKey,
+          aliasKeyAad(record.service),
+        )
+        aliasKeys.push({
+          ...record,
+          data: await sealJson(value, nextMasterKey, aliasKeyAad(record.service)),
+        })
+      } catch {
+        // Une clé illisible ne bloque pas la rotation.
+      }
+    }
+
     session.replaceMasterKey(nextMasterKey)
     // Rotation de l’époque : nouvelle clé HMAC, scellée sous la nouvelle clé
     // maîtresse. Le MAC est recalculé par `signVaultFile` avant l’écriture.
@@ -3067,6 +3429,9 @@ export async function changeMasterPassword(
       ...file,
       kdf,
       vaults,
+      ...(templates.length > 0 ? { templates } : {}),
+      ...(activity.length > 0 ? { activity } : {}),
+    ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
       updatedAt: new Date().toISOString(),
       keyEpoch: (file.keyEpoch ?? 1) + 1,
       recovery,
@@ -3076,6 +3441,255 @@ export async function changeMasterPassword(
   } catch (error) {
     wipe(nextMasterKey)
     throw error
+  }
+}
+
+function cleanTemplateFields(fields: TemplateField[]): TemplateField[] {
+  const cleaned: TemplateField[] = []
+  for (const field of fields.slice(0, 30)) {
+    const label = cleanText(field.label, 80)
+    if (!label) continue
+    const type: TemplateField['type'] = [
+      'text',
+      'secret',
+      'url',
+      'date',
+      'multiline',
+    ].includes(field.type)
+      ? field.type
+      : 'text'
+    cleaned.push({
+      id: cleanText(field.id, 80) || randomId('tf'),
+      label,
+      type,
+      ...(field.required ? { required: true } : {}),
+      ...(field.fillable ? { fillable: true } : {}),
+    })
+  }
+  return cleaned
+}
+
+export interface TemplateInput {
+  name: string
+  icon?: string
+  fields: TemplateField[]
+}
+
+/** Crée un modèle d’élément chiffré avec une clé dédiée. */
+export async function createTemplate(
+  file: VaultFile,
+  session: VaultSession,
+  input: TemplateInput,
+): Promise<{ file: VaultFile; template: ItemTemplate }> {
+  assertUnlocked(session)
+  const name = cleanText(input.name, 80)
+  if (!name) throw new VaultValidationError('Le nom du modèle est obligatoire')
+  const fields = cleanTemplateFields(input.fields)
+  if (fields.length === 0) {
+    throw new VaultValidationError('Ajoutez au moins un champ au modèle')
+  }
+  if (file.recovery && !session.hasRecoveryKey) {
+    throw new VaultValidationError(
+      'La clé de récupération n’est pas disponible ; régénérez la phrase avant de créer un modèle',
+    )
+  }
+  const id = randomId('tpl')
+  const key = randomBytes(KDF_DEFAULTS.keyLength)
+  const now = new Date().toISOString()
+  try {
+    const content = { name, icon: cleanText(input.icon ?? '📦', 16) || '📦', fields }
+    const record: EncryptedTemplateRecord = {
+      id,
+      key: await sealBytes(key, session.masterKey, templateKeyAad(id)),
+      content: await sealJson(content, key, templateContentAad(id)),
+      createdAt: now,
+      updatedAt: now,
+    }
+    let recovery = file.recovery
+    if (recovery && session.hasRecoveryKey) {
+      recovery = {
+        ...recovery,
+        templateWraps: [
+          ...(recovery.templateWraps ?? []).filter(
+            (wrap) => wrap.templateId !== id,
+          ),
+          {
+            templateId: id,
+            key: await sealBytes(
+              key,
+              session.recoveryKey(),
+              templateRecoveryAad(id),
+            ),
+          },
+        ],
+      }
+    }
+    return {
+      file: {
+        ...file,
+        updatedAt: now,
+        templates: [...(file.templates ?? []), record],
+        recovery,
+      },
+      template: { id, ...content, createdAt: now, updatedAt: now },
+    }
+  } finally {
+    wipe(key)
+  }
+}
+
+/** Remplace le contenu d’un modèle existant. */
+export async function updateTemplate(
+  file: VaultFile,
+  session: VaultSession,
+  templateId: string,
+  input: TemplateInput,
+): Promise<{ file: VaultFile; template: ItemTemplate }> {
+  assertUnlocked(session)
+  const existing = (file.templates ?? []).find((record) => record.id === templateId)
+  if (!existing) throw new VaultValidationError('Modèle introuvable')
+  const name = cleanText(input.name, 80)
+  if (!name) throw new VaultValidationError('Le nom du modèle est obligatoire')
+  const fields = cleanTemplateFields(input.fields)
+  if (fields.length === 0) {
+    throw new VaultValidationError('Ajoutez au moins un champ au modèle')
+  }
+  if (file.recovery && !session.hasRecoveryKey) {
+    throw new VaultValidationError(
+      'La clé de récupération n’est pas disponible ; régénérez la phrase avant de modifier un modèle',
+    )
+  }
+  const key = randomBytes(KDF_DEFAULTS.keyLength)
+  const now = new Date().toISOString()
+  try {
+    const content = { name, icon: cleanText(input.icon ?? '📦', 16) || '📦', fields }
+    const record: EncryptedTemplateRecord = {
+      ...existing,
+      key: await sealBytes(key, session.masterKey, templateKeyAad(templateId)),
+      content: await sealJson(content, key, templateContentAad(templateId)),
+      updatedAt: now,
+    }
+    let recovery = file.recovery
+    if (recovery && session.hasRecoveryKey) {
+      recovery = {
+        ...recovery,
+        templateWraps: [
+          ...(recovery.templateWraps ?? []).filter(
+            (wrap) => wrap.templateId !== templateId,
+          ),
+          {
+            templateId,
+            key: await sealBytes(
+              key,
+              session.recoveryKey(),
+              templateRecoveryAad(templateId),
+            ),
+          },
+        ],
+      }
+    }
+    return {
+      file: {
+        ...file,
+        updatedAt: now,
+        templates: (file.templates ?? []).map((entry) =>
+          entry.id === templateId ? record : entry,
+        ),
+        recovery,
+      },
+      template: {
+        id: templateId,
+        ...content,
+        createdAt: existing.createdAt,
+        updatedAt: now,
+      },
+    }
+  } finally {
+    wipe(key)
+  }
+}
+
+/** Supprime un modèle ; une pierre tombale empêche sa résurrection en fusion. */
+export function deleteTemplate(file: VaultFile, templateId: string): VaultFile {
+  const now = new Date().toISOString()
+  const recovery = file.recovery
+    ? {
+        ...file.recovery,
+        templateWraps: (file.recovery.templateWraps ?? []).filter(
+          (wrap) => wrap.templateId !== templateId,
+        ),
+      }
+    : undefined
+  return {
+    ...file,
+    updatedAt: now,
+    templates: (file.templates ?? []).filter((record) => record.id !== templateId),
+    ...(recovery ? { recovery } : {}),
+    tombstones: [
+      ...(file.tombstones ?? []),
+      { kind: 'template', id: templateId, deletedAt: now },
+    ],
+  }
+}
+
+/**
+ * Ajoute un événement au journal d’activité. Le contenu est chiffré avec la clé
+ * maîtresse et une AAD propre à l’événement. L’appelant signe et persiste le
+ * fichier retourné.
+ */
+export async function appendActivity(
+  file: VaultFile,
+  session: VaultSession,
+  event: Omit<ActivityEvent, 'id' | 'at'> & { at?: string },
+): Promise<{ file: VaultFile; event: ActivityEvent }> {
+  assertUnlocked(session)
+  const id = randomId('act')
+  const at = event.at ?? new Date().toISOString()
+  const payload: ActivityEvent = {
+    id,
+    kind: event.kind,
+    at,
+    detail: cleanText(event.detail, 500),
+    ...(event.host ? { host: cleanText(event.host, 253) } : {}),
+  }
+  const record: EncryptedActivityRecord = {
+    id,
+    data: await sealJson(payload, session.masterKey, activityAad(id)),
+    createdAt: at,
+  }
+  const activity = [record, ...(file.activity ?? [])]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 5_000)
+  return { file: { ...file, activity }, event: payload }
+}
+
+export async function setAliasKey(
+  file: VaultFile,
+  session: VaultSession,
+  service: AliasKeyService,
+  key: string,
+): Promise<VaultFile> {
+  assertUnlocked(session)
+  const record: EncryptedAliasKeyRecord = {
+    service,
+    data: await sealJson({ key: key.trim() }, session.masterKey, aliasKeyAad(service)),
+    createdAt: new Date().toISOString(),
+  }
+  return {
+    ...file,
+    updatedAt: new Date().toISOString(),
+    aliasKeys: [
+      ...(file.aliasKeys ?? []).filter((entry) => entry.service !== service),
+      record,
+    ],
+  }
+}
+
+export function deleteAliasKey(file: VaultFile, service: AliasKeyService): VaultFile {
+  return {
+    ...file,
+    updatedAt: new Date().toISOString(),
+    aliasKeys: (file.aliasKeys ?? []).filter((entry) => entry.service !== service),
   }
 }
 

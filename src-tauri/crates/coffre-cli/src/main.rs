@@ -45,12 +45,46 @@ enum Command {
     /// Exécute une commande avec des secrets dans son environnement.
     Run {
         /// NOM=RECHERCHE ou NOM=RECHERCHE::CHAMP (password, username, notes).
-        #[arg(long = "env", value_name = "NOM=RECHERCHE[::CHAMP]", required = true)]
+        #[arg(long = "env", value_name = "NOM=RECHERCHE[::CHAMP]")]
         env: Vec<String>,
+        /// Fichier .env contenant des références coffre://coffre/element/champ.
+        #[arg(long = "env-file", value_name = "FICHIER")]
+        env_file: Vec<std::path::PathBuf>,
         /// Commande et arguments, après `--`.
         #[arg(last = true, required = true)]
         command: Vec<String>,
     },
+    /// Signe un fichier avec une clé SSH du coffre (format SSHSIG).
+    SshSign {
+        /// Titre, commentaire ou empreinte de la clé.
+        query: String,
+        /// Fichier à signer.
+        file: String,
+        /// Espace de noms SSHSIG (git par défaut).
+        #[arg(long, default_value = "git")]
+        namespace: String,
+    },
+    /// Génère une configuration SSH par hôte pour les clés du coffre.
+    SshConfig {
+        /// Socket de l’agent SSH Coffre.
+        #[arg(long)]
+        agent: String,
+    },
+    /// Assistant d’identifiants Git (git credential-coffre).
+    GitCredential {
+        #[arg(value_enum)]
+        action: GitAction,
+        /// Approuve explicitement la divulgation du secret pour `get`.
+        #[arg(long)]
+        approve: bool,
+    },
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum GitAction {
+    Get,
+    Store,
+    Erase,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -209,8 +243,11 @@ fn searchable(item: &OpenedItem) -> String {
     .to_lowercase()
 }
 
+fn item_matches_query(item: &OpenedItem, query: &str) -> bool {
+    item.id == query || searchable(item).contains(&query.trim().to_lowercase())
+}
+
 fn find_item<'a>(items: &'a [OpenedItem], query: &str) -> Option<&'a OpenedItem> {
-    let needle = query.trim().to_lowercase();
     items
         .iter()
         .filter(|item| {
@@ -219,22 +256,151 @@ fn find_item<'a>(items: &'a [OpenedItem], query: &str) -> Option<&'a OpenedItem>
                 .and_then(|value| value.as_str())
                 .is_none()
         })
-        .find(|item| item.id == query)
-        .or_else(|| items.iter().find(|item| searchable(item).contains(&needle)))
+        .find(|item| item_matches_query(item, query))
+}
+
+fn validate_env_name(name: &str) -> Result<(), String> {
+    let mut characters = name.chars();
+    let valid = characters
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
+        && characters.all(|character| character.is_ascii_alphanumeric() || character == '_');
+    if valid {
+        Ok(())
+    } else {
+        Err(format!("nom de variable invalide : {name}"))
+    }
+}
+
+fn percent_decode(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut output = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            if let Ok(hex) = u8::from_str_radix(&value[index + 1..index + 3], 16) {
+                output.push(hex);
+                index += 3;
+                continue;
+            }
+        }
+        output.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8_lossy(&output).to_string()
+}
+
+fn url_host(value: &str) -> Option<String> {
+    let rest = value
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(value);
+    let authority = rest.split('/').next().unwrap_or(rest);
+    let host = authority.rsplit('@').next().unwrap_or(authority);
+    let host = host.split(':').next().unwrap_or(host).to_lowercase();
+    if host.is_empty() { None } else { Some(host) }
+}
+
+fn host_matches(left: &str, right: &str) -> bool {
+    left == right || left.ends_with(&format!(".{right}")) || right.ends_with(&format!(".{left}"))
+}
+
+fn item_matches_host(item: &OpenedItem, host: &str) -> bool {
+    item.content
+        .get("urls")
+        .and_then(|value| value.as_array())
+        .is_some_and(|urls| {
+            urls.iter().any(|url| {
+                url.as_str()
+                    .and_then(url_host)
+                    .is_some_and(|item_host| host_matches(&item_host, host))
+            })
+        })
+}
+
+fn resolve_coffre_reference(opened: &OpenedVault, raw: &str) -> Result<String, String> {
+    let rest = raw
+        .strip_prefix("coffre://")
+        .ok_or_else(|| "référence coffre:// attendue".to_string())?;
+    let mut parts = rest.splitn(3, '/');
+    let vault = percent_decode(parts.next().unwrap_or(""));
+    let item_query = percent_decode(parts.next().unwrap_or(""));
+    let field = percent_decode(parts.next().unwrap_or("password"));
+    if vault.is_empty() || item_query.is_empty() {
+        return Err("référence coffre:// incomplète (coffre/élément/champ)".into());
+    }
+    let vault_id = if vault == "*" || vault.is_empty() {
+        None
+    } else {
+        Some(
+            opened
+                .vaults
+                .iter()
+                .find(|summary| summary.id == vault || summary.name.eq_ignore_ascii_case(&vault))
+                .map(|summary| summary.id.clone())
+                .ok_or_else(|| format!("coffre introuvable : {vault}"))?,
+        )
+    };
+    let item = opened
+        .items
+        .iter()
+        .filter(|candidate| vault_id.as_ref().is_none_or(|id| &candidate.vault_id == id))
+        .find(|candidate| {
+            candidate
+                .content
+                .get("deletedAt")
+                .and_then(|value| value.as_str())
+                .is_none()
+                && item_matches_query(candidate, &item_query)
+        })
+        .ok_or_else(|| format!("élément introuvable : {item_query}"))?;
+    named_field_value(item, &field)
+}
+
+fn named_field_value(item: &OpenedItem, field: &str) -> Result<String, String> {
+    let lower = field.to_lowercase();
+    if lower == "url" || lower == "urls" || lower == "website" {
+        return Ok(item
+            .content
+            .get("urls")
+            .and_then(|value| value.as_array())
+            .and_then(|urls| urls.first())
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_string());
+    }
+    if lower == "customfields" {
+        return Ok(String::new());
+    }
+    if let Some(value) = item.content.get(&lower).and_then(|value| value.as_str()) {
+        return Ok(value.to_string());
+    }
+    let custom = item
+        .content
+        .get("customFields")
+        .and_then(|value| value.as_array())
+        .and_then(|fields| {
+            fields.iter().find(|entry| {
+                entry
+                    .get("label")
+                    .and_then(|value| value.as_str())
+                    .is_some_and(|label| label.eq_ignore_ascii_case(field))
+            })
+        })
+        .and_then(|entry| entry.get("value"))
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    if custom.is_empty() {
+        return Err(format!("champ introuvable : {field}"));
+    }
+    Ok(custom.to_string())
 }
 
 fn parse_env_assignment(raw: &str) -> Result<(String, String, Field), String> {
     let (name, expression) = raw
         .split_once('=')
         .ok_or_else(|| format!("variable d’environnement invalide : {raw}"))?;
-    let mut characters = name.chars();
-    let valid = characters
-        .next()
-        .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
-        && characters.all(|character| character.is_ascii_alphanumeric() || character == '_');
-    if !valid {
-        return Err(format!("nom de variable invalide : {name}"));
-    }
+    validate_env_name(name)?;
     let (query, field) = match expression.rsplit_once("::") {
         Some((query, field)) => (query, field),
         None => (expression, "password"),
@@ -351,6 +517,138 @@ fn run(cli: Cli) -> Result<ExitCode, String> {
             }
             .map_err(|_| "écriture impossible".to_string())?;
         }
+        Command::SshSign {
+            query,
+            file,
+            namespace,
+        } => {
+            let item = opened
+                .items
+                .iter()
+                .find(|item| {
+                    item.content.get("type").and_then(|value| value.as_str()) == Some("ssh-key")
+                        && item_matches_query(item, &query)
+                })
+                .ok_or_else(|| format!("clé SSH introuvable : {query}"))?;
+            let private = item
+                .content
+                .get("privateKey")
+                .and_then(|value| value.as_str())
+                .ok_or_else(|| "clé privée absente".to_string())?;
+            let key = ssh_key::PrivateKey::from_openssh(private)
+                .map_err(|error| format!("clé SSH invalide : {error}"))?;
+            if key.is_encrypted() {
+                return Err("les clés SSH chiffrées ne sont pas prises en charge".into());
+            }
+            let data =
+                std::fs::read(&file).map_err(|_| format!("fichier inaccessible : {file}"))?;
+            let signature = key
+                .sign(&namespace, ssh_key::HashAlg::Sha512, &data)
+                .map_err(|error| format!("signature impossible : {error}"))?;
+            let pem = signature
+                .to_pem(ssh_key::LineEnding::LF)
+                .map_err(|error| format!("encodage impossible : {error}"))?;
+            write!(output, "{pem}").map_err(|_| "écriture impossible".to_string())?;
+        }
+        Command::SshConfig { agent } => {
+            for item in opened.items.iter().filter(|item| {
+                item.content.get("type").and_then(|value| value.as_str()) == Some("ssh-key")
+            }) {
+                let fingerprint = item
+                    .content
+                    .get("fingerprint")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("");
+                let comment = item
+                    .content
+                    .get("comment")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("");
+                let host = comment
+                    .split_whitespace()
+                    .next()
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or("coffre")
+                    .replace(['/', '\\', ' ', '\t'], "-");
+                writeln!(output, "# Coffre — {comment} ({fingerprint})")
+                    .map_err(|_| "écriture impossible".to_string())?;
+                writeln!(output, "Host {host}").map_err(|_| "écriture impossible".to_string())?;
+                writeln!(output, "  IdentityAgent {agent}")
+                    .map_err(|_| "écriture impossible".to_string())?;
+                writeln!(output, "  IdentitiesOnly yes")
+                    .map_err(|_| "écriture impossible".to_string())?;
+                writeln!(output).map_err(|_| "écriture impossible".to_string())?;
+            }
+        }
+        Command::GitCredential { action, approve } => {
+            let mut fields = std::collections::HashMap::new();
+            let stdin = std::io::stdin();
+            let mut line = String::new();
+            while stdin
+                .read_line(&mut line)
+                .map_err(|_| "lecture stdin impossible".to_string())?
+                > 0
+            {
+                let trimmed = line.trim_end_matches(['\r', '\n']);
+                if trimmed.is_empty() {
+                    break;
+                }
+                if let Some((key, value)) = trimmed.split_once('=') {
+                    fields.insert(key.to_ascii_lowercase(), value.to_string());
+                }
+                line.clear();
+            }
+            if !matches!(action, GitAction::Get) {
+                return Ok(ExitCode::SUCCESS);
+            }
+            if !approve {
+                return Err(
+                    "approbation requise : relancez avec --approve pour divulguer le mot de passe Git"
+                        .into(),
+                );
+            }
+            let host = fields
+                .get("host")
+                .cloned()
+                .or_else(|| fields.get("url").and_then(|url| url_host(url)))
+                .ok_or_else(|| "hôte Git absent".to_string())?;
+            let wanted_user = fields.get("username").map(|value| value.to_lowercase());
+            let item = opened
+                .items
+                .iter()
+                .filter(|item| {
+                    item.content.get("type").and_then(|value| value.as_str()) == Some("login")
+                })
+                .find(|item| {
+                    item_matches_host(item, &host)
+                        && wanted_user.as_ref().is_none_or(|user| {
+                            item.content
+                                .get("username")
+                                .and_then(|value| value.as_str())
+                                .unwrap_or("")
+                                .to_lowercase()
+                                == *user
+                        })
+                })
+                .ok_or_else(|| "aucun identifiant Git pour cet hôte".to_string())?;
+            let username = item
+                .content
+                .get("username")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            let password = item
+                .content
+                .get("password")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            if password.is_empty() {
+                return Err("mot de passe Git vide".into());
+            }
+            writeln!(output, "username={username}")
+                .map_err(|_| "écriture impossible".to_string())?;
+            writeln!(output, "password={password}")
+                .map_err(|_| "écriture impossible".to_string())?;
+        }
         Command::Totp { query } => {
             let item = find_item(&opened.items, &query)
                 .ok_or_else(|| "élément introuvable".to_string())?;
@@ -372,13 +670,44 @@ fn run(cli: Cli) -> Result<ExitCode, String> {
             )
             .map_err(|_| "écriture impossible".to_string())?;
         }
-        Command::Run { env, command } => {
+        Command::Run {
+            env,
+            env_file,
+            command,
+        } => {
             let mut variables = Vec::with_capacity(env.len());
             for raw in &env {
                 let (name, query, field) = parse_env_assignment(raw)?;
                 let item = find_item(&opened.items, &query)
                     .ok_or_else(|| format!("élément introuvable pour {name}"))?;
                 variables.push((name, field_value(item, field)));
+            }
+            for path in &env_file {
+                let text = std::fs::read_to_string(path)
+                    .map_err(|_| format!("fichier .env inaccessible : {}", path.display()))?;
+                for (line_number, line) in text.lines().enumerate() {
+                    let trimmed = line.trim();
+                    if trimmed.is_empty() || trimmed.starts_with('#') {
+                        continue;
+                    }
+                    let (name, expression) = trimmed.split_once('=').ok_or_else(|| {
+                        format!("{}:{} : variable invalide", path.display(), line_number + 1)
+                    })?;
+                    validate_env_name(name)?;
+                    let expression = expression.trim().trim_matches('"').trim_matches('\'');
+                    if !expression.starts_with("coffre://") {
+                        return Err(format!(
+                            "{}:{} : seule une référence coffre:// est acceptée",
+                            path.display(),
+                            line_number + 1
+                        ));
+                    }
+                    let value = resolve_coffre_reference(&opened, expression)?;
+                    variables.push((name.to_string(), value));
+                }
+            }
+            if variables.is_empty() {
+                return Err("aucune variable à injecter (--env ou --env-file)".into());
             }
             let (program, arguments) = command
                 .split_first()

@@ -148,6 +148,7 @@ fn main() {
         attachments: vec![attachment_record],
         versions: vec![version_record],
         recovery: None,
+        prf: None,
         writer: Some(WRITER.into()),
         revision: Some(1),
         key_epoch: Some(1),

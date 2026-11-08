@@ -12,7 +12,16 @@ Ces fichiers sont **figés** et servent de test de non-régression du format.
   un en corbeille, une version, une pièce jointe et une enveloppe de
   récupération).
 
-Mot de passe maître des quatre fichiers : `phrase de passe de test solide`
+## Exports de gestionnaires
+
+Les fichiers de `imports/` et les exports KeePass/Dashlane sont des exports
+**réels anonymisés** issus des jeux d’essai publics de
+[pass-import](https://github.com/roddhjav/pass-import) (GPL-3.0) et de
+KeePassXC. Ils couvrent 1Password 8, Bitwarden, Chrome, Dashlane (CSV sans
+en-tête et JSON), Firefox, KeePass (CSV et XML), Keeper, LastPass, NordPass,
+RoboForm et SafeInCloud. Ils ne contiennent que des identifiants fictifs.
+
+Mot de passe maître des quatre fichiers `.coffre` : `phrase de passe de test solide`
 (paramètres Argon2id réduits pour les tests).
 
 Phrase de récupération des fichiers v3 et v4 :

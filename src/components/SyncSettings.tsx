@@ -24,6 +24,8 @@ import {
   webSyncAvailable,
 } from '../lib/syncWebStorage'
 import { ConfirmDialog } from './ConfirmDialog'
+import { LanSyncSettings } from './LanSyncSettings'
+import { TravelModeSettings } from './TravelModeSettings'
 
 export function SyncSettings() {
   const {
@@ -155,6 +157,10 @@ export function SyncSettings() {
           </p>
         </div>
       </div>
+
+      <TravelModeSettings />
+
+      <LanSyncSettings />
 
       <section className="settings-section">
         <div className="settings-section__head">

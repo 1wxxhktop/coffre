@@ -22,7 +22,7 @@ async function createVault(page) {
   await page.getByLabel('Confirmer le mot de passe').fill(password)
   await page.getByRole('checkbox').check()
   await page.getByRole('button', { name: 'Créer mon coffre' }).click()
-  await page.getByRole('button', { name: 'Nouvel élément' }).waitFor({ timeout: 45000 })
+  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).waitFor({ timeout: 45000 })
 }
 
 async function shot(page, name) {
@@ -39,7 +39,7 @@ async function run(width, height, theme) {
   await shot(page, `auth-${suffix}`)
   await createVault(page)
 
-  await page.getByRole('button', { name: 'Nouvel élément' }).click()
+  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('heading', { name: 'Nouvel élément' }).waitFor()
   await dialog.getByLabel('Titre', { exact: true }).fill('GitHub')

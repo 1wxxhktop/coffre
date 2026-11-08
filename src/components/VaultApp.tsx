@@ -33,6 +33,7 @@ import {
 } from '../lib/filters'
 import { ItemRow } from './ItemRow'
 import { ItemDialog } from './ItemDialog'
+import { AutoTypePicker } from './AutoTypePicker'
 import { GeneratorDialog } from './GeneratorDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { SshAgentBridge } from './SshAgentBridge'
@@ -1410,6 +1411,8 @@ export function VaultApp() {
           onOpenCategory={openSecurityCategory}
         />
       )}
+
+      <AutoTypePicker />
 
       {settingsOpen && (
         <SettingsDialog

@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import dashlaneJson from './__fixtures__/dashlane-export.json?raw'
+import onepasswordCsv from './__fixtures__/imports/1password8.csv?raw'
+import bitwardenCsv from './__fixtures__/imports/bitwarden.csv?raw'
+import chromeCsv from './__fixtures__/imports/chrome.csv?raw'
+import dashlaneCsv from './__fixtures__/imports/dashlane.csv?raw'
+import firefoxCsv from './__fixtures__/imports/firefox.csv?raw'
+import keepassCsv from './__fixtures__/imports/keepass.csv?raw'
+import keeperCsv from './__fixtures__/imports/keeper.csv?raw'
+import lastpassCsv from './__fixtures__/imports/lastpass.csv?raw'
+import nordpassCsv from './__fixtures__/imports/nordpass.csv?raw'
+import roboformCsv from './__fixtures__/imports/roboform.csv?raw'
+import safeincloudCsv from './__fixtures__/imports/safeincloud.csv?raw'
 import keepassXml from './__fixtures__/keepass-export.xml?raw'
 import {
   dedupeImport,
@@ -930,6 +941,66 @@ describe('import Dashlane JSON', () => {
       expect.objectContaining({ label: 'Identifiant secondaire', value: 'ada2' }),
     ])
     expect(parsed.warnings.join(' ')).toContain('country')
+  })
+})
+
+describe('import CSV KeePass', () => {
+  it('lit un export KeePass 2.x réel anonymisé', () => {
+    const parsed = parseImport(keepassCsv, VAULT_ID)
+    expect(parsed.source).toBe('keepass')
+    expect(parsed.items.length).toBeGreaterThan(0)
+    expect(parsed.items[0]).toMatchObject({
+      type: 'login',
+      username: 'ostqxi',
+      urls: ['https://mastodon.social/'],
+    })
+  })
+})
+
+describe('fixtures CSV anonymisées', () => {
+  const fixtures: Array<[string, string, string]> = [
+    ['1Password 8', onepasswordCsv, '1password'],
+    ['Bitwarden', bitwardenCsv, 'bitwarden'],
+    ['Chrome', chromeCsv, 'chromium'],
+    ['Dashlane sans en-tête', dashlaneCsv, 'dashlane'],
+    ['Firefox', firefoxCsv, 'firefox'],
+    ['KeePass', keepassCsv, 'keepass'],
+    ['Keeper sans en-tête', keeperCsv, 'keeper'],
+    ['LastPass', lastpassCsv, 'lastpass'],
+    ['NordPass', nordpassCsv, 'nordpass'],
+    ['RoboForm', roboformCsv, 'roboform'],
+    ['SafeInCloud', safeincloudCsv, 'safeincloud'],
+  ]
+
+  it.each(fixtures)('lit un export %s', (_label, text, source) => {
+    const parsed = parseImport(text, VAULT_ID)
+    expect(parsed.source).toBe(source)
+    expect(parsed.items.length).toBeGreaterThan(0)
+    expect(parsed.items[0].title.trim()).not.toBe('')
+  })
+
+  it('relit les exports sans en-tête et les champs Bitwarden', () => {
+    const dashlane = parseImport(dashlaneCsv, VAULT_ID)
+    expect(dashlane.items[1]).toMatchObject({
+      type: 'login',
+      title: 'mastodon.social',
+      username: 'ostqxi',
+      urls: ['https://mastodon.social/'],
+    })
+
+    const keeper = parseImport(keeperCsv, VAULT_ID)
+    expect(keeper.items[0]).toMatchObject({
+      type: 'login',
+      title: 'aib',
+      username: 'dpbx@fner.ws',
+      tags: ['Bank'],
+    })
+
+    const bitwarden = parseImport(bitwardenCsv, VAULT_ID)
+    expect(bitwarden.items[0].customFields).toEqual([
+      expect.objectContaining({ label: 'pin', value: '462916', type: 'hidden' }),
+      expect.objectContaining({ label: 'oldpin', value: '489019', type: 'hidden' }),
+    ])
   })
 })
 

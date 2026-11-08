@@ -220,3 +220,34 @@ fn change_le_mot_de_passe_et_reenveloppe_les_cles() {
         Err(CoreError::WrongPassword)
     ));
 }
+
+#[test]
+fn preserve_une_enveloppe_prf_lors_d_une_ecriture() {
+    let mut file = fixture("v4.coffre.json");
+    let prf = serde_json::json!({
+        "version": 1,
+        "credentialId": "cred_test",
+        "salt": "AAECAwQFBgcICQoLDA0ODw==",
+        "createdAt": "2026-11-08T00:00:00.000Z",
+        "wrap": { "n": "AAECAwQFBgcICQoL", "c": "AAAA" }
+    });
+    file.prf = Some(prf.clone());
+    let mut opened = open(&file, PASSWORD).expect("ouverture");
+    coffre_core::create_item(
+        &mut opened.file,
+        &opened.session,
+        &opened.vaults[0].id,
+        serde_json::json!({"type":"note","title":"Note","favorite":false,"notes":"","tags":[],"customFields":[],"attachments":[],"deletedAt":null,"expiresAt":""}),
+        "2026-11-08T23:30:00.000Z",
+    )
+    .expect("création");
+    let signed = coffre_core::sign(
+        opened.file,
+        &mut opened.session,
+        Some(&file),
+        "w_prf",
+        "2026-11-08T23:31:00.000Z",
+    )
+    .expect("signature");
+    assert_eq!(signed.prf, Some(prf));
+}

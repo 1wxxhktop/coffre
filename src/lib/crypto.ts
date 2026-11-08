@@ -330,6 +330,26 @@ export function vaultMetaAad(vaultId: string): string {
   return `coffre:v1:vault-meta:${vaultId}`
 }
 
+export function aliasKeyAad(service: string): string {
+  return `coffre:v1:alias-key:${service}`
+}
+
+export function activityAad(eventId: string): string {
+  return `coffre:v1:activity:${eventId}`
+}
+
+export function templateKeyAad(templateId: string): string {
+  return `coffre:v1:template-key:${templateId}`
+}
+
+export function templateContentAad(templateId: string): string {
+  return `coffre:v1:template-content:${templateId}`
+}
+
+export function templateRecoveryAad(templateId: string): string {
+  return `coffre:v1:template-recovery:${templateId}`
+}
+
 export function itemKeyAad(vaultId: string, itemId: string): string {
   return `coffre:v1:item-key:${vaultId}:${itemId}`
 }

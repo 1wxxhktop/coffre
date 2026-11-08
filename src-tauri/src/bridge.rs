@@ -50,12 +50,12 @@ fn home_dir() -> Result<PathBuf, String> {
 
 /// Dossier de données de l’application, identique à `app_data_dir()` de Tauri.
 #[cfg(target_os = "macos")]
-fn app_data_root() -> Result<PathBuf, String> {
+pub(crate) fn app_data_root() -> Result<PathBuf, String> {
     Ok(home_dir()?.join("Library/Application Support/app.coffre.desktop"))
 }
 
 #[cfg(target_os = "linux")]
-fn app_data_root() -> Result<PathBuf, String> {
+pub(crate) fn app_data_root() -> Result<PathBuf, String> {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or(home_dir()?.join(".local/share"));
@@ -63,7 +63,7 @@ fn app_data_root() -> Result<PathBuf, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn app_data_root() -> Result<PathBuf, String> {
+pub(crate) fn app_data_root() -> Result<PathBuf, String> {
     let base = std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .ok_or_else(|| "APPDATA introuvable".to_string())?;
@@ -71,7 +71,7 @@ fn app_data_root() -> Result<PathBuf, String> {
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-fn app_data_root() -> Result<PathBuf, String> {
+pub(crate) fn app_data_root() -> Result<PathBuf, String> {
     Err("Plateforme non prise en charge par le pont natif".into())
 }
 

@@ -91,6 +91,11 @@ Desktop et mobile :
   - objc2 / objc2-foundation          MIT
   - objc2-local-authentication        Zlib OR Apache-2.0 OR MIT
   - block2                            MIT
+  - snow                              MIT OR Apache-2.0
+  - base64                            MIT OR Apache-2.0
+  - getrandom                         MIT OR Apache-2.0
+  - sha2                              MIT OR Apache-2.0
+  - local-ip-address                  MIT OR Apache-2.0
   - clap                              MIT OR Apache-2.0
   - rpassword                         Apache-2.0
   - hmac                              MIT OR Apache-2.0
@@ -111,6 +116,12 @@ Coffre à partir de son propre logo.
 La documentation (README.md, docs/, commentaires) a été rédigée pour Coffre.
 Elle décrit le fonctionnement du projet et ne reproduit pas de documentation
 Proton.
+
+Les jeux d’essai d’import (`src/lib/__fixtures__/imports/`, export XML KeePass
+et export JSON Dashlane) sont des exports anonymisés provenant des jeux de
+tests publics de [pass-import](https://github.com/roddhjav/pass-import),
+distribué sous GPL-3.0, et de KeePassXC, distribué sous GPL-2.0/GPL-3.0. Ils ne
+contiennent que des identifiants fictifs.
 
 ================================================================================
 5. ABSENCE DE GARANTIE

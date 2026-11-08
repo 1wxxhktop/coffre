@@ -373,9 +373,10 @@ export async function nativeStatus(): Promise<NativeStatus | null> {
 
 export async function nativeSearch(
   query: string,
+  kind: 'login' | 'card' | 'identity' | 'custom' = 'login',
 ): Promise<{ items?: unknown[]; error?: string }> {
   try {
-    const response = await encryptedRequest({ type: 'search', query })
+    const response = await encryptedRequest({ type: 'search', query, kind })
     if (typeof response.error === 'string') return { error: response.error }
     return { items: Array.isArray(response.items) ? response.items : [] }
   } catch (error) {
@@ -387,11 +388,68 @@ export async function nativeSearch(
 export async function nativeFill(
   itemId: string,
   host: string,
+  kind: 'login' | 'card' | 'identity' | 'custom' = 'login',
+  includeSensitive = false,
 ): Promise<{ credentials?: unknown; error?: string }> {
   try {
-    const response = await encryptedRequest({ type: 'fill', itemId, host })
+    const response = await encryptedRequest({
+      type: 'fill',
+      itemId,
+      host,
+      kind,
+      includeSensitive,
+    })
     if (typeof response.error === 'string') return { error: response.error }
     return { credentials: response.credentials ?? null }
+  } catch (error) {
+    resetConnection()
+    return { error: error instanceof Error ? error.message : 'native-unavailable' }
+  }
+}
+
+export async function nativeSaveCard(input: {
+  title?: string
+  cardholder: string
+  number: string
+  expiry: string
+  cvc?: string
+  pin?: string
+  brand?: string
+}): Promise<{ ok?: boolean; updated?: boolean; itemId?: string; error?: string }> {
+  try {
+    const response = await encryptedRequest({ type: 'save-card', ...input })
+    if (typeof response.error === 'string') return { error: response.error }
+    return {
+      ok: response.ok === true,
+      updated: response.updated === true,
+      itemId: typeof response.itemId === 'string' ? response.itemId : undefined,
+    }
+  } catch (error) {
+    resetConnection()
+    return { error: error instanceof Error ? error.message : 'native-unavailable' }
+  }
+}
+
+export async function nativeSaveIdentity(input: {
+  title?: string
+  fullName: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  address: string
+  city: string
+  postalCode: string
+  country: string
+}): Promise<{ ok?: boolean; updated?: boolean; itemId?: string; error?: string }> {
+  try {
+    const response = await encryptedRequest({ type: 'save-identity', ...input })
+    if (typeof response.error === 'string') return { error: response.error }
+    return {
+      ok: response.ok === true,
+      updated: response.updated === true,
+      itemId: typeof response.itemId === 'string' ? response.itemId : undefined,
+    }
   } catch (error) {
     resetConnection()
     return { error: error instanceof Error ? error.message : 'native-unavailable' }

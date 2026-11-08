@@ -230,3 +230,45 @@ body {
   font-size: 12px;
   line-height: 1.4;
 }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 3px;
+  border-radius: 9px;
+  background: #191919;
+}
+
+.tab {
+  flex: 1;
+  min-height: 27px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #a1a1a1;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tab--active {
+  background: #2a2a2a;
+  color: #ededed;
+  font-weight: 600;
+}
+
+.sensitive {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  color: #fbbf24;
+  font-size: 11px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.sensitive input {
+  margin: 2px 0 0;
+}

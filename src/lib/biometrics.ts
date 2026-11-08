@@ -56,6 +56,29 @@ export async function storeBiometricKey(
   }
 }
 
+/** Demande une confirmation Touch ID sans lire de secret. */
+export async function confirmBiometric(
+  reason = 'Confirmer avec Touch ID',
+): Promise<boolean> {
+  if (!biometricSupported()) return false
+  try {
+    return await invoke<boolean>('biometric_confirm', { reason })
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Confirmation d’une action sensible. Sur le Web, l’action explicite de
+ * l’utilisateur suffit ; sur macOS avec Touch ID configuré, une authentification
+ * est exigée avant de livrer un CVC ou un PIN.
+ */
+export async function confirmSensitiveFill(reason: string): Promise<boolean> {
+  if (!biometricSupported()) return true
+  if (!(await biometricAvailable())) return true
+  return confirmBiometric(reason)
+}
+
 /** Supprime la clé biométrique. Une entrée absente est ignorée. */
 export async function deleteBiometricKey(account: string): Promise<void> {
   if (!account || !biometricSupported()) return

@@ -185,7 +185,7 @@ compte et logique de partage.
 | Passkeys | Pris en charge | Création et connexion dans l’extension (ES256), clé privée chiffrée dans le coffre ; pas d’AutoFill système ni d’export CXF |
 | Extension navigateur | Disponible | Chromium et Firefox, non publiée |
 | Remplissage automatique | Disponible | Menu dans les champs après autorisation explicite, et popup |
-| Types d’éléments | 8 types | 5 types et champs personnalisés |
+| Types d’éléments | 8 types | 6 types et champs personnalisés |
 | Import | Depuis Proton Pass et formats propriétaires | JSON Bitwarden, Proton Pass et Enpass non chiffrés, CSV de 13 gestionnaires/navigateurs |
 | Pièces jointes | Chiffrées et synchronisées | Chiffrées localement, sans synchronisation |
 | Historique et corbeille | Historique de versions et corbeille côté service | Historique et corbeille locaux, chiffrés et plafonnés |

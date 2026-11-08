@@ -40,6 +40,7 @@ export function AuthScreen() {
     importVault,
     reset,
     error,
+    recordActivity,
   } = useVault()
   const { settings } = useSettings()
   const { t, intl } = useI18n()
@@ -99,6 +100,7 @@ export function AuthScreen() {
         await create(password, vaultName.trim() || 'Personnel')
       } else {
         await unlock(password)
+        void recordActivity('unlock', 'Déverrouillage par mot de passe')
       }
       setPassword('')
       setConfirmPassword('')
@@ -117,6 +119,7 @@ export function AuthScreen() {
     try {
       const unlocked = await unlockWithBiometrics()
       if (unlocked) {
+        void recordActivity('unlock', 'Déverrouillage biométrique')
         setPassword('')
         setConfirmPassword('')
       }
@@ -142,6 +145,7 @@ export function AuthScreen() {
     try {
       const unlocked = await unlockWithPrf()
       if (unlocked) {
+        void recordActivity('unlock', 'Déverrouillage par clé de sécurité')
         setPassword('')
         setConfirmPassword('')
       }

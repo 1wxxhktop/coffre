@@ -52,10 +52,14 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   k-anonymat (préfixe SHA-1 de 5 caractères, `Add-Padding`). Résultats en
   mémoire uniquement, intégrés au score et aux catégories ; desktop via Rust,
   Web via un hôte CSP dédié.
+- **Déverrouillage FIDO2/PRF** : enveloppe optionnelle de la clé maîtresse,
+  dérivation HKDF et AES-GCM liées au fichier, révocation et suppression lors
+  des rotations. Validation matérielle YubiKey encore à faire.
 - **Cœur Rust partagé** : crate `coffre-core` v1 à v4, crypto identique,
   manifeste/MAC v4, mutations, signature v4, rotation de mot de passe et fusion
-  L3 ; façade UniFFI JSON, commande Tauri de fusion, buffers `Zeroizing`,
-  vecteurs croisés TypeScript ↔ Rust et CI Linux/macOS/Windows.
+  L3 ; façade UniFFI JSON, CLI `list`/`get`/`totp`/`run --env`, commande Tauri
+  de fusion, buffers `Zeroizing`, vecteurs croisés TypeScript ↔ Rust et CI
+  Linux/macOS/Windows.
 - **Synchronisation** : dossier choisi par l’utilisateur, un fichier par
   appareil, fusion v4 par horloges et pierres tombales, vérification du MAC
   distant, adoption d’une nouvelle époque de clés, archivage des conflits et
@@ -73,9 +77,9 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 367 tests unitaires (40 fichiers), 122 exécutions Playwright
-  (61 parcours sur Chromium et WebKit), 13 tests Rust desktop + 11 tests
-  `coffre-core` + 1 test FFI, smoke extension
+- **Tests** : 398 tests unitaires (52 fichiers), 124 exécutions Playwright
+  (62 parcours sur Chromium et WebKit), 28 tests Rust desktop + 12 tests
+  `coffre-core` + 1 test FFI + 9 tests `coffre-cli`, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
   verrouillage), vérification HIBP interceptée, relais natif simulé et
   Lighthouse accessibilité 1,0.

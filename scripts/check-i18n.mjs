@@ -36,6 +36,7 @@ const ALLOW = new Set([
   'Coffre local',
   'https://exemple.com',
   'otpauth://totp/…',
+  'coffre-lan://pair/…',
   "0 ? 'up' : summary.delta",
   'Le fichier',
   'Coffre/&lt;id&gt;/',

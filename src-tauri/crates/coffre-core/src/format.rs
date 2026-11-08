@@ -128,6 +128,9 @@ pub struct VaultFile {
     pub versions: Vec<VersionRecord>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery: Option<RecoveryEnvelope>,
+    /// Enveloppe FIDO2/PRF optionnelle, conservée telle quelle par le cœur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prf: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub writer: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

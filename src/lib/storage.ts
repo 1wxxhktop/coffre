@@ -287,6 +287,37 @@ export async function saveVaultFile(file: VaultFile): Promise<void> {
   await saveIndexedDbVaultFile(file)
 }
 
+/**
+ * Écrase les trois sauvegardes locales avec le même contenu que le fichier
+ * courant. Utilisé par le mode voyage pour ne pas laisser de ciphertext de
+ * coffres masqués dans les générations précédentes.
+ */
+export async function overwriteVaultBackups(file: VaultFile): Promise<void> {
+  if (isTauriRuntime()) {
+    for (let generation = 1; generation <= MAX_LOCAL_BACKUPS; generation++) {
+      await nativeInvoke('vault_backup_write', {
+        generation,
+        contents: nativeJson(file),
+      })
+    }
+    return
+  }
+  try {
+    const db = await database()
+    const tx = db.transaction(STORE, 'readwrite')
+    const store = tx.objectStore(STORE)
+    for (let generation = 1; generation <= MAX_LOCAL_BACKUPS; generation++) {
+      await store.put(file, backupKey(generation))
+    }
+    await tx.done
+  } catch (error) {
+    throw new StorageError(
+      'Impossible d’écraser les sauvegardes locales',
+      { cause: error },
+    )
+  }
+}
+
 export async function loadBackupVaultFile(generation = 1): Promise<VaultFile | null> {
   if (isTauriRuntime()) {
     const raw = await nativeInvoke<string | null>('vault_backup_read', { generation })
