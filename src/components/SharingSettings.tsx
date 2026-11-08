@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, Fingerprint, LoaderCircle, Users } from 'lucide-react'
+import { Copy, Fingerprint, LoaderCircle, Package, Users } from 'lucide-react'
 import { copyToClipboard } from '../lib/clipboard'
 import { publicSharingIdentity, type SharingIdentity } from '../lib/sharing'
 import { useI18n } from '../state/I18nProvider'
@@ -7,12 +7,23 @@ import { useToast } from '../state/ToastProvider'
 import { useVault } from '../state/VaultProvider'
 
 export function SharingSettings() {
-  const { getSharingIdentity, createSharingIdentity } = useVault()
+  const {
+    vaults,
+    getSharingIdentity,
+    createSharingIdentity,
+    createSharingPackage,
+    importSharingPackage,
+  } = useVault()
   const { tt } = useI18n()
   const { toast } = useToast()
   const [identity, setIdentity] = useState<SharingIdentity | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [busy, setBusy] = useState<'identity' | 'package' | 'import' | null>(null)
+  const [copied, setCopied] = useState<'identity' | 'package' | null>(null)
+  const [shareVaultId, setShareVaultId] = useState(vaults[0]?.id ?? '')
+  const [memberText, setMemberText] = useState('')
+  const [packageText, setPackageText] = useState('')
+  const [importText, setImportText] = useState('')
+  const [importName, setImportName] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -28,9 +39,15 @@ export function SharingSettings() {
     }
   }, [getSharingIdentity])
 
+  useEffect(() => {
+    if (!vaults.some((vault) => vault.id === shareVaultId)) {
+      setShareVaultId(vaults[0]?.id ?? '')
+    }
+  }, [shareVaultId, vaults])
+
   const create = async () => {
     if (busy) return
-    setBusy(true)
+    setBusy('identity')
     try {
       setIdentity(await createSharingIdentity())
       toast(tt('Identité de partage créée'), 'success')
@@ -40,16 +57,63 @@ export function SharingSettings() {
         'error',
       )
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
   const publicIdentity = identity ? publicSharingIdentity(identity) : null
-  const copy = async () => {
-    if (!publicIdentity) return
-    if (await copyToClipboard(JSON.stringify(publicIdentity, null, 2))) {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1_500)
+  const identityJson = publicIdentity ? JSON.stringify(publicIdentity) : ''
+  const copyIdentity = async () => {
+    if (!identityJson) return
+    if (await copyToClipboard(identityJson)) {
+      setCopied('identity')
+      window.setTimeout(() => setCopied(null), 1_500)
+    }
+  }
+
+  const generatePackage = async () => {
+    if (!shareVaultId || busy) return
+    setBusy('package')
+    try {
+      const pkg = await createSharingPackage(
+        shareVaultId,
+        memberText.split('\n'),
+      )
+      setPackageText(JSON.stringify(pkg, null, 2))
+      toast(tt('Paquet de partage généré'), 'success')
+    } catch (caught) {
+      toast(
+        caught instanceof Error ? caught.message : tt('Génération du paquet impossible'),
+        'error',
+      )
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const copyPackage = async () => {
+    if (!packageText) return
+    if (await copyToClipboard(packageText)) {
+      setCopied('package')
+      window.setTimeout(() => setCopied(null), 1_500)
+    }
+  }
+
+  const importPackage = async () => {
+    if (!importText.trim() || !importName.trim() || busy) return
+    setBusy('import')
+    try {
+      await importSharingPackage(importText, importName)
+      setImportText('')
+      setImportName('')
+      toast(tt('Coffre partagé importé'), 'success')
+    } catch (caught) {
+      toast(
+        caught instanceof Error ? caught.message : tt('Import du coffre impossible'),
+        'error',
+      )
+    } finally {
+      setBusy(null)
     }
   }
 
@@ -77,19 +141,19 @@ export function SharingSettings() {
           </p>
           <textarea
             className="input input--mono"
-            rows={6}
+            rows={4}
             readOnly
-            value={publicIdentity ? JSON.stringify(publicIdentity, null, 2) : ''}
+            value={JSON.stringify(publicIdentity, null, 2)}
             aria-label={tt('Identité publique')}
           />
           <div className="settings-actions settings-actions--start">
             <button
               type="button"
               className="button button--secondary"
-              onClick={() => void copy()}
+              onClick={() => void copyIdentity()}
             >
               <Copy size={16} />
-              {copied ? tt('Identité copiée') : tt('Copier l’identité publique')}
+              {copied === 'identity' ? tt('Identité copiée') : tt('Copier l’identité publique')}
             </button>
           </div>
         </>
@@ -101,9 +165,9 @@ export function SharingSettings() {
               type="button"
               className="button button--secondary"
               onClick={() => void create()}
-              disabled={busy}
+              disabled={busy !== null}
             >
-              {busy ? (
+              {busy === 'identity' ? (
                 <LoaderCircle size={16} className="spin" />
               ) : (
                 <Users size={16} />
@@ -113,6 +177,119 @@ export function SharingSettings() {
           </div>
         </>
       )}
+
+      <details className="settings-help">
+        <summary>{tt('Créer un paquet de partage')}</summary>
+        <div className="form-grid">
+          <label className="field field--full">
+            <span className="field__label">{tt('Coffre à partager')}</span>
+            <select
+              className="input"
+              value={shareVaultId}
+              onChange={(event) => setShareVaultId(event.target.value)}
+            >
+              {vaults.map((vault) => (
+                <option key={vault.id} value={vault.id}>
+                  {vault.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field field--full">
+            <span className="field__label">
+              {tt('Identités des membres (une par ligne)')}
+            </span>
+            <textarea
+              className="input input--mono"
+              rows={3}
+              value={memberText}
+              onChange={(event) => setMemberText(event.target.value)}
+              placeholder={tt('Collez une identité publique JSON par ligne')}
+              spellCheck={false}
+            />
+          </label>
+        </div>
+        <div className="settings-actions settings-actions--start">
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => void generatePackage()}
+            disabled={busy !== null || !shareVaultId}
+          >
+            {busy === 'package' ? (
+              <LoaderCircle size={16} className="spin" />
+            ) : (
+              <Package size={16} />
+            )}
+            {tt('Générer le paquet')}
+          </button>
+        </div>
+        {packageText && (
+          <>
+            <textarea
+              className="input input--mono"
+              rows={6}
+              readOnly
+              value={packageText}
+              aria-label={tt('Paquet de partage')}
+            />
+            <div className="settings-actions settings-actions--start">
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => void copyPackage()}
+              >
+                <Copy size={16} />
+                {copied === 'package' ? tt('Paquet copié') : tt('Copier le paquet')}
+              </button>
+            </div>
+          </>
+        )}
+        <p className="settings-copy">
+          {tt(
+            'Les rôles sont vérifiés à l’import ; l’écriture n’est pas encore restreinte par le rôle.',
+          )}
+        </p>
+      </details>
+
+      <details className="settings-help">
+        <summary>{tt('Importer un coffre partagé')}</summary>
+        <label className="field field--full">
+          <span className="field__label">{tt('Paquet de partage')}</span>
+          <textarea
+            className="input input--mono"
+            rows={5}
+            value={importText}
+            onChange={(event) => setImportText(event.target.value)}
+            placeholder={tt('Collez le paquet JSON reçu')}
+            spellCheck={false}
+          />
+        </label>
+        <label className="field field--full">
+          <span className="field__label">{tt('Nom du coffre importé')}</span>
+          <input
+            className="input"
+            value={importName}
+            onChange={(event) => setImportName(event.target.value)}
+            maxLength={80}
+          />
+        </label>
+        <div className="settings-actions settings-actions--start">
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => void importPackage()}
+            disabled={busy !== null || !importText.trim() || !importName.trim()}
+          >
+            {busy === 'import' ? (
+              <LoaderCircle size={16} className="spin" />
+            ) : (
+              <Package size={16} />
+            )}
+            {tt('Importer le coffre')}
+          </button>
+        </div>
+      </details>
     </section>
   )
 }

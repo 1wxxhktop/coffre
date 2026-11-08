@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 433 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 434 tests unitaires et
 > 62 parcours Playwright exécutés sur Chromium et WebKit (124 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -183,10 +183,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   générations de copie locale de secours, restaurables depuis l’écran de
   récupération. Export CSV en clair au format **Mots de passe (Apple)** pour les
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
-- **Identité de partage (préparation L10)** : création depuis les réglages,
-  empreinte SHA-256 et export public sans clé privée. Les paquets de partage
-  signés enveloppent la clé d’un coffre pour chaque membre ; l’interface
-  d’import/export reste à raccorder.
+- **Partage de coffres (préparation L10)** : identité depuis les réglages,
+  paquets signés avec la clé du coffre enveloppée pour chaque membre, import
+  d’un coffre partagé. Les rôles sont vérifiés à l’import mais ne restreignent
+  pas encore les écritures.
 - **Règles de mot de passe par site** : le générateur applique les contraintes
   de longueur, classes et symboles du dataset Apple « Password Manager
   Resources », embarqué localement et sans requête réseau.
@@ -646,7 +646,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (433 tests) |
+| `bun run test` | Tests Vitest (434 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (124 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |

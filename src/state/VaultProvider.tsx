@@ -18,6 +18,7 @@ import {
 } from '../lib/storage'
 import {
   addAttachment as addAttachmentToFile,
+  addSharedVault,
   addVault as addVaultToFile,
   appendActivity,
   deleteAliasKey as deleteAliasKeyInFile,
@@ -94,7 +95,18 @@ import {
   createSharingIdentity as makeSharingIdentity,
   openSharingIdentity,
 } from '../lib/sharingVault'
-import type { SharingIdentity } from '../lib/sharing'
+import {
+  parsePublicSharingIdentity,
+  publicSharingIdentity,
+  type ShareMember,
+  type SharingIdentity,
+} from '../lib/sharing'
+import {
+  createSharedVaultPackage,
+  openSharedVaultPackage,
+  parseSharedVaultPackage,
+  type SharedVaultPackage,
+} from '../lib/sharingPackage'
 import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
 import { isTauriRuntime } from '../lib/external'
 import {
@@ -187,6 +199,13 @@ interface VaultContextValue extends ProviderState {
   getSharingIdentity: () => Promise<SharingIdentity | null>
   /** Crée l’identité de partage du fichier si nécessaire. */
   createSharingIdentity: () => Promise<SharingIdentity>
+  /** Génère un paquet signé pour des identités publiques. */
+  createSharingPackage: (
+    vaultId: string,
+    memberIdentities: string[],
+  ) => Promise<SharedVaultPackage>
+  /** Importe un coffre partagé dans le fichier local. */
+  importSharingPackage: (packageText: string, vaultName: string) => Promise<void>
   /** Supprime puis réenregistre la clé biométrique du coffre courant. */
   resetBiometricKey: () => Promise<void>
   lock: () => void
@@ -995,6 +1014,101 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const file = await persist(current.file, { ...current.file, sharing: record })
         apply((previous) => ({ ...previous, file }))
         return identity
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const createSharingPackage = useCallback(
+    (vaultId: string, memberIdentities: string[]) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        let file = current.file
+        let identity: SharingIdentity
+        if (file.sharing) {
+          identity = await openSharingIdentity(
+            file.sharing,
+            current.session.masterKey,
+            file.id,
+          )
+        } else {
+          const made = await makeSharingIdentity(
+            current.session.masterKey,
+            file.id,
+          )
+          identity = made.identity
+          file = await persist(file, { ...file, sharing: made.record })
+          apply((previous) => ({ ...previous, file }))
+        }
+        const vaultKey = current.session.vaultKey(vaultId)
+        if (!vaultKey) throw new Error('Coffre introuvable')
+        const members: ShareMember[] = [
+          { identity: publicSharingIdentity(identity), role: 'write' },
+        ]
+        const seen = new Set([identity.fingerprint])
+        for (const text of memberIdentities) {
+          if (!text.trim()) continue
+          const member = await parsePublicSharingIdentity(text)
+          if (seen.has(member.fingerprint)) continue
+          seen.add(member.fingerprint)
+          members.push({ identity: member, role: 'read' })
+        }
+        if (members.length < 2) {
+          throw new Error('Ajoutez au moins une identité de membre')
+        }
+        return createSharedVaultPackage({
+          vaultId,
+          vaultKey,
+          admin: identity,
+          members,
+        })
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const importSharingPackage = useCallback(
+    (packageText: string, vaultName: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        let file = current.file
+        let identity: SharingIdentity
+        if (file.sharing) {
+          identity = await openSharingIdentity(
+            file.sharing,
+            current.session.masterKey,
+            file.id,
+          )
+        } else {
+          const made = await makeSharingIdentity(
+            current.session.masterKey,
+            file.id,
+          )
+          identity = made.identity
+          file = await persist(file, { ...file, sharing: made.record })
+          apply((previous) => ({ ...previous, file }))
+        }
+        const pkg = await parseSharedVaultPackage(packageText)
+        const imported = await openSharedVaultPackage(pkg, identity)
+        const added = await addSharedVault(file, current.session, {
+          vaultId: pkg.vaultId,
+          name: vaultName,
+          key: imported.vaultKey,
+        })
+        const signed = await persist(file, added.file)
+        apply((previous) => ({
+          ...previous,
+          file: signed,
+          vaults: [...previous.vaults, added.vault],
+          syncPending: true,
+          syncRevision: previous.syncRevision + 1,
+        }))
       }),
     [apply, enqueue, persist],
   )
@@ -2603,6 +2717,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     removePrf,
     getSharingIdentity,
     createSharingIdentity,
+    createSharingPackage,
+    importSharingPackage,
     resetBiometricKey,
     lock,
     addVault,
