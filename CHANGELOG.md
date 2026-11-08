@@ -119,6 +119,8 @@
   changement de mot de passe ou d’une récupération.
 - Nouveau type `wifi` : SSID, mot de passe, sécurité WPA/WEP/ouvert et réseau
   masqué, avec QR code de connexion généré localement à la demande.
+- Nouveau type `api-credential` : identifiant de clé, secret, environnement et
+  point de terminaison, avec formulaire, fiche et filtre dédiés.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation

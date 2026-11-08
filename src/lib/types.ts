@@ -6,7 +6,16 @@
  * sections personnalisées. Le format de fichier, lui, est propre à Coffre.
  */
 
-export const ITEM_TYPES = ['login', 'note', 'card', 'identity', 'passkey', 'ssh-key', 'wifi'] as const
+export const ITEM_TYPES = [
+  'login',
+  'note',
+  'card',
+  'identity',
+  'passkey',
+  'ssh-key',
+  'wifi',
+  'api-credential',
+] as const
 
 export const WIFI_SECURITY = ['WPA', 'WEP', 'nopass'] as const
 
@@ -156,6 +165,15 @@ export interface WifiItem extends ItemBase {
   hidden: boolean
 }
 
+/** Identifiant d’API et secret associé, avec environnement et point de terminaison. */
+export interface ApiCredentialItem extends ItemBase {
+  type: 'api-credential'
+  keyId: string
+  secret: string
+  environment: string
+  endpoint: string
+}
+
 export type VaultItem =
   | LoginItem
   | NoteItem
@@ -164,6 +182,7 @@ export type VaultItem =
   | PasskeyItem
   | SshKeyItem
   | WifiItem
+  | ApiCredentialItem
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -556,6 +575,15 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         security: 'WPA',
         hidden: false,
       }
+    case 'api-credential':
+      return {
+        ...base,
+        type: 'api-credential',
+        keyId: '',
+        secret: '',
+        environment: '',
+        endpoint: '',
+      }
   }
 }
 
@@ -577,6 +605,8 @@ export function itemSubtitle(item: VaultItem): string {
       return item.comment || item.fingerprint || 'Clé SSH'
     case 'wifi':
       return item.ssid || 'Wi-Fi'
+    case 'api-credential':
+      return item.keyId || item.environment || 'Identifiant d’API'
   }
 }
 
@@ -596,5 +626,7 @@ export function itemTypeLabel(type: ItemType): string {
       return 'Clé SSH'
     case 'wifi':
       return 'Wi-Fi'
+    case 'api-credential':
+      return 'Identifiant d’API'
   }
 }

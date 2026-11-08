@@ -957,7 +957,7 @@ export function ItemDialog({
                   role="tablist"
                   aria-label={tt('Type d’élément')}
                 >
-                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi'] as ItemType[]).map((type) => (
+                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential'] as ItemType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -1447,6 +1447,50 @@ export function ItemDialog({
                       onChange={(event) => patch({ hidden: event.target.checked })}
                     />
                     <span>{tt('Réseau masqué')}</span>
+                  </label>
+                </div>
+              )}
+
+              {draft.type === 'api-credential' && (
+                <div className="form-grid">
+                  <label className="field field--full">
+                    <span className="field__label">{tt('Identifiant de clé')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.keyId}
+                      onChange={(event) => patch({ keyId: event.target.value })}
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field field--full">
+                    <span className="field__label">{tt('Secret')}</span>
+                    <input
+                      className="input input--mono"
+                      type="password"
+                      value={draft.secret}
+                      onChange={(event) => patch({ secret: event.target.value })}
+                      maxLength={10_000}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Environnement')}</span>
+                    <input
+                      className="input"
+                      value={draft.environment}
+                      onChange={(event) => patch({ environment: event.target.value })}
+                      maxLength={100}
+                      placeholder={tt('Production')}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Point de terminaison')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.endpoint}
+                      onChange={(event) => patch({ endpoint: event.target.value })}
+                      maxLength={2_000}
+                      placeholder={tt('https://api.exemple.fr')}
+                    />
                   </label>
                 </div>
               )}
@@ -2123,6 +2167,34 @@ function ItemDetails({
             )}
           </div>
         </>
+      )}
+
+      {item.type === 'api-credential' && (
+        <div className="detail-list">
+          <DetailRow
+            label="Identifiant de clé"
+            value={item.keyId}
+            onCopy={() => void copyValue(item.keyId, 'Identifiant de clé')}
+            copied={copied === 'Identifiant de clé'}
+            mono
+          />
+          <SecretRow
+            label="Secret"
+            value={item.secret}
+            revealed={revealed.has('api-secret')}
+            onToggle={() => toggleReveal('api-secret')}
+            onCopy={() => void copyValue(item.secret, 'Secret')}
+            copied={copied === 'Secret'}
+          />
+          <DetailRow label="Environnement" value={item.environment} />
+          <DetailRow
+            label="Point de terminaison"
+            value={item.endpoint}
+            onCopy={() => void copyValue(item.endpoint, 'Point de terminaison')}
+            copied={copied === 'Point de terminaison'}
+            mono
+          />
+        </div>
       )}
 
       {item.expiresAt && (
