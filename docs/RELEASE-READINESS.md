@@ -54,7 +54,7 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 179 tests unitaires (17 fichiers), 50 exécutions Playwright
+- **Tests** : 182 tests unitaires (17 fichiers), 50 exécutions Playwright
   (dont les scénarios multi-onglets et verrouillage pendant l’écriture), 5 tests
   Rust (4 sur toutes les plateformes), smoke extension en CI sur le serveur de
   développement (contrôle de domaine compris), Lighthouse accessibilité 1,0.
@@ -128,7 +128,7 @@ signature stable.
 
 Aucun audit cryptographique ni test d’intrusion externe n’a été réalisé. Pour un
 produit qui contient tous les mots de passe d’une personne, c’est un prérequis
-de confiance, même avec 179 tests.
+de confiance, même avec 182 tests.
 
 ### B-08 — Validation Windows/Linux et macOS Intel
 
@@ -151,9 +151,10 @@ réel dans Mots de passe sur une machine Apple.
 
 ### B-10 — Détails d’accessibilité et de finition
 
-Lighthouse est à 1,0, mais les textes de 9–10 px restent nombreux et l’auto-lock
-desktop lors du passage à une autre application n’est pas explicite. Une revue
-manuelle avec lecteur d’écran et navigation clavier complète reste à faire.
+Lighthouse est à 1,0. Les textes ont été remontés à **10,5 px minimum**, un lien
+d’évitement et `prefers-reduced-motion` ont été ajoutés, et le verrouillage à la
+perte de focus desktop est désormais explicite. Une revue manuelle avec lecteur
+d’écran et navigation clavier complète reste à faire.
 
 ---
 

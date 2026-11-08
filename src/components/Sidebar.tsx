@@ -15,13 +15,12 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useMemo } from 'react'
 import { Brand } from './Brand'
 import { FILTER_LABELS, type ItemFilter } from '../lib/filters'
 import type { VaultItem, VaultSummary } from '../lib/types'
 import type { UsageMap } from '../lib/usage'
 import { useSettings } from '../state/SettingsProvider'
-import { analyzeSecurity, securityTone } from '../lib/security'
+import { securityTone, type SecurityReport } from '../lib/security'
 
 interface SidebarProps {
   vaults: VaultSummary[]
@@ -37,6 +36,7 @@ interface SidebarProps {
   onDeleteVault: (vault: VaultSummary) => void
   onOpenSettings: () => void
   onOpenSecurity: () => void
+  securityReport: SecurityReport
   onLock: () => void
   onClose: () => void
 }
@@ -66,13 +66,13 @@ export function Sidebar({
   onDeleteVault,
   onOpenSettings,
   onOpenSecurity,
+  securityReport,
   onLock,
   onClose,
 }: SidebarProps) {
   const { settings } = useSettings()
-  const report = useMemo(() => analyzeSecurity(items), [items])
-  const tone = securityTone(report.score)
-  const SecurityIcon = report.affected > 0 ? ShieldAlert : ShieldCheck
+  const tone = securityTone(securityReport.score)
+  const SecurityIcon = securityReport.affected > 0 ? ShieldAlert : ShieldCheck
   const scopedItems = vaultFilter === 'all' ? items : items.filter((item) => item.vaultId === vaultFilter)
 
   const countFor = (id: ItemFilter): number => {
@@ -116,6 +116,7 @@ export function Sidebar({
                 className={`sidebar__item ${
                   filter === entry.id ? 'is-active' : ''
                 } ${entry.id === 'trash' ? 'sidebar__item--trash' : ''}`}
+                aria-current={filter === entry.id ? 'page' : undefined}
                 onClick={() => {
                   onFilterChange(entry.id)
                   onClose()
@@ -166,6 +167,7 @@ export function Sidebar({
               <button
                 type="button"
                 className="sidebar__vault-main"
+                aria-current={vaultFilter === vault.id ? 'page' : undefined}
                 onClick={() => {
                   onVaultChange(vault.id)
                   onClose()
@@ -219,10 +221,12 @@ export function Sidebar({
             <span>
               Sécurité
               <small>
-                {report.total === 0
+                {securityReport.total === 0
                   ? 'Aucune connexion analysée'
-                  : `${report.score}/100 · ${
-                      report.affected > 0 ? `${report.affected} à revoir` : 'aucun problème'
+                  : `${securityReport.score}/100 · ${
+                      securityReport.affected > 0
+                        ? `${securityReport.affected} à revoir`
+                        : 'aucun problème'
                     }`}
               </small>
             </span>

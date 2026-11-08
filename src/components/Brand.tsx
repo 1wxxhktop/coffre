@@ -14,9 +14,9 @@ export function Brand({ compact = false, subtitle }: BrandProps) {
         <svg viewBox="0 0 48 48" width="100%" height="100%" role="presentation">
           <defs>
             <linearGradient id={gradientId} x1="4" y1="4" x2="44" y2="44">
-              <stop offset="0%" stopColor="#a78bfa" />
-              <stop offset="55%" stopColor="#7c6cf6" />
-              <stop offset="100%" stopColor="#4fd1c5" />
+              <stop offset="0%" stopColor="#e4e4e7" />
+              <stop offset="55%" stopColor="#a1a1aa" />
+              <stop offset="100%" stopColor="#52525b" />
             </linearGradient>
           </defs>
           <rect x="2" y="2" width="44" height="44" rx="13" fill={`url(#${gradientId})`} />
@@ -28,8 +28,8 @@ export function Brand({ compact = false, subtitle }: BrandProps) {
             strokeLinecap="round"
           />
           <rect x="13.5" y="21" width="21" height="16" rx="5" fill="#0b0d12" />
-          <circle cx="24" cy="28" r="2.3" fill="#c7c9ff" />
-          <path d="M24 30v4" stroke="#c7c9ff" strokeWidth="2.2" strokeLinecap="round" />
+          <circle cx="24" cy="28" r="2.3" fill="#e4e4e7" />
+          <path d="M24 30v4" stroke="#e4e4e7" strokeWidth="2.2" strokeLinecap="round" />
         </svg>
       </span>
       {!compact && (

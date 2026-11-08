@@ -280,10 +280,14 @@ L’analyse de sécurité est entièrement locale et ne conserve aucun résultat
 
 - elle ne considère que les connexions actives ; les notes, cartes, identités
   et éléments en corbeille sont ignorés ;
-- les mots de passe faibles sont estimés par longueur et entropie, les
-  réutilisations par égalité exacte, les doublons par URL normalisée ;
-- le score et les listes ne contiennent que des références d’éléments et des
-  compteurs, jamais un mot de passe ;
+- les mots de passe faibles sont estimés par longueur, entropie et présence du
+  titre ou de l’identifiant dans le secret ; les réutilisations exactes et les
+  variantes proches sont détectées sans exposer les secrets ;
+- l’ancienneté utilise la dernière modification de l’élément, l’absence de 2FA
+  le champ TOTP, et les connexions incomplètes les champs identifiant, mot de
+  passe et URL ;
+- le score, la répartition solides/moyens/faibles et les listes ne contiennent
+  que des références d’éléments et des compteurs, jamais un mot de passe ;
 - aucune requête réseau ni service de fuite de mots de passe n’est utilisé.
 
 ---

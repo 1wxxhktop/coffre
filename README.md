@@ -7,7 +7,7 @@ chiffré sur votre appareil. Aucun compte, aucun serveur, aucune synchronisation
 aucune télémétrie. L’interface est en français.
 
 > **État du projet — 0.8.0 (trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 179 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 182 tests unitaires et
 > 25 parcours Playwright exécutés sur Chromium et WebKit (50 exécutions). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -87,9 +87,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Vérification d’intégrité** à la demande : déchiffre chaque coffre, élément,
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
-- **Tableau de bord Sécurité** : score local, mots de passe faibles, réutilisés
-  ou anciens, absence de 2FA et sites en doublon, avec accès direct aux éléments
-  à corriger.
+- **Tableau de bord Sécurité** : score et répartition des mots de passe,
+  faiblesses, réutilisations, variantes proches, ancienneté, absence de 2FA,
+  connexions incomplètes et sites en doublon, avec accès direct aux éléments à
+  corriger.
 - **Changement de mot de passe maître avec rotation des clés** : toutes les
   clés de coffre et d’élément sont régénérées et le contenu rechiffré, pour que
   l’ancien mot de passe ne lise pas ce qui est enregistré ensuite.
@@ -118,7 +119,7 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks
   entre onglets ; les liens externes Tauri s’ouvrent dans le navigateur système.
-- **Thèmes sombre, clair et système**, interface responsive, sélecteurs natifs
+- **Thèmes neutres sombre/clair** (noir et blanc) et **mode système**, interface responsive, sélecteurs natifs
   habillés, accessibilité clavier et modales avec piège à focus.
 
 ### Corbeille et historique
@@ -322,7 +323,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (179 tests) |
+| `bun run test` | Tests Vitest (182 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (50 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
@@ -407,10 +408,10 @@ bun run desktop:build
 Le build a été validé sur macOS arm64 (0.7.0, puis 0.8.0 après l’ajout du
 trousseau et de la nouvelle interface) :
 
-- `Coffre.app` (10,44 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,40 Mio) générés
+- `Coffre.app` (10,40 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,29 Mio) générés
   dans `src-tauri/target/release/bundle/` ;
 - build **universel** ad hoc (`arm64` + `x86_64`) validé :
-  `Coffre.app` 21,01 Mio et `Coffre_0.8.0_universal.dmg` 6,60 Mio ;
+  `Coffre.app` 20,97 Mio et `Coffre_0.8.0_universal.dmg` 6,48 Mio ;
 - l’application se lance, initialise le stockage natif
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB, reste stable et n’ouvre aucune connexion réseau ;
@@ -685,7 +686,7 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   `SecAccessControl` ou Secure Enclave demande une signature Developer ID.
 - Pas de protection contre un OS compromis, un keylogger, une extension
   malveillante ou une injection de code dans la page.
-- Le bundle initial fait environ 682 Ko minifiés (213 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
+- Le bundle initial fait environ 688 Ko minifiés (215 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
   `hash-wasm` pourront être chargés à la demande dans une version ultérieure.
 - Les tests de bout en bout utilisent Chromium et WebKit ; Firefox et les
   WebViews Android/iOS réelles doivent encore être validés.
