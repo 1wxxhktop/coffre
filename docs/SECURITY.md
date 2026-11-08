@@ -711,6 +711,8 @@ l’intégration desktop n’est pas lancée explicitement.
 - l’agent supprime son socket à l’arrêt s’il est toujours propriétaire du même
   fichier (comparaison du périphérique et de l’inode), et le prochain démarrage
   nettoie un socket orphelin ;
+- au plus 16 connexions simultanées sont servies ; les suivantes sont
+  fermées immédiatement ;
 - limites : le socket Unix n’est pas implémenté sous Windows (named pipe à
   faire), la fenêtre d’approbation et Touch ID restent à raccorder, et aucune
   mémorisation d’approbation par hôte n’est encore proposée.

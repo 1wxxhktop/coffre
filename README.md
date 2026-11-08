@@ -650,7 +650,7 @@ trousseau et de la nouvelle interface) :
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
 - `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent`
-  (11 + 1 + 9 + 12 tests) ouvre les
+  (11 + 1 + 9 + 13 tests) ouvre les
   fixtures TypeScript v1 à v4, crée/modifie/supprime, signe en v4, tourne le
   mot de passe, fusionne deux fichiers, exerce la façade UniFFI et relit les
   vecteurs Rust par le test TypeScript (`src/lib/coffreCoreVector.test.ts`).

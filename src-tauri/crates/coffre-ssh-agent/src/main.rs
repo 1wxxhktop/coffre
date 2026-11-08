@@ -8,7 +8,7 @@
 mod unix {
     use clap::Parser;
     use coffre_core::{OpenedVault, VaultFile, open};
-    use coffre_ssh_agent::{Approval, ApprovalRequest, Identity, bind_socket, serve};
+    use coffre_ssh_agent::{AgentHandle, Approval, ApprovalRequest, Identity};
     use std::io::{BufRead, BufReader, Write};
     use std::path::{Path, PathBuf};
     use std::process::ExitCode;
@@ -147,37 +147,6 @@ mod unix {
         unsafe { geteuid() }
     }
 
-    struct SocketGuard {
-        path: PathBuf,
-        device: u64,
-        inode: u64,
-    }
-
-    impl SocketGuard {
-        fn new(path: &Path) -> Result<Self, String> {
-            use std::os::unix::fs::MetadataExt;
-            let metadata = std::fs::symlink_metadata(path)
-                .map_err(|_| "socket de l’agent introuvable".to_string())?;
-            Ok(Self {
-                path: path.to_path_buf(),
-                device: metadata.dev(),
-                inode: metadata.ino(),
-            })
-        }
-    }
-
-    impl Drop for SocketGuard {
-        fn drop(&mut self) {
-            use std::os::unix::fs::MetadataExt;
-            if let Ok(metadata) = std::fs::symlink_metadata(&self.path)
-                && metadata.dev() == self.device
-                && metadata.ino() == self.inode
-            {
-                let _ = std::fs::remove_file(&self.path);
-            }
-        }
-    }
-
     pub fn main() -> ExitCode {
         let cli = Cli::parse();
         let result = run(cli);
@@ -209,15 +178,14 @@ mod unix {
         }
 
         let socket = cli.socket.unwrap_or_else(default_socket);
-        let listener = bind_socket(&socket).map_err(|error| error.to_string())?;
-        let guard = SocketGuard::new(&socket)?;
-        println!("Agent SSH actif");
-        println!("  Socket : {}", socket.display());
-        println!("  export SSH_AUTH_SOCK={}", socket.display());
         let approval = Arc::new(TerminalApproval::new());
-        let result = serve(listener, Arc::new(identities), approval);
-        drop(guard);
-        result.map_err(|error| error.to_string())
+        let agent =
+            AgentHandle::start(&socket, identities, approval).map_err(|error| error.to_string())?;
+        println!("Agent SSH actif");
+        println!("  Socket : {}", agent.socket_path().display());
+        println!("  export SSH_AUTH_SOCK={}", agent.socket_path().display());
+        agent.wait();
+        Ok(())
     }
 }
 
