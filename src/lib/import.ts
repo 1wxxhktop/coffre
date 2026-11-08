@@ -26,6 +26,7 @@ export type ImportFormat =
   | 'bitwarden-json'
   | 'protonpass-json'
   | 'enpass-json'
+  | '1pux'
   | 'csv'
 
 export type ImportSource =

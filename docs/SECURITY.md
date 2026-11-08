@@ -227,16 +227,17 @@ pour les tests). N’importez que des fichiers dont vous connaissez la provenanc
 ### 2.8 Import depuis un autre gestionnaire
 
 L’import externe accepte un export JSON non chiffré de Bitwarden, Proton Pass ou
-Enpass, ou un fichier CSV (1Password, LastPass, Chrome, Firefox, Safari,
-Dashlane, KeePass/KeePassXC, NordPass, Keeper, RoboForm, SafeInCloud, Enpass). Le
-fichier est lu localement, analysé, converti en brouillons, puis chiffré par le
-coffre de destination.
+Enpass, un fichier CSV (1Password, LastPass, Chrome, Firefox, Safari, Dashlane,
+KeePass/KeePassXC, NordPass, Keeper, RoboForm, SafeInCloud, Enpass) ou une
+archive 1Password `.1pux` non chiffrée. Le fichier est lu localement, analysé,
+converti en brouillons, puis chiffré par le coffre de destination.
 
 - Le fichier source n’est ni conservé ni transmis.
-- La taille du fichier est limitée à 20 Mo et l’import à 5 000 éléments par
-  opération.
-- Les exports chiffrés (Bitwarden, Proton Pass, `.enpassbackup`) et les archives
-  propriétaires (`.1pux`) sont refusés.
+- La taille du fichier est limitée à 20 Mo (50 Mo pour une archive `.1pux`) et
+  l’import à 5 000 éléments par opération.
+- Les exports chiffrés (Bitwarden, Proton Pass, `.enpassbackup`) sont refusés.
+  Une archive `.1pux` est lue en mémoire ; ses pièces jointes binaires ne sont
+  pas importées.
 - Les doublons sont détectés localement (même type et mêmes informations
   d’identification) et peuvent être ignorés avant l’import.
 - Les données importées restent en clair dans la mémoire du navigateur pendant
@@ -267,8 +268,23 @@ passerelle en mémoire supprimée au verrouillage.
   la passerelle. Le risque est équivalent à celui d’un XSS dans l’application :
   verrouillez le coffre après usage et n’installez que des extensions de
   confiance.
-- L’extension n’est ni signée ni publiée : chargez uniquement un dossier
-  `dist-extension/` construit localement.
+- L’extension Chromium/Firefox n’est ni signée ni publiée : chargez uniquement
+  un dossier `dist-extension/` construit localement.
+- Le manifeste fournit `background.scripts` pour Firefox et
+  `background.service_worker` pour Chromium ; les appels passent par l’API
+  `browser` (promesses) sur Firefox et `chrome` sur Chromium.
+
+### 2.10 Tableau de bord Sécurité
+
+L’analyse de sécurité est entièrement locale et ne conserve aucun résultat :
+
+- elle ne considère que les connexions actives ; les notes, cartes, identités
+  et éléments en corbeille sont ignorés ;
+- les mots de passe faibles sont estimés par longueur et entropie, les
+  réutilisations par égalité exacte, les doublons par URL normalisée ;
+- le score et les listes ne contiennent que des références d’éléments et des
+  compteurs, jamais un mot de passe ;
+- aucune requête réseau ni service de fuite de mots de passe n’est utilisé.
 
 ---
 
@@ -383,6 +399,9 @@ dans un export `.coffre`.
   d’inactivité est désactivé. L’option peut être décochée dans les réglages.
 - Si l’option est désactivée, le temps passé hors écran est mesuré au retour :
   un onglet resté en arrière-plan plus longtemps que le délai se verrouille.
+- **Perte de focus (desktop)** : option dédiée qui verrouille dès que la fenêtre
+  Tauri n’est plus active. Désactivée par défaut pour ne pas gêner les dialogues
+  système.
 - `pagehide` et `beforeunload` verrouillent également la session.
 - Les minuteurs peuvent être ralentis par le navigateur lorsque l’onglet est en
   arrière-plan ; le verrouillage peut donc survenir au retour plutôt qu’à la
@@ -652,7 +671,9 @@ l’option désactivée sur un appareil partagé.
 Le desktop Tauri utilise un fichier natif dans le dossier de données de
 l’application (`vault/vault.coffre`). Le stockage est propre à l’application et
 à l’identifiant Tauri ; un ancien coffre IndexedDB est migré au premier
-lancement.
+lancement. Un raccourci global (`⌘⇧Espace` sur macOS, `Ctrl+Shift+Espace`
+ailleurs) affiche la fenêtre et place le curseur dans la recherche ; il est
+enregistré côté Rust et ne donne aucun accès supplémentaire à la WebView.
 
 Le build macOS arm64 a été validé : l’application démarre, initialise le
 stockage natif, migre un éventuel coffre IndexedDB, reste stable et n’ouvre
@@ -673,7 +694,7 @@ Windows/Linux restent à valider.
 | Perte du mot de passe | Perte définitive sans phrase configurée | Phrase de récupération optionnelle (~129 bits) ; exports réguliers |
 | Phrase de récupération compromise | Ouverture du coffre avec le fichier | Phrase non stockée, à conserver séparément ; remplacement immédiat en cas de doute |
 | Corruption du stockage | Perte du coffre courant | Trois générations `backup`, validation, vérification d’intégrité, export |
-| Fichier d’import malveillant ou volumineux | Déni de service, import partiel | Limite de 20 Mo et 5 000 éléments, validation, aperçu avant import |
+| Fichier d’import malveillant ou volumineux | Déni de service, import partiel | Limite de 20 Mo (50 Mo pour `.1pux`) et 5 000 éléments, validation, aperçu avant import |
 | Pièce jointe malveillante | Exécution à l’ouverture hors de Coffre | Type MIME et extension non fiables ; ouvrir avec prudence, aucune exécution dans l’application |
 | Métadonnées visibles | Fuite d’information limitée | Chiffrement du contenu ; métadonnées assumées |
 | Historique et corbeille conservés | Données supprimées encore présentes dans le fichier | Chiffrés, plafonnés (20 versions/élément), purge configurable |

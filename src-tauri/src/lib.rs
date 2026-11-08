@@ -5,9 +5,13 @@
 //! et l’ouverture contrôlée des liens externes. Aucune autre commande n’est
 //! ouverte à la WebView.
 
+#[cfg(desktop)]
+use tauri::Emitter;
 use tauri::Manager;
 use tauri::Runtime;
 use tauri::plugin::Plugin;
+#[cfg(desktop)]
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 mod vault_store;
 
@@ -223,6 +227,16 @@ mod biometric {
     }
 }
 
+#[cfg(desktop)]
+fn quick_search_shortcut() -> Shortcut {
+    let modifier = if cfg!(target_os = "macos") {
+        Modifiers::SUPER
+    } else {
+        Modifiers::CONTROL
+    };
+    Shortcut::new(Some(modifier | Modifiers::SHIFT), Code::Space)
+}
+
 fn vault_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     app.path()
         .app_data_dir()
@@ -417,6 +431,30 @@ pub fn run() {
             let _ = window.set_focus();
         }
     }));
+
+    #[cfg(desktop)]
+    let builder = builder
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state == ShortcutState::Pressed && shortcut == &quick_search_shortcut()
+                    {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                        let _ = app.emit("coffre:quick-search", ());
+                    }
+                })
+                .build(),
+        )
+        .setup(|app| {
+            if let Err(error) = app.global_shortcut().register(quick_search_shortcut()) {
+                eprintln!("Raccourci global de recherche indisponible : {error}");
+            }
+            Ok(())
+        });
 
     builder
         .run(tauri::generate_context!())

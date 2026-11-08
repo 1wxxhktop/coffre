@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -22,6 +23,7 @@ import {
 import { ItemRow } from './ItemRow'
 import { ItemDialog } from './ItemDialog'
 import { SettingsDialog } from './SettingsDialog'
+import { SecurityDialog } from './SecurityDialog'
 import { VaultFormDialog } from './VaultFormDialog'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExtensionBridge } from './ExtensionBridge'
@@ -31,6 +33,7 @@ import { useToast } from '../state/ToastProvider'
 import { useAutoLock } from '../hooks/useAutoLock'
 import { loadUsage, recordItemUsage, type UsageMap } from '../lib/usage'
 import { itemSubtitle, itemTypeLabel, type ItemType, type VaultSummary } from '../lib/types'
+import { isTauriRuntime } from '../lib/external'
 
 function normalize(value: string): string {
   return value
@@ -84,6 +87,8 @@ export function VaultApp() {
     lock,
     deleteVault,
     emptyTrash,
+    trashItems,
+    favoriteItems,
   } = useVault()
   const { settings } = useSettings()
   const { toast } = useToast()
@@ -97,15 +102,25 @@ export function VaultApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createType, setCreateType] = useState<ItemType | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [securityOpen, setSecurityOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [vaultForm, setVaultForm] = useState<
     { mode: 'create' } | { mode: 'rename'; vault: VaultSummary } | null
   >(null)
   const [vaultToDelete, setVaultToDelete] = useState<VaultSummary | null>(null)
   const [showEmptyTrash, setShowEmptyTrash] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [showBulkTrash, setShowBulkTrash] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  useAutoLock(settings.autoLockMinutes, settings.lockOnHide, lock)
+  useAutoLock(
+    settings.autoLockMinutes,
+    settings.lockOnHide,
+    settings.lockOnFocusLoss,
+    lock,
+  )
 
   /** Enregistre l’ouverture ou la copie d’un élément pour la vue « Récents ». */
   const markUsed = useCallback((itemId: string) => {
@@ -113,10 +128,36 @@ export function VaultApp() {
   }, [])
 
   useEffect(() => {
+    if (!isTauriRuntime()) return
+    let unlisten: (() => void) | undefined
+    void listen('coffre:quick-search', () => {
+      searchRef.current?.focus()
+      searchRef.current?.select()
+    }).then((cleanup) => {
+      unlisten = cleanup
+    })
+    return () => unlisten?.()
+  }, [])
+
+  useEffect(() => {
     if (vaultFilter !== 'all' && !vaults.some((vault) => vault.id === vaultFilter)) {
       setVaultFilter('all')
     }
   }, [vaults, vaultFilter])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+    setSelectionMode(false)
+  }, [filter, vaultFilter, search])
+
+  useEffect(() => {
+    setSelectedIds((previous) => {
+      const next = new Set(
+        [...previous].filter((id) => items.some((item) => item.id === id && !item.deletedAt)),
+      )
+      return next.size === previous.size ? previous : next
+    })
+  }, [items])
 
   useEffect(() => {
     if (selectedId && !items.some((item) => item.id === selectedId)) {
@@ -234,6 +275,75 @@ export function VaultApp() {
   const visibleItems = filteredItems.slice(0, visibleLimit)
 
   const deletedCount = items.filter((item) => item.deletedAt).length
+  const selectedItems = items.filter(
+    (item) => selectedIds.has(item.id) && !item.deletedAt,
+  )
+  const allVisibleSelected =
+    visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))
+  const allSelectedFavorite =
+    selectedItems.length > 0 && selectedItems.every((item) => item.favorite)
+
+  const toggleSelected = (itemId: string) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(itemId)) next.delete(itemId)
+      else next.add(itemId)
+      return next
+    })
+  }
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous)
+      if (allVisibleSelected) {
+        for (const item of visibleItems) next.delete(item.id)
+      } else {
+        for (const item of visibleItems) next.add(item.id)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectedFavorite = async () => {
+    if (bulkBusy || selectedItems.length === 0) return
+    setBulkBusy(true)
+    try {
+      const count = await favoriteItems(
+        selectedItems.map((item) => item.id),
+        !allSelectedFavorite,
+      )
+      toast(
+        count > 0
+          ? `${count} élément${count > 1 ? 's' : ''} ${
+              allSelectedFavorite ? 'retiré' : 'ajouté'
+            }${count > 1 ? 's' : ''} ${allSelectedFavorite ? 'des' : 'aux'} favoris`
+          : 'Aucun favori modifié',
+        'info',
+      )
+      setSelectedIds(new Set())
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const trashSelected = async () => {
+    if (bulkBusy || selectedIds.size === 0) return
+    setBulkBusy(true)
+    try {
+      const count = await trashItems([...selectedIds])
+      setShowBulkTrash(false)
+      setSelectedIds(new Set())
+      setSelectionMode(false)
+      toast(
+        count > 0
+          ? `${count} élément${count > 1 ? 's' : ''} déplacé${count > 1 ? 's' : ''} dans la corbeille`
+          : 'Aucun élément déplacé',
+        'info',
+      )
+    } finally {
+      setBulkBusy(false)
+    }
+  }
 
   // La sélection suit la liste : un élément filtré hors de la vue est désélectionné.
   useEffect(() => {
@@ -293,6 +403,7 @@ export function VaultApp() {
         onRenameVault={(vault) => setVaultForm({ mode: 'rename', vault })}
         onDeleteVault={setVaultToDelete}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSecurity={() => setSecurityOpen(true)}
         onLock={lock}
         onClose={() => setSidebarOpen(false)}
       />
@@ -386,26 +497,71 @@ export function VaultApp() {
                 <ShieldCheck size={15} />
                 Chiffré localement
               </span>
-              {filter !== 'trash' && (
-                <label className="filter-sort">
-                  <ArrowUpDown size={13} />
-                  <select
-                    className="filter-sort__select"
-                    value={sort}
-                    onChange={(event) => setSort(event.target.value as ItemSort)}
-                    aria-label="Trier les éléments"
-                    title={`Trier : ${SORT_LABELS[sort]}`}
+              <div className="content__bar-actions">
+                {filter !== 'trash' && filteredItems.length > 0 && (
+                  <button
+                    type="button"
+                    className="button button--ghost button--sm"
+                    onClick={() => {
+                      if (selectionMode) setSelectedIds(new Set())
+                      setSelectionMode((value) => !value)
+                    }}
                   >
-                    {(Object.keys(SORT_LABELS) as ItemSort[]).map((value) => (
-                      <option key={value} value={value}>
-                        {SORT_LABELS[value]}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} />
-                </label>
-              )}
+                    {selectionMode ? 'Annuler' : 'Sélectionner'}
+                  </button>
+                )}
+                {filter !== 'trash' && (
+                  <label className="filter-sort">
+                    <ArrowUpDown size={13} />
+                    <select
+                      className="filter-sort__select"
+                      value={sort}
+                      onChange={(event) => setSort(event.target.value as ItemSort)}
+                      aria-label="Trier les éléments"
+                      title={`Trier : ${SORT_LABELS[sort]}`}
+                    >
+                      {(Object.keys(SORT_LABELS) as ItemSort[]).map((value) => (
+                        <option key={value} value={value}>
+                          {SORT_LABELS[value]}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} />
+                  </label>
+                )}
+              </div>
             </div>
+
+          {selectionMode && (
+            <div className="bulk-bar" role="toolbar" aria-label="Actions sur la sélection">
+              <span>
+                {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+              </span>
+              <button
+                type="button"
+                className="button button--ghost button--sm"
+                onClick={toggleSelectAllVisible}
+              >
+                {allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+              </button>
+              <button
+                type="button"
+                className="button button--secondary button--sm"
+                onClick={() => void toggleSelectedFavorite()}
+                disabled={bulkBusy || selectedItems.length === 0}
+              >
+                {allSelectedFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              </button>
+              <button
+                type="button"
+                className="button button--danger button--sm"
+                onClick={() => setShowBulkTrash(true)}
+                disabled={bulkBusy || selectedIds.size === 0}
+              >
+                Corbeille
+              </button>
+            </div>
+          )}
 
           {filter === 'trash' && filteredItems.length > 0 && (
             <div className="trash-toolbar">
@@ -432,7 +588,13 @@ export function VaultApp() {
                   vaultName={vaults.find((vault) => vault.id === item.vaultId)?.name ?? 'Coffre'}
                   showVault={vaultFilter === 'all'}
                   selected={selectedId === item.id}
+                  selectable={selectionMode}
+                  checked={selectedIds.has(item.id)}
                   onSelect={() => {
+                    if (selectionMode) {
+                      toggleSelected(item.id)
+                      return
+                    }
                     setSelectedId(item.id)
                     markUsed(item.id)
                   }}
@@ -566,6 +728,22 @@ export function VaultApp() {
         />
       )}
 
+      {securityOpen && (
+        <SecurityDialog
+          items={items}
+          vaults={vaults}
+          onClose={() => setSecurityOpen(false)}
+          onOpenItem={(itemId) => {
+            setSecurityOpen(false)
+            setFilter('all')
+            setVaultFilter('all')
+            setSearch('')
+            setSelectedId(itemId)
+            markUsed(itemId)
+          }}
+        />
+      )}
+
       {settingsOpen && (
         <SettingsDialog
           onClose={() => setSettingsOpen(false)}
@@ -621,6 +799,18 @@ export function VaultApp() {
               'info',
             )
           }}
+        />
+      )}
+
+      {showBulkTrash && (
+        <ConfirmDialog
+          title={`Mettre ${selectedIds.size} élément${
+            selectedIds.size > 1 ? 's' : ''
+          } à la corbeille ?`}
+          description="Les éléments resteront chiffrés et pourront être restaurés depuis la corbeille."
+          confirmLabel="Mettre à la corbeille"
+          onClose={() => setShowBulkTrash(false)}
+          onConfirm={trashSelected}
         />
       )}
     </div>

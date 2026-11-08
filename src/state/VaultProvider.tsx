@@ -99,6 +99,8 @@ interface VaultContextValue extends ProviderState {
   addItem: (draft: ItemDraft) => Promise<VaultItem>
   updateItem: (item: VaultItem) => Promise<VaultItem>
   trashItem: (itemId: string) => Promise<VaultItem>
+  trashItems: (itemIds: string[]) => Promise<number>
+  favoriteItems: (itemIds: string[], favorite: boolean) => Promise<number>
   restoreItem: (itemId: string) => Promise<VaultItem>
   deleteItemPermanently: (itemId: string) => Promise<void>
   emptyTrash: () => Promise<number>
@@ -752,6 +754,80 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [commit, enqueue, persist],
   )
 
+  const trashItems = useCallback(
+    (itemIds: string[]) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const unique = Array.from(new Set(itemIds))
+        const existing = current.items.filter(
+          (item) => unique.includes(item.id) && !item.deletedAt,
+        )
+        if (existing.length === 0) return 0
+
+        const epoch = epochRef.current
+        let file = current.file
+        const trashed: VaultItem[] = []
+        for (const item of existing) {
+          if (epochRef.current !== epoch) throw new VaultLockedError()
+          const result = await trashItemInFile(file, current.session, item.id)
+          file = result.file
+          trashed.push(result.item)
+        }
+        await persist(current.file, file)
+
+        const counts = new Map<string, number>()
+        for (const item of existing) {
+          counts.set(item.vaultId, (counts.get(item.vaultId) ?? 0) + 1)
+        }
+        commit(epoch, file, (previous) => ({
+          items: previous.items.map(
+            (item) => trashed.find((entry) => entry.id === item.id) ?? item,
+          ),
+          vaults: previous.vaults.map((vault) => ({
+            ...vault,
+            itemCount: Math.max(0, vault.itemCount - (counts.get(vault.id) ?? 0)),
+          })),
+        }))
+        return trashed.length
+      }),
+    [commit, enqueue, persist],
+  )
+
+  const favoriteItems = useCallback(
+    (itemIds: string[], favorite: boolean) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const unique = Array.from(new Set(itemIds))
+        const existing = current.items.filter(
+          (item) => unique.includes(item.id) && !item.deletedAt && item.favorite !== favorite,
+        )
+        if (existing.length === 0) return 0
+
+        const epoch = epochRef.current
+        let file = current.file
+        const changed: VaultItem[] = []
+        for (const item of existing) {
+          if (epochRef.current !== epoch) throw new VaultLockedError()
+          const result = await updateItemInFile(file, current.session, {
+            ...item,
+            favorite,
+          })
+          file = result.file
+          changed.push(result.item)
+        }
+        await persist(current.file, file)
+        commit(epoch, file, (previous) => ({
+          items: previous.items.map(
+            (item) => changed.find((entry) => entry.id === item.id) ?? item,
+          ),
+        }))
+        return changed.length
+      }),
+    [commit, enqueue, persist],
+  )
+
   const restoreItem = useCallback(
     (itemId: string) =>
       enqueue(async () => {
@@ -1172,6 +1248,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     addItem,
     updateItem,
     trashItem,
+    trashItems,
+    favoriteItems,
     restoreItem,
     deleteItemPermanently,
     emptyTrash,

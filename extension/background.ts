@@ -5,6 +5,9 @@ import {
   type ExtensionLoginSummary,
 } from '../src/lib/extensionProtocol'
 
+/** Firefox expose `browser` (promesses) ; Chrome expose `chrome`. */
+const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
+
 const DEFAULT_APP_URL = 'http://localhost:1420'
 const APP_URL_KEY = 'appUrl'
 
@@ -26,7 +29,7 @@ interface AppStatus {
 }
 
 async function getAppUrl(): Promise<string> {
-  const stored = await chrome.storage.local.get(APP_URL_KEY)
+  const stored = await api.storage.local.get(APP_URL_KEY)
   const value = stored[APP_URL_KEY]
   const url = typeof value === 'string' && value.trim() ? value.trim() : DEFAULT_APP_URL
   return url.replace(/\/+$/, '')
@@ -35,7 +38,7 @@ async function getAppUrl(): Promise<string> {
 async function findAppTab(appUrl: string): Promise<chrome.tabs.Tab | undefined> {
   // Le filtre `url` s’appuie sur la permission d’hôte de l’application, ce qui
   // évite d’accorder la permission `tabs` (accès aux URL de tous les onglets).
-  const tabs = await chrome.tabs.query({ url: [`${appUrl}/*`] })
+  const tabs = await api.tabs.query({ url: [`${appUrl}/*`] })
   return tabs[0]
 }
 
@@ -45,7 +48,7 @@ async function readStatus(): Promise<AppStatus> {
   if (!tab?.id) return { appOpen: false, unlocked: false, appUrl }
 
   try {
-    const [result] = await chrome.scripting.executeScript({
+    const [result] = await api.scripting.executeScript({
       target: { tabId: tab.id },
       world: 'MAIN',
       func: () => {
@@ -75,7 +78,7 @@ async function search(query: string): Promise<{
   if (!status.unlocked) return { error: 'locked' }
 
   try {
-    const [result] = await chrome.scripting.executeScript({
+    const [result] = await api.scripting.executeScript({
       target: { tabId: status.tabId },
       world: 'MAIN',
       func: async (value: string) => {
@@ -106,7 +109,7 @@ async function credentials(itemId: string): Promise<{
   if (!status.unlocked) return { error: 'locked' }
 
   try {
-    const [result] = await chrome.scripting.executeScript({
+    const [result] = await api.scripting.executeScript({
       target: { tabId: status.tabId },
       world: 'MAIN',
       func: async (id: string) => {
@@ -145,7 +148,7 @@ async function fill(
 ): Promise<FillResult> {
   let targetId = tabId
   if (!targetId) {
-    const [active] = await chrome.tabs.query({ active: true, currentWindow: true })
+    const [active] = await api.tabs.query({ active: true, currentWindow: true })
     targetId = active?.id
   }
   if (!targetId) return { error: 'no-tab' }
@@ -174,7 +177,7 @@ async function fill(
   }
 
   try {
-    const [result] = await chrome.scripting.executeScript({
+    const [result] = await api.scripting.executeScript({
       target: { tabId: targetId },
       func: (values: { username: string; password: string; totp: string }) => {
         const visible = (element: Element): boolean => {
@@ -275,13 +278,13 @@ async function openApp(): Promise<{ ok: boolean }> {
   const appUrl = await getAppUrl()
   const tab = await findAppTab(appUrl)
   if (tab?.id) {
-    await chrome.tabs.update(tab.id, { active: true })
+    await api.tabs.update(tab.id, { active: true })
     if (typeof tab.windowId === 'number') {
-      await chrome.windows.update(tab.windowId, { focused: true })
+      await api.windows.update(tab.windowId, { focused: true })
     }
     return { ok: true }
   }
-  await chrome.tabs.create({ url: appUrl })
+  await api.tabs.create({ url: appUrl })
   return { ok: true }
 }
 
@@ -303,7 +306,7 @@ async function handle(message: ExtensionMessage): Promise<unknown> {
       if (!/^https?:\/\/[^/\s]+$/i.test(value)) {
         return { error: 'invalid-url' }
       }
-      await chrome.storage.local.set({ [APP_URL_KEY]: value })
+      await api.storage.local.set({ [APP_URL_KEY]: value })
       return { ok: true, appUrl: value }
     }
     default:
@@ -311,11 +314,11 @@ async function handle(message: ExtensionMessage): Promise<unknown> {
   }
 }
 
-chrome.runtime.onMessage.addListener(
+api.runtime.onMessage.addListener(
   (message: ExtensionMessage, sender, sendResponse) => {
     // Seules nos propres pages (popup, options, service worker) peuvent
     // demander des identifiants ; aucun content script n’est exposé.
-    if (sender.id !== chrome.runtime.id) return
+    if (sender.id !== api.runtime.id) return
     void handle(message)
       .then((result) => sendResponse(result))
       .catch((error: unknown) =>

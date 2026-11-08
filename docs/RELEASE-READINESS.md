@@ -18,8 +18,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 
 | Plateforme | État | Verdict |
 | --- | --- | --- |
-| Web / PWA | Fonctionnelle, 34/34 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
-| Extension Chromium | Fonctionnelle, non publiée, installation manuelle | **Bêta technique** |
+| Web / PWA | Fonctionnelle, 46/46 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
+| Extension Chromium / Firefox | Fonctionnelle sur Chromium ; variante Firefox lintée, non publiée | **Bêta technique** |
 | Desktop macOS arm64 | Compile, stockage natif, se lance, Touch ID, signé ad hoc | **Bêta technique locale** |
 | Desktop macOS Intel | Non testé | **Non validé** |
 | Windows | Build CI, pas de test d’exécution | **Non validé** |
@@ -54,7 +54,7 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 172 tests unitaires (15 fichiers), 38 exécutions Playwright
+- **Tests** : 179 tests unitaires (17 fichiers), 50 exécutions Playwright
   (dont les scénarios multi-onglets et verrouillage pendant l’écriture), 5 tests
   Rust (4 sur toutes les plateformes), smoke extension en CI sur le serveur de
   développement (contrôle de domaine compris), Lighthouse accessibilité 1,0.
@@ -128,7 +128,7 @@ signature stable.
 
 Aucun audit cryptographique ni test d’intrusion externe n’a été réalisé. Pour un
 produit qui contient tous les mots de passe d’une personne, c’est un prérequis
-de confiance, même avec 172 tests.
+de confiance, même avec 179 tests.
 
 ### B-08 — Validation Windows/Linux et macOS Intel
 

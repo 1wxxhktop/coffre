@@ -7,8 +7,8 @@ chiffré sur votre appareil. Aucun compte, aucun serveur, aucune synchronisation
 aucune télémétrie. L’interface est en français.
 
 > **État du projet — 0.8.0 (trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 172 tests unitaires et
-> 19 parcours Playwright exécutés sur Chromium et WebKit (38 exécutions). Une
+> La version web/PWA est fonctionnelle et couverte par 179 tests unitaires et
+> 25 parcours Playwright exécutés sur Chromium et WebKit (50 exécutions). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
 > rapide optionnel par le trousseau du système et une disposition en colonnes
@@ -51,11 +51,12 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   jusqu’à 30 champs par élément.
 - **Pièces jointes chiffrées** : ajout, téléchargement et suppression de
   fichiers, avec chiffrement séparé par la clé de l’élément.
-- **Import** : exports JSON non chiffrés de Bitwarden, Proton Pass et Enpass, et
-  CSV de Bitwarden, 1Password, LastPass, Chrome/Edge/Brave, Firefox, Safari,
-  Dashlane, KeePass/KeePassXC, NordPass, Keeper, RoboForm, SafeInCloud et Enpass,
-  avec détection des colonnes, aperçu et déduplication avant import.
-- **Extension navigateur** (Manifest V3, Chromium) : remplissage automatique des
+- **Import** : exports JSON non chiffrés de Bitwarden, Proton Pass et Enpass,
+  archives 1Password `.1pux`, et CSV de Bitwarden, 1Password, LastPass,
+  Chrome/Edge/Brave, Firefox, Safari, Dashlane, KeePass/KeePassXC, NordPass,
+  Keeper, RoboForm, SafeInCloud et Enpass, avec détection des colonnes, aperçu
+  et déduplication avant import.
+- **Extension navigateur** (Manifest V3, Chromium et Firefox) : remplissage automatique des
   connexions et des codes TOTP depuis l’onglet Coffre déverrouillé. L’extension
   ne stocke aucun secret et ne copie rien dans le presse-papiers.
 - **Recherche** insensible aux accents, filtres par type et favoris, étiquettes ;
@@ -63,6 +64,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Tri de la liste** : utilisation récente, nom, date de création, date de
   modification ou type. Les filtres (récents, favoris, types, corbeille) restent
   dans la barre latérale pour éviter les doublons.
+- **Actions groupées** : sélection multiple, ajout/retrait des favoris et mise
+  à la corbeille en une seule opération.
 - **Générateur** de mots de passe et de phrases de passe (liste EFF de
   7 776 mots), avec réglages et estimation d’entropie. L’indicateur de
   robustesse reconnaît les mots du dictionnaire, les rangées de clavier, les
@@ -72,8 +75,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Copie temporaire** : effacement du presse-papiers après un délai et au
   verrouillage, si son contenu n’a pas changé.
 - **Verrouillage automatique** après inactivité, verrouillage immédiat lorsque
-  l’onglet passe en arrière-plan (option active par défaut) et verrouillage
-  manuel.
+  l’onglet passe en arrière-plan (option active par défaut), verrouillage à la
+  perte de focus sur desktop (option) et verrouillage manuel.
 - **Corbeille** : suppression réversible, restauration, suppression définitive
   et purge automatique configurable.
 - **Historique des versions** : chaque modification réelle conserve le contenu
@@ -84,6 +87,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Vérification d’intégrité** à la demande : déchiffre chaque coffre, élément,
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
+- **Tableau de bord Sécurité** : score local, mots de passe faibles, réutilisés
+  ou anciens, absence de 2FA et sites en doublon, avec accès direct aux éléments
+  à corriger.
 - **Changement de mot de passe maître avec rotation des clés** : toutes les
   clés de coffre et d’élément sont régénérées et le contenu rechiffré, pour que
   l’ancien mot de passe ne lise pas ce qui est enregistré ensuite.
@@ -97,6 +103,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **PWA installable** : fonctionnement hors ligne, icônes, service worker.
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
   de détail persistant, avec édition sur place et navigation clavier.
+- **Accès rapide global (desktop)** : `⌘⇧Espace` (macOS) ou
+  `Ctrl+Shift+Espace` affiche la fenêtre et place le curseur dans la recherche.
 - **Trousseau natif (desktop)** : déverrouillage rapide optionnel par le
   trousseau macOS, Windows ou Linux. La clé maîtresse n’y est écrite que si
   l’option est activée ; elle est supprimée au verrouillage, mais conservée si
@@ -110,8 +118,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks
   entre onglets ; les liens externes Tauri s’ouvrent dans le navigateur système.
-- **Thème sombre**, interface responsive, sélecteurs natifs habillés,
-  accessibilité clavier et modales avec piège à focus.
+- **Thèmes sombre, clair et système**, interface responsive, sélecteurs natifs
+  habillés, accessibilité clavier et modales avec piège à focus.
 
 ### Corbeille et historique
 
@@ -221,16 +229,18 @@ envoyé sur le réseau.
 | RoboForm | CSV | `name`, `url`, `username`, `password`, `note` |
 | SafeInCloud | CSV | `Title`, `Login`, `Password`, `URL`, `Notes` |
 | Enpass | CSV | `Title`, `Username`, `Password`, `URL`, `Notes`, `Folder` |
+| 1Password 1PUX | ZIP + JSON | `export.data`, connexions, cartes, notes, identités et champs personnalisés |
 
 Les colonnes inconnues deviennent des champs personnalisés. Avant l’import,
 Coffre compare les éléments au contenu actuel du coffre (même type et mêmes
 informations d’identification : nom d’utilisateur et site pour une connexion,
 quatre derniers chiffres pour une carte, adresse e-mail pour une identité,
-contenu pour une note) et propose d’ignorer les doublons. Les exports chiffrés
-(Bitwarden chiffré, Proton Pass chiffré, sauvegarde `.enpassbackup`, archive
-`.1pux`) ne sont pas pris en charge : exportez d’abord en clair, puis supprimez
-le fichier intermédiaire. Un fichier `.coffre` doit passer par « Importer un
-coffre » avec son mot de passe.
+contenu pour une note) et propose d’ignorer les doublons. L’archive `.1pux`
+non chiffrée de 1Password est lue directement (pièces jointes exclues). Les
+exports chiffrés (Bitwarden chiffré, Proton Pass chiffré, sauvegarde
+`.enpassbackup`) ne sont pas pris en charge : exportez d’abord en clair, puis
+supprimez le fichier intermédiaire. Un fichier `.coffre` doit passer par
+« Importer un coffre » avec son mot de passe.
 
 ---
 
@@ -312,9 +322,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (172 tests) |
+| `bun run test` | Tests Vitest (179 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (38 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (50 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
@@ -341,11 +351,12 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 - Service worker généré par `vite-plugin-pwa` ; il ne met en cache que les
   ressources de l’application, jamais le contenu du coffre.
 
-### Extension navigateur — Chromium
+### Extension navigateur — Chromium et Firefox
 
 L’extension Manifest V3 se trouve dans `extension/`. Elle ne duplique pas le
 coffre : elle interroge l’onglet Coffre déverrouillé via une passerelle en
-mémoire, puis remplit la page active.
+mémoire, puis remplit la page active. Le même manifeste contient
+`background.scripts` pour Firefox et `background.service_worker` pour Chromium.
 
 ```bash
 bun run extension:build
@@ -359,14 +370,22 @@ Puis, dans Chrome ou un navigateur Chromium :
 3. ouvrir Coffre et déverrouiller le coffre ;
 4. sur un site, cliquer sur l’icône Coffre, puis « Remplir ».
 
+Dans Firefox :
+
+1. ouvrir `about:debugging#/runtime/this-firefox` ;
+2. choisir « Charger un module temporaire » ;
+3. sélectionner `dist-extension/manifest.json` ;
+4. ouvrir Coffre et déverrouiller le coffre, puis utiliser l’icône Coffre.
+
 L’adresse de Coffre est configurable dans les réglages de l’extension
 (`http://localhost:1420` par défaut). L’extension demande l’accès à l’onglet
 actif au moment du remplissage et à l’adresse de Coffre configurée. Elle ne
 stocke ni mot de passe maître, ni clé, ni identifiant.
 
-Limites : Chromium uniquement pour l’instant, onglet Coffre ouvert et déverrouillé
-requis, pas de remplissage automatique à l’ouverture de page ni de soumission de
-formulaire. Firefox n’est pas encore validé.
+Limites : onglet Coffre ouvert et déverrouillé requis, pas de remplissage
+automatique à l’ouverture de page ni de soumission de formulaire. La variante
+Firefox passe `web-ext lint` sans erreur, mais reste à valider manuellement dans
+un Firefox réel.
 
 ### Desktop — build macOS validé
 
@@ -388,14 +407,14 @@ bun run desktop:build
 Le build a été validé sur macOS arm64 (0.7.0, puis 0.8.0 après l’ajout du
 trousseau et de la nouvelle interface) :
 
-- `Coffre.app` (10,25 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,33 Mio) générés
+- `Coffre.app` (10,44 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,40 Mio) générés
   dans `src-tauri/target/release/bundle/` ;
 - build **universel** ad hoc (`arm64` + `x86_64`) validé :
-  `Coffre.app` 20,62 Mio et `Coffre_0.8.0_universal.dmg` 6,46 Mio ;
+  `Coffre.app` 21,01 Mio et `Coffre_0.8.0_universal.dmg` 6,60 Mio ;
 - l’application se lance, initialise le stockage natif
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB, reste stable et n’ouvre aucune connexion réseau ;
-- les 38 exécutions Playwright passent sur Chromium et WebKit, moteur des
+- les 50 exécutions Playwright passent sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
 - `cargo test --lib` exécute 5 tests : stockage natif (rotation, migration,
   permissions, effacement), filtrage des URL internes (production et
@@ -501,7 +520,7 @@ src/
   styles/         CSS par domaine
   assets/         Liste EFF des 7 776 mots
 src-tauri/        Socle desktop/mobile Tauri v2
-extension/        Extension navigateur Manifest V3 (Chromium)
+extension/        Extension navigateur Manifest V3 (Chromium + Firefox)
 docs/             Sécurité, audit, préparation grand public, release, AutoFill macOS
 scripts/          Génération des icônes PWA, test manuel de l’extension
 ```
@@ -620,19 +639,19 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Limites connues
 
-- L’extension navigateur est disponible pour Chromium ; Firefox n’est pas encore
-  validé. Elle exige l’onglet Coffre ouvert et déverrouillé, et ne remplit ni ne
-  soumet les formulaires automatiquement. Avec le réglage par défaut, Coffre se
-  verrouille dès que son onglet passe en arrière-plan, donc dès que vous allez
-  sur le site à remplir : ouvrez Coffre dans une **fenêtre séparée** qui reste
-  visible, ou désactivez « Verrouiller lorsque l’onglet passe en
-  arrière-plan ».
+- L’extension navigateur est disponible pour Chromium et Firefox ; la variante
+  Firefox est construite mais n’est pas encore validée en exécution réelle. Elle
+  exige l’onglet Coffre ouvert et déverrouillé, et ne remplit ni ne soumet les
+  formulaires automatiquement. Avec le réglage par défaut, Coffre se verrouille
+  dès que son onglet passe en arrière-plan, donc dès que vous allez sur le site
+  à remplir : ouvrez Coffre dans une **fenêtre séparée** qui reste visible, ou
+  désactivez « Verrouiller lorsque l’onglet passe en arrière-plan ».
 - Pas de synchronisation entre appareils : la sauvegarde passe par un fichier
   `.coffre` que vous transportez vous-même.
-- Pas d’import direct depuis un export chiffré ou une archive propriétaire : les
-  exports en clair JSON (Bitwarden, Proton Pass, Enpass) et les CSV sont pris en
-  charge. Les sauvegardes `.enpassbackup` et les archives 1Password `.1pux` ne
-  sont pas lues.
+- Pas d’import direct depuis un export chiffré : les exports en clair JSON
+  (Bitwarden, Proton Pass, Enpass), les CSV et les archives 1Password `.1pux`
+  non chiffrées sont pris en charge. Les sauvegardes `.enpassbackup` et les
+  exports chiffrés ne sont pas lues.
 - Les pièces jointes sont limitées à 5 Mo par fichier, 10 par élément, 25 Mo par
   élément et 50 Mo par coffre.
 - L’historique est plafonné à 20 versions par élément et 2 000 versions par
@@ -666,7 +685,7 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   `SecAccessControl` ou Secure Enclave demande une signature Developer ID.
 - Pas de protection contre un OS compromis, un keylogger, une extension
   malveillante ou une injection de code dans la page.
-- Le bundle initial fait environ 660 Ko minifiés (207 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
+- Le bundle initial fait environ 682 Ko minifiés (213 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
   `hash-wasm` pourront être chargés à la demande dans une version ultérieure.
 - Les tests de bout en bout utilisent Chromium et WebKit ; Firefox et les
   WebViews Android/iOS réelles doivent encore être validés.
@@ -680,7 +699,8 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 1. ~~Interopérabilité : import Proton Pass (export JSON) et déduplication.~~ Fait
    en 0.5.0.
 2. ~~Extension navigateur Manifest V3 et remplissage automatique.~~ Fait en
-   0.6.0 pour Chromium ; Firefox reste à valider.
+   0.6.0 pour Chromium ; variante Firefox ajoutée en 0.8.0, validation réelle à
+   faire.
 3. ~~Import Enpass (JSON) et compatibilité avec les CSV traditionnels
    (1Password, LastPass, Chrome, Firefox, Safari, Dashlane, KeePass, NordPass,
    Keeper, RoboForm, SafeInCloud).~~ Fait en 0.7.0.

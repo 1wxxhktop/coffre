@@ -7,6 +7,7 @@ import {
   Pencil,
   Plus,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   Star,
   Trash2,
@@ -14,11 +15,13 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { useMemo } from 'react'
 import { Brand } from './Brand'
 import { FILTER_LABELS, type ItemFilter } from '../lib/filters'
 import type { VaultItem, VaultSummary } from '../lib/types'
 import type { UsageMap } from '../lib/usage'
 import { useSettings } from '../state/SettingsProvider'
+import { analyzeSecurity, securityTone } from '../lib/security'
 
 interface SidebarProps {
   vaults: VaultSummary[]
@@ -33,6 +36,7 @@ interface SidebarProps {
   onRenameVault: (vault: VaultSummary) => void
   onDeleteVault: (vault: VaultSummary) => void
   onOpenSettings: () => void
+  onOpenSecurity: () => void
   onLock: () => void
   onClose: () => void
 }
@@ -61,10 +65,14 @@ export function Sidebar({
   onRenameVault,
   onDeleteVault,
   onOpenSettings,
+  onOpenSecurity,
   onLock,
   onClose,
 }: SidebarProps) {
   const { settings } = useSettings()
+  const report = useMemo(() => analyzeSecurity(items), [items])
+  const tone = securityTone(report.score)
+  const SecurityIcon = report.affected > 0 ? ShieldAlert : ShieldCheck
   const scopedItems = vaultFilter === 'all' ? items : items.filter((item) => item.vaultId === vaultFilter)
 
   const countFor = (id: ItemFilter): number => {
@@ -194,17 +202,31 @@ export function Sidebar({
         </div>
 
         <div className="sidebar__footer">
-          <div className="sidebar__security">
-            <ShieldCheck size={16} />
+          <button
+            type="button"
+            className={`sidebar__security sidebar__security--${tone}`}
+            onClick={() => {
+              onOpenSecurity()
+              onClose()
+            }}
+            title={
+              settings.autoLockMinutes > 0
+                ? `Verrouillage automatique après ${settings.autoLockMinutes} min`
+                : 'Verrouillage automatique désactivé'
+            }
+          >
+            <SecurityIcon size={16} />
             <span>
-              Chiffré localement
+              Sécurité
               <small>
-                {settings.autoLockMinutes > 0
-                  ? `Verrouillage après ${settings.autoLockMinutes} min`
-                  : 'Verrouillage auto désactivé'}
+                {report.total === 0
+                  ? 'Aucune connexion analysée'
+                  : `${report.score}/100 · ${
+                      report.affected > 0 ? `${report.affected} à revoir` : 'aucun problème'
+                    }`}
               </small>
             </span>
-          </div>
+          </button>
           <div className="sidebar__footer-actions">
             <button type="button" className="sidebar__action" onClick={onOpenSettings}>
               <Settings size={17} />

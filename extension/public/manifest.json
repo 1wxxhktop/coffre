@@ -12,8 +12,18 @@
   ],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
+    "scripts": ["background.js"],
     "service_worker": "background.js",
     "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "coffre@1wxxhktop.github.io",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
   },
   "action": {
     "default_title": "Coffre",
