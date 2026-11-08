@@ -5,8 +5,9 @@ import { useVault } from '../state/VaultProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { isTauriRuntime } from '../lib/external'
-import { biometricAvailable, biometricSupported, confirmBiometric } from '../lib/biometrics'
+import { biometricAvailable, biometricSupported } from '../lib/biometrics'
 import {
+  confirmSshAgentBiometrics,
   onSshAgentApproval,
   respondSshAgent,
   stopSshAgent,
@@ -74,7 +75,7 @@ export function SshAgentBridge() {
       if (
         approved &&
         touchIdReady &&
-        !(await confirmBiometric(t('sshAgent.approval.touchId')))
+        !(await confirmSshAgentBiometrics(t('sshAgent.approval.touchId')))
       ) {
         toast(t('sshAgent.approval.touchIdCancelled'), 'error')
         return

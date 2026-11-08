@@ -48,6 +48,16 @@ export async function respondSshAgent(id: number, approved: boolean): Promise<vo
   await invoke('ssh_agent_respond', { id, approved })
 }
 
+/** Demande une confirmation biométrique sans lire de secret. */
+export async function confirmSshAgentBiometrics(reason: string): Promise<boolean> {
+  if (!isTauriRuntime()) return false
+  try {
+    return await invoke<boolean>('biometric_confirm', { reason })
+  } catch {
+    return false
+  }
+}
+
 export async function onSshAgentApproval(
   handler: (request: SshAgentApproval) => void,
 ): Promise<UnlistenFn> {
