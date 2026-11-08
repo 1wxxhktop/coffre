@@ -32,16 +32,48 @@
           </div>
         </div>
 
-        <div id="search-wrap" class="search" hidden>
-          <input
-            id="search"
-            type="search"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Rechercher un identifiant…" data-i18n-placeholder="popup_searchPlaceholder"
-            aria-label="Rechercher un identifiant" data-i18n-aria-label="popup_searchLabel"
-          />
+        <div class="toolbar">
+          <div id="search-wrap" class="search" hidden>
+            <input
+              id="search"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Rechercher un identifiant…" data-i18n-placeholder="popup_searchPlaceholder"
+              aria-label="Rechercher un identifiant" data-i18n-aria-label="popup_searchLabel"
+            />
+          </div>
+          <button
+            id="generate"
+            class="icon-button toolbar__generate"
+            type="button"
+            title="Générer un mot de passe"
+            data-i18n-title="popup_generate"
+            aria-label="Générer un mot de passe"
+            data-i18n-aria-label="popup_generate"
+          >
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="7.5" cy="15.5" r="3.5" />
+              <path d="m10.5 13 8-8m-3 3 2 2m-5 1 2 2" />
+            </svg>
+          </button>
         </div>
+
+        <section id="generator" class="generator" hidden aria-label="Générateur de mot de passe">
+          <div class="generator__head">
+            <strong data-i18n="popup_generatedTitle">Mot de passe généré</strong>
+            <button id="generator-close" class="icon-button" type="button" aria-label="Fermer le générateur" data-i18n-aria-label="popup_generateClose">×</button>
+          </div>
+          <output id="generated-password" class="generator__value" aria-live="polite"></output>
+          <div class="generator__actions">
+            <button id="regenerate" class="button" type="button">
+              <span data-i18n="popup_regenerate">Régénérer</span>
+            </button>
+            <button id="copy-generated" class="button button--primary" type="button">
+              <span data-i18n="popup_copy">Copier</span>
+            </button>
+          </div>
+        </section>
 
         <ul id="results" class="results"></ul>
         <p id="empty" class="empty" hidden></p>

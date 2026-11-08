@@ -60,6 +60,16 @@ const MAX_BLOCK_BYTES = 64 * 1024 * 1024
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 const MAX_ITEMS = 20_000
 
+const XML_PARSER_OPTIONS = {
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  textNodeName: '#text',
+  parseTagValue: false,
+  trimValues: false,
+  isArray: (name: string) =>
+    name === 'Group' || name === 'Entry' || name === 'String' || name === 'Binary',
+}
+
 export interface KdbxReadResult {
   items: ItemDraft[]
   warnings: string[]
@@ -651,56 +661,13 @@ export async function readKdbx(
     }
 
     const { xml, stream, binaries } = parseInnerHeader(plaintext)
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: '@_',
-      textNodeName: '#text',
-      parseTagValue: false,
-      trimValues: false,
-      isArray: (name) =>
-        name === 'Group' || name === 'Entry' || name === 'String' || name === 'Binary',
-    })
+    const parser = new XMLParser(XML_PARSER_OPTIONS)
     const document = parser.parse(new TextDecoder().decode(xml)) as Record<string, unknown>
-    const root = document.KeePassFile as Record<string, unknown> | undefined
-    const meta = root?.Meta as Record<string, unknown> | undefined
-    const databaseName = decodeText(meta?.DatabaseName) || 'KeePass'
-    const rootGroup = (root?.Root as Record<string, unknown> | undefined)?.Group as
-      | Record<string, unknown>
-      | Record<string, unknown>[]
-      | undefined
-    const groups = Array.isArray(rootGroup) ? rootGroup : rootGroup ? [rootGroup] : []
-    const warnings: string[] = []
-    const items: ItemDraft[] = []
-
-    const walkGroup = (
-      group: Record<string, unknown>,
-      tags: string[],
-      includeName = true,
-    ) => {
-      const groupName = includeName ? decodeText(group.Name).trim() : ''
-      const nextTags = groupName ? [...tags, groupName].slice(0, 30) : tags
-      const entries = group.Entry as Record<string, unknown>[] | undefined
-      if (entries) {
-        for (const entry of entries) {
-          if (items.length >= MAX_ITEMS) {
-            warnings.push(`Seuls les ${MAX_ITEMS} premiers éléments ont été importés.`)
-            return
-          }
-          const item = entryToDraft(entry, vaultId, nextTags, stream, binaries, warnings)
-          if (item) items.push(item)
-        }
-      }
-      const children = group.Group as Record<string, unknown>[] | undefined
-      if (children) for (const child of children) walkGroup(child, nextTags)
-    }
-
     try {
-      for (const group of groups) walkGroup(group, [], false)
+      return parseKeePassDocument(document, vaultId, stream, binaries)
     } finally {
       stream.wipe()
     }
-    if (items.length === 0) warnings.push('Aucun élément importable trouvé dans le fichier KDBX.')
-    return { items, warnings, databaseName }
   } finally {
     wipe(transformedKey, encryptionKey, hmacKey)
   }
@@ -739,11 +706,68 @@ function parseInnerHeader(payload: Uint8Array): {
   }
 }
 
+function parseKeePassDocument(
+  document: Record<string, unknown>,
+  vaultId: string,
+  stream: ProtectedStream | null,
+  binaries: Uint8Array[],
+): KdbxReadResult {
+  const root = document.KeePassFile as Record<string, unknown> | undefined
+  const meta = root?.Meta as Record<string, unknown> | undefined
+  const databaseName = decodeText(meta?.DatabaseName) || 'KeePass'
+  const rootGroup = (root?.Root as Record<string, unknown> | undefined)?.Group as
+    | Record<string, unknown>
+    | Record<string, unknown>[]
+    | undefined
+  const groups = Array.isArray(rootGroup) ? rootGroup : rootGroup ? [rootGroup] : []
+  const warnings: string[] = []
+  const items: ItemDraft[] = []
+
+  const walkGroup = (
+    group: Record<string, unknown>,
+    tags: string[],
+    includeName = true,
+  ) => {
+    const groupName = includeName ? decodeText(group.Name).trim() : ''
+    const nextTags = groupName ? [...tags, groupName].slice(0, 30) : tags
+    const entries = group.Entry as Record<string, unknown>[] | undefined
+    if (entries) {
+      for (const entry of entries) {
+        if (items.length >= MAX_ITEMS) {
+          warnings.push(`Seuls les ${MAX_ITEMS} premiers éléments ont été importés.`)
+          return
+        }
+        const item = entryToDraft(entry, vaultId, nextTags, stream, binaries, warnings)
+        if (item) items.push(item)
+      }
+    }
+    const children = group.Group as Record<string, unknown>[] | undefined
+    if (children) for (const child of children) walkGroup(child, nextTags)
+  }
+
+  for (const group of groups) walkGroup(group, [], false)
+  if (items.length === 0) warnings.push('Aucun élément importable trouvé dans le fichier KeePass.')
+  return { items, warnings, databaseName }
+}
+
+/** Importe un export XML KeePass 2.x non chiffré. */
+export function parseKeePassXml(text: string, vaultId: string): KdbxReadResult {
+  const parser = new XMLParser(XML_PARSER_OPTIONS)
+  let document: Record<string, unknown>
+  try {
+    document = parser.parse(text) as Record<string, unknown>
+  } catch {
+    throw new KdbxError('Fichier XML KeePass invalide')
+  }
+  if (!document.KeePassFile) throw new KdbxError('Ce fichier n’est pas un export XML KeePass')
+  return parseKeePassDocument(document, vaultId, null, [])
+}
+
 function entryToDraft(
   entry: Record<string, unknown>,
   vaultId: string,
   tags: string[],
-  stream: ProtectedStream,
+  stream: ProtectedStream | null,
   binaries: Uint8Array[],
   warnings: string[],
 ): ItemDraft | null {
@@ -758,10 +782,14 @@ function entryToDraft(
       decodeText((raw as Record<string, unknown>)['@_Protected']).toLowerCase() === 'true'
     let value = ''
     if (protectedValue) {
-      try {
-        value = stream.decryptBase64(decodeText((raw as Record<string, unknown>)['#text']))
-      } catch {
-        warnings.push('Un champ protégé KDBX n’a pas pu être déchiffré.')
+      if (!stream) {
+        warnings.push('Un champ protégé de l’export XML n’a pas pu être déchiffré.')
+      } else {
+        try {
+          value = stream.decryptBase64(decodeText((raw as Record<string, unknown>)['#text']))
+        } catch {
+          warnings.push('Un champ protégé KDBX n’a pas pu être déchiffré.')
+        }
       }
     } else {
       value = decodeText(

@@ -135,6 +135,7 @@ export function VaultApp() {
     warnings,
     dismissWarnings,
     readOnly,
+    file,
     syncPending,
     lock,
     deleteVault,
@@ -160,7 +161,7 @@ export function VaultApp() {
     '--list-width': `${layout.listWidth}px`,
   } as unknown as CSSProperties
 
-  const [view, setView] = useState<'vault' | 'dashboard'>('vault')
+  const [view, setView] = useState<'vault' | 'dashboard'>('dashboard')
   const [filter, setFilter] = useState<ItemFilter>('all')
   const [vaultFilter, setVaultFilter] = useState<'all' | string>('all')
   const [search, setSearch] = useState('')
@@ -934,6 +935,9 @@ export function VaultApp() {
               onOpenFilter={openDashboardFilter}
               onOpenVault={openDashboardVault}
               onAddVault={() => setVaultForm({ mode: 'create' })}
+              syncPending={syncPending}
+              lastSavedAt={file?.updatedAt ?? null}
+              onOpenSettings={() => setSettingsOpen(true)}
             />
           </main>
         ) : (
@@ -1407,6 +1411,7 @@ export function VaultApp() {
         <SettingsDialog
           onClose={() => setSettingsOpen(false)}
           onImported={() => {
+            setView('vault')
             setFilter('all')
             setVaultFilter('all')
             setSearch('')

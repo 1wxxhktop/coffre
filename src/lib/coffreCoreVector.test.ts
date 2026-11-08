@@ -57,3 +57,27 @@ describe('vecteur produit par coffre-core', () => {
     opened.session.lock()
   })
 })
+
+describe('vecteur muté produit par coffre-core', () => {
+  it('ouvre le fichier signé après création d’un élément', async () => {
+    const path = fileURLToPath(
+      new URL('../../test-vectors/rust-mutated-v4.coffre.json', import.meta.url),
+    )
+    const file = parseVaultFileText(readFileSync(path, 'utf8'))
+    expect(file.revision).toBe(2)
+    expect(file.integrity?.mac).toBeTruthy()
+
+    const opened = await unlockVaultFile(file, PASSWORD)
+    expect(opened.integrity).toBe('valid')
+    expect(opened.items).toHaveLength(2)
+    const created = opened.items.find(
+      (item) => item.title === 'Élément créé par Rust',
+    ) as LoginItem | undefined
+    expect(created?.password).toBe('s3cret-mutation')
+    expect(created?.urls).toEqual(['https://mutation.example'])
+
+    const report = await verifyVaultFile(opened.file, opened.session)
+    expect(report).toMatchObject({ vaults: 1, items: 2, attachments: 1, versions: 1 })
+    opened.session.lock()
+  })
+})

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import dashlaneJson from './__fixtures__/dashlane-export.json?raw'
+import keepassXml from './__fixtures__/keepass-export.xml?raw'
 import {
   dedupeImport,
   detectImportFormat,
@@ -871,7 +873,8 @@ describe('dialectes CSV traditionnels', () => {
     })
   })
 
-  it('sépare un nom complet dans une identité CSV', () => {    const parsed = parseImport(
+  it('sépare un nom complet dans une identité CSV', () => {
+    const parsed = parseImport(
       [
         'type,full_name,email,phone',
         'identity,Ada Lovelace,ada@example.com,+33 6 12 34 56 78',
@@ -886,5 +889,78 @@ describe('dialectes CSV traditionnels', () => {
       email: 'ada@example.com',
       phone: '+33 6 12 34 56 78',
     })
+  })
+})
+
+describe('import Dashlane JSON', () => {
+  it('lit un export Dashlane réel anonymisé', () => {
+    expect(detectImportFormat(dashlaneJson)).toBe('dashlane-json')
+
+    const parsed = parseImport(dashlaneJson, VAULT_ID)
+    expect(parsed).toMatchObject({ format: 'dashlane-json', source: 'dashlane' })
+    expect(parsed.items).toHaveLength(14)
+    expect(loginItem(parsed)).toMatchObject({
+      title: 'https://news.ycombinator.com',
+      username: 'ostqxi',
+      password: "1)Btf2EI~Tfb7g2A!Sy',*Sj#",
+      urls: ['https://news.ycombinator.com'],
+    })
+    expect(parsed.items.some((item) => item.title === 'empty password')).toBe(true)
+  })
+
+  it('conserve l’identifiant secondaire et signale les champs inconnus', () => {
+    const parsed = parseImport(
+      JSON.stringify({
+        AUTHENTIFIANT: [
+          {
+            title: 'Banque',
+            domain: 'https://banque.example',
+            login: 'ada',
+            secondaryLogin: 'ada2',
+            password: 's3cret!',
+            note: '',
+            country: 'FR',
+          },
+        ],
+      }),
+      VAULT_ID,
+    )
+
+    expect(parsed.items[0].customFields).toEqual([
+      expect.objectContaining({ label: 'Identifiant secondaire', value: 'ada2' }),
+    ])
+    expect(parsed.warnings.join(' ')).toContain('country')
+  })
+})
+
+describe('import XML KeePass', () => {
+  it('lit un export XML KeePass 2.x réel', () => {
+    expect(detectImportFormat(keepassXml)).toBe('keepass-xml')
+
+    const parsed = parseImport(keepassXml, VAULT_ID)
+    expect(parsed).toMatchObject({ format: 'keepass-xml', source: 'keepass' })
+    expect(parsed.items).toHaveLength(4)
+
+    expect(loginItem(parsed)).toMatchObject({
+      title: 'Sample Entry 1',
+      username: 'User Name',
+      password: 'Password',
+      notes: 'Notes',
+    })
+    expect(parsed.items[1]).toMatchObject({
+      title: 'Sample Entry 2',
+      username: 'notDEFUSERNAME',
+      urls: ['http://www.keepassx.org/'],
+    })
+    expect(parsed.items[2]).toMatchObject({
+      type: 'note',
+      title: 'Subsub Entry',
+      tags: ['Windows', 'Subsub'],
+    })
+    expect(parsed.warnings.join(' ')).toContain('historique')
+  })
+
+  it('refuse un XML qui n’est pas un export KeePass', () => {
+    expect(() => parseImport('<root />', VAULT_ID)).toThrow(ImportError)
   })
 })

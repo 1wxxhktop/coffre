@@ -64,11 +64,11 @@
   la clé privée ne figure pas dans la réponse destinée au navigateur ; le smoke
   de l’extension couvre la création, la connexion, le `clientDataJSON`, le hash
   de RP ID et la vérification de la signature ECDSA avec les primitives Node.
-- Cœur Rust partagé `coffre-core` (tranche lecture) : Argon2id, AES-256-GCM,
-  AAD, HMAC-SHA-256, manifeste canonique et ouverture des fichiers v1 à v4,
-  avec `Zeroizing` et aucune dépendance réseau. Vecteurs croisés TypeScript ↔
-  Rust (fixtures historiques et vecteur Rust relu par le test TypeScript) et CI
-  dédiée sur Linux, macOS et Windows.
+- Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
+  manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
+  suppression d’éléments, signature v4 (horloges, tombstones, MAC) et rotation
+  du mot de passe maître. Buffers `Zeroizing`, aucune dépendance réseau,
+  vecteurs croisés TypeScript ↔ Rust et CI dédiée Linux/macOS/Windows.
 - Surveillance des fuites optionnelle et désactivée par défaut : calcul SHA-1
   local, envoi des 5 premiers caractères seulement à Have I Been Pwned avec
   `Add-Padding`, réponse parsée en mémoire et résultats intégrés au tableau de

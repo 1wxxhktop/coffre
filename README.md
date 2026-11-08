@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 333 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 338 tests unitaires et
 > 60 parcours Playwright exécutés sur Chromium et WebKit (120 exécutions, 5 ignorées). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -453,9 +453,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (333 tests) |
+| `bun run test` | Tests Vitest (338 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (118 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (120 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
@@ -463,7 +463,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run extension:zip` | Compile puis crée `coffre-extension.zip` |
 | `bun run extension:smoke` | Test manuel de l’extension (serveurs requis) |
 | `bun run bridge:smoke` | Smoke du relais natif stdin/socket (binaire compilé) |
-| `bun run core:test` | Tests du crate partagé `coffre-core` et vecteurs croisés |
+| `bun run core:test` | Tests du crate `coffre-core`, mutations, rotation et vecteurs croisés |
 | `bun run core:clippy` | Clippy strict du crate `coffre-core` |
 | `bun run typecheck` | Vérification TypeScript |
 | `bun run lint` | Oxlint, contrôle des jetons de design et chaînes i18n |
@@ -598,8 +598,9 @@ trousseau et de la nouvelle interface) :
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
-- `cargo test -p coffre-core` (5 tests) ouvre les fixtures TypeScript v1 à v4
-  et le vecteur Rust relu par le test TypeScript
+- `cargo test -p coffre-core` (7 tests) ouvre les fixtures TypeScript v1 à v4,
+  crée/modifie/supprime un élément, signe en v4, tourne le mot de passe et
+  relit les vecteurs Rust par le test TypeScript
   (`src/lib/coffreCoreVector.test.ts`).
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
@@ -704,7 +705,7 @@ src/
   styles/         CSS par domaine, jetons dans tokens.css
   assets/         Liste EFF des 7 776 mots
 src-tauri/        Socle desktop/mobile Tauri v2
-  crates/coffre-core/  Lecture partagée du format, crypto et vecteurs croisés
+  crates/coffre-core/  Format/crypto partagés, mutations, signature et vecteurs
 extension/        Extension navigateur Manifest V3 (Chromium + Firefox)
 docs/             Sécurité, audit, préparation grand public, release, AutoFill macOS
 scripts/          Génération des icônes PWA, test manuel de l’extension

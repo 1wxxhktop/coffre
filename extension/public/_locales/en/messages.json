@@ -160,5 +160,23 @@
   },
   "error_generic": {
     "message": "Operation failed."
+  },
+  "popup_generate": {
+    "message": "Generate a password"
+  },
+  "popup_generateClose": {
+    "message": "Close generator"
+  },
+  "popup_generatedTitle": {
+    "message": "Generated password"
+  },
+  "popup_regenerate": {
+    "message": "Regenerate"
+  },
+  "popup_copy": {
+    "message": "Copy"
+  },
+  "popup_copied": {
+    "message": "Password copied."
   }
 }

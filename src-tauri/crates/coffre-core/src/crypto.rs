@@ -24,6 +24,24 @@ pub const MAX_ITERATIONS: u32 = 6;
 pub const MIN_PARALLELISM: u32 = 1;
 pub const MAX_PARALLELISM: u32 = 8;
 
+pub fn random_bytes(length: usize) -> Result<Vec<u8>, CoreError> {
+    let mut bytes = vec![0u8; length];
+    getrandom::fill(&mut bytes)
+        .map_err(|_| CoreError::Crypto("source aléatoire indisponible".into()))?;
+    Ok(bytes)
+}
+
+/// Identifiant aléatoire au même format que `randomId` côté TypeScript.
+pub fn random_id(prefix: &str) -> Result<String, CoreError> {
+    let bytes = random_bytes(16)?;
+    let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    Ok(if prefix.is_empty() {
+        hex
+    } else {
+        format!("{prefix}_{hex}")
+    })
+}
+
 pub fn to_base64(bytes: &[u8]) -> String {
     STANDARD.encode(bytes)
 }

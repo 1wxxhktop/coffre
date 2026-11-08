@@ -580,10 +580,10 @@ pour détecter une recopie partielle.
 
 ### 2.15 Cœur Rust partagé (`coffre-core`)
 
-Le crate `src-tauri/crates/coffre-core` porte une première tranche (lecture) du
-format pour les composants qui ne peuvent pas exécuter TypeScript (extensions
-mobiles, CLI, agent SSH à venir). Il n’est pas encore utilisé par l’interface
-desktop, qui reste sur l’implémentation TypeScript.
+Le crate `src-tauri/crates/coffre-core` porte le format et la crypto pour les
+composants qui ne peuvent pas exécuter TypeScript (extensions mobiles, CLI,
+agent SSH à venir). Il n’est pas encore utilisé par l’interface desktop, qui
+reste sur l’implémentation TypeScript.
 
 - crypto identique : Argon2id, AES-256-GCM, AAD par usage, HMAC-SHA-256,
   SHA-256, base64 standard ; paramètres KDF bornés aux mêmes limites ;
@@ -591,12 +591,15 @@ desktop, qui reste sur l’implémentation TypeScript.
   `Zeroizing` ; `Session::lock` efface les buffers ;
 - ouverture v1 à v4, déchiffrement des noms de coffres, éléments, pièces
   jointes et versions, vérification du MAC global v4 et manifeste canonique ;
+- écriture v4 : création/modification/suppression d’éléments, horloges par
+  enregistrement, tombstones, nouveau MAC et rotation du mot de passe maître
+  avec re-enveloppe des clés et incrément de `keyEpoch` ;
 - aucune dépendance réseau dans ce crate ;
 - vecteurs croisés : les fixtures TypeScript `v1..v4` sont relues par Rust, et
   `test-vectors/rust-v4.coffre.json` est relu par le test TypeScript de
   production. Le MAC et les contenus déchiffrés sont vérifiés des deux côtés ;
-- la CI exécute `cargo test -p coffre-core` sur Linux, macOS et Windows. Les
-  mutations, la rotation et la fusion restent à porter dans les tranches
+- la CI exécute `cargo test -p coffre-core` sur Linux, macOS et Windows. La
+  fusion L3 et les liaisons `uniffi` restent à porter dans les tranches
   suivantes.
 
 ### 2.16 Compatibilité KeePass KDBX 4

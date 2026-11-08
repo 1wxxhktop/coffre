@@ -12,6 +12,7 @@
  */
 
 import { randomId } from './crypto'
+import { parseKeePassXml } from './kdbx'
 import { normalizeTotpUri } from './totp'
 import {
   emptyDraft,
@@ -26,7 +27,9 @@ export type ImportFormat =
   | 'bitwarden-json'
   | 'protonpass-json'
   | 'enpass-json'
+  | 'dashlane-json'
   | '1pux'
+  | 'keepass-xml'
   | 'csv'
 
 export type ImportSource =
@@ -193,10 +196,20 @@ function detectImport(text: string): DetectedImport | null {
       if (isEnpassExport(data)) {
         return { format: 'enpass-json', source: 'enpass' }
       }
+      if (Array.isArray(obj?.AUTHENTIFIANT)) {
+        return { format: 'dashlane-json', source: 'dashlane' }
+      }
     } catch {
       // Le message précis est produit par parseImport.
     }
     return { format: 'bitwarden-json', source: 'bitwarden' }
+  }
+
+  if (trimmed.startsWith('<')) {
+    if (/<KeePassFile[\s>]/.test(trimmed)) {
+      return { format: 'keepass-xml', source: 'keepass' }
+    }
+    return null
   }
 
   const firstLine = trimmed.split(/\r?\n/, 1)[0] ?? ''
@@ -222,6 +235,22 @@ export function parseImport(text: string, vaultId: string): ParsedImport {
     return parseCsv(trimmed, vaultId)
   }
 
+  if (detected.format === 'keepass-xml') {
+    try {
+      const parsed = parseKeePassXml(trimmed, vaultId)
+      return {
+        format: 'keepass-xml',
+        source: 'keepass',
+        items: parsed.items,
+        warnings: parsed.warnings,
+      }
+    } catch (caught) {
+      throw new ImportError(
+        caught instanceof Error ? caught.message : 'Export XML KeePass illisible',
+      )
+    }
+  }
+
   let data: unknown
   try {
     data = JSON.parse(trimmed)
@@ -234,6 +263,9 @@ export function parseImport(text: string, vaultId: string): ParsedImport {
   }
   if (detected.format === 'enpass-json') {
     return parseEnpassJson(data, vaultId)
+  }
+  if (detected.format === 'dashlane-json') {
+    return parseDashlaneJson(data, vaultId)
   }
   return parseBitwardenJson(data, vaultId)
 }
@@ -1182,6 +1214,112 @@ function parseEnpassJson(raw: unknown, vaultId: string): ParsedImport {
 }
 
 /* ------------------------------------------------------------------ */
+/* Dashlane JSON                                                       */
+/* ------------------------------------------------------------------ */
+
+const DASHLANE_KEYS = new Set([
+  'title',
+  'domain',
+  'login',
+  'password',
+  'note',
+  'email',
+  'secondaryLogin',
+])
+
+function parseDashlaneJson(raw: unknown, vaultId: string): ParsedImport {
+  const root = asRecord(raw)
+  if (!root) throw new ImportError('Fichier JSON illisible')
+  if (!Array.isArray(root.AUTHENTIFIANT)) {
+    throw new ImportError(
+      'Ce JSON ne ressemble pas à un export Dashlane (liste « AUTHENTIFIANT » absente).',
+    )
+  }
+
+  const warnings: string[] = []
+  const items: ItemDraft[] = []
+  const ignoredFields = new Set<string>()
+  let skippedEmpty = 0
+  let secondaryLogins = 0
+
+  for (const source of recordList(root.AUTHENTIFIANT).slice(0, MAX_IMPORT_ITEMS)) {
+    for (const [key, value] of Object.entries(source)) {
+      if (!DASHLANE_KEYS.has(key) && asString(value).trim()) {
+        ignoredFields.add(key.slice(0, 60))
+      }
+    }
+
+    const title = asString(source.title, 200).trim()
+    const username =
+      asString(source.login, 500).trim() || asString(source.email, 500).trim()
+    const password = asString(source.password, 2_000)
+    const url = asString(source.domain, 2_000).trim()
+    const note = asString(source.note)
+    const secondary = asString(source.secondaryLogin, 500).trim()
+    if (secondary) secondaryLogins += 1
+
+    if (!title && !username && !password && !url && !note) {
+      skippedEmpty += 1
+      continue
+    }
+
+    const customFields: CustomField[] = secondary
+      ? [
+          {
+            id: randomId('f'),
+            label: 'Identifiant secondaire',
+            value: secondary,
+            type: 'text',
+          },
+        ]
+      : []
+
+    items.push(
+      makeDraft(
+        'login',
+        vaultId,
+        {
+          title: title || titleFromUrl(url) || 'Sans titre',
+          notes: note,
+          tags: [],
+          favorite: false,
+          customFields,
+        },
+        { username, password, urls: url ? [url] : [] },
+      ),
+    )
+  }
+
+  if (recordList(root.AUTHENTIFIANT).length > MAX_IMPORT_ITEMS) {
+    warnings.push(
+      `Seuls les ${MAX_IMPORT_ITEMS} premiers éléments ont été importés.`,
+    )
+  }
+  if (skippedEmpty > 0) {
+    warnings.push(
+      `${skippedEmpty} entrée${skippedEmpty > 1 ? 's' : ''} vide${
+        skippedEmpty > 1 ? 's' : ''
+      } Dashlane ignorée${skippedEmpty > 1 ? 's' : ''}.`,
+    )
+  }
+  if (secondaryLogins > 0) {
+    warnings.push(
+      `${secondaryLogins} identifiant${secondaryLogins > 1 ? 's' : ''} secondaire${
+        secondaryLogins > 1 ? 's' : ''
+      } conservé${secondaryLogins > 1 ? 's' : ''} en champ personnalisé.`,
+    )
+  }
+  if (ignoredFields.size > 0) {
+    warnings.push(
+      `Champs Dashlane ignorés : ${Array.from(ignoredFields).slice(0, 8).join(', ')}.`,
+    )
+  }
+  if (items.length === 0) warnings.push('Aucun élément importable trouvé.')
+
+  return { format: 'dashlane-json', source: 'dashlane', items, warnings }
+}
+
+/* ------------------------------------------------------------------ */
 /* Déduplication                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -1739,6 +1877,19 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
   const source = detectCsvSource(headers)
   const warnings: string[] = []
   const items: ItemDraft[] = []
+
+  const ignoredColumns = originalHeaders.filter((_header, index) => {
+    const normalized = headers[index]
+    if (!METADATA_HEADERS.has(normalized) || normalized === 'archived') return false
+    return rows
+      .slice(1, MAX_IMPORT_ITEMS + 1)
+      .some((row) => (row[index] ?? '').trim())
+  })
+  if (ignoredColumns.length > 0) {
+    warnings.push(
+      `Colonnes ignorées : ${ignoredColumns.slice(0, 8).join(', ')}.`,
+    )
+  }
 
   const recognized = [
     'title',
