@@ -210,3 +210,143 @@ fn repond_au_vrai_client_ssh_add() {
     );
     assert!(stdout.contains(&comment), "{stdout}");
 }
+
+#[cfg(unix)]
+fn start_signing_agent() -> (
+    coffre_ssh_agent::AgentHandle,
+    std::path::PathBuf,
+    std::path::PathBuf,
+) {
+    use coffre_ssh_agent::{AgentHandle, Approval, ApprovalRequest};
+    use std::sync::Arc;
+
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let dir = std::path::PathBuf::from("/tmp").join(format!(
+        "coffre-agent-sign-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let socket = dir.join("agent.sock");
+    let public_key = dir.join("id_ed25519.pub");
+    std::fs::create_dir_all(&dir).expect("dossier");
+    let mut key = PrivateKey::random(&mut OsRng, Algorithm::Ed25519).expect("clé");
+    key.set_comment("signature@coffre");
+    let pem = key.to_openssh(LineEnding::LF).expect("PEM").to_string();
+    std::fs::write(&public_key, key.public_key().to_openssh().unwrap()).expect("clé publique");
+    let identity = coffre_ssh_agent::Identity::from_openssh(&pem, "signature").expect("identité");
+    let approval: Arc<dyn Approval> = Arc::new(|_: &ApprovalRequest| true);
+    let handle = AgentHandle::start(&socket, vec![identity], approval).expect("agent");
+    (handle, socket, public_key)
+}
+
+#[cfg(unix)]
+#[test]
+fn signe_avec_ssh_keygen_via_l_agent() {
+    let Some(ssh_keygen) = ["/usr/bin/ssh-keygen", "/bin/ssh-keygen"]
+        .iter()
+        .find(|path| std::path::Path::new(path).exists())
+    else {
+        eprintln!("ssh-keygen absent : test ignoré");
+        return;
+    };
+    let (mut agent, socket, public_key) = start_signing_agent();
+    let mut child = Command::new(ssh_keygen)
+        .args([
+            "-Y",
+            "sign",
+            "-f",
+            public_key.to_str().unwrap(),
+            "-n",
+            "coffre-test",
+            "-",
+        ])
+        .env("SSH_AUTH_SOCK", &socket)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("ssh-keygen");
+    child.stdin.as_mut().unwrap().write_all(b"bonjour").unwrap();
+    drop(child.stdin.take());
+    let output = child.wait_with_output().expect("sortie");
+    agent.stop();
+    let dir = socket.parent().unwrap().to_path_buf();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("BEGIN SSH SIGNATURE"),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn signe_un_commit_git_via_l_agent() {
+    let Some(ssh_keygen) = ["/usr/bin/ssh-keygen", "/bin/ssh-keygen"]
+        .iter()
+        .find(|path| std::path::Path::new(path).exists())
+    else {
+        eprintln!("ssh-keygen absent : test ignoré");
+        return;
+    };
+    let Some(git) = [
+        "/usr/bin/git",
+        "/opt/homebrew/bin/git",
+        "/usr/local/bin/git",
+    ]
+    .iter()
+    .find(|path| std::path::Path::new(path).exists()) else {
+        eprintln!("git absent : test ignoré");
+        return;
+    };
+    let (mut agent, socket, public_key) = start_signing_agent();
+    let dir = socket.parent().unwrap().to_path_buf();
+    let repo = dir.join("repo");
+    std::fs::create_dir_all(&repo).unwrap();
+
+    let run = |args: &[&str]| {
+        let output = Command::new(git)
+            .args(args)
+            .current_dir(&repo)
+            .env("SSH_AUTH_SOCK", &socket)
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env("HOME", &dir)
+            .env("GIT_AUTHOR_NAME", "Test")
+            .env("GIT_AUTHOR_EMAIL", "test@coffre")
+            .env("GIT_COMMITTER_NAME", "Test")
+            .env("GIT_COMMITTER_EMAIL", "test@coffre")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {:?} : {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    };
+    run(&["init", "-q"]);
+    run(&["config", "gpg.format", "ssh"]);
+    run(&["config", "user.signingkey", public_key.to_str().unwrap()]);
+    run(&["config", "commit.gpgsign", "true"]);
+    run(&["commit", "--allow-empty", "-q", "-m", "commit signé"]);
+
+    let commit = Command::new(git)
+        .args(["cat-file", "-p", "HEAD"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    agent.stop();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(commit.status.success());
+    assert!(
+        String::from_utf8_lossy(&commit.stdout).contains("gpgsig"),
+        "{}",
+        String::from_utf8_lossy(&commit.stdout)
+    );
+    let _ = ssh_keygen;
+}
