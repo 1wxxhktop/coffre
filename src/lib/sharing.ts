@@ -8,7 +8,7 @@
  */
 
 import { AeadId, CipherSuite, KdfId, KemId } from 'hpke-js'
-import { fromBase64, sha256, toBase64, utf8 } from './crypto'
+import { fromBase64, randomBytes, sha256, toBase64, utf8, wipe } from './crypto'
 
 const suite = new CipherSuite({
   kem: KemId.DhkemX25519HkdfSha256,
@@ -37,6 +37,16 @@ export interface SealedShareKey {
   enc: string
   /** Clé de coffre chiffrée. */
   ciphertext: string
+}
+
+export interface ShareMember {
+  identity: PublicSharingIdentity
+  role: ShareRole
+}
+
+export interface MemberKeyWrap extends SealedShareKey {
+  memberFingerprint: string
+  role: ShareRole
 }
 
 export interface SignedShareRole {
@@ -200,6 +210,50 @@ export async function openVaultKeyFromMember(
     identity.encryptionPrivateKey,
     shareInfo(vaultId, identity.fingerprint),
   )
+}
+
+/** Enveloppe la clé d’un coffre partagé pour chaque membre. */
+export async function wrapVaultKeyForMembers(
+  vaultKey: Uint8Array,
+  members: ShareMember[],
+  vaultId: string,
+): Promise<MemberKeyWrap[]> {
+  const wraps: MemberKeyWrap[] = []
+  for (const member of members) {
+    const sealed = await sealVaultKeyForMember(vaultKey, member.identity, vaultId)
+    wraps.push({
+      ...sealed,
+      memberFingerprint: member.identity.fingerprint,
+      role: member.role,
+    })
+  }
+  return wraps
+}
+
+/** Retrouve et ouvre l’enveloppe destinée à une identité. */
+export async function unwrapVaultKeyForMember(
+  wraps: MemberKeyWrap[],
+  identity: SharingIdentity,
+  vaultId: string,
+): Promise<Uint8Array> {
+  const wrap = wraps.find((entry) => entry.memberFingerprint === identity.fingerprint)
+  if (!wrap) throw new SharingError('Aucune clé partagée pour ce membre')
+  return openVaultKeyFromMember(wrap, identity, vaultId)
+}
+
+/** Révoque des membres en générant une nouvelle clé de coffre partagé. */
+export async function rotateSharedVaultKey(
+  remainingMembers: ShareMember[],
+  vaultId: string,
+): Promise<{ vaultKey: Uint8Array; wraps: MemberKeyWrap[] }> {
+  const vaultKey = randomBytes(32)
+  try {
+    const wraps = await wrapVaultKeyForMembers(vaultKey, remainingMembers, vaultId)
+    return { vaultKey, wraps }
+  } catch (error) {
+    wipe(vaultKey)
+    throw error
+  }
 }
 
 /** Signe un rôle de membre avec la clé Ed25519 de l’administrateur. */
