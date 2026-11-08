@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, closeDialog, createVault, openSettings, PASSWORD } from './helpers'
+import {
+  addLogin,
+  closeDialog,
+  createVault,
+  openSettings,
+  showItems,
+  PASSWORD,
+} from './helpers'
 
 /**
  * Simule le runtime Tauri dans la page Web : `isTauriRuntime()` devient vrai et

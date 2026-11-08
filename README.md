@@ -158,12 +158,13 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   dédié (et fichier clé à l’import), sans pièces jointes ni historique Coffre.
 - **PWA installable** : fonctionnement hors ligne, icônes, service worker.
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
-  de détail persistant. La création, la lecture et l’édition partagent le même
-  panneau, avec menu d’actions secondaires, déplacement entre coffres,
-  duplication et navigation clavier.
-- **Tableau de bord** : score de santé, statistiques, points d’attention,
-  éléments prioritaires, récents, coffres et échéances, dans une vue unique
-  accessible depuis la barre latérale.
+  de détail persistant. La création passe par une modale ; la lecture et
+  l’édition restent dans le panneau, avec menu d’actions secondaires,
+  déplacement entre coffres, duplication et navigation clavier.
+- **Tableau de bord** : page d’accueil par défaut après le déverrouillage, avec
+  score de santé, statistiques, points d’attention, éléments prioritaires,
+  récents, coffres, échéances et état du stockage local (dernière écriture,
+  synchronisation en attente, sauvegardes tournantes).
 - **Design system** : jetons centralisés (`src/styles/tokens.css`), thème clair
   par variables, échelle typographique avec plancher à 12 px, rayons,
   espacements et profondeur cohérents. Réglages en pages (Général, Sécurité,

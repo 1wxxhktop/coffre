@@ -253,7 +253,7 @@ export function VaultApp() {
     })
     observer.observe(element)
     return () => observer.disconnect()
-  }, [desktopLayout])
+  }, [desktopLayout, view])
 
   useEffect(() => {
     if (!desktopLayout || splitWidth === 0) return

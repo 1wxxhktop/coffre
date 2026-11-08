@@ -21,11 +21,11 @@ async function createVault(page: Page) {
   await page.getByLabel('Confirmer le mot de passe').fill(PASSWORD)
   await page.getByRole('checkbox').check()
   await page.getByRole('button', { name: 'Créer mon coffre' }).click()
-  await page.getByRole('button', { name: 'Nouvel élément' }).waitFor({ timeout: 45_000 })
+  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).waitFor({ timeout: 45_000 })
 }
 
 async function addLogin(page: Page) {
-  await page.getByRole('button', { name: 'Nouvel élément' }).click()
+  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('heading', { name: 'Nouvel élément' }).waitFor()
   await dialog.getByLabel('Titre', { exact: true }).fill('GitHub')

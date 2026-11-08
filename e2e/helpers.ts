@@ -13,7 +13,7 @@ export async function createVault(page: Page): Promise<void> {
   await page.getByRole('checkbox').check()
   await page.getByRole('button', { name: 'Créer mon coffre' }).click()
 
-  await expect(page.getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
+  await expect(page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
     timeout: 45_000,
   })
 }
@@ -45,7 +45,7 @@ export async function addLogin(
   password = 's3cret!',
   url = '',
 ): Promise<Locator> {
-  await page.getByRole('button', { name: 'Nouvel élément' }).click()
+  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByRole('heading', { name: 'Nouvel élément' })).toBeVisible()
 

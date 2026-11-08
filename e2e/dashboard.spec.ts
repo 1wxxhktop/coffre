@@ -20,6 +20,10 @@ test('affiche le tableau de bord et ouvre une catégorie de sécurité', async (
   await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible()
   await expect(page.locator('.dashboard__stats')).toContainText('Connexions')
   await expect(page.locator('.dashboard__health')).toContainText('/100')
+  const storage = page.locator('.dashboard-card').filter({ hasText: 'Stockage' })
+  await expect(storage).toContainText('Coffre local à jour')
+  await expect(storage).toContainText('Dernière écriture')
+  await expect(storage).toContainText('3 sauvegardes locales tournantes')
   const weakRow = page
     .locator('.dashboard-watch__row')
     .filter({ hasText: 'Mots de passe faibles' })
@@ -63,7 +67,7 @@ test('le tableau de bord est accessible sur mobile et sans débordement', async 
 }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await createVault(page)
-  await expect(page.locator('.topbar__sub')).toContainText('Aucun élément')
+  await expect(page.locator('.dashboard')).toBeVisible()
   await addLogin(page, 'GitHub', 'ada', 'abc123')
   await closeDialog(page)
 

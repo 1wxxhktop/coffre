@@ -43,7 +43,7 @@ test('signale une échéance proche et la retrouve dans la vue dédiée', async 
 
 test('enregistre l’expiration d’un document d’identité', async ({ page }) => {
   await createVault(page)
-  await page.getByRole('button', { name: 'Nouvel élément' }).click()
+  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
   const form = page.getByRole('dialog')
   await form.locator('.type-picker__item').filter({ hasText: 'Identité' }).click()
   await form.getByLabel('Titre', { exact: true }).fill('Passeport')
