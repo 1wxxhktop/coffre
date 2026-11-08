@@ -123,6 +123,35 @@ export function fromBase64Url(value: string): Uint8Array {
   return decodeBase64(padded + padding)
 }
 
+/**
+ * Recalcule la clé publique COSE ES256 à partir d’une clé privée PKCS#8
+ * (base64 standard). Utilisé par l’import CXF, qui ne transporte que la clé
+ * privée.
+ */
+export async function publicKeyCoseFromPrivateKey(
+  privateKeyBase64: string,
+): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    decodeBase64(privateKeyBase64) as BufferSource,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign'],
+  )
+  const jwk = await crypto.subtle.exportKey('jwk', key)
+  if (!jwk.x || !jwk.y) throw new PasskeyError('Clé privée P-256 invalide')
+  const x = fromBase64Url(jwk.x)
+  const y = fromBase64Url(jwk.y)
+  if (x.length !== 32 || y.length !== 32) {
+    throw new PasskeyError('Clé publique P-256 invalide')
+  }
+  const publicKey = new Uint8Array(65)
+  publicKey[0] = 0x04
+  publicKey.set(x, 1)
+  publicKey.set(y, 33)
+  return encodeBase64(cosePublicKey(publicKey))
+}
+
 function randomBytes(length: number): Uint8Array {
   const bytes = new Uint8Array(length)
   crypto.getRandomValues(bytes)
