@@ -9,6 +9,8 @@
   vendorisées.
 - Export CSV : format Mots de passe (Apple) pour les connexions et format
   complet Coffre pour tous les éléments, réimportable.
+- Chaîne de release macOS : build universel, signature Developer ID,
+  notarisation, vérification `spctl`, workflow sur tag et documentation.
 - Trousseau natif macOS/Windows/Linux et déverrouillage rapide optionnel.
 - Déverrouillage Touch ID sur macOS, avec service de trousseau séparé.
 - Interface desktop en colonnes (navigation, liste, détail persistant).

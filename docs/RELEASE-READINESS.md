@@ -56,18 +56,23 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 
 ## 3. Bloquants avant une diffusion grand public
 
-### B-01 — Signature Developer ID et notarisation
+### B-01 — Signature Developer ID et notarisation — **chaîne prête**
 
-Le bundle est signé **ad hoc**. Gatekeeper avertit, et « Always Allow » du
-trousseau peut être oublié après un rebuild. Il faut :
+Le bundle local est encore signé **ad hoc**, mais la chaîne de release est
+prête :
 
-- un certificat **Developer ID Application** ;
-- hardened runtime et entitlements ;
-- `notarytool` + agrafage du ticket ;
-- vérification `spctl` sur une machine vierge.
+- `scripts/release-macos.sh` construit une version universelle, vérifie la
+  signature Developer ID et le hardened runtime, notarie/agrafe le DMG si
+  nécessaire et produit son SHA-256 ;
+- `.github/workflows/release.yml` exécute cette chaîne sur un tag `v*`, importe
+  le certificat dans un trousseau temporaire et crée une release GitHub en
+  brouillon ;
+- [docs/RELEASE.md](RELEASE.md) décrit la création du certificat, les secrets Apple, la
+  publication et la vérification `spctl`.
 
-Sans cela, un utilisateur non technique ne peut pas installer Coffre sans
-manipulation.
+Il manque le certificat **Developer ID Application** et les secrets de
+notarisation. Sans eux, un utilisateur non technique ne peut toujours pas
+installer Coffre sans manipulation.
 
 ### B-02 — Mises à jour
 
@@ -143,7 +148,8 @@ manuelle avec lecteur d’écran et navigation clavier complète reste à faire.
 
 ## 4. Critères de sortie proposés pour une 1.0 grand public
 
-1. Bundle macOS signé Developer ID, notarié, agrafé et validé `spctl`.
+1. Bundle macOS signé Developer ID, notarié, agrafé et validé `spctl`
+   (chaîne prête ; certificat et secrets à fournir).
 2. Mécanisme de mise à jour signé et documenté.
 3. Stockage natif atomique + sauvegardes + export/restauration validés sur une
    installation réelle (code et tests unitaires déjà en place).
@@ -163,8 +169,9 @@ manuelle avec lecteur d’écran et navigation clavier complète reste à faire.
 - **Aujourd’hui** : distribuer comme **bêta technique 0.8**, avec un avertissement
   clair sur Gatekeeper, l’absence d’AutoFill système et l’absence d’audit
   externe.
-- **Prochaine étape recommandée** : Developer ID/notarisation et mises à jour
-  signées, puis AutoFill macOS et audit externe.
+- **Prochaine étape recommandée** : fournir le certificat Developer ID et les
+  secrets Apple, exécuter la release signée, puis intégrer les mises à jour
+  signées, l’AutoFill macOS et l’audit externe.
 - **Ne pas présenter** Coffre comme un remplaçant grand public de 1Password ou
   Mots de passe d’Apple tant que les bloquants restants (B-01, B-02, B-04 à
   B-08 et B-10) ne sont pas traités.

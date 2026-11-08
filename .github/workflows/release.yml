@@ -1,0 +1,108 @@
+name: Release macOS
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: 1.4.3
+  COFFRE_TARGET: universal-apple-darwin
+
+jobs:
+  macos:
+    name: Bundle signé et notarié
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Mettre en cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Vérifier que le tag correspond à la version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ "v$version" != "${GITHUB_REF_NAME}" ]]; then
+            echo "Le tag ${GITHUB_REF_NAME} ne correspond pas à la version v$version." >&2
+            exit 1
+          fi
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Importer le certificat Developer ID
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [[ -z "$APPLE_CERTIFICATE" ]]; then
+            echo "Le secret APPLE_CERTIFICATE est requis pour signer la release." >&2
+            exit 1
+          fi
+          keychain_password="$(uuidgen)"
+          certificate="$RUNNER_TEMP/coffre-certificate.p12"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$certificate"
+          security create-keychain -p "$keychain_password" build.keychain
+          security default-keychain -s build.keychain
+          security list-keychains -d user -s build.keychain
+          security unlock-keychain -p "$keychain_password" build.keychain
+          security import "$certificate" -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$keychain_password" build.keychain
+          security find-identity -v -p codesigning build.keychain
+          rm -f "$certificate"
+
+      - name: Construire, signer et notarier
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: ./scripts/release-macos.sh
+
+      - name: Archiver le bundle .app
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          app="src-tauri/target/universal-apple-darwin/release/bundle/macos/Coffre.app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" \
+            "Coffre_${version}_universal.app.zip"
+
+      - name: Créer la release GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          gh release create "$GITHUB_REF_NAME" \
+            "src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.dmg \
+            "src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.sha256 \
+            "Coffre_${version}_universal.app.zip" \
+            --title "Coffre $version" \
+            --generate-notes \
+            --draft \
+            --verify-tag
+
+      - name: Supprimer le trousseau temporaire
+        if: always()
+        run: security delete-keychain build.keychain 2>/dev/null || true

@@ -272,15 +272,22 @@ le moteur des WebViews macOS/iOS.
 
 ### Intégration continue
 
-Le fichier `.github/workflows/ci.yml` exécute trois ensembles de tâches :
+Le fichier `.github/workflows/ci.yml` exécute plusieurs ensembles de tâches :
 
 - **Qualité** (Ubuntu) : `bun audit --audit-level=high`, lint, vérification
   TypeScript, tests Vitest et build PWA, avec l’artefact `dist` conservé une
   semaine ;
 - **Parcours** (Ubuntu) : Playwright sur Chromium et WebKit, traces et rapport
   téléversés en cas d’échec ;
+- **Rust** (Ubuntu) : `cargo fmt`, `clippy`, tests et `cargo audit` ;
+- **Extension** (Ubuntu) : smoke test Chromium avec la CSP de production ;
 - **Desktop** (macOS, Ubuntu, Windows) : compilation du bundle Tauri, lancée
   uniquement sur `main` ou manuellement pour maîtriser le coût des runners.
+
+`.github/workflows/release.yml` prépare une release macOS signée et notariée sur
+un tag `v*` : certificat Developer ID, build universel, vérification `spctl`,
+DMG + SHA-256 et release GitHub en brouillon. Voir
+[docs/RELEASE.md](docs/RELEASE.md).
 
 `.github/dependabot.yml` propose chaque semaine les mises à jour npm et Cargo,
 et chaque mois celles des actions GitHub. L’audit échoue au niveau `high` et
@@ -294,7 +301,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (117 tests) |
+| `bun run test` | Tests Vitest (157 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (34 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
@@ -309,6 +316,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run version:check` | Vérifie la cohérence des versions package/Tauri/extension/Cargo |
 | `bun run desktop:dev` | Lance l’application desktop Tauri |
 | `bun run desktop:build` | Produit les paquets desktop Tauri |
+| `./scripts/release-macos.sh` | Build macOS universel signé et notarié (certificat requis) |
 | `bun run tauri:icons` | Régénère les icônes Tauri depuis `public/icon.svg` |
 
 ---
@@ -407,19 +415,23 @@ la fenêtre. Une zone de glissement en haut, ainsi que l’en-tête de la barre
 latérale et la barre supérieure, permettent de déplacer la fenêtre. Les autres
 systèmes conservent leur barre de titre native.
 
-Le bundle macOS est **signé ad hoc** (`signingIdentity: "-"`, identifiant
+Le bundle macOS local est **signé ad hoc** (`signingIdentity: "-"`, identifiant
 `app.coffre.desktop`) mais ni notarisé : Gatekeeper affichera un avertissement
 au premier lancement. macOS associe l’autorisation « Always Allow » du trousseau
 à la signature : une signature ad hoc change à chaque compilation, donc
-l’autorisation peut être redemandée après un nouveau build. Pour une confiance
-persistante, signez avec un certificat **Developer ID Application**, activez le
-hardened runtime (déjà activé dans `tauri.conf.json`) et notarisez le DMG. Le
-script `scripts/release-macos.sh` vérifie la signature et rappelle les variables
-Apple :
+l’autorisation peut être redemandée après un nouveau build.
+
+La chaîne de release signée est prête : `scripts/release-macos.sh` construit
+une version universelle, vérifie la signature Developer ID et le hardened
+runtime, contrôle l’agrafage, puis produit le DMG et son SHA-256. Le workflow
+`.github/workflows/release.yml` fait la même chose sur un tag `v*` et crée une
+release GitHub en brouillon. Il manque seulement le certificat Apple et les
+secrets de notarisation ; la procédure complète est dans
+[docs/RELEASE.md](docs/RELEASE.md).
 
 ```bash
 APPLE_SIGNING_IDENTITY="Developer ID Application: …" \
-APPLE_ID="…" APPLE_PASSWORD="…" APPLE_TEAM_ID="…" \
+APPLE_ID="…" APPLE_PASSWORD="mot-de-passe-application" APPLE_TEAM_ID="…" \
 ./scripts/release-macos.sh
 ```
 
@@ -474,7 +486,7 @@ src/
   assets/         Liste EFF des 7 776 mots
 src-tauri/        Socle desktop/mobile Tauri v2
 extension/        Extension navigateur Manifest V3 (Chromium)
-docs/             Sécurité, audit, préparation grand public, AutoFill macOS
+docs/             Sécurité, audit, préparation grand public, release, AutoFill macOS
 scripts/          Génération des icônes PWA, test manuel de l’extension
 ```
 
@@ -569,7 +581,7 @@ Le format complet et les garanties sont documentés dans
 - L’extension navigateur ne stocke aucun secret : elle lit les identifiants
   depuis l’onglet Coffre déverrouillé, en mémoire, et ne dispose que de l’accès
   temporaire à l’onglet actif.
-- **Le bundle desktop macOS n’est ni signé ni notarisé.**
+- **Le bundle desktop macOS produit localement n’est ni signé ni notarisé.** La chaîne de release signée est prête, mais le certificat Apple et les secrets de notarisation manquent.
 - **Le projet n’a pas fait l’objet d’un audit de sécurité indépendant.**
 
 Le modèle de menace, les limites et les recommandations de déploiement sont
@@ -619,8 +631,8 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   `hash-wasm` pourront être chargés à la demande dans une version ultérieure.
 - Les tests de bout en bout utilisent Chromium et WebKit ; Firefox et les
   WebViews Android/iOS réelles doivent encore être validés.
-- Le bundle macOS est non signé et non notarisé ; les builds Windows et Linux
-  n’ont pas été testés.
+- Le bundle macOS local est non signé et non notarisé ; les builds Windows et
+  Linux n’ont pas été testés.
 
 ---
 
