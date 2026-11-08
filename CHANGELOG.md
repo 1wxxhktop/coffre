@@ -81,6 +81,10 @@
   du mot de passe maître, fusion L3 et façade UniFFI JSON. Commande Tauri de
   fusion sans déchiffrement. Buffers `Zeroizing`, aucune dépendance réseau,
   vecteurs croisés TypeScript ↔ Rust et CI dédiée Linux/macOS/Windows.
+- CLI `coffre-cli` : `list`, `get`, `totp` et `run --env` pour les scripts,
+  mot de passe lu sans écho sur le terminal ou sur stdin, jamais en argument.
+  Injection des secrets par l’environnement du processus enfant, propagation
+  du code de sortie, tests unitaires et d’intégration, CI Linux/macOS/Windows.
 - Surveillance des fuites optionnelle et désactivée par défaut : calcul SHA-1
   local, envoi des 5 premiers caractères seulement à Have I Been Pwned avec
   `Add-Padding`, réponse parsée en mémoire et résultats intégrés au tableau de

@@ -91,6 +91,10 @@ Desktop et mobile :
   - objc2 / objc2-foundation          MIT
   - objc2-local-authentication        Zlib OR Apache-2.0 OR MIT
   - block2                            MIT
+  - clap                              MIT OR Apache-2.0
+  - rpassword                         Apache-2.0
+  - hmac                              MIT OR Apache-2.0
+  - sha1                              MIT OR Apache-2.0
 
 Les polices utilisées par l’interface sont les polices système de l’appareil ;
 aucune police distante n’est embarquée ni téléchargée. Les icônes de l’interface

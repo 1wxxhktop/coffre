@@ -599,11 +599,25 @@ reste sur l’implémentation TypeScript.
 - façade `coffre-core-ffi` pour UniFFI, en JSON sans état (le mot de passe est
   fourni à chaque appel, aucune session Rust n’est conservée), et commande
   Tauri `core_merge_files` qui fusionne des fichiers chiffrés sans mot de passe ;
+- CLI `coffre-cli` : ouverture en lecture seule (`list`, `get`, `totp`,
+  `run --env`), sans mutation ni réseau. Le mot de passe maître est lu sans
+  écho sur le terminal (`rpassword`) ou sur stdin avec `--password-stdin` ; il
+  n’est jamais accepté en argument. Les valeurs ne sont écrites sur stdout que
+  pour `get`, `totp` et la commande enfant de `run` ;
+- `run --env` transmet les secrets par l’environnement du processus enfant,
+  jamais par sa ligne de commande. Ce n’est pas une barrière d’isolation : un
+  processus du même utilisateur peut inspecter l’environnement (par exemple
+  `/proc/<pid>/environ` sous Linux) et l’enfant peut les journaliser ou les
+  retransmettre. L’option vise les outils locaux de courte durée ;
+- les clés et buffers cryptographiques du CLI restent en `Zeroizing` ; les
+  valeurs JSON déchiffrées vivent en mémoire jusqu’à la fin du processus, comme
+  dans la façade FFI ;
 - aucune dépendance réseau dans ce crate ;
 - vecteurs croisés : les fixtures TypeScript `v1..v4` sont relues par Rust, et
   `test-vectors/rust-v4.coffre.json` est relu par le test TypeScript de
   production. Le MAC et les contenus déchiffrés sont vérifiés des deux côtés ;
-- la CI exécute `cargo test -p coffre-core -p coffre-core-ffi` sur Linux,
+- la CI exécute `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli`
+  sur Linux,
   macOS et Windows. Les bindings Swift/Kotlin sont générés avec
   `uniffi-bindgen` ; leur intégration dans les extensions mobiles relève de L8.
 
