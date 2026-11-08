@@ -77,9 +77,10 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 398 tests unitaires (52 fichiers), 124 exécutions Playwright
-  (62 parcours sur Chromium et WebKit), 28 tests Rust desktop + 12 tests
-  `coffre-core` + 1 test FFI + 9 tests `coffre-cli`, smoke extension
+- **Tests** : 416 tests unitaires (57 fichiers), 124 exécutions Playwright
+  (62 parcours sur Chromium et WebKit), 28 tests Rust desktop (1 ignoré) +
+  12 tests `coffre-core` + 1 test FFI + 9 tests `coffre-cli` + 17 tests agent
+  SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
   verrouillage), vérification HIBP interceptée, relais natif simulé et
   Lighthouse accessibilité 1,0.
