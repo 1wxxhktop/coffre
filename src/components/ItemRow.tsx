@@ -1,4 +1,4 @@
-import { Check, Paperclip, Star } from 'lucide-react'
+import { Check, Paperclip, ShieldAlert, Star } from 'lucide-react'
 import { ItemIcon } from './ItemIcon'
 import { formatDate } from '../lib/settings'
 import { itemSubtitle, itemTypeLabel, type VaultItem } from '../lib/types'
@@ -9,6 +9,7 @@ interface ItemRowProps {
   showVault: boolean
   selected: boolean
   selectable?: boolean
+  hasSecurityIssue?: boolean
   checked?: boolean
   onSelect: () => void
 }
@@ -20,6 +21,7 @@ export function ItemRow({
   showVault,
   selected,
   selectable = false,
+  hasSecurityIssue = false,
   checked = false,
   onSelect,
 }: ItemRowProps) {
@@ -63,6 +65,11 @@ export function ItemRow({
       </span>
 
       <span className="item-row__meta">
+        {hasSecurityIssue && (
+          <span className="item-row__security" title="Problème de sécurité">
+            <ShieldAlert size={12} aria-label="Problème de sécurité" />
+          </span>
+        )}
         {showVault && <span className="item-row__vault">{vaultName}</span>}
         {item.attachments.length > 0 && (
           <span

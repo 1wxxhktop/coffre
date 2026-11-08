@@ -1380,3 +1380,124 @@
   background: var(--accent);
   color: #ffffff;
 }
+
+/* Tableau de bord Sécurité — résumé et sévérités. */
+.security-score__body {
+  width: 100%;
+}
+
+.security-distribution {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  margin-top: 9px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--panel-2);
+}
+
+.security-distribution__strong {
+  background: var(--success);
+}
+
+.security-distribution__medium {
+  background: var(--warning);
+}
+
+.security-distribution__weak {
+  background: var(--danger);
+}
+
+.security-distribution__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--dim);
+  font-size: 10.5px;
+}
+
+.security-distribution__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.security-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.security-dot--strong {
+  background: var(--success);
+}
+
+.security-dot--medium {
+  background: var(--warning);
+}
+
+.security-dot--weak {
+  background: var(--danger);
+}
+
+.security-summary {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.security-summary > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 9px 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.security-summary strong {
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.security-summary span {
+  color: var(--dim);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.security-section__hint {
+  margin-top: -3px;
+  color: var(--dim);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.security-footnote {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.item-row__security {
+  display: inline-flex;
+  align-items: center;
+  color: var(--warning);
+}
+
+@media (max-width: 640px) {
+  .security-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

@@ -32,6 +32,7 @@ import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { useAutoLock } from '../hooks/useAutoLock'
 import { loadUsage, recordItemUsage, type UsageMap } from '../lib/usage'
+import { analyzeSecurity } from '../lib/security'
 import { itemSubtitle, itemTypeLabel, type ItemType, type VaultSummary } from '../lib/types'
 import { isTauriRuntime } from '../lib/external'
 
@@ -109,6 +110,11 @@ export function VaultApp() {
   >(null)
   const [vaultToDelete, setVaultToDelete] = useState<VaultSummary | null>(null)
   const [showEmptyTrash, setShowEmptyTrash] = useState(false)
+  const securityReport = useMemo(() => analyzeSecurity(items), [items])
+  const securityIssueIds = useMemo(
+    () => new Set(securityReport.issueIds),
+    [securityReport],
+  )
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -407,6 +413,7 @@ export function VaultApp() {
         onDeleteVault={setVaultToDelete}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSecurity={() => setSecurityOpen(true)}
+        securityReport={securityReport}
         onLock={lock}
         onClose={() => setSidebarOpen(false)}
       />
@@ -592,6 +599,7 @@ export function VaultApp() {
                   showVault={vaultFilter === 'all'}
                   selected={selectedId === item.id}
                   selectable={selectionMode}
+                  hasSecurityIssue={securityIssueIds.has(item.id)}
                   checked={selectedIds.has(item.id)}
                   onSelect={() => {
                     if (selectionMode) {
@@ -733,7 +741,7 @@ export function VaultApp() {
 
       {securityOpen && (
         <SecurityDialog
-          items={items}
+          report={securityReport}
           vaults={vaults}
           onClose={() => setSecurityOpen(false)}
           onOpenItem={(itemId) => {
