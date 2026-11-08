@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { Modal } from './Modal'
 import { useI18n } from '../state/I18nProvider'
 import { useVault } from '../state/VaultProvider'
+import { useSettings } from '../state/SettingsProvider'
+import { useToast } from '../state/ToastProvider'
 import { isTauriRuntime } from '../lib/external'
+import { biometricAvailable, biometricSupported, confirmBiometric } from '../lib/biometrics'
 import {
   onSshAgentApproval,
   respondSshAgent,
@@ -16,9 +19,26 @@ import {
  */
 export function SshAgentBridge() {
   const { status } = useVault()
+  const { settings } = useSettings()
   const { t } = useI18n()
+  const { toast } = useToast()
   const [requests, setRequests] = useState<SshAgentApproval[]>([])
   const [busy, setBusy] = useState(false)
+  const [touchIdReady, setTouchIdReady] = useState(false)
+
+  useEffect(() => {
+    if (!isTauriRuntime() || !settings.biometricUnlock || !biometricSupported()) {
+      setTouchIdReady(false)
+      return
+    }
+    let cancelled = false
+    void biometricAvailable().then((available) => {
+      if (!cancelled) setTouchIdReady(available)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [settings.biometricUnlock])
 
   useEffect(() => {
     if (!isTauriRuntime()) return
@@ -51,10 +71,20 @@ export function SshAgentBridge() {
     if (!request || busy) return
     setBusy(true)
     try {
+      if (
+        approved &&
+        touchIdReady &&
+        !(await confirmBiometric(t('sshAgent.approval.touchId')))
+      ) {
+        toast(t('sshAgent.approval.touchIdCancelled'), 'error')
+        return
+      }
       await respondSshAgent(request.id, approved)
+      setRequests((previous) => previous.slice(1))
+    } catch (caught) {
+      toast(caught instanceof Error ? caught.message : t('sshAgent.error'), 'error')
     } finally {
       setBusy(false)
-      setRequests((previous) => previous.slice(1))
     }
   }
 
@@ -129,6 +159,9 @@ export function SshAgentBridge() {
           </div>
         )}
       </div>
+      {touchIdReady && (
+        <p className="settings-copy">{t('sshAgent.approval.touchIdHint')}</p>
+      )}
     </Modal>
   )
 }

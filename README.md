@@ -724,8 +724,9 @@ L’agent s’arrête au verrouillage, à la fermeture de l’interface ou via l
 **Arrêter l’agent**. Le socket est créé dans
 `app_data_dir()/ssh/agent.sock` ; aucun socket n’est ouvert par défaut.
 
-Touch ID n’est pas encore imposé pour l’agent, et le named pipe Windows reste à
-implémenter.
+Lorsque le déverrouillage par Touch ID est activé, l’approbation d’une
+signature demande aussi une authentification biométrique réussie. Le named pipe
+Windows reste à implémenter.
 
 Le binaire `coffre-ssh-agent` permet de l’utiliser dès maintenant dans un
 terminal :

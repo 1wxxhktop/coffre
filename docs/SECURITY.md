@@ -699,6 +699,9 @@ aucun socket n’est créé par défaut.
   Sans réponse sous 60 secondes, la signature est refusée ;
 - l’agent est arrêté au verrouillage, au démontage de l’interface ou via le
   bouton **Arrêter l’agent** ; les approbations en attente reçoivent un refus ;
+- si le déverrouillage par Touch ID est activé, une authentification
+  biométrique réussie est exigée après le clic sur **Signer**. Une annulation
+  laisse la demande ouverte ; elle expire normalement après 60 secondes ;
 
 - le socket est créé à la demande avec des permissions `0600` dans un dossier
   `0700` ; un chemin existant qui n’est pas un socket est refusé et un ancien
@@ -724,8 +727,7 @@ aucun socket n’est créé par défaut.
 - au plus 16 connexions simultanées sont servies ; les suivantes sont
   fermées immédiatement ;
 - limites : le socket Unix n’est pas implémenté sous Windows (named pipe à
-  faire), Touch ID n’est pas encore imposé avant l’approbation, et aucune
-  mémorisation d’approbation par hôte n’est encore proposée.
+  faire), et aucune mémorisation d’approbation par hôte n’est encore proposée.
 
 ## 3. Stockage local
 
