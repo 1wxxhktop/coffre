@@ -389,6 +389,9 @@ export function VaultApp() {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Aller au contenu
+      </a>
       <ExtensionBridge />
       <Sidebar
         vaults={vaults}
@@ -490,7 +493,7 @@ export function VaultApp() {
           </div>
         )}
 
-        <main className="content content--split">
+        <main id="main-content" tabIndex={-1} className="content content--split">
           <section className="list-pane">
             <div className="content__bar">
               <span className="content__local">

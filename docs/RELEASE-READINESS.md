@@ -141,9 +141,10 @@ réel dans Mots de passe sur une machine Apple.
 
 ### B-10 — Détails d’accessibilité et de finition
 
-Lighthouse est à 1,0, mais les textes de 9–10 px restent nombreux et l’auto-lock
-desktop lors du passage à une autre application n’est pas explicite. Une revue
-manuelle avec lecteur d’écran et navigation clavier complète reste à faire.
+Lighthouse est à 1,0. Les textes ont été remontés à **10,5 px minimum**, un lien
+d’évitement et `prefers-reduced-motion` ont été ajoutés, et le verrouillage à la
+perte de focus desktop est désormais explicite. Une revue manuelle avec lecteur
+d’écran et navigation clavier complète reste à faire.
 
 ---
 
