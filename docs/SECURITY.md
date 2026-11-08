@@ -1020,6 +1020,8 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
 - l’identité est ré-enveloppée lors d’un changement de mot de passe et supprimée
   lors d’une récupération, car elle est scellée par l’ancienne clé maîtresse ;
   la fusion de synchronisation conserve l’identité locale si elle existe ;
+- l’identité peut être créée depuis **Réglages → Sécurité → Identité de
+  partage**. L’export affiché ne contient que les clés publiques et l’empreinte ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;

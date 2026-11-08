@@ -90,6 +90,11 @@ import {
   getPrfOutput,
   openPrfEnvelope,
 } from '../lib/prf'
+import {
+  createSharingIdentity as makeSharingIdentity,
+  openSharingIdentity,
+} from '../lib/sharingVault'
+import type { SharingIdentity } from '../lib/sharing'
 import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
 import { isTauriRuntime } from '../lib/external'
 import {
@@ -178,6 +183,10 @@ interface VaultContextValue extends ProviderState {
   enrollPrf: () => Promise<void>
   /** Révoque l’enveloppe PRF du coffre courant. */
   removePrf: () => Promise<void>
+  /** Lit l’identité de partage du fichier, si elle existe. */
+  getSharingIdentity: () => Promise<SharingIdentity | null>
+  /** Crée l’identité de partage du fichier si nécessaire. */
+  createSharingIdentity: () => Promise<SharingIdentity>
   /** Supprime puis réenregistre la clé biométrique du coffre courant. */
   resetBiometricKey: () => Promise<void>
   lock: () => void
@@ -949,6 +958,43 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         delete next.prf
         const file = await persist(current.file, next)
         apply((previous) => ({ ...previous, file }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const getSharingIdentity = useCallback(async (): Promise<SharingIdentity | null> => {
+    const current = stateRef.current
+    if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+    if (!current.file.sharing) return null
+    return openSharingIdentity(
+      current.file.sharing,
+      current.session.masterKey,
+      current.file.id,
+    )
+  }, [])
+
+  const createSharingIdentity = useCallback(
+    () =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est en lecture seule.')
+        }
+        if (current.file.sharing) {
+          return openSharingIdentity(
+            current.file.sharing,
+            current.session.masterKey,
+            current.file.id,
+          )
+        }
+        const { identity, record } = await makeSharingIdentity(
+          current.session.masterKey,
+          current.file.id,
+        )
+        const file = await persist(current.file, { ...current.file, sharing: record })
+        apply((previous) => ({ ...previous, file }))
+        return identity
       }),
     [apply, enqueue, persist],
   )
@@ -2555,6 +2601,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     unlockWithPrf,
     enrollPrf,
     removePrf,
+    getSharingIdentity,
+    createSharingIdentity,
     resetBiometricKey,
     lock,
     addVault,
