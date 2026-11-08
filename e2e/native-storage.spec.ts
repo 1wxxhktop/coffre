@@ -70,6 +70,7 @@ test('migre le coffre IndexedDB vers le stockage natif puis conserve les sauvega
 
   await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Déverrouiller' }).click()
+  await showItems(page)
   await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible({
     timeout: 45_000,
   })
@@ -107,6 +108,7 @@ test('migre le coffre IndexedDB vers le stockage natif puis conserve les sauvega
   await expect(page.getByRole('heading', { name: 'Déverrouiller' })).toBeVisible()
   await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Déverrouiller' }).click()
+  await showItems(page)
   await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible({
     timeout: 45_000,
   })

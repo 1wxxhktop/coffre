@@ -50,6 +50,7 @@ test('redimensionne les colonnes et mémorise les largeurs', async ({ page }) =>
   await page.reload()
   await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Déverrouiller' }).click()
+  await showItems(page)
   await expect(page.locator('.item-row').first()).toBeVisible({ timeout: 45_000 })
 
   const restoredSidebar = await page
