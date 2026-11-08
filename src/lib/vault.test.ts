@@ -10,6 +10,7 @@ import {
   deleteVault,
   enableRecovery,
   listItemVersions,
+  moveItem,
   openAttachment,
   openVaultFileWithMasterKey,
   parseVaultFile,
@@ -18,6 +19,7 @@ import {
   restoreItem,
   restoreItemVersion,
   serializeVault,
+  signVaultFile,
   trashItem,
   unlockVaultFile,
   updateItem,
@@ -65,11 +67,37 @@ async function addLogin(
   } as ItemDraft)
 }
 
+/** Reproduit la forme d’un fichier v3 : aucun champ propre au format 4. */
+function asLegacyFile(file: VaultFile, version: 1 | 2 | 3 = 3): Record<string, unknown> {
+  const legacy = { ...file, version } as Record<string, unknown>
+  delete legacy.writer
+  delete legacy.revision
+  delete legacy.keyEpoch
+  delete legacy.tombstones
+  delete legacy.integrity
+  legacy.vaults = file.vaults.map((vault) => {
+    const copy: Record<string, unknown> = { ...vault }
+    delete copy.clock
+    return copy
+  })
+  legacy.items = file.items.map((item) => {
+    const copy: Record<string, unknown> = { ...item }
+    delete copy.clock
+    return copy
+  })
+  return legacy
+}
+
 describe('création et déverrouillage', () => {
   it('crée un coffre avec un coffre par défaut', async () => {
     const opened = await freshVault()
     expect(opened.file.format).toBe('coffre')
-    expect(opened.file.version).toBe(3)
+    expect(opened.file.version).toBe(4)
+    expect(opened.file.revision).toBe(1)
+    expect(opened.file.keyEpoch).toBe(1)
+    expect(opened.file.integrity?.mac).toMatch(/^[A-Za-z0-9+/=]+$/)
+    expect(opened.integrity).toBe('valid')
+    expect(opened.readOnly).toBe(false)
     expect(opened.file.vaults).toHaveLength(1)
     expect(opened.file.versions).toEqual([])
     expect(opened.vaults[0].name).toBe('Personnel')
@@ -279,9 +307,11 @@ describe('format de fichier', () => {
   it('sérialise et relit un coffre', async () => {
     const opened = await freshVault()
     const { file } = await addLogin(opened)
-    const parsed = parseVaultFileText(serializeVault(file))
+    const signed = await signVaultFile(file, opened.session, file)
+    const parsed = parseVaultFileText(serializeVault(signed))
     expect(parsed.id).toBe(file.id)
     expect(parsed.items).toHaveLength(1)
+    expect(parsed.integrity?.mac).toBe(signed.integrity?.mac)
   })
 
   it('refuse un JSON invalide', () => {
@@ -290,13 +320,13 @@ describe('format de fichier', () => {
 
   it('refuse une version inconnue', async () => {
     const opened = await freshVault()
-    expect(() => parseVaultFile({ ...opened.file, version: 4 })).toThrow(VaultValidationError)
+    expect(() => parseVaultFile({ ...opened.file, version: 5 })).toThrow(VaultValidationError)
   })
 
-  it('accepte un fichier v1 et le migre en v3', async () => {
+  it('accepte un fichier v1 et le migre en v3 en mémoire puis v4 à l’écriture', async () => {
     const opened = await freshVault()
     const { file } = await addLogin(opened)
-    const legacy = { ...file, version: 1 } as Record<string, unknown>
+    const legacy = asLegacyFile(file, 1)
     delete legacy.versions
 
     const parsed = parseVaultFile(legacy)
@@ -305,7 +335,16 @@ describe('format de fichier', () => {
 
     const unlocked = await unlockVaultFile(parsed, PASSWORD)
     expect(unlocked.items).toHaveLength(1)
+    expect(unlocked.integrity).toBe('unsigned')
+    const signed = await signVaultFile(unlocked.file, unlocked.session, unlocked.file)
+    expect(signed.version).toBe(4)
+    expect(signed.revision).toBe(1)
+
+    const reopened = await openVaultFileWithMasterKey(signed, unlocked.session.masterKey)
+    expect(reopened.items).toHaveLength(1)
+    expect(reopened.integrity).toBe('valid')
     unlocked.session.lock()
+    reopened.session.lock()
   })
 
   it('refuse une version rattachée à un élément inconnu', async () => {
@@ -560,13 +599,15 @@ describe('vérification d’intégrité', () => {
       bytes,
     })
 
-    const report = await verifyVaultFile(added.file, opened.session)
+    const signed = await signVaultFile(added.file, opened.session, added.file)
+    const report = await verifyVaultFile(signed, opened.session)
     expect(report).toEqual({
       vaults: 1,
       items: 1,
       attachments: 1,
       attachmentBytes: bytes.length,
       versions: 0,
+      signedRecords: 5,
     })
   })
 
@@ -796,15 +837,16 @@ describe('historique des versions', () => {
       password: 'secret-2',
     })
 
-    const report = await verifyVaultFile(updated.file, opened.session)
+    const signed = await signVaultFile(updated.file, opened.session, updated.file)
+    const report = await verifyVaultFile(signed, opened.session)
     expect(report.versions).toBe(1)
 
     const tampered: VaultFile = {
-      ...updated.file,
+      ...signed,
       versions: [
         {
-          ...updated.file.versions[0],
-          content: { ...updated.file.versions[0].content, c: 'AAAA' },
+          ...signed.versions[0],
+          content: { ...signed.versions[0].content, c: 'AAAA' },
         },
       ],
     }
@@ -831,5 +873,80 @@ describe('historique des versions', () => {
     await expect(verifyVaultFile(orphaned, opened.session)).rejects.toBeInstanceOf(
       VaultIntegrityError,
     )
+  })
+})
+
+describe('déplacement entre coffres', () => {
+  it('réchiffre le contenu, les pièces jointes et les versions', async () => {
+    const opened = await freshVault()
+    const target = await addVault(opened.file, opened.session, 'Travail')
+    expect(target.vault.id).not.toBe(opened.vaults[0].id)
+
+    const created = await addLogin({
+      ...opened,
+      file: target.file,
+      vaults: [...opened.vaults, target.vault],
+    })
+    const withAttachment = await addAttachment(
+      created.file,
+      opened.session,
+      created.item,
+      {
+        name: 'note.txt',
+        mime: 'text/plain',
+        bytes: new TextEncoder().encode('contenu chiffré'),
+      },
+    )
+    const updated = await updateItem(withAttachment.file, opened.session, {
+      ...(withAttachment.item as LoginItem),
+      password: 'nouveau-secret',
+    })
+
+    const moved = await moveItem(
+      updated.file,
+      opened.session,
+      updated.item.id,
+      target.vault.id,
+    )
+    expect(moved.item.vaultId).toBe(target.vault.id)
+    expect(moved.file.items.find((record) => record.id === updated.item.id)?.vaultId).toBe(
+      target.vault.id,
+    )
+
+    const unlocked = await unlockVaultFile(moved.file, PASSWORD)
+    const item = unlocked.items.find((candidate) => candidate.id === updated.item.id)
+    expect(item?.vaultId).toBe(target.vault.id)
+
+    const attachmentId = item?.attachments[0]?.id
+    expect(attachmentId).toBeDefined()
+    const attachment = await openAttachment(
+      moved.file,
+      opened.session,
+      item!,
+      attachmentId!,
+    )
+    expect(new TextDecoder().decode(attachment.bytes)).toBe('contenu chiffré')
+
+    const versions = await listItemVersions(
+      moved.file,
+      opened.session,
+      updated.item.id,
+    )
+    expect(versions.length).toBeGreaterThan(0)
+    const restored = await restoreItemVersion(
+      moved.file,
+      opened.session,
+      updated.item.id,
+      versions[0].id,
+    )
+    expect(restored.item.vaultId).toBe(target.vault.id)
+  })
+
+  it('refuse un coffre de destination inconnu', async () => {
+    const opened = await freshVault()
+    const created = await addLogin(opened)
+    await expect(
+      moveItem(created.file, opened.session, created.item.id, 'v_inconnu'),
+    ).rejects.toBeInstanceOf(VaultValidationError)
   })
 })

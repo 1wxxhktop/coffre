@@ -4,6 +4,21 @@
  * Seuls `http:` et `https:` sont acceptés : un `javascript:`, `data:` ou
  * `file:` ne doit jamais devenir un lien cliquable dans l’interface.
  */
+/**
+ * URL standard de changement de mot de passe d’un site (RFC proposée par le
+ * W3C), dérivée de la première adresse HTTPS de l’élément.
+ */
+export function changePasswordUrl(urls: string[]): string | null {
+  for (const raw of urls) {
+    const safe = safeExternalUrl(raw)
+    if (!safe) continue
+    const url = new URL(safe)
+    if (url.protocol !== 'https:') continue
+    return `${url.origin}/.well-known/change-password`
+  }
+  return null
+}
+
 export function safeExternalUrl(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null

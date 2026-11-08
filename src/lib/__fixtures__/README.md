@@ -8,11 +8,14 @@ Ces fichiers sont **figés** et servent de test de non-régression du format.
   d’historique et un élément en corbeille).
 - `v3.coffre.json` : produit par la version 0.4.0 (format 3, un élément et une
   enveloppe de récupération).
+- `v4.coffre.json` : produit par le format 4 (MAC global, deux éléments dont
+  un en corbeille, une version, une pièce jointe et une enveloppe de
+  récupération).
 
-Mot de passe maître des trois fichiers : `phrase de passe de test solide`
+Mot de passe maître des quatre fichiers : `phrase de passe de test solide`
 (paramètres Argon2id réduits pour les tests).
 
-Phrase de récupération du fichier v3 :
+Phrase de récupération des fichiers v3 et v4 :
 `abacus abdomen abdominal abide abiding ability abject ablaze abode abort`.
 
 **Ne pas les régénérer** : leur intérêt est de représenter des octets produits

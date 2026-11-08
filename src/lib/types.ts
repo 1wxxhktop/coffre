@@ -6,7 +6,7 @@
  * sections personnalisées. Le format de fichier, lui, est propre à Coffre.
  */
 
-export const ITEM_TYPES = ['login', 'note', 'card', 'identity'] as const
+export const ITEM_TYPES = ['login', 'note', 'card', 'identity', 'passkey'] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]
 
@@ -53,6 +53,11 @@ export interface ItemBase {
   attachments: AttachmentMeta[]
   /** Date de mise à la corbeille ; `null` pour un élément actif. */
   deletedAt: string | null
+  /**
+   * Date d’échéance ou de révision (AAAA-MM-JJ), vide si aucune. Pour une
+   * connexion, sert de rappel « mot de passe à changer avant ».
+   */
+  expiresAt: string
   createdAt: string
   updatedAt: string
 }
@@ -90,9 +95,38 @@ export interface IdentityItem extends ItemBase {
   postalCode: string
   country: string
   birthDate: string
+  /** Dates d’expiration des documents (AAAA-MM-JJ), vides si non renseignées. */
+  passportExpiry: string
+  idCardExpiry: string
+  licenseExpiry: string
 }
 
-export type VaultItem = LoginItem | NoteItem | CardItem | IdentityItem
+/**
+ * Passkey WebAuthn. La clé privée PKCS#8 et la clé publique COSE sont stockées
+ * dans le contenu chiffré de l’élément ; l’extension ne les reçoit jamais.
+ */
+export interface PasskeyItem extends ItemBase {
+  type: 'passkey'
+  /** Domaine du relying party (sans schéma). */
+  rpId: string
+  /** Identifiant utilisateur WebAuthn, base64url. */
+  userHandle: string
+  userName: string
+  /** Identifiant de credential, base64url. */
+  credentialId: string
+  /** Clé privée ECDSA P-256 PKCS#8, base64. */
+  privateKey: string
+  /** Clé publique COSE ES256, base64. */
+  publicKeyCose: string
+  signCount: number
+}
+
+export type VaultItem =
+  | LoginItem
+  | NoteItem
+  | CardItem
+  | IdentityItem
+  | PasskeyItem
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -120,12 +154,23 @@ export interface Sealed {
   c: string
 }
 
+/**
+ * Horloge de Lamport d’un enregistrement (format 4). `rev` est incrémenté à
+ * chaque mutation et `writer` identifie l’appareil qui a écrit en dernier ; le
+ * couple sert à départager les modifications concurrentes lors d’une fusion.
+ */
+export interface RecordClock {
+  rev: number
+  writer: string
+}
+
 export interface EncryptedVaultRecord {
   id: string
   key: Sealed
   name: Sealed
   createdAt: string
   updatedAt: string
+  clock?: RecordClock
 }
 
 export interface EncryptedItemRecord {
@@ -135,6 +180,7 @@ export interface EncryptedItemRecord {
   content: Sealed
   createdAt: string
   updatedAt: string
+  clock?: RecordClock
 }
 
 /** Pièce jointe chiffrée avec la clé de son élément. */
@@ -183,17 +229,47 @@ export interface RecoveryEnvelope {
 }
 
 /**
- * Format de fichier `.coffre` (version 3).
+ * Suppression définitive conservée en clair pour que les autres appareils
+ * puissent la rejouer lors d’une fusion. Le contenu supprimé n’est plus présent.
+ */
+export interface VaultTombstone {
+  kind: 'item' | 'vault'
+  id: string
+  deletedAt: string
+}
+
+/**
+ * MAC global du fichier. `key` est une clé HMAC aléatoire scellée par la clé
+ * maîtresse ; `mac` couvre un manifeste canonique de tous les enregistrements.
+ */
+export interface VaultIntegrity {
+  mac: string
+  key: Sealed
+}
+
+/** Plus haute révision vue pour un fichier, conservée hors du fichier. */
+export interface VaultRevisionState {
+  fileId: string
+  revision: number
+  updatedAt: string
+}
+
+/**
+ * Format de fichier `.coffre` (versions 1 à 4).
  *
  * Tout le contenu (noms des coffres, éléments, identifiants de connexion, notes,
  * historique) est chiffré. Seuls les identifiants aléatoires, les dates, les
  * paramètres KDF et, si elle est configurée, l’enveloppe de récupération sont
  * visibles. Les fichiers versions 1 et 2 restent lisibles et sont migrés à
  * l’écriture.
+ *
+ * La version 4 ajoute les champs `writer`, `revision`, `keyEpoch`, `tombstones`
+ * et `integrity`. Ils sont absents d’un fichier antérieur ; la première
+ * écriture le migre.
  */
 export interface VaultFile {
   format: 'coffre'
-  version: 1 | 2 | 3
+  version: 1 | 2 | 3 | 4
   id: string
   createdAt: string
   updatedAt: string
@@ -203,6 +279,16 @@ export interface VaultFile {
   attachments: EncryptedAttachmentRecord[]
   versions: EncryptedVersionRecord[]
   recovery?: RecoveryEnvelope
+  /** Identifiant aléatoire de l’appareil qui a écrit en dernier (v4). */
+  writer?: string
+  /** Compteur monotone du fichier, incrémenté à chaque écriture (v4). */
+  revision?: number
+  /** Époque des clés, incrémentée à chaque rotation (v4). */
+  keyEpoch?: number
+  /** Suppressions définitives récentes, pour la synchronisation (v4). */
+  tombstones?: VaultTombstone[]
+  /** MAC global (v4). */
+  integrity?: VaultIntegrity
 }
 
 export interface VaultSummary {
@@ -218,6 +304,8 @@ export type VaultStatus = 'loading' | 'empty' | 'locked' | 'unlocked' | 'error'
 export type ThemePreference = 'dark' | 'light' | 'system'
 
 export interface AppSettings {
+  /** Langue de l’interface et des dates. */
+  language: 'fr' | 'en'
   theme: ThemePreference
   autoLockMinutes: number
   clipboardClearSeconds: number
@@ -230,9 +318,14 @@ export interface AppSettings {
   keychainUnlock: boolean
   /** Desktop macOS : déverrouiller par empreinte (Touch ID). */
   biometricUnlock: boolean
+  /** Afficher des notifications locales pour les échéances proches. */
+  expiryNotifications: boolean
+  /** Vérifier les mots de passe dans les fuites connues, en k-anonymat. */
+  breachCheck: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  language: 'fr',
   theme: 'dark',
   autoLockMinutes: 5,
   clipboardClearSeconds: 30,
@@ -241,6 +334,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   trashRetentionDays: 30,
   keychainUnlock: false,
   biometricUnlock: false,
+  expiryNotifications: false,
+  breachCheck: false,
 }
 
 export function isItemType(value: unknown): value is ItemType {
@@ -265,6 +360,7 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
     customFields: [],
     attachments: [],
     deletedAt: null,
+    expiresAt: '',
   }
 
   switch (type) {
@@ -296,6 +392,21 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         postalCode: '',
         country: '',
         birthDate: '',
+        passportExpiry: '',
+        idCardExpiry: '',
+        licenseExpiry: '',
+      }
+    case 'passkey':
+      return {
+        ...base,
+        type: 'passkey',
+        rpId: '',
+        userHandle: '',
+        userName: '',
+        credentialId: '',
+        privateKey: '',
+        publicKeyCose: '',
+        signCount: 0,
       }
   }
 }
@@ -312,6 +423,8 @@ export function itemSubtitle(item: VaultItem): string {
       const name = [item.firstName, item.lastName].filter(Boolean).join(' ')
       return name || item.email || 'Identité'
     }
+    case 'passkey':
+      return item.userName || item.rpId || 'Passkey'
   }
 }
 
@@ -325,5 +438,7 @@ export function itemTypeLabel(type: ItemType): string {
       return 'Carte'
     case 'identity':
       return 'Identité'
+    case 'passkey':
+      return 'Passkey'
   }
 }

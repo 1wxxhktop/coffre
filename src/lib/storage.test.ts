@@ -5,8 +5,10 @@ import {
   listLocalBackups,
   loadBackupVaultFile,
   loadVaultFile,
+  loadVaultState,
   restoreBackup,
   saveVaultFile,
+  saveVaultState,
 } from './storage'
 import { createVaultFile } from './vault'
 import type { VaultFile } from './types'
@@ -91,5 +93,24 @@ describe('stockage local', () => {
     await clearVaultStorage()
     expect(await loadVaultFile()).toBeNull()
     expect(await loadBackupVaultFile()).toBeNull()
+    expect(await loadVaultState()).toBeNull()
+  })
+
+  it('enregistre et relit l’état anti-retour', async () => {
+    expect(await loadVaultState()).toBeNull()
+    const state = {
+      fileId: 'vf_test',
+      revision: 4,
+      updatedAt: new Date().toISOString(),
+    }
+    await saveVaultState(state)
+    expect(await loadVaultState()).toEqual(state)
+
+    const file = await makeVault()
+    await saveVaultFile(file)
+    // L’état est distinct du coffre et des sauvegardes.
+    expect((await loadVaultFile())?.id).toBe(file.id)
+    expect(await loadBackupVaultFile()).toBeNull()
+    expect(await loadVaultState()).toEqual(state)
   })
 })

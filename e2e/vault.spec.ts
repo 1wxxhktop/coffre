@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, closeDialog, createVault, openSettings, PASSWORD } from './helpers'
+import {
+  addLogin,
+  closeDialog,
+  createVault,
+  openSettings,
+  sortItems,
+  PASSWORD,
+} from './helpers'
 
 test.describe('coffre et éléments', () => {
   test('crée un coffre, ajoute un champ et une pièce jointe, puis vérifie l’intégrité', async ({
@@ -29,7 +36,7 @@ test.describe('coffre et éléments', () => {
     await expect(card).toBeVisible()
     await expect(card.getByText('1', { exact: true })).toBeVisible()
 
-    const settings = await openSettings(page)
+    const settings = await openSettings(page, 'Stockage')
     await settings.getByRole('button', { name: 'Vérifier le coffre' }).click()
     await expect(settings.getByText(/Intégrité confirmée/)).toBeVisible({ timeout: 45_000 })
     await closeDialog(page)
@@ -51,8 +58,12 @@ test.describe('coffre et éléments', () => {
     await sidebar.getByRole('button', { name: /^Récents/ }).click()
     await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible()
 
-    await page.getByLabel('Trier les éléments').selectOption('name-desc')
-    await expect(page.getByLabel('Trier les éléments')).toHaveValue('name-desc')
+    await sortItems(page, 'Nom Z–A')
+    await page.getByRole('button', { name: 'Options de la liste' }).click()
+    await expect(page.getByRole('menuitemradio', { name: 'Nom Z–A' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
   })
 
   test('verrouille et déverrouille avec le mot de passe maître', async ({ page }) => {

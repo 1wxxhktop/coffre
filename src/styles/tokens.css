@@ -1,0 +1,203 @@
+/* ------------------------------------------------------------------ */
+/* Jetons de design                                                    */
+/*                                                                     */
+/* Seule source autorisée pour les couleurs, les tailles de police,    */
+/* les rayons, les ombres et les niveaux d’empilement. Les feuilles    */
+/* de composants ne doivent contenir aucune valeur littérale.         */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* Typographie ------------------------------------------------------ */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto,
+    sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+  /* Seule exception au plancher de 12 px : les surtitres en capitales. */
+  --text-overline: 11px;
+
+  --display-sm: clamp(22px, 2.4vw, 28px);
+  --display-md: clamp(28px, 3.4vw, 38px);
+  --display-lg: clamp(40px, 5.4vw, 72px);
+  --display-score: 44px;
+
+  --leading-tight: 1.15;
+  --leading-normal: 1.5;
+
+  /* Espacement (base 4 px) ------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+
+  /* Rayons ----------------------------------------------------------- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* Profondeur ------------------------------------------------------- */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.28);
+  --shadow-3: 0 32px 80px rgba(0, 0, 0, 0.55);
+  --shadow-modal: 0 32px 90px rgba(0, 0, 0, 0.6);
+  --shadow-panel: 0 18px 44px rgba(0, 0, 0, 0.28);
+  --shadow-drawer: 30px 0 80px rgba(0, 0, 0, 0.55);
+  --shadow-focus: 0 0 0 3px var(--accent-soft);
+  --shadow-inset-line: inset 0 0 0 1px var(--accent-soft);
+  --shadow-inset-highlight: inset 0 1px 0 var(--accent-soft);
+  --shadow-glow-success: 0 0 8px var(--state-ok-line);
+
+  --z-base: 0;
+  --z-raised: 1;
+  --z-sticky: 50;
+  --z-dropdown: 60;
+  --z-drawer: 80;
+  --z-backdrop: calc(var(--z-drawer) - 1);
+  --z-modal: 1000;
+  --z-toast: 1100;
+  --z-skip: 1200;
+
+  /* Surfaces --------------------------------------------------------- */
+  --surface-1: #09090b;
+  --surface-2: #0c0c0f;
+  --surface-3: #111113;
+  --surface-4: #18181b;
+  --surface-5: #27272a;
+  --surface-raised: #111113;
+  --surface-input: #0c0c0f;
+  --surface-toast: #18181b;
+  --surface-sidebar: rgba(9, 9, 11, 0.95);
+  --surface-topbar: rgba(9, 9, 11, 0.55);
+  --surface-footer: rgba(9, 9, 11, 0.55);
+  --surface-toolbar: rgba(9, 9, 11, 0.82);
+  --surface-auth-panel: linear-gradient(180deg, #18181b, #111113);
+  --scrim: rgba(0, 0, 0, 0.68);
+  --scrim-soft: rgba(0, 0, 0, 0.55);
+
+  /* Texte ------------------------------------------------------------ */
+  --text-1: #fafafa;
+  --text-2: #a1a1aa;
+  --text-3: #8b8b94;
+  --text-4: #52525b;
+  --text-on-accent: #09090b;
+  --always-white: #ffffff;
+  --always-black: #09090b;
+
+  /* Bordures --------------------------------------------------------- */
+  --border-1: rgba(255, 255, 255, 0.08);
+  --border-2: rgba(255, 255, 255, 0.16);
+  --border-3: rgba(255, 255, 255, 0.2);
+
+  /* Accent monochrome ------------------------------------------------ */
+  --accent: #fafafa;
+  --accent-strong: #ffffff;
+  --accent-muted: #a1a1aa;
+  --accent-soft: rgba(255, 255, 255, 0.06);
+  --accent-soft-2: rgba(255, 255, 255, 0.1);
+  --accent-soft-3: rgba(255, 255, 255, 0.12);
+
+  /* Interaction et surfaces translucides ----------------------------- */
+  --hover-1: rgba(255, 255, 255, 0.045);
+  --hover-2: rgba(255, 255, 255, 0.06);
+  --hover-3: rgba(255, 255, 255, 0.08);
+  --surface-subtle: rgba(255, 255, 255, 0.02);
+  --surface-subtle-2: rgba(255, 255, 255, 0.025);
+  --surface-subtle-3: rgba(255, 255, 255, 0.035);
+  --surface-subtle-4: rgba(255, 255, 255, 0.04);
+  --surface-glass-1: rgba(255, 255, 255, 0.75);
+  --surface-glass-2: rgba(255, 255, 255, 0.78);
+  --surface-glass-3: rgba(255, 255, 255, 0.86);
+  --surface-glass-4: rgba(255, 255, 255, 0.92);
+  --surface-glass-5: rgba(255, 255, 255, 0.96);
+
+  /* Décor ------------------------------------------------------------ */
+  --grid-line: rgba(255, 255, 255, 0.024);
+  --mask-stop: #000000;
+  --glow-1: rgba(255, 255, 255, 0.06);
+  --glow-2: rgba(255, 255, 255, 0.035);
+  --scrollbar: rgba(255, 255, 255, 0.12);
+  --scrollbar-hover: rgba(255, 255, 255, 0.2);
+  --toggle-thumb: #c7cbd6;
+
+  /* États ------------------------------------------------------------ */
+  --state-ok: #22c55e;
+  --state-ok-soft: rgba(34, 197, 94, 0.1);
+  --state-ok-line: rgba(52, 211, 153, 0.24);
+  --state-ok-text: #34d399;
+  --state-ok-text-dim: #15803d;
+
+  --state-warn: #f59e0b;
+  --state-warn-soft: rgba(245, 158, 11, 0.1);
+  --state-warn-line: rgba(251, 191, 36, 0.2);
+  --state-warn-line-strong: rgba(251, 191, 36, 0.34);
+  --state-warn-text: #fcd34d;
+  --state-warn-text-dim: #d8c08a;
+  --state-warn-strong: #fbbf24;
+
+  --state-danger: #ef4444;
+  --state-danger-soft: rgba(239, 68, 68, 0.12);
+  --state-danger-line: rgba(248, 113, 113, 0.28);
+  --state-danger-line-strong: rgba(248, 113, 113, 0.45);
+  --state-danger-text: #fca5a5;
+  --state-danger-text-dim: #e3b7b7;
+  --state-danger-text-soft: #e8d5d5;
+  --state-danger-text-muted: #c9a8a8;
+  --state-danger-text-bright: #fecaca;
+  --state-danger-strong: #f87171;
+  --state-danger-surface: rgba(248, 113, 113, 0.05);
+  --state-danger-surface-2: rgba(248, 113, 113, 0.04);
+
+  --state-info: #a1a1aa;
+  --state-info-soft: rgba(255, 255, 255, 0.06);
+  --state-info-text: #e4e4e7;
+
+  /* Alias historiques ------------------------------------------------ */
+  --bg: var(--surface-1);
+  --bg-soft: var(--surface-2);
+  --panel: var(--surface-3);
+  --panel-2: var(--surface-4);
+  --panel-3: var(--surface-5);
+  --text: var(--text-1);
+  --muted: var(--text-2);
+  --dim: var(--text-3);
+  --line: var(--border-1);
+  --line-strong: var(--border-2);
+  --accent-bright: var(--accent-strong);
+  --accent-2: var(--accent-muted);
+  --primary: var(--accent);
+  --primary-foreground: var(--text-on-accent);
+  --primary-hover: #e4e4e7;
+  --ring: rgba(255, 255, 255, 0.24);
+  --danger: var(--state-danger);
+  --danger-soft: var(--state-danger-soft);
+  --warning: var(--state-warn);
+  --warning-soft: var(--state-warn-soft);
+  --success: var(--state-ok);
+  --success-soft: var(--state-ok-soft);
+  --radius: var(--radius-lg);
+
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--text-1);
+  background: var(--surface-1);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

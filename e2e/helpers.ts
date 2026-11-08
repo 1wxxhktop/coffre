@@ -18,7 +18,10 @@ export async function createVault(page: Page): Promise<void> {
   })
 }
 
-/** Ajoute une connexion et renvoie la modale restée ouverte sur le détail. */
+/**
+ * Ajoute une connexion via la modale de création et renvoie le panneau de
+ * détail resté ouvert sur la fiche de l’élément.
+ */
 export async function addLogin(
   page: Page,
   title = 'GitHub',
@@ -37,19 +40,44 @@ export async function addLogin(
     await dialog.getByPlaceholder('https://exemple.com').fill(url)
   }
   await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  await expect(dialog.getByRole('heading', { name: title })).toBeVisible()
-  return dialog
+  const panel = page.locator('.item-panel')
+  await expect(panel.getByRole('heading', { name: title })).toBeVisible()
+  return panel
 }
 
-export async function openSettings(page: Page): Promise<Locator> {
+/** Ouvre les réglages, éventuellement sur une page donnée. */
+export async function openSettings(page: Page, section?: string): Promise<Locator> {
   await page.getByRole('button', { name: 'Réglages' }).first().click()
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByRole('heading', { name: 'Réglages' })).toBeVisible()
+  if (section) {
+    await dialog.getByRole('button', { name: section, exact: true }).click()
+  }
   return dialog
 }
 
+/** Ferme la vue courante (modale ou panneau de détail) avec Échap. */
 export async function closeDialog(page: Page): Promise<void> {
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
+}
+
+/** Ouvre le menu d’actions d’un élément et clique sur une entrée. */
+export async function clickItemMenu(page: Page, panel: Locator, label: string) {
+  await panel.getByRole('button', { name: 'Plus d’actions' }).click()
+  await page.getByRole('menuitem', { name: label }).click()
+}
+
+/** Active la sélection multiple depuis le menu de la liste. */
+export async function enableSelection(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Options de la liste' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Sélection multiple' }).click()
+}
+
+/** Change le tri depuis le menu de la liste. */
+export async function sortItems(page: Page, label: string): Promise<void> {
+  await page.getByRole('button', { name: 'Options de la liste' }).click()
+  await page.getByRole('menuitemradio', { name: label }).click()
 }

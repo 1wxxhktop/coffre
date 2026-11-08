@@ -28,7 +28,7 @@ test.describe('sécurité de l’interface', () => {
 
     await closeDialog(page)
 
-    const settings = await openSettings(page)
+    const settings = await openSettings(page, 'Stockage')
     await settings.getByRole('button', { name: 'Vérifier le coffre' }).click()
     await expect(settings.getByText(/Intégrité confirmée/)).toBeVisible({
       timeout: 45_000,

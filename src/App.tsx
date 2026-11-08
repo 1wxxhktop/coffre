@@ -4,25 +4,31 @@ import { AuthScreen } from './components/AuthScreen'
 import { VaultApp } from './components/VaultApp'
 import { Brand } from './components/Brand'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { NativeBridge } from './components/NativeBridge'
 import { VaultProvider, useVault } from './state/VaultProvider'
+import { I18nProvider, useI18n } from './state/I18nProvider'
 import { SettingsProvider } from './state/SettingsProvider'
 import { ToastProvider } from './state/ToastProvider'
 import { listLocalBackups, type LocalBackupInfo } from './lib/storage'
+import { pluralKey } from './lib/i18n'
 import { formatDateTime } from './lib/settings'
 
 export default function App() {
   return (
     <SettingsProvider>
-      <ToastProvider>
-        <VaultProvider>
-          <div
-            className="window-drag-strip"
-            data-tauri-drag-region
-            aria-hidden="true"
-          />
-          <Root />
-        </VaultProvider>
-      </ToastProvider>
+      <I18nProvider>
+        <ToastProvider>
+          <VaultProvider>
+            <div
+              className="window-drag-strip"
+              data-tauri-drag-region
+              aria-hidden="true"
+            />
+            <NativeBridge />
+            <Root />
+          </VaultProvider>
+        </ToastProvider>
+      </I18nProvider>
     </SettingsProvider>
   )
 }
@@ -37,18 +43,20 @@ function Root() {
 }
 
 function Splash() {
+  const { t } = useI18n()
   return (
     <div className="splash">
       <Brand />
       <div className="splash__loader">
         <LoaderCircle size={18} className="spin" />
-        Ouverture du coffre local…
+        {t('app.splash.opening')}
       </div>
     </div>
   )
 }
 
 function ErrorScreen() {
+  const { t, intl } = useI18n()
   const { error, restoreFromBackup, reset } = useVault()
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -76,7 +84,7 @@ function ErrorScreen() {
     try {
       await restoreFromBackup(password, generation)
     } catch (caught) {
-      setMessage(caught instanceof Error ? caught.message : 'Restauration impossible')
+      setMessage(caught instanceof Error ? caught.message : t('app.error.restoreFailed'))
       setBusy(false)
     }
   }
@@ -88,7 +96,7 @@ function ErrorScreen() {
         <Brand subtitle="local-first" />
         <span className="pill pill--danger">
           <AlertTriangle size={13} />
-          Stockage indisponible
+          {t('app.error.storageUnavailable')}
         </span>
       </header>
 
@@ -96,18 +104,15 @@ function ErrorScreen() {
         <span className="error-card__icon">
           <AlertTriangle size={28} />
         </span>
-        <h1>Impossible d’ouvrir le coffre local</h1>
-        <p>{error ?? 'Le stockage local est inaccessible dans ce navigateur.'}</p>
+        <h1>{t('app.error.title')}</h1>
+        <p>{error ?? t('app.error.default')}</p>
 
         <div className="error-card__block">
-          <h2>Restaurer une sauvegarde locale</h2>
-          <p>
-            Coffre conserve les trois dernières versions du fichier chiffré. Choisissez une
-            sauvegarde et saisissez son mot de passe maître.
-          </p>
+          <h2>{t('app.error.restoreTitle')}</h2>
+          <p>{t('app.error.restoreCopy')}</p>
           {backups.length > 1 && (
             <label className="field">
-              <span className="field__label">Sauvegarde</span>
+              <span className="field__label">{t('app.error.backup')}</span>
               <select
                 className="input"
                 value={generation}
@@ -115,9 +120,16 @@ function ErrorScreen() {
               >
                 {backups.map((backup) => (
                   <option key={backup.generation} value={backup.generation}>
-                    {formatDateTime(backup.updatedAt)} · {backup.items} élément
-                    {backup.items > 1 ? 's' : ''}
-                    {backup.generation === 1 ? ' (la plus récente)' : ''}
+                    {formatDateTime(backup.updatedAt, intl)} ·{' '}
+                    {t(
+                      pluralKey(
+                        backup.items,
+                        'app.error.items.one',
+                        'app.error.items.other',
+                      ),
+                      { count: backup.items },
+                    )}
+                    {backup.generation === 1 ? ` (${t('app.error.mostRecent')})` : ''}
                   </option>
                 ))}
               </select>
@@ -129,7 +141,7 @@ function ErrorScreen() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Mot de passe maître"
+              placeholder={t('auth.field.masterPassword')}
               autoComplete="off"
             />
             <button
@@ -139,11 +151,11 @@ function ErrorScreen() {
               disabled={!password || busy}
             >
               {busy ? <LoaderCircle size={16} className="spin" /> : <RefreshCw size={16} />}
-              Restaurer
+              {t('app.error.restore')}
             </button>
           </div>
           {backups.length === 0 && (
-            <p className="field__hint">Aucune sauvegarde locale n’est disponible.</p>
+            <p className="field__hint">{t('app.error.noBackup')}</p>
           )}
           {message && <p className="form-error">{message}</p>}
         </div>
@@ -155,7 +167,7 @@ function ErrorScreen() {
             onClick={() => window.location.reload()}
           >
             <RefreshCw size={16} />
-            Recharger la page
+            {t('app.error.reload')}
           </button>
           <button
             type="button"
@@ -163,22 +175,22 @@ function ErrorScreen() {
             onClick={() => setShowReset(true)}
           >
             <Trash2 size={16} />
-            Effacer et recommencer
+            {t('app.error.erase')}
           </button>
         </div>
 
         <p className="error-card__hint">
           <ShieldCheck size={14} />
-          Aucune donnée n’est envoyée à un serveur, même en cas d’erreur.
+          {t('app.error.privacy')}
         </p>
       </main>
 
       {showReset && (
         <ConfirmDialog
-          title="Effacer les données locales ?"
-          description="Le coffre et sa sauvegarde stockés dans ce navigateur seront supprimés définitivement."
-          confirmLabel="Effacer définitivement"
-          requireText="SUPPRIMER"
+          title={t('app.error.eraseTitle')}
+          description={t('app.error.eraseDescription')}
+          confirmLabel={t('app.error.eraseConfirm')}
+          requireText={t('app.error.eraseRequire')}
           onClose={() => setShowReset(false)}
           onConfirm={async () => {
             await reset()

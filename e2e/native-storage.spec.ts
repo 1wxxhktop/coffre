@@ -74,9 +74,11 @@ test('migre le coffre IndexedDB vers le stockage natif puis conserve les sauvega
     timeout: 45_000,
   })
 
-  const settings = await openSettings(page)
+  const settings = await openSettings(page, 'Stockage')
   await expect(settings.getByText('Stockage natif', { exact: true })).toBeVisible()
-  await expect(settings.getByText(/trois sauvegardes tournantes/)).toBeVisible()
+  await expect(
+    settings.getByText(/trois sauvegardes tournantes/i).first(),
+  ).toBeVisible()
   await closeDialog(page)
 
   await addLogin(page, 'GitLab', 'studio26', 'autre-secret')

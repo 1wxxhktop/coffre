@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { addLogin, closeDialog, createVault } from './helpers'
 
-test('affiche le tableau de bord Sécurité et ouvre un élément à corriger', async ({ page }) => {
+test('affiche le tableau de bord Sécurité et ouvre la liste filtrée', async ({ page }) => {
   await createVault(page)
   await addLogin(page, 'Compte faible', 'ada', 'abc123')
   await closeDialog(page)
@@ -12,22 +12,27 @@ test('affiche le tableau de bord Sécurité et ouvre un élément à corriger', 
 
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByRole('heading', { name: 'Sécurité du coffre' })).toBeVisible()
-  await expect(dialog.getByText('Mots de passe faibles')).toBeVisible()
+  await expect(dialog.getByText('Mots de passe faciles à deviner')).toBeVisible()
   await expect(dialog.locator('.security-score__value')).toContainText('/100')
-  const summary = dialog.locator('.security-summary')
-  await expect(summary).toContainText('Faibles')
-  await expect(summary).toContainText('Réutilisés')
-  await expect(summary).toContainText('Sans 2FA')
-  await expect(summary).toContainText('Incomplets')
-  await expect(summary).toContainText('Doublons')
+  await expect(dialog.locator('.security-score__value')).toContainText('40')
+  await expect(dialog.getByText(/Score plafonné à 40\/100/)).toBeVisible()
+  const primary = dialog.locator('.security-primary')
+  await expect(primary).toContainText('Faibles')
+  await expect(primary).toContainText('Réutilisés')
+  await expect(primary).toContainText('Sans 2FA')
+  await expect(dialog.locator('.security-points')).toContainText('Connexions incomplètes')
   await expect(dialog.locator('.security-distribution__legend')).toContainText('Solides')
-  await expect(dialog.getByText('Sans double authentification')).toBeVisible()
 
-  await dialog.locator('.security-item').filter({ hasText: 'Compte faible' }).first().click()
+  await primary.getByRole('button', { name: /Faibles/ }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.locator('.security-filter-bar')).toContainText('Mots de passe faibles')
+  const row = page.locator('.item-row').filter({ hasText: 'Compte faible' })
+  await expect(row).toBeVisible()
+  await row.click()
   await expect(
     page.locator('.item-panel').getByRole('heading', { name: 'Compte faible' }),
   ).toBeVisible()
+  await expect(page.locator('.alert-banner')).toContainText('Mot de passe faible')
 })
 
 test('ne signale aucun problème pour un coffre vide', async ({ page }) => {

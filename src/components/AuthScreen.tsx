@@ -8,21 +8,25 @@ import {
   HardDriveDownload,
   KeyRound,
   LoaderCircle,
+  MoreHorizontal,
   ShieldCheck,
   Trash2,
   Upload,
   WifiOff,
 } from 'lucide-react'
 import { Brand } from './Brand'
+import { Menu } from './Menu'
 import { PasswordStrength } from './PasswordStrength'
 import { Modal } from './Modal'
 import { ConfirmDialog } from './ConfirmDialog'
 import { RecoveryUnlockDialog } from './RecoveryUnlockDialog'
 import { useVault } from '../state/VaultProvider'
+import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { estimateEntropy } from '../lib/crypto'
 import { biometricSupported } from '../lib/biometrics'
+import { pluralKey } from '../lib/i18n'
 import { formatDateTime } from '../lib/settings'
 
 export function AuthScreen() {
@@ -37,6 +41,7 @@ export function AuthScreen() {
     error,
   } = useVault()
   const { settings } = useSettings()
+  const { t, intl } = useI18n()
   const { toast } = useToast()
   const isSetup = status === 'empty'
 
@@ -72,15 +77,15 @@ export function AuthScreen() {
 
     if (isSetup) {
       if (!passwordStrongEnough) {
-        setFormError('Choisissez un mot de passe de 12 caractères minimum, moins devinable.')
+        setFormError(t('auth.error.passwordWeak'))
         return
       }
       if (!passwordsMatch) {
-        setFormError('Les deux mots de passe ne correspondent pas.')
+        setFormError(t('auth.error.passwordMismatch'))
         return
       }
       if (!acknowledged) {
-        setFormError('Confirmez avoir compris que la récupération est optionnelle.')
+        setFormError(t('auth.error.acknowledge'))
         return
       }
     }
@@ -95,7 +100,7 @@ export function AuthScreen() {
       setPassword('')
       setConfirmPassword('')
     } catch (caught) {
-      setFormError(caught instanceof Error ? caught.message : 'Une erreur est survenue')
+      setFormError(caught instanceof Error ? caught.message : t('auth.error.generic'))
     } finally {
       setBusy(false)
     }
@@ -116,7 +121,7 @@ export function AuthScreen() {
       setFormError(
         caught instanceof Error
           ? caught.message
-          : 'Déverrouillage par empreinte impossible',
+          : t('auth.error.biometric'),
       )
     } finally {
       bioBusyRef.current = false
@@ -171,7 +176,7 @@ export function AuthScreen() {
     await reset()
     setShowReset(false)
     setPassword('')
-    toast('Coffre local effacé', 'info')
+    toast(t('auth.erase.success'), 'info')
   }
 
   return (
@@ -180,25 +185,22 @@ export function AuthScreen() {
       <div className="auth__glow auth__glow--two" aria-hidden="true" />
 
       <header className="auth__header" data-tauri-drag-region>
-        <Brand subtitle="local-first" />
+        <Brand subtitle={t('sidebar.localFirst')} />
         <span className="pill pill--quiet">
           <span className="pill__dot" />
-          Aucune connexion
+          {t('auth.noConnection')}
         </span>
       </header>
 
       <main className="auth__main">
         <section className="auth__pitch" aria-labelledby="pitch-title">
-          <span className="eyebrow">Gestionnaire de mots de passe</span>
+          <span className="eyebrow">{t('auth.eyebrow')}</span>
           <h1 id="pitch-title" className="auth__headline">
-            Vos secrets
+            {t('auth.headline.line1')}
             <br />
-            restent <em>chez vous.</em>
+            {t('auth.headline.line2')} <em>{t('auth.headline.em')}</em>
           </h1>
-          <p className="auth__lead">
-            Un coffre chiffré, stocké uniquement sur cet appareil. Pas de compte, pas de
-            serveur, pas de trace.
-          </p>
+          <p className="auth__lead">{t('auth.lead')}</p>
 
           <ul className="auth__features">
             <li>
@@ -206,8 +208,8 @@ export function AuthScreen() {
                 <ShieldCheck size={20} />
               </span>
               <span>
-                <strong>Chiffrement authentifié</strong>
-                <small>AES-256-GCM, clé dérivée par Argon2id</small>
+                <strong>{t('auth.feature.encryption.title')}</strong>
+                <small>{t('auth.feature.encryption.copy')}</small>
               </span>
             </li>
             <li>
@@ -215,8 +217,8 @@ export function AuthScreen() {
                 <WifiOff size={20} />
               </span>
               <span>
-                <strong>Hors ligne par défaut</strong>
-                <small>Zéro requête réseau, zéro télémétrie</small>
+                <strong>{t('auth.feature.offline.title')}</strong>
+                <small>{t('auth.feature.offline.copy')}</small>
               </span>
             </li>
             <li>
@@ -224,8 +226,8 @@ export function AuthScreen() {
                 <HardDriveDownload size={20} />
               </span>
               <span>
-                <strong>Portable et lisible</strong>
-                <small>Exportez un fichier .coffre chiffré</small>
+                <strong>{t('auth.feature.portable.title')}</strong>
+                <small>{t('auth.feature.portable.copy')}</small>
               </span>
             </li>
           </ul>
@@ -237,39 +239,57 @@ export function AuthScreen() {
               <KeyRound size={38} />
             </div>
             <span className="auth__visual-chip auth__visual-chip--top">
-              <ShieldCheck size={14} /> chiffré
+              <ShieldCheck size={14} /> {t('auth.visual.encrypted')}
             </span>
             <span className="auth__visual-chip auth__visual-chip--bottom">
-              <WifiOff size={14} /> local
+              <WifiOff size={14} /> {t('auth.visual.local')}
             </span>
           </div>
         </section>
 
         <section className="auth__panel" aria-labelledby="auth-title">
           <div className="auth__panel-inner">
-            <span className="eyebrow">{isSetup ? 'Première utilisation' : 'Coffre local'}</span>
+            <span className="eyebrow">
+              {isSetup ? t('auth.setupEyebrow') : t('auth.lockedEyebrow')}
+            </span>
             <h2 id="auth-title" className="auth__title">
-              {isSetup ? 'Créer votre coffre' : 'Déverrouiller'}
+              {isSetup ? t('auth.createTitle') : t('auth.unlockTitle')}
             </h2>
             <p className="auth__subtitle">
-              {isSetup
-                ? 'Un seul mot de passe protège tout. Choisissez-le solide et mémorisable.'
-                : 'Saisissez votre mot de passe maître pour déchiffrer vos données.'}
+              {isSetup ? t('auth.createSubtitle') : t('auth.unlockSubtitle')}
             </p>
 
             {!isSetup && file && (
               <div className="auth__vault-meta">
                 <span>
-                  <strong>{file.vaults.length}</strong> coffre
-                  {file.vaults.length > 1 ? 's' : ''}
+                  {t(
+                    pluralKey(
+                      file.vaults.length,
+                      'auth.vaultCount.one',
+                      'auth.vaultCount.other',
+                    ),
+                    { count: file.vaults.length },
+                  )}
                 </span>
                 <span className="auth__vault-meta-sep" />
                 <span>
-                  <strong>{file.items.length}</strong> élément
-                  {file.items.length > 1 ? 's' : ''}
+                  {file.items.length === 0
+                    ? t('auth.noItems')
+                    : t(
+                        pluralKey(
+                          file.items.length,
+                          'auth.itemCount.one',
+                          'auth.itemCount.other',
+                        ),
+                        { count: file.items.length },
+                      )}
                 </span>
                 <span className="auth__vault-meta-sep" />
-                <span>modifié le {formatDateTime(file.updatedAt)}</span>
+                <span>
+                  {t('auth.modifiedAt', {
+                    date: formatDateTime(file.updatedAt, intl),
+                  })}
+                </span>
               </div>
             )}
 
@@ -286,10 +306,10 @@ export function AuthScreen() {
                   ) : (
                     <Fingerprint size={18} />
                   )}
-                  {bioBusy ? 'Vérification…' : 'Déverrouiller avec Touch ID'}
+                  {bioBusy ? t('auth.biometric.checking') : t('auth.biometric.unlock')}
                 </button>
                 <div className="auth__separator">
-                  <span>ou avec le mot de passe</span>
+                  <span>{t('auth.biometric.orPassword')}</span>
                 </div>
               </div>
             )}
@@ -297,13 +317,13 @@ export function AuthScreen() {
             <form className="form" onSubmit={(event) => void submit(event)}>
               {isSetup && (
                 <label className="field">
-                  <span className="field__label">Nom du coffre</span>
+                  <span className="field__label">{t('auth.field.vaultName')}</span>
                   <input
                     className="input"
                     value={vaultName}
                     onChange={(event) => setVaultName(event.target.value)}
                     maxLength={80}
-                    placeholder="Personnel"
+                    placeholder={t('auth.placeholder.vaultName')}
                     autoComplete="off"
                   />
                 </label>
@@ -311,7 +331,7 @@ export function AuthScreen() {
 
               <label className="field">
                 <span className="field__label">
-                  {isSetup ? 'Mot de passe maître' : 'Mot de passe'}
+                  {isSetup ? t('auth.field.masterPassword') : t('auth.field.password')}
                 </span>
                 <span className="input-group">
                   <input
@@ -320,7 +340,11 @@ export function AuthScreen() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete={isSetup ? 'new-password' : 'current-password'}
-                    placeholder={isSetup ? '12 caractères minimum' : '••••••••••••'}
+                    placeholder={
+                      isSetup
+                        ? t('auth.placeholder.passwordCreate')
+                        : t('auth.placeholder.passwordUnlock')
+                    }
                     autoFocus
                     data-autofocus
                   />
@@ -328,7 +352,9 @@ export function AuthScreen() {
                     type="button"
                     className="input-group__action"
                     onClick={() => setShowPassword((value) => !value)}
-                    aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    aria-label={
+                      showPassword ? t('auth.password.hide') : t('auth.password.show')
+                    }
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -338,18 +364,18 @@ export function AuthScreen() {
 
               {isSetup && (
                 <label className="field">
-                  <span className="field__label">Confirmer le mot de passe</span>
+                  <span className="field__label">{t('auth.field.confirmPassword')}</span>
                   <input
                     className="input"
                     type={showPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     autoComplete="new-password"
-                    placeholder="Répétez le mot de passe"
+                    placeholder={t('auth.placeholder.confirm')}
                   />
                   {confirmPassword.length > 0 && !passwordsMatch && (
                     <span className="field__hint field__hint--error">
-                      Les mots de passe ne correspondent pas.
+                      {t('auth.mismatchHint')}
                     </span>
                   )}
                 </label>
@@ -363,9 +389,8 @@ export function AuthScreen() {
                     onChange={(event) => setAcknowledged(event.target.checked)}
                   />
                   <span>
-                    <strong>Aucune récupération par défaut.</strong> Si j’oublie ce mot de
-                    passe et que je n’ai pas configuré de phrase de récupération, mes
-                    données seront définitivement inaccessibles.
+                    <strong>{t('auth.acknowledge.bold')}</strong>{' '}
+                    {t('auth.acknowledge.copy')}
                   </span>
                 </label>
               )}
@@ -383,6 +408,18 @@ export function AuthScreen() {
                 </p>
               )}
 
+              {isSetup && !canCreate && !busy && (
+                <p className="auth__requirements">
+                  {!passwordStrongEnough
+                    ? t('auth.requirement.password')
+                    : !passwordsMatch
+                      ? t('auth.requirement.confirm')
+                      : !acknowledged
+                        ? t('auth.requirement.acknowledge')
+                        : ''}
+                </p>
+              )}
+
               <button
                 type="submit"
                 className="button button--primary button--lg button--full"
@@ -391,11 +428,11 @@ export function AuthScreen() {
                 {busy ? (
                   <>
                     <LoaderCircle size={18} className="spin" />
-                    {isSetup ? 'Création du coffre…' : 'Déchiffrement…'}
+                    {isSetup ? t('auth.busy.creating') : t('auth.busy.decrypting')}
                   </>
                 ) : (
                   <>
-                    {isSetup ? 'Créer mon coffre' : 'Déverrouiller'}
+                    {isSetup ? t('auth.action.create') : t('auth.action.unlock')}
                     <ArrowRight size={18} />
                   </>
                 )}
@@ -405,7 +442,7 @@ export function AuthScreen() {
             <div className="auth__actions">
               <button type="button" className="link-button" onClick={() => setShowRestore(true)}>
                 <Upload size={15} />
-                Restaurer un fichier .coffre
+                {t('auth.action.restore')}
               </button>
               {!isSetup && file?.recovery && (
                 <button
@@ -414,33 +451,44 @@ export function AuthScreen() {
                   onClick={() => setShowRecovery(true)}
                 >
                   <KeyRound size={15} />
-                  Déverrouiller avec une phrase de récupération
+                  {t('auth.action.recovery')}
                 </button>
               )}
               {!isSetup && (
-                <button
-                  type="button"
-                  className="link-button link-button--danger"
-                  onClick={() => setShowReset(true)}
+                <Menu
+                  label={t('auth.action.more')}
+                  title={t('auth.action.more')}
+                  align="left"
+                  triggerClassName="link-button"
+                  trigger={
+                    <>
+                      <MoreHorizontal size={15} />
+                      {t('auth.action.more')}
+                    </>
+                  }
                 >
-                  <Trash2 size={15} />
-                  Effacer le coffre local
-                </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="menu__item menu__item--danger"
+                    onClick={() => setShowReset(true)}
+                  >
+                    <Trash2 size={15} />
+                    {t('auth.action.erase')}
+                  </button>
+                </Menu>
               )}
             </div>
 
-            <p className="auth__fineprint">
-              Modèle de chiffrement inspiré du projet open source Proton Pass. Coffre
-              sous licence GPL-3.0, sans aucun service distant.
-            </p>
+            <p className="auth__fineprint">{t('auth.fineprint')}</p>
           </div>
         </section>
       </main>
 
       <footer className="auth__footer">
-        <span>Fait pour rester hors ligne.</span>
+        <span>{t('auth.footer.local')}</span>
         <span className="auth__footer-dot" />
-        <span>Format de coffre v3</span>
+        <span>{t('auth.footer.offline')}</span>
       </footer>
 
       {showRestore && (
@@ -449,7 +497,7 @@ export function AuthScreen() {
           onClose={() => setShowRestore(false)}
           onImport={async (text, importPassword) => {
             await importVault(text, importPassword)
-            toast('Coffre restauré et déverrouillé', 'success')
+            toast(t('auth.restore.success'), 'success')
             setShowRestore(false)
           }}
         />
@@ -459,10 +507,10 @@ export function AuthScreen() {
 
       {showReset && (
         <ConfirmDialog
-          title="Effacer le coffre local ?"
-          description="Cette action supprime définitivement le coffre stocké dans ce navigateur. Elle est irréversible. Pensez à exporter une sauvegarde avant de continuer."
-          confirmLabel="Effacer définitivement"
-          requireText="SUPPRIMER"
+          title={t('auth.erase.title')}
+          description={t('auth.erase.description')}
+          confirmLabel={t('auth.erase.confirm')}
+          requireText={t('auth.erase.require')}
           onClose={() => setShowReset(false)}
           onConfirm={resetVault}
         />
@@ -478,6 +526,7 @@ interface RestoreDialogProps {
 }
 
 function RestoreDialog({ replacing, onClose, onImport }: RestoreDialogProps) {
+  const { t } = useI18n()
   const [file, setFile] = useState<File | null>(null)
   const [password, setPassword] = useState('')
   const [acknowledged, setAcknowledged] = useState(!replacing)
@@ -487,7 +536,7 @@ function RestoreDialog({ replacing, onClose, onImport }: RestoreDialogProps) {
   const submit = async () => {
     if (!file || !password || !acknowledged || busy) return
     if (file.size > 100_000_000) {
-      setError('Fichier trop volumineux (100 Mo maximum).')
+      setError(t('auth.restore.tooLarge'))
       return
     }
     setBusy(true)
@@ -496,21 +545,21 @@ function RestoreDialog({ replacing, onClose, onImport }: RestoreDialogProps) {
       const text = await file.text()
       await onImport(text, password)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Import impossible')
+      setError(caught instanceof Error ? caught.message : t('auth.restore.error'))
       setBusy(false)
     }
   }
 
   return (
     <Modal
-      title="Restaurer un coffre"
-      description="Choisissez un fichier .coffre exporté depuis Coffre, puis saisissez son mot de passe maître."
+      title={t('auth.restore.title')}
+      description={t('auth.restore.description')}
       size="sm"
       onClose={onClose}
       footer={
         <>
           <button type="button" className="button button--ghost" onClick={onClose} disabled={busy}>
-            Annuler
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -518,7 +567,7 @@ function RestoreDialog({ replacing, onClose, onImport }: RestoreDialogProps) {
             onClick={() => void submit()}
             disabled={!file || !password || !acknowledged || busy}
           >
-            {busy ? 'Restauration…' : 'Restaurer'}
+            {busy ? t('auth.restore.busy') : t('auth.restore.action')}
           </button>
         </>
       }
@@ -531,19 +580,23 @@ function RestoreDialog({ replacing, onClose, onImport }: RestoreDialogProps) {
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
           <Upload size={22} />
-          <span>{file ? file.name : 'Choisir un fichier .coffre'}</span>
-          <small>{file ? `${Math.ceil(file.size / 1024)} Ko` : 'Le fichier reste sur cet appareil'}</small>
+          <span>{file ? file.name : t('auth.restore.choose')}</span>
+          <small>
+            {file
+              ? `${Math.ceil(file.size / 1024)} Ko`
+              : t('auth.restore.local')}
+          </small>
         </label>
 
         <label className="field">
-          <span className="field__label">Mot de passe maître du fichier</span>
+          <span className="field__label">{t('auth.restore.password')}</span>
           <input
             className="input"
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="off"
-            placeholder="••••••••••••"
+            placeholder={t('auth.restore.passwordPlaceholder')}
           />
         </label>
 
@@ -554,9 +607,7 @@ function RestoreDialog({ replacing, onClose, onImport }: RestoreDialogProps) {
               checked={acknowledged}
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
-            <span>
-              Je comprends que le coffre actuellement stocké dans ce navigateur sera remplacé.
-            </span>
+            <span>{t('auth.restore.replace')}</span>
           </label>
         )}
 

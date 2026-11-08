@@ -8,11 +8,12 @@ import {
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cx } from '../lib/cx'
+import { useI18n } from '../state/I18nProvider'
 
 interface ModalProps {
   title: string
   description?: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   children: ReactNode
   footer?: ReactNode
   onClose: () => void
@@ -39,9 +40,10 @@ export function Modal({
   children,
   footer,
   onClose,
-  closeLabel = 'Fermer',
+  closeLabel,
   className,
 }: ModalProps) {
+  const { t } = useI18n()
   const titleId = useId()
   const descriptionId = useId()
   const modalId = useId()
@@ -162,7 +164,7 @@ export function Modal({
             type="button"
             className="icon-button"
             onClick={() => closeRef.current()}
-            aria-label={closeLabel}
+            aria-label={closeLabel ?? t('common.close')}
           >
             <X size={18} />
           </button>

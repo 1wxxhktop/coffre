@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coffre</title>
+    <link rel="stylesheet" href="./menu.css" />
+  </head>
+  <body>
+    <div id="badge" class="badge" hidden>
+      <button id="badge-button" type="button" aria-label="Ouvrir Coffre" data-i18n-aria-label="menu_open">
+        <span class="badge__mark">C</span>
+      </button>
+    </div>
+
+    <div id="panel" class="panel" hidden>
+      <header class="panel__head">
+        <span class="panel__mark">C</span>
+        <div>
+          <strong>Coffre</strong>
+          <small id="host"></small>
+        </div>
+        <button id="close" class="icon-button" type="button" aria-label="Fermer" data-i18n-aria-label="menu_close">
+          ×
+        </button>
+      </header>
+
+      <p id="message" class="message" hidden></p>
+
+      <div id="search-wrap" class="search" hidden>
+        <input
+          id="search"
+          type="search"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Rechercher…" data-i18n-placeholder="menu_search"
+          aria-label="Rechercher un identifiant" data-i18n-aria-label="menu_searchLabel"
+        />
+      </div>
+      <ul id="results" class="results"></ul>
+      <p id="empty" class="empty" hidden></p>
+
+      <div id="actions" class="actions" hidden>
+        <button id="save" class="button button--primary" type="button">
+          <span data-i18n="menu_save">Enregistrer dans Coffre</span>
+        </button>
+        <button id="ignore" class="button" type="button"><span data-i18n="menu_ignore">Ignorer</span></button>
+      </div>
+    </div>
+
+    <script type="module" src="./menu.ts"></script>
+  </body>
+</html>

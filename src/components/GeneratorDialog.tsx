@@ -14,6 +14,7 @@ import {
   type PasswordOptions,
 } from '../lib/generator'
 import { copySensitive } from '../lib/clipboard'
+import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 
@@ -26,6 +27,7 @@ type Mode = 'password' | 'passphrase'
 
 export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
   const { settings } = useSettings()
+  const { tt } = useI18n()
   const { toast } = useToast()
   const [mode, setMode] = useState<Mode>('password')
   const [passwordOptions, setPasswordOptions] = useState<PasswordOptions>(DEFAULT_PASSWORD_OPTIONS)
@@ -66,15 +68,15 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
 
   const copy = async () => {
     const success = await copySensitive(value, settings.clipboardClearSeconds, () =>
-      toast('Presse-papiers effacé', 'info'),
+      toast(tt('Presse-papiers effacé'), 'info'),
     )
     if (!success) {
-      toast('Impossible de copier', 'error')
+      toast(tt('Impossible de copier'), 'error')
       return
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
-    toast('Valeur copiée', 'success')
+    toast(tt('Valeur copiée'), 'success')
   }
 
   const use = () => {
@@ -84,8 +86,10 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
 
   return (
     <Modal
-      title="Générateur"
-      description="Généré localement avec le générateur cryptographique du navigateur."
+      title={tt('Générateur')}
+      description={tt(
+        'Généré localement avec le générateur cryptographique du navigateur.',
+      )}
       size="md"
       onClose={onClose}
       footer={
@@ -110,7 +114,7 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
       }
     >
       <div className="generator">
-        <div className="tabs" role="tablist" aria-label="Type de secret">
+        <div className="tabs" role="tablist" aria-label={tt('Type de secret')}>
           <button
             type="button"
             role="tab"
@@ -137,7 +141,7 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
             type="button"
             className="icon-button"
             onClick={() => void copy()}
-            aria-label="Copier la valeur générée"
+            aria-label={tt('Copier la valeur générée')}
           >
             {copied ? <Check size={18} /> : <Copy size={18} />}
           </button>
@@ -213,16 +217,16 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
             </label>
 
             <label className="field">
-              <span className="field__label">Séparateur</span>
+              <span className="field__label">{tt('Séparateur')}</span>
               <select
                 className="input"
                 value={passphraseOptions.separator}
                 onChange={(event) => updatePassphrase({ separator: event.target.value })}
               >
-                <option value="-">Tiret ( - )</option>
-                <option value=".">Point ( . )</option>
-                <option value="_">Tiret bas ( _ )</option>
-                <option value=" ">Espace</option>
+                <option value="-">{tt('Tiret ( - )')}</option>
+                <option value=".">{tt('Point ( . )')}</option>
+                <option value="_">{tt('Tiret bas ( _ )')}</option>
+                <option value=" ">{tt('Espace')}</option>
               </select>
             </label>
 

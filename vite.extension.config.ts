@@ -16,6 +16,8 @@ export default defineConfig({
       input: {
         popup: resolve(root, 'popup.html'),
         options: resolve(root, 'options.html'),
+        menu: resolve(root, 'menu.html'),
+        passkey: resolve(root, 'passkey.html'),
         background: resolve(root, 'background.ts'),
       },
       output: {

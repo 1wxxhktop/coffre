@@ -53,6 +53,10 @@ const FULL_HEADERS = [
   'postal_code',
   'country',
   'birth_date',
+  'expires_at',
+  'passport_expiry',
+  'id_card_expiry',
+  'license_expiry',
 ]
 
 function csvCell(value: string): string {
@@ -204,6 +208,10 @@ function fullRow(item: VaultItem, vaultName: string): string[] {
     identity ? identity.postalCode : '',
     identity ? identity.country : '',
     identity ? identity.birthDate : '',
+    item.expiresAt ?? '',
+    identity ? identity.passportExpiry ?? '' : '',
+    identity ? identity.idCardExpiry ?? '' : '',
+    identity ? identity.licenseExpiry ?? '' : '',
   ]
 }
 

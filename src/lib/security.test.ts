@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   analyzeSecurity,
   incompleteReason,
+  itemSecurityIssue,
+  securityCategoryItems,
   securityLabel,
   securityTone,
   weakPasswordReason,
@@ -23,6 +25,7 @@ function login(overrides: Partial<LoginItem> = {}): LoginItem {
     customFields: [],
     attachments: [],
     deletedAt: null,
+    expiresAt: '',
     createdAt: NOW,
     updatedAt: NOW,
     username: 'ada',
@@ -45,6 +48,7 @@ function note(overrides: Partial<NoteItem> = {}): NoteItem {
     customFields: [],
     attachments: [],
     deletedAt: null,
+    expiresAt: '',
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -128,7 +132,7 @@ describe('analyse de sécurité', () => {
       username: 'ada',
       password: 'ada2024',
     })
-    expect(weakPasswordReason(personal)).toMatch(/identifiant|moins de 12|entropie/)
+    expect(weakPasswordReason(personal)).toMatch(/identifiant|moins de 12|facile à deviner/)
 
     const incomplete = login({ password: '', username: '', urls: [''] })
     expect(incompleteReason(incomplete)).toBe(
@@ -181,5 +185,71 @@ describe('analyse de sécurité', () => {
     expect(securityTone(90)).toBe('good')
     expect(securityTone(65)).toBe('warning')
     expect(securityTone(20)).toBe('danger')
+  })
+})
+
+
+describe('score honnête et catégories', () => {
+  it('plafonne le score à 40 quand la majorité des connexions sont faibles ou réutilisées', () => {
+    const report = analyzeSecurity(
+      [
+        login({ id: 'weak-1', password: 'abc123', totp: '' }),
+        login({ id: 'weak-2', password: 'abc124', totp: '' }),
+        login({ id: 'strong', password: 'Très-long-mot-de-passe-aléatoire-42!' }),
+      ],
+      NOW_MS,
+    )
+
+    expect(report.total).toBe(3)
+    expect(report.weakOrReusedCount).toBeGreaterThan(report.total / 2)
+    expect(report.score).toBeLessThanOrEqual(40)
+    expect(report.scoreReason).toContain('sur 3')
+  })
+
+  it('décrit le problème principal d’un élément', () => {
+    const report = analyzeSecurity(
+      [login({ id: 'faible', password: 'abc123', totp: '' })],
+      NOW_MS,
+    )
+    const issue = itemSecurityIssue(report.weak[0], report)
+
+    expect(issue).toMatchObject({
+      category: 'weak',
+      label: 'Mot de passe faible',
+      shortLabel: 'Faible',
+    })
+    expect(issue?.description).toContain('facile à deviner')
+  })
+
+  it('intègre les mots de passe compromis sans changer le score par défaut', () => {
+    const items = [
+      login({
+        id: 'compromis',
+        password: 'Très-long-mot-de-passe-aléatoire-42!',
+        totp: 'otpauth://totp/Compte?secret=JBSWY3DPEHPK3PXP',
+      }),
+      login({
+        id: 'sain',
+        password: 'Autre-très-long-mot-de-passe-2026!',
+        urls: ['https://other.example.com'],
+        totp: 'otpauth://totp/Autre?secret=JBSWY3DPEHPK3PXP',
+      }),
+    ]
+    const withoutCheck = analyzeSecurity(items, NOW_MS)
+    const report = analyzeSecurity(items, NOW_MS, new Set(['compromis']))
+
+    expect(withoutCheck.breached).toEqual([])
+    expect(report.breached.map((item) => item.id)).toEqual(['compromis'])
+    expect(report.score).toBeLessThan(withoutCheck.score)
+    expect(report.score).toBeLessThanOrEqual(60)
+    expect(report.issueIds).toContain('compromis')
+    expect(securityCategoryItems(report, 'breached').map((item) => item.id)).toEqual([
+      'compromis',
+    ])
+    expect(itemSecurityIssue(report.breached[0], report)).toMatchObject({
+      category: 'breached',
+      label: 'Mot de passe compromis',
+      shortLabel: 'Compromis',
+    })
   })
 })

@@ -27,10 +27,68 @@ export interface ExtensionCredentials {
   totp: string
 }
 
+export interface ExtensionSaveInput {
+  host: string
+  username: string
+  password: string
+  title?: string
+}
+
+export interface ExtensionSaveResult {
+  id: string
+  updated: boolean
+}
+
+export interface ExtensionPasskeyCreateInput {
+  rpId: string
+  origin: string
+  challenge: string
+  userName: string
+  userHandle?: string
+  excludeCredentials?: string[]
+}
+
+export interface ExtensionPasskeyCreateResult {
+  itemId: string
+  credentialId: string
+  userHandle: string
+  clientDataJSON: string
+  authenticatorData: string
+  attestationObject: string
+  /** Clé publique COSE ES256, utile aux méthodes de réponse WebAuthn. */
+  publicKeyCose: string
+  signCount: number
+}
+
+export interface ExtensionPasskeyGetInput {
+  rpId: string
+  origin: string
+  challenge: string
+  allowCredentials?: string[]
+}
+
+export interface ExtensionPasskeyGetResult {
+  itemId: string
+  credentialId: string
+  userHandle: string
+  clientDataJSON: string
+  authenticatorData: string
+  signature: string
+  signCount: number
+}
+
 export interface CoffreExtensionBridge {
   version: number
   search: (query: string) => Promise<ExtensionLoginSummary[]>
-  fill: (itemId: string) => Promise<ExtensionCredentials | null>
+  fill: (itemId: string, host?: string) => Promise<ExtensionCredentials | null>
+  /** Enregistre ou met à jour une connexion après soumission du formulaire. */
+  saveLogin?: (input: ExtensionSaveInput) => Promise<ExtensionSaveResult | null>
+  passkeyCreate?: (
+    input: ExtensionPasskeyCreateInput,
+  ) => Promise<ExtensionPasskeyCreateResult | null>
+  passkeyGet?: (
+    input: ExtensionPasskeyGetInput,
+  ) => Promise<ExtensionPasskeyGetResult | null>
 }
 
 declare global {
@@ -57,6 +115,23 @@ export function hostMatches(itemHost: string, pageHost: string): boolean {
     itemHost.endsWith(`.${pageHost}`) ||
     pageHost.endsWith(`.${itemHost}`)
   )
+}
+
+/**
+ * Vrai si l’une des URL de l’élément autorise le remplissage sur cet hôte.
+ * Le pont natif applique ce contrôle avant de renvoyer un secret, même si
+ * l’extension a déjà filtré les résultats.
+ */
+export function loginAllowsHost(
+  item: Pick<LoginItem, 'urls'>,
+  pageHost: string,
+): boolean {
+  const host = hostFromUrl(pageHost) || pageHost.trim().toLowerCase()
+  if (!host) return false
+  return item.urls.some((url) => {
+    const itemHost = hostFromUrl(url)
+    return Boolean(itemHost) && hostMatches(itemHost, host)
+  })
 }
 
 function normalize(value: string): string {

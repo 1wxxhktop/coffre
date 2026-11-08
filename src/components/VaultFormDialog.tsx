@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { FolderPlus, LoaderCircle, Pencil } from 'lucide-react'
 import { Modal } from './Modal'
 import { useVault } from '../state/VaultProvider'
+import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
 import type { VaultSummary } from '../lib/types'
 
@@ -13,6 +14,7 @@ interface VaultFormDialogProps {
 
 export function VaultFormDialog({ mode, vault, onClose }: VaultFormDialogProps) {
   const { addVault, renameVault } = useVault()
+  const { tt } = useI18n()
   const { toast } = useToast()
   const [name, setName] = useState(vault?.name ?? '')
   const [busy, setBusy] = useState(false)
@@ -31,10 +33,10 @@ export function VaultFormDialog({ mode, vault, onClose }: VaultFormDialogProps) 
     try {
       if (mode === 'create') {
         await addVault(cleanName)
-        toast('Coffre créé', 'success')
+        toast(tt('Coffre créé'), 'success')
       } else if (vault) {
         await renameVault(vault.id, cleanName)
-        toast('Coffre renommé', 'success')
+        toast(tt('Coffre renommé'), 'success')
       }
       onClose()
     } catch (caught) {
@@ -79,12 +81,12 @@ export function VaultFormDialog({ mode, vault, onClose }: VaultFormDialogProps) 
     >
       <form id="vault-form" className="stack" onSubmit={(event) => void submit(event)}>
         <label className="field">
-          <span className="field__label">Nom du coffre</span>
+          <span className="field__label">{tt('Nom du coffre')}</span>
           <input
             className="input"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Ex. Travail"
+            placeholder={tt('Ex. Travail')}
             maxLength={80}
             autoFocus
             data-autofocus

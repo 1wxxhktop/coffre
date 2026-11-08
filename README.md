@@ -3,12 +3,14 @@
 **Gestionnaire de mots de passe local-first, chiffré et hors ligne.**
 
 Coffre conserve vos identifiants, notes, cartes et identités dans un fichier
-chiffré sur votre appareil. Aucun compte, aucun serveur, aucune synchronisation,
-aucune télémétrie. L’interface est en français.
+chiffré sur votre appareil. Aucun compte, aucun serveur Coffre, aucune télémétrie.
+La synchronisation et la vérification des fuites sont optionnelles ; cette
+dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
+L’interface est en français.
 
-> **État du projet — 0.8.0 (trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 167 tests unitaires et
-> 23 parcours Playwright exécutés sur Chromium et WebKit (46 exécutions). Une
+> **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
+> La version web/PWA est fonctionnelle et couverte par 333 tests unitaires et
+> 60 parcours Playwright exécutés sur Chromium et WebKit (120 exécutions, 5 ignorées). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
 > rapide optionnel par le trousseau du système et une disposition en colonnes
@@ -44,9 +46,19 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 
 ## Fonctionnalités
 
+- **Interface français / anglais** : réglage de langue, dates localisées,
+  composants de l’application et interface de l’extension traduits, avec une
+  règle de lint qui refuse les nouvelles chaînes d’interface en dur. Les
+  messages Rust restent à traduire.
 - **Coffres multiples** : création, renommage, suppression, filtre par coffre.
-- **Quatre types d’éléments** : connexion, note sécurisée, carte bancaire,
-  identité.
+- **Cinq types d’éléments** : connexion, note sécurisée, carte bancaire,
+  identité et passkey WebAuthn.
+- **Passkeys WebAuthn (ES256)** : création et connexion sans mot de passe dans
+  l’extension, confirmation explicite dans une fenêtre Coffre, clé privée
+  PKCS#8 conservée dans le contenu chiffré de l’élément, validation stricte du
+  RP ID et repli « utiliser un autre appareil ». Le compteur d’assertion reste
+  volontairement à zéro, comme pour de nombreux authentificateurs de
+  plateforme.
 - **Champs personnalisés** : texte, texte masqué, adresse web et texte long,
   jusqu’à 30 champs par élément.
 - **Pièces jointes chiffrées** : ajout, téléchargement et suppression de
@@ -56,9 +68,17 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   Chrome/Edge/Brave, Firefox, Safari, Dashlane, KeePass/KeePassXC, NordPass,
   Keeper, RoboForm, SafeInCloud et Enpass, avec détection des colonnes, aperçu
   et déduplication avant import.
-- **Extension navigateur** (Manifest V3, Chromium et Firefox) : remplissage automatique des
-  connexions et des codes TOTP depuis l’onglet Coffre déverrouillé. L’extension
-  ne stocke aucun secret et ne copie rien dans le presse-papiers.
+- **Extension navigateur** (Manifest V3, Chromium et Firefox) : remplissage
+  automatique des connexions et des codes TOTP depuis l’onglet Coffre
+  déverrouillé, ou directement depuis l’application desktop grâce au **pont
+  natif** appairé et chiffré (ECDH P-256, HKDF, AES-256-GCM). Menu dans les
+  champs (iframe d’extension, détection locale), iframes, connexions en
+  plusieurs étapes, proposition d’enregistrer ou de mettre à jour après
+  soumission, et **passkeys WebAuthn** (création et connexion) avec confirmation
+  dans une fenêtre d’extension. Les pages sont autorisées explicitement via les
+  permissions optionnelles. L’extension ne stocke aucun identifiant et ne copie
+  rien dans le presse-papiers ; seule la clé de session du pont natif est
+  conservée dans son stockage local.
 - **Recherche** insensible aux accents, filtres par type et favoris, étiquettes ;
   elle inclut les champs personnalisés et les noms de pièces jointes.
 - **Tri de la liste** : utilisation récente, nom, date de création, date de
@@ -82,24 +102,64 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Stockage durable** : fichier natif atomique et trois sauvegardes tournantes
   dans l’application desktop ; sur le Web, IndexedDB avec stockage persistant
   demandé au navigateur, statut et espace utilisé affichés dans les réglages.
+- **Synchronisation par dossier** (optionnelle) : sur desktop et dans Chromium,
+  un fichier chiffré par appareil dans un dossier déjà synchronisé (iCloud
+  Drive, Dropbox, Syncthing, clé USB), fusion par horloges et pierres tombales,
+  vérification du MAC distant, changement d’époque de clés géré et conflits
+  archivés dans l’historique. Sur Web, le handle de dossier est conservé dans
+  IndexedDB ; Safari/Firefox gardent l’export/import manuel.
 - **Vérification d’intégrité** à la demande : déchiffre chaque coffre, élément,
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
+- **MAC global et anti-retour en arrière (format 4)** : un HMAC-SHA-256 couvre
+  chaque enregistrement et les pierres tombales ; un fichier altéré s’ouvre en
+  lecture seule et une révision plus ancienne que celle déjà vue déclenche un
+  avertissement.
 - **Tableau de bord Sécurité** : score et répartition des mots de passe,
   faiblesses, réutilisations, variantes proches, ancienneté, absence de 2FA,
   connexions incomplètes et sites en doublon, avec accès direct aux éléments à
-  corriger.
+  corriger. L’évolution du score est conservée localement, un point par jour.
+- **Surveillance des fuites (optionnelle)** : désactivée par défaut, elle
+  calcule le SHA-1 localement et n’envoie que ses 5 premiers caractères à
+  Have I Been Pwned avec `Add-Padding`. Le mot de passe et le hash complet ne
+  quittent jamais l’appareil ; aucun résultat n’est persisté. Sur desktop, la
+  requête passe par une commande Rust pour garder la CSP de la WebView fermée.
+- **Assistant de changement de mot de passe** : depuis la fiche d’une
+  connexion signalée, ouverture de l’URL standard
+  `/.well-known/change-password` du site et génération d’un nouveau mot de
+  passe. L’ancien reste dans l’historique de l’élément.
+- **Rappels d’échéance** : date de révision d’un mot de passe, expiration des
+  cartes et des documents d’identité, vue « Bientôt expirés », badges J-xx et
+  notifications locales optionnelles, sans serveur de notification.
 - **Changement de mot de passe maître** sans réchiffrer tous les éléments.
 - **Phrase de récupération optionnelle** : dix mots générés localement,
   enveloppe séparée des clés de coffre, déverrouillage d’urgence avec choix
   d’un nouveau mot de passe maître.
+- **Kit d’urgence papier (Shamir)** : parts imprimables de la clé de
+  récupération, avec QR codes et mots EFF. `k` parts sur `n` suffisent pour
+  rouvrir le coffre ; une part seule ne révèle rien. Génération et impression
+  entièrement locales.
+- **Partage ponctuel hors ligne** : fichier `.coffre-share` chiffré avec une
+  clé aléatoire, transmise séparément en mots ou en QR code. Expiration
+  facultative, import avec aperçu, aucun serveur.
 - **Sauvegarde** : export/import d’un fichier `.coffre` chiffré et trois
   générations de copie locale de secours, restaurables depuis l’écran de
   récupération. Export CSV en clair au format **Mots de passe (Apple)** pour les
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
+- **Compatibilité KeePass** : import et export KDBX 4 avec un mot de passe
+  dédié (et fichier clé à l’import), sans pièces jointes ni historique Coffre.
 - **PWA installable** : fonctionnement hors ligne, icônes, service worker.
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
-  de détail persistant, avec édition sur place et navigation clavier.
+  de détail persistant. La création, la lecture et l’édition partagent le même
+  panneau, avec menu d’actions secondaires, déplacement entre coffres,
+  duplication et navigation clavier.
+- **Tableau de bord** : score de santé, statistiques, points d’attention,
+  éléments prioritaires, récents, coffres et échéances, dans une vue unique
+  accessible depuis la barre latérale.
+- **Design system** : jetons centralisés (`src/styles/tokens.css`), thème clair
+  par variables, échelle typographique avec plancher à 12 px, rayons,
+  espacements et profondeur cohérents. Réglages en pages (Général, Sécurité,
+  Sauvegarde et import, Stockage, Zone dangereuse).
 - **Accès rapide global (desktop)** : `⌘⇧Espace` (macOS) ou
   `Ctrl+Shift+Espace` affiche la fenêtre et place le curseur dans la recherche.
 - **Trousseau natif (desktop)** : déverrouillage rapide optionnel par le
@@ -178,6 +238,40 @@ Une phrase perdue ne peut pas être retrouvée, et une phrase compromise donne
 accès à tout coffre dont le fichier est obtenu : conservez-la sur papier,
 séparément de vos exports.
 
+### Kit d’urgence et parts Shamir
+
+Depuis les réglages, « Créer le kit d’urgence » produit un document imprimable
+(ou exportable en PDF via l’impression du navigateur) contenant :
+
+- l’identifiant du coffre, la date de génération et les instructions ;
+- un champ manuscrit pour le mot de passe maître et l’emplacement des
+  sauvegardes ;
+- `n` parts de la clé de récupération, chacune avec un QR code et ses mots EFF,
+  à confier à des personnes différentes.
+
+Le découpage utilise Shamir sur GF(256) : `k` parts sur `n` reconstituent la clé
+de récupération, `k - 1` n’en révèlent rien. Les parts ne remplacent pas le mot
+de passe maître : elles permettent de rouvrir le coffre en imposant un nouveau
+mot de passe. Elles ne remplacent pas non plus une sauvegarde du fichier
+`.coffre`. Toute la génération, l’encodage en mots et les QR codes sont locaux ;
+aucune part n’est écrite sur le disque ni envoyée sur le réseau.
+
+### Partage ponctuel hors ligne
+
+Depuis la fiche d’un élément, « Partager hors ligne » produit un fichier
+`.coffre-share` et une clé aléatoire de 32 octets. Le fichier contient
+l’élément chiffré en AES-256-GCM ; la clé est affichée en mots EFF et en QR
+code, à transmettre par un autre canal (de vive voix, second QR, message
+distinct). Le fichier seul ne permet pas de lire l’élément, et la clé seule ne
+suffit pas.
+
+Une expiration facultative (1, 7 ou 30 jours) est inscrite dans le fichier ;
+l’application Coffre refuse un partage expiré. Cette date ne peut pas être
+imposée hors ligne : un tiers qui modifie le fichier peut la contourner. Les
+pièces jointes ne sont pas incluses. Le destinataire importe le partage depuis
+Réglages → « Sauvegarde et import » → « Importer un partage hors ligne », avec
+la clé séparée. Aucun serveur n’est contacté.
+
 ### Champs personnalisés et pièces jointes
 
 Les champs personnalisés sont stockés dans le contenu chiffré de l’élément. Un
@@ -194,6 +288,36 @@ dans le contenu chiffré de l’élément. Limites actuelles :
 | Pièces jointes par élément | 10 |
 | Total par élément | 25 Mo |
 | Total par coffre | 50 Mo |
+
+### Santé et changement de mot de passe
+
+Le tableau de bord Sécurité conserve un **historique local du score** : une
+mesure par jour, avec le score et les compteurs de faiblesses, réutilisations,
+absence de 2FA et éléments affectés. Seuls des nombres et des dates sont
+stockés dans `localStorage` (`coffre:security-history:v1`) ; aucun mot de
+passe, aucune URL et aucun identifiant n’y figure. L’historique est plafonné à
+365 jours.
+
+Pour une connexion signalée, la fiche propose **« Changer sur le site »** :
+Coffre ouvre l’URL standard `https://<hôte>/.well-known/change-password`
+(RFC proposée par le W3C) dans le navigateur système. Le bouton **« Générer »**
+ouvre le générateur ; après le changement sur le site, la modification de
+l’élément archive automatiquement l’ancien mot de passe dans l’historique.
+
+### Rappels d’échéance
+
+Chaque élément peut porter une date de révision ou d’échéance, stockée dans son
+contenu chiffré. Les cartes utilisent leur date d’expiration `MM/AA`, valable
+jusqu’au dernier jour du mois, et les identités peuvent enregistrer séparément
+l’expiration du passeport, de la carte d’identité et du permis de conduire.
+
+La vue **Bientôt expirés** rassemble les échéances passées ou situées dans les
+soixante jours. Un badge `J-xx` apparaît dans la liste et dans la fiche. Le
+réglage **Rappels d’échéance** affiche en plus une notification locale, au plus
+une fois par échéance et par jour, à l’ouverture de l’application et toutes les
+heures tant qu’elle reste ouverte. Le navigateur ou le système peut refuser
+l’autorisation ; aucun serveur de notification n’est contacté et aucune date ne
+quitte l’appareil.
 
 ### Formats d’import
 
@@ -230,9 +354,24 @@ non chiffrée de 1Password est lue directement (pièces jointes exclues). Les
 exports chiffrés (Bitwarden chiffré, Proton Pass chiffré, sauvegarde
 `.enpassbackup`) ne sont pas pris en charge : exportez d’abord en clair, puis
 supprimez le fichier intermédiaire. Un fichier `.coffre` doit passer par
-« Importer un coffre » avec son mot de passe.
+« Importer un coffre » avec son mot de passe. Les passkeys ne sont pas
+importées depuis ces formats ; l’export/import FIDO CXF reste à implémenter.
 
 ---
+
+### Compatibilité KeePass KDBX 4
+
+Coffre lit et écrit les bases **KDBX 4** de KeePassXC et KeePass 2.x :
+
+- KDF **Argon2d**, **Argon2id** et **AES-KDF** ;
+- chiffrement **AES-256-CBC** et **ChaCha20** ;
+- compression gzip, blocs HMAC-SHA-256 et vérification de l’en-tête ;
+- groupes convertis en étiquettes, champs standard et personnalisés, champs
+  protégés, TOTP (`otp`), fichiers de clé XML v1/v2, binaires et hexadécimaux.
+
+L’export produit une base KDBX 4 avec Argon2id et ChaCha20, lisible par
+KeePassXC. Les pièces jointes et l’historique KDBX sont signalés à l’import mais
+ne sont pas encore convertis ; les passkeys KeePassXC ne sont pas importées.
 
 ## Démarrage rapide
 
@@ -275,11 +414,13 @@ Les parcours Playwright couvrent la création du coffre, un élément avec champ
 personnalisé et pièce jointe, la vérification d’intégrité, le verrouillage
 manuel, le verrouillage à la perte de visibilité (option active et inactive),
 un import CSV, un cycle export/réimport, la corbeille (restauration et vidage),
-la restauration d’une version depuis l’historique, la configuration d’une phrase
-de récupération puis la récupération avec un nouveau mot de passe, ainsi qu’un
-scénario de sécurité : aucune requête tierce et aucune adresse dangereuse rendue
-cliquable. Ils tournent sur Chromium et WebKit ; ce dernier sert de proxy pour
-le moteur des WebViews macOS/iOS.
+la restauration d’une version depuis l’historique, les rappels d’échéance, la
+configuration d’une phrase de récupération, la génération d’un kit d’urgence puis
+la récupération avec trois parts sur cinq, un partage hors ligne exporté puis
+réimporté avec sa clé, un scénario de sécurité (aucune requête tierce hors HIBP
+simulée, aucune adresse dangereuse rendue cliquable) et une vérification de
+fuites en k-anonymat avec interception réseau. Ils tournent sur Chromium et
+WebKit ; ce dernier sert de proxy pour le moteur des WebViews macOS/iOS.
 
 ### Intégration continue
 
@@ -312,19 +453,23 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (167 tests) |
+| `bun run test` | Tests Vitest (333 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (46 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (118 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
 | `bun run extension:build` | Compile l’extension dans `dist-extension/` |
 | `bun run extension:zip` | Compile puis crée `coffre-extension.zip` |
 | `bun run extension:smoke` | Test manuel de l’extension (serveurs requis) |
+| `bun run bridge:smoke` | Smoke du relais natif stdin/socket (binaire compilé) |
+| `bun run core:test` | Tests du crate partagé `coffre-core` et vecteurs croisés |
+| `bun run core:clippy` | Clippy strict du crate `coffre-core` |
 | `bun run typecheck` | Vérification TypeScript |
-| `bun run lint` | Oxlint |
+| `bun run lint` | Oxlint, contrôle des jetons de design et chaînes i18n |
+| `bun run lint:i18n` | Vérifie qu’aucune chaîne d’interface n’est en dur |
 | `bun run icons` | Régénère les icônes PWA |
-| `bun run version:check` | Vérifie la cohérence des versions package/Tauri/extension/Cargo |
+| `bun run version:check` | Vérifie la cohérence des versions package/Tauri/extension/Cargo/coffre-core |
 | `bun run desktop:dev` | Lance l’application desktop Tauri |
 | `bun run desktop:build` | Produit les paquets desktop Tauri |
 | `./scripts/release-macos.sh` | Build macOS universel signé et notarié (certificat requis) |
@@ -344,8 +489,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 ### Extension navigateur — Chromium et Firefox
 
 L’extension Manifest V3 se trouve dans `extension/`. Elle ne duplique pas le
-coffre : elle interroge l’onglet Coffre déverrouillé via une passerelle en
-mémoire, puis remplit la page active. Le même manifeste contient
+coffre : sur desktop, elle passe par le **pont natif** appairé (aucun onglet
+Coffre requis) ; sinon elle interroge l’onglet Coffre déverrouillé via une
+passerelle en mémoire, puis remplit la page active. Le même manifeste contient
 `background.scripts` pour Firefox et `background.service_worker` pour Chromium.
 
 ```bash
@@ -358,7 +504,28 @@ Puis, dans Chrome ou un navigateur Chromium :
 2. choisir « Charger l’extension non empaquetée » et sélectionner
    `dist-extension/` ;
 3. ouvrir Coffre et déverrouiller le coffre ;
-4. sur un site, cliquer sur l’icône Coffre, puis « Remplir ».
+4. sur un site, cliquer sur l’icône Coffre, puis « Remplir » ;
+5. pour le menu directement dans les champs, cliquer sur « Activer le menu
+   dans les champs » et autoriser l’accès aux sites. Un badge Coffre apparaît
+   près des champs de connexion ; rechargez les onglets déjà ouverts.
+
+Le menu s’affiche dans une iframe d’extension : la page ne peut pas lire son
+contenu. Une fois un identifiant choisi, l’extension propose aussi d’enregistrer
+ou de mettre à jour la connexion après la soumission du formulaire. Les
+connexions en plusieurs étapes réutilisent le dernier identifiant choisi pendant
+deux minutes.
+
+**Passkeys.** Après avoir activé l’accès aux sites, l’extension intercepte
+`navigator.credentials.create` et `get` dans un script de monde `MAIN`. Une
+fenêtre Coffre demande confirmation avant toute création ou signature ; elle
+affiche le domaine, le compte et permet toujours de choisir « utiliser un autre
+appareil ». La clé privée ne quitte jamais l’application : seuls
+`clientDataJSON`, `attestationObject`, `authenticatorData` et la signature
+d’assertion transitent. Un `rpId` qui n’est pas le domaine de la page (ou un de
+ses parents enregistrables) est refusé, de même qu’une origine HTTP autre que
+`localhost`. Les passkeys créées apparaissent dans le filtre « Passkeys » du
+coffre et restent lisibles, sans édition manuelle. L’export FIDO CXF n’est pas
+encore implémenté.
 
 Dans Firefox :
 
@@ -367,15 +534,35 @@ Dans Firefox :
 3. sélectionner `dist-extension/manifest.json` ;
 4. ouvrir Coffre et déverrouiller le coffre, puis utiliser l’icône Coffre.
 
+**Pont natif (desktop).** Au lancement, l’application installe les manifestes
+d’hôte de messagerie native pour les navigateurs présents (Chrome, Chromium,
+Edge, Brave et Firefox). Dans le popup de l’extension :
+
+1. cliquer sur « Associer l’extension » alors que Coffre est déverrouillé ;
+2. comparer le code à six chiffres affiché dans le popup et dans Coffre ;
+3. cliquer sur « Autoriser l’extension » dans Coffre.
+
+La clé de session est conservée dans le trousseau du système et dans
+`chrome.storage.local` ; les échanges sont chiffrés en AES-256-GCM. Si
+l’application est verrouillée, le popup propose de la ramener au premier plan.
+Sans application desktop, l’extension conserve le remplissage via l’onglet
+Coffre Web.
+
 L’adresse de Coffre est configurable dans les réglages de l’extension
 (`http://localhost:1420` par défaut). L’extension demande l’accès à l’onglet
 actif au moment du remplissage et à l’adresse de Coffre configurée. Elle ne
-stocke ni mot de passe maître, ni clé, ni identifiant.
+stocke ni mot de passe maître, ni identifiant ; seule la clé de session du pont
+natif est conservée dans le stockage local de l’extension.
 
-Limites : onglet Coffre ouvert et déverrouillé requis, pas de remplissage
-automatique à l’ouverture de page ni de soumission de formulaire. La variante
-Firefox passe `web-ext lint` sans erreur, mais reste à valider manuellement dans
-un Firefox réel.
+Limites : le pont natif est implémenté pour macOS et Linux (socket Unix) ; le
+relais Windows et la vérification de signature du binaire restent à faire. La
+variante Firefox passe `web-ext lint` sans erreur, mais reste à valider
+manuellement dans un Firefox réel. Les passkeys sont validées de bout en bout
+sur Chromium via l’onglet Coffre ; le même code est embarqué pour le pont natif
+desktop et pour Firefox, sans validation réelle à ce jour. Les passkeys ne
+remplacent pas encore l’AutoFill système macOS/iOS ; la vérification utilisateur
+WebAuthn (`UV`) n’est pas revendiquée et les sites qui l’exigent retombent sur
+le navigateur.
 
 ### Desktop — build macOS validé
 
@@ -403,12 +590,17 @@ trousseau et de la nouvelle interface) :
   `Coffre.app` 20,97 Mio et `Coffre_0.8.0_universal.dmg` 6,48 Mio ;
 - l’application se lance, initialise le stockage natif
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
-  IndexedDB, reste stable et n’ouvre aucune connexion réseau ;
-- les 46 exécutions Playwright passent sur Chromium et WebKit, moteur des
+  IndexedDB et reste stable ; hors vérification optionnelle des fuites, elle
+  n’ouvre aucune connexion réseau ;
+- les 120 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
-- `cargo test --lib` exécute 3 tests : stockage natif (rotation, permissions,
-  effacement) et détection de LocalAuthentication/Touch ID sur la machine de
-  build.
+- `cargo test --lib` exécute 13 tests : stockage natif (rotation, permissions,
+  effacement), trames et manifestes du pont natif, confinement et écritures
+  atomiques du dossier de synchronisation, validation du préfixe HIBP et
+  détection de LocalAuthentication/Touch ID sur la machine de build ;
+- `cargo test -p coffre-core` (5 tests) ouvre les fixtures TypeScript v1 à v4
+  et le vecteur Rust relu par le test TypeScript
+  (`src/lib/coffreCoreVector.test.ts`).
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
 système). La clé maîtresse encodée en base64 est rangée sous le service
@@ -425,10 +617,15 @@ rapide serait impossible ; elle est supprimée quand l’option est désactivée
 le coffre réinitialisé. Voir
 [docs/SECURITY.md](docs/SECURITY.md#71-tauri).
 
-L’interface desktop utilise une disposition en trois colonnes : navigation,
-liste des éléments et détail persistant. La création et l’édition réutilisent le
-même formulaire que le Web ; sur une fenêtre étroite, le détail s’affiche en
-surcouche et `Échap` revient à la liste.
+L’interface desktop utilise une disposition en deux colonnes : liste des
+éléments et détail persistant, dans une barre latérale de navigation. La
+création, la lecture et l’édition se font dans ce même panneau ; les modales
+sont réservées aux confirmations, au générateur, à l’historique et aux
+réglages. Sous 1100 px, le détail remplace la liste et un bouton retour ramène
+à la liste d’origine. Sous 640 px, une barre d’onglets basse regroupe Tout,
+Favoris, Récents, Sécurité et Réglages, et une barre d’actions basse expose les
+actions principales de l’élément. Les jetons, échelles et règles sont décrits
+dans [docs/DESIGN.md](docs/DESIGN.md).
 
 Sur macOS, la barre de titre native est remplacée par une **surcouche
 transparente** (`titleBarStyle: "Overlay"`, `hiddenTitle: true`) : les feux de
@@ -504,9 +701,10 @@ src/
   hooks/          Verrouillage automatique
   lib/            Crypto, format de coffre, import/export CSV, stockage, TOTP, générateur
   state/          Providers React (coffre, réglages, notifications)
-  styles/         CSS par domaine
+  styles/         CSS par domaine, jetons dans tokens.css
   assets/         Liste EFF des 7 776 mots
 src-tauri/        Socle desktop/mobile Tauri v2
+  crates/coffre-core/  Lecture partagée du format, crypto et vecteurs croisés
 extension/        Extension navigateur Manifest V3 (Chromium + Firefox)
 docs/             Sécurité, audit, préparation grand public, release, AutoFill macOS
 scripts/          Génération des icônes PWA, test manuel de l’extension
@@ -559,17 +757,18 @@ le stockage local (fichier natif ou IndexedDB), jamais la phrase elle-même.
 ### Stockage
 
 - **Desktop (Tauri)** : `app_data_dir()/vault/vault.coffre`, plus trois
-  sauvegardes `vault.coffre.bak1` à `bak3`. Écritures atomiques, dossier en
-  `0700`, fichiers en `0600`, plafond de 100 Mo. Un ancien coffre IndexedDB est
-  migré automatiquement au premier lancement.
+  sauvegardes `vault.coffre.bak1` à `bak3` et `state.json` (révision maximale
+  vue). Écritures atomiques, dossier en `0700`, fichiers en `0600`, plafond de
+  100 Mo. Un ancien coffre IndexedDB est migré automatiquement au premier
+  lancement.
 - **Web** : base IndexedDB `coffre`, magasin `vault` ; clé `current` pour le
-  coffre courant (déjà chiffré) et clés `backup`, `backup:2`, `backup:3` pour
-  les trois générations précédentes.
+  coffre courant (déjà chiffré), clés `backup`, `backup:2`, `backup:3` pour les
+  trois générations précédentes et clé `state` pour la plus haute révision vue.
 - Préférences : `localStorage`, clé `coffre:settings:v1` (aucune donnée
   sensible) ;
-- Export : fichier JSON `.coffre`, chiffré, **format v3** (les fichiers v1 et
-  v2 sont lus puis migrés à l’écriture) ; export CSV en clair pour les
-  migrations (Mots de passe Apple ou format complet Coffre).
+- Export : fichier JSON `.coffre`, chiffré, **format v4** (les fichiers v1 à v3
+  sont lus puis migrés en v4 à la première écriture) ; export CSV en clair pour
+  les migrations (Mots de passe Apple ou format complet Coffre).
 
 Le format complet et les garanties sont documentés dans
 [docs/SECURITY.md](docs/SECURITY.md).
@@ -594,15 +793,23 @@ Le format complet et les garanties sont documentés dans
   AAD dédiée.
 - Clés maîtresse, de coffre et de récupération uniquement en mémoire ; jamais
   persistées en clair.
+- MAC global HMAC-SHA-256 par fichier (format 4) : toute suppression,
+  substitution ou rejeu d’un enregistrement est détecté ; un MAC invalide
+  ouvre le coffre en lecture seule. La révision maximale vue est conservée hors
+  du fichier pour signaler un retour en arrière.
 - Verrouillage immédiat lorsque l’onglet passe en arrière-plan (par défaut) et
   à la fermeture de la page.
 - Stockage natif atomique sur desktop, ou IndexedDB persistant sur le Web, avec
   contrôle d’intégrité complet à la demande.
-- Aucune requête réseau : polices système, icônes locales, aucune analytique.
+- Aucune requête réseau par défaut : polices système, icônes locales, aucune
+  analytique. Seule la vérification optionnelle des fuites, déclenchée
+  manuellement, envoie un préfixe SHA-1 de 5 caractères.
 - Le presse-papiers est effacé au mieux après le délai choisi.
 - L’extension navigateur ne stocke aucun secret : elle lit les identifiants
   depuis l’onglet Coffre déverrouillé, en mémoire, et ne dispose que de l’accès
-  temporaire à l’onglet actif.
+  temporaire à l’onglet actif. Sur desktop, le pont natif appairé remplace
+  l’onglet : clé de session ECDH/HKDF, messages AES-256-GCM, socket `0600` et
+  contrôle du domaine dans l’application.
 - **Le bundle desktop macOS produit localement n’est ni signé ni notarisé.** La chaîne de release signée est prête, mais le certificat Apple et les secrets de notarisation manquent.
 - **Le projet n’a pas fait l’objet d’un audit de sécurité indépendant.**
 
@@ -614,11 +821,16 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 ## Limites connues
 
 - L’extension navigateur est disponible pour Chromium et Firefox ; la variante
-  Firefox est construite mais n’est pas encore validée en exécution réelle. Elle
-  exige l’onglet Coffre ouvert et déverrouillé, et ne remplit ni ne soumet les
-  formulaires automatiquement.
-- Pas de synchronisation entre appareils : la sauvegarde passe par un fichier
-  `.coffre` que vous transportez vous-même.
+  Firefox est construite mais n’est pas encore validée en exécution réelle. Le
+  pont natif desktop est implémenté sur macOS et Linux ; Windows, la
+  vérification de signature du relais et le remplissage automatique à
+  l’ouverture de page restent à faire. Sans pont appairé, l’onglet Coffre doit
+  rester ouvert et déverrouillé.
+- La synchronisation par dossier est disponible dans l’application desktop
+  (macOS/Linux validés, Windows à valider) et dans Chromium via File System
+  Access API. Safari/Firefox utilisent la sauvegarde manuelle par fichier
+  `.coffre`. Le dossier est choisi par l’utilisateur et reste hors de tout
+  serveur Coffre ; la synchronisation Web est manuelle (pas de watcher).
 - Pas d’import direct depuis un export chiffré : les exports en clair JSON
   (Bitwarden, Proton Pass, Enpass), les CSV et les archives 1Password `.1pux`
   non chiffrées sont pris en charge. Les sauvegardes `.enpassbackup` et les
@@ -674,7 +886,8 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 5. Audit de sécurité externe et revue cryptographique.
 6. Validation des builds Windows/Linux, puis initialisation et tests des cibles
    mobiles iOS/Android.
-7. Synchronisation chiffrée optionnelle de bout en bout (hors périmètre actuel).
+7. Synchronisation chiffrée optionnelle de bout en bout : implémentée sur
+   desktop et Chromium ; Safari/Firefox et mobile restent en manuel ou à faire.
 8. Optimisation du bundle et du temps de déverrouillage.
 
 ---

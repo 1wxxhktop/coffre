@@ -15,6 +15,10 @@ export function loadSettings(): AppSettings {
     const trashRetentionDays = Number(parsed.trashRetentionDays)
 
     return {
+      language:
+        parsed.language === 'en' || parsed.language === 'fr'
+          ? parsed.language
+          : DEFAULT_SETTINGS.language,
       theme:
         parsed.theme === 'light' || parsed.theme === 'system' || parsed.theme === 'dark'
           ? parsed.theme
@@ -44,6 +48,14 @@ export function loadSettings(): AppSettings {
         typeof parsed.biometricUnlock === 'boolean'
           ? parsed.biometricUnlock
           : DEFAULT_SETTINGS.biometricUnlock,
+      expiryNotifications:
+        typeof parsed.expiryNotifications === 'boolean'
+          ? parsed.expiryNotifications
+          : DEFAULT_SETTINGS.expiryNotifications,
+      breachCheck:
+        typeof parsed.breachCheck === 'boolean'
+          ? parsed.breachCheck
+          : DEFAULT_SETTINGS.breachCheck,
     }
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -58,20 +70,20 @@ export function saveSettings(settings: AppSettings): void {
   }
 }
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string, locale = 'fr-FR'): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('fr-FR', {
+  return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   }).format(date)
 }
 
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string, locale = 'fr-FR'): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('fr-FR', {
+  return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

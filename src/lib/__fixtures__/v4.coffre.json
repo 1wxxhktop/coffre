@@ -1,0 +1,136 @@
+{
+  "format": "coffre",
+  "version": 4,
+  "id": "vf_2f67424d743e7de25847f4d78fd55f51",
+  "createdAt": "2026-11-08T09:22:12.607Z",
+  "updatedAt": "2026-11-08T09:22:12.705Z",
+  "kdf": {
+    "algorithm": "argon2id",
+    "salt": "4+7FTI+8orngQ0Lg2KxKig==",
+    "memoryKiB": 8192,
+    "iterations": 1,
+    "parallelism": 1,
+    "keyLength": 32
+  },
+  "vaults": [
+    {
+      "id": "v_2c51b62488ac166a669145533a6406cf",
+      "key": {
+        "n": "amGbT+tSvjRBa81u",
+        "c": "7vbSckNJ9+aQ7RaFSHLoUCyvykIZSzJJNQ0D2TSRzcoJaSblpuBvNlW3EByimzWF"
+      },
+      "name": {
+        "n": "SQt5iCWKcEVmnnXQ",
+        "c": "nwYKLAyTD/xbuxELTBXs7jo/cEfHE07GQr6/15ORrwGPrDcr"
+      },
+      "createdAt": "2026-11-08T09:22:12.667Z",
+      "updatedAt": "2026-11-08T09:22:12.667Z",
+      "clock": {
+        "rev": 1,
+        "writer": "w_9922a69820f0f60c3d6acb1dd256122b"
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "i_23c87624eaa8277c5a88072f784bb037",
+      "vaultId": "v_2c51b62488ac166a669145533a6406cf",
+      "key": {
+        "n": "uiFz8oKrLG5VVzkC",
+        "c": "TzADKTgTiSj2rjRJ1mU9s2mEIJO4De+dua7VBYRwDhpBBIYpzwbpRGLJzV9RGNE+"
+      },
+      "content": {
+        "n": "MpygxWfzAQv5jfWT",
+        "c": "aKRCVu0jgv0mzFLYGOyGgVv8OWYRpoA3AgSYe8wxbSJGte1ELv+SYaIEX2esuKXQ2whQ0RvzZ/5JW1YfdIZJSLGFssXGOUJZ6fiCjH1iNA8SF4MnBMFrAaa9IrYud8epIHV9VKpTb1FaiM0+w3QaPsjKr2ht1zbBsg3ggKr39+5OZ72/xN+CdHO7xeUDGUK7sVKH4wzchmlVgSVEHmq7kfgReoZkEHo11ZhJ89Hb3zFAyV4tSI9DFo0HIBMGWLGMZLGMSCUWVTHDl2fDtdW3pYl37JiSC5xyTnyNK0SYA8Exo4fq7eHjd4dV1UuAMDltBRdZRFQ94wHqdkihsh1Qx5fCI4zrCpnlQm7dwmXs/rpmSyLQw5gPBJEbET3lrSdSwkAmFUzxYQPkdgD90O5ypMtpZmL1J7KIDCl/yoEv82lfmNbDfEH3GAwwyuWLU7iyO/Lx6frpKbGP+3QSEjiXMJjBr+aguTO++WYGgW9GXN75bDKJVF480qR4Elw5GlnBerq1BJHqU/9kNrtgTQ=="
+      },
+      "createdAt": "2026-11-08T09:22:12.679Z",
+      "updatedAt": "2026-11-08T09:22:12.687Z",
+      "clock": {
+        "rev": 6,
+        "writer": "w_9922a69820f0f60c3d6acb1dd256122b"
+      }
+    },
+    {
+      "id": "i_254fa9a219a216f464d7fd6a93031993",
+      "vaultId": "v_2c51b62488ac166a669145533a6406cf",
+      "key": {
+        "n": "meEBvZXmTHhtx5ZD",
+        "c": "+Nx/OLdpYYZcySX0mhIoKny5T99nkknFp9dRMiPCuie7ITfiz7PKQEVw6bPM77Hp"
+      },
+      "content": {
+        "n": "NZH0mDkXmpOFlFh0",
+        "c": "ckLetqIVbK0osXNaom0UkG1F2580ixgOXhW9ziNoxwVMpgE5lpca+akbBFJnNas1q6g6ha1RFoJIIgwZ6rGdQLiCVTJtqlyJjVEhNzYDIq1pElbRaNKhvJl9WLNf0Gyl5t2kxU/NBBcn1KRM0goh7GOVAyRXAhkIzVNzfGhGqYzmcLoW4vtDBcIhQeIf3//KyY1MhC4xwAYFAL+PFd5iwUsL+49XZrDUyZK4saCCMkDGstn5YiDrg6ovbQX0JvbUqgiDcVs6NfPKu1dPQ4GPfz00FuK1MJNix78e3ifz5yNurvDIsuTmEi1NY4imXDu0l675O3mOE94pCA=="
+      },
+      "createdAt": "2026-11-08T09:22:12.683Z",
+      "updatedAt": "2026-11-08T09:22:12.684Z",
+      "clock": {
+        "rev": 5,
+        "writer": "w_9922a69820f0f60c3d6acb1dd256122b"
+      }
+    }
+  ],
+  "attachments": [
+    {
+      "id": "a_b002543e8423a85ebe2f38aa5407ff3d",
+      "itemId": "i_23c87624eaa8277c5a88072f784bb037",
+      "vaultId": "v_2c51b62488ac166a669145533a6406cf",
+      "data": {
+        "n": "JLSvq11xBCXNqWmB",
+        "c": "yOycilfh1ckEjAQferFRFfwL5U2hE8MPK4AXGFfgx9HEIZJuKGeSiig="
+      },
+      "createdAt": "2026-11-08T09:22:12.687Z"
+    }
+  ],
+  "versions": [
+    {
+      "id": "iv_a7bbb248bef596ae89e939264a332130",
+      "itemId": "i_23c87624eaa8277c5a88072f784bb037",
+      "vaultId": "v_2c51b62488ac166a669145533a6406cf",
+      "content": {
+        "n": "sTCh3PfaarTjvaUc",
+        "c": "ZjnMDWdn63MaKDOcOcqaY3wNq3vHcExKE8+9BqcxRBUKCtdAXzn/yy2+KgmnU5GI89D/rmKu1vlI7qCfUzrCZmOp5Is8IfSrVTZwDG9ZddSihR79jk4MIpL+kOdmpjkFnuVM4EiUEHuc5TIUpo88mj0IDovE67eMsp0zd1vsU6qZAcGhUkPdszEaw5Kd5gLTGnTu+q5MafOrBivgvm4F1H9j61DHPWwZCeCmZLiB0ZO4hHkVG63foKKXRDDUkRUXzOLu1GEQ/i44HvGbq81C8NpZCuzP6Mj1ZQPWovl4TjFKA/po9QpNzzPfP7z+976X6JpOflmaERxDeHzGDOtrmt/UYAVSthei"
+      },
+      "createdAt": "2026-11-08T09:22:12.681Z"
+    }
+  ],
+  "writer": "w_9922a69820f0f60c3d6acb1dd256122b",
+  "revision": 7,
+  "keyEpoch": 1,
+  "tombstones": [],
+  "integrity": {
+    "mac": "hN7EYtpoCmnEIj8X4aJeV3Q1JollQdRcrHgriAt9l6M=",
+    "key": {
+      "n": "B2RQbmAi3lDXC+3s",
+      "c": "cZMu2PM0gmDAu2u98wFvGyHl5Fnaj81ez0Jh8YWFP7hAG4+ww3aJn2YP5rBPX+v6"
+    }
+  },
+  "recovery": {
+    "version": 1,
+    "kdf": {
+      "algorithm": "argon2id",
+      "salt": "0qlFT5WYrTrHzt1gVjn0LQ==",
+      "memoryKiB": 8192,
+      "iterations": 1,
+      "parallelism": 1,
+      "keyLength": 32
+    },
+    "createdAt": "2026-11-08T09:22:12.705Z",
+    "key": {
+      "n": "hrMGIsHt97HWHXvi",
+      "c": "mpkD9mgcfnTdKMDNBDdWAns5lBoHP0ukcj8i2asgAbsD7sxjuxjWWQK2pAC9fkX5"
+    },
+    "guard": {
+      "n": "JIIqbsVHGLicb3Vr",
+      "c": "Sts6J1sCR0R+J0wE7BFknHLyffAOIvFU+V/U+gCmL9Sd3XQGkdzIfLDpV/oBhs9s"
+    },
+    "wraps": [
+      {
+        "vaultId": "v_2c51b62488ac166a669145533a6406cf",
+        "key": {
+          "n": "91R+tJBBeB79eA7H",
+          "c": "GRgKq4Jn7WbwaLEQA3TjG4IQaGu+GDf6TVzNm06W19GbKM6l26MUvtMrYpoRy8hK"
+        }
+      }
+    ]
+  }
+}

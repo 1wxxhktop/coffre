@@ -3,6 +3,7 @@ import { AlertTriangle, Clock, History, LoaderCircle, RotateCcw } from 'lucide-r
 import { Modal } from './Modal'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useVault } from '../state/VaultProvider'
+import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
 import { formatDateTime } from '../lib/settings'
 import { itemTypeLabel, type VaultItem } from '../lib/types'
@@ -20,6 +21,7 @@ interface HistoryDialogProps {
  */
 export function HistoryDialog({ item, onClose, onRestored }: HistoryDialogProps) {
   const { getItemVersions, restoreItemVersion } = useVault()
+  const { tt } = useI18n()
   const { toast } = useToast()
 
   const [versions, setVersions] = useState<ItemVersion[] | null>(null)
@@ -48,7 +50,7 @@ export function HistoryDialog({ item, onClose, onRestored }: HistoryDialogProps)
   const restore = async () => {
     if (!pending) return
     const updated = await restoreItemVersion(item.id, pending.id)
-    toast('Version restaurée', 'success')
+    toast(tt('Version restaurée'), 'success')
     onRestored?.(updated)
     setPending(null)
     onClose()
@@ -57,7 +59,7 @@ export function HistoryDialog({ item, onClose, onRestored }: HistoryDialogProps)
   return (
     <>
       <Modal
-        title="Historique"
+        title={tt('Historique')}
         description={`Versions précédentes de « ${item.title} ». Les 20 dernières modifications sont conservées.`}
         size="md"
         onClose={onClose}
@@ -75,12 +77,12 @@ export function HistoryDialog({ item, onClose, onRestored }: HistoryDialogProps)
         ) : versions === null ? (
           <div className="history-empty" role="status">
             <LoaderCircle size={22} className="spin" />
-            <p>Déchiffrement de l’historique…</p>
+            <p>{tt('Déchiffrement de l’historique…')}</p>
           </div>
         ) : versions.length === 0 ? (
           <div className="history-empty">
             <History size={26} />
-            <h3>Aucune version enregistrée</h3>
+            <h3>{tt('Aucune version enregistrée')}</h3>
             <p>
               Une version est créée automatiquement à chaque modification des champs
               d’un élément. Les changements de favori, les pièces jointes et les passages
@@ -122,11 +124,11 @@ export function HistoryDialog({ item, onClose, onRestored }: HistoryDialogProps)
 
       {pending && (
         <ConfirmDialog
-          title="Restaurer cette version ?"
+          title={tt('Restaurer cette version ?')}
           description={`Le contenu actuel de « ${item.title} » sera remplacé par la version du ${formatDateTime(
             pending.createdAt,
           )}. Le contenu actuel sera conservé dans l’historique.`}
-          confirmLabel="Restaurer"
+          confirmLabel={tt('Restaurer')}
           tone="primary"
           onClose={() => setPending(null)}
           onConfirm={restore}

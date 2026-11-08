@@ -1,5 +1,157 @@
 # Journal des changements
 
+## Non publié
+
+- Format de fichier v4 : identifiant d’appareil, révision monotone, époque des
+  clés, horloges par enregistrement et pierres tombales conservées 180 jours.
+- MAC global HMAC-SHA-256 sur un manifeste canonique : détection des
+  suppressions, substitutions et rejeux d’enregistrements, y compris avec des
+  ciphertexts authentiques. Un fichier altéré s’ouvre en lecture seule.
+- Clé de MAC aléatoire scellée par la clé maîtresse et tournée au changement de
+  mot de passe ou après une récupération par phrase.
+- Anti-retour en arrière local : la plus haute révision vue est conservée hors
+  du fichier (IndexedDB ou `vault/state.json`), et un fichier plus ancien
+  déclenche un avertissement. Les fichiers v1 à v3 restent lisibles et sont
+  migrés en v4 à la première écriture.
+- Pont natif extension ↔ application desktop : hôte de messagerie native
+  installé pour Chrome, Chromium, Edge, Brave et Firefox, socket local `0600`,
+  appairage par code à six chiffres, ECDH P-256 + HKDF-SHA-256, messages
+  AES-256-GCM avec compteurs anti-rejeu, et contrôle de domaine dans
+  l’application.
+- L’extension utilise le pont natif en priorité et conserve l’onglet Coffre Web
+  comme repli. Une application verrouillée ramène sa fenêtre au premier plan
+  sans renvoyer de secret.
+- Préparation de la synchronisation : `mergeVaultFiles` fusionne les fichiers
+  v4 par horloges `{ rev, writer }`, pierres tombales, versions et pièces
+  jointes. Fusion pure, commutative et idempotente, couverte par des tests de
+  propriété `fast-check` ; les conflits à révision égale sont signalés pour être
+  archivés par l’application.
+- Synchronisation desktop : `sync_prepare`, `sync_list`, `sync_read` et
+  `sync_write` confinés à `Coffre/<idFichier>/`, refus des noms dangereux et des
+  liens symboliques, écritures atomiques `0600`, et surveillance `notify` avec
+  anti-rebond.
+- Interface « Synchronisation » dans les réglages desktop : choix du dossier,
+  état, dernière synchronisation, conflits archivés et synchronisation
+  manuelle.
+- Vérification du MAC de chaque fichier distant avant fusion ; adoption d’une
+  nouvelle époque de clés après saisie du nouveau mot de passe, sans fusionner
+  de ciphertexts d’époques différentes.
+- Archivage déterministe des contenus perdus lors d’un conflit dans l’historique
+  de l’élément, sans doublon lors des synchronisations suivantes.
+- Synchronisation Web (Chromium) via File System Access API : choix d’un dossier,
+  handle persistant dans IndexedDB, permission lecture/écriture, mêmes fichiers
+  `.coffre` signés et mêmes règles de fusion que sur desktop. Repli manuel sur
+  Safari/Firefox.
+- Extension : menu directement dans les champs, dans une iframe d’extension
+  isolée ; détection locale des formulaires (30 pages de test), iframes,
+  connexions en plusieurs étapes, remplissage TOTP et proposition d’enregistrer
+  ou de mettre à jour après soumission.
+- Permissions d’hôte optionnelles : le content script n’est enregistré qu’après
+  activation explicite depuis le popup, et le mot de passe d’une soumission
+  reste en mémoire du service worker au plus deux minutes.
+- Passkeys WebAuthn : nouveau type d’élément `passkey` (RP ID, compte,
+  identifiant de credential, clé privée ECDSA P-256 PKCS#8 et clé publique COSE
+  dans le contenu chiffré). L’extension intercepte `navigator.credentials`
+  dans le monde `MAIN`, affiche une fenêtre de confirmation, puis l’application
+  crée l’attestation `none` ou signe l’assertion. La clé privée ne traverse
+  jamais le pont ; le `rpId` est validé contre l’origine réelle et les suffixes
+  publics courants sont refusés. Les sites exigeant une vérification
+  utilisateur (`UV`) ou un authentificateur externe retombent sur le navigateur.
+- Les passkeys sont visibles dans le filtre « Passkeys », en lecture seule, et
+  le compteur d’assertion reste à zéro pour éviter une écriture du coffre à
+  chaque connexion. Le partage hors ligne et la duplication sont masqués pour
+  ne pas recopier une clé privée par inadvertance. Un test unitaire vérifie que
+  la clé privée ne figure pas dans la réponse destinée au navigateur ; le smoke
+  de l’extension couvre la création, la connexion, le `clientDataJSON`, le hash
+  de RP ID et la vérification de la signature ECDSA avec les primitives Node.
+- Cœur Rust partagé `coffre-core` (tranche lecture) : Argon2id, AES-256-GCM,
+  AAD, HMAC-SHA-256, manifeste canonique et ouverture des fichiers v1 à v4,
+  avec `Zeroizing` et aucune dépendance réseau. Vecteurs croisés TypeScript ↔
+  Rust (fixtures historiques et vecteur Rust relu par le test TypeScript) et CI
+  dédiée sur Linux, macOS et Windows.
+- Surveillance des fuites optionnelle et désactivée par défaut : calcul SHA-1
+  local, envoi des 5 premiers caractères seulement à Have I Been Pwned avec
+  `Add-Padding`, réponse parsée en mémoire et résultats intégrés au tableau de
+  bord Sécurité. Sur desktop, la requête passe par la commande Rust
+  `hibp_range` (préfixe validé, délai et taille plafonnés) pour conserver la CSP
+  de la WebView ; sur le Web, seul l’hôte HIBP est ajouté à `connect-src`.
+  Aucun mot de passe, hash complet ou résultat n’est persisté.
+- Compatibilité KeePass : import et export KDBX 4 avec mot de passe dédié et
+  fichier clé optionnel à l’import. Le fichier exporté contient les éléments
+  actifs, sans pièces jointes ni historique Coffre ; l’import passe par le
+  provider et les contrôles de doublons habituels.
+- Rappels d’échéance : date de révision des mots de passe, expiration des
+  cartes et des documents d’identité, vue « Bientôt expirés », badges J-xx et
+  notifications locales optionnelles (aucun serveur de notification).
+- Kit d’urgence papier : parts Shamir `k` parmi `n` de la clé de récupération,
+  encodées en mots EFF et QR codes, avec restauration depuis l’écran de
+  récupération. Génération et impression entièrement locales.
+- Partage ponctuel hors ligne : fichier `.coffre-share` chiffré par une clé
+  aléatoire, clé transmise séparément en mots ou QR code, expiration facultative
+  et import avec contrôle de la clé. Aucun serveur.
+- Santé avancée : historique local du score (un point par jour, 365 jours) et
+  assistant de changement de mot de passe avec ouverture de l’URL standard
+  `/.well-known/change-password` du site.
+- Internationalisation : socle français/anglais, réglage de langue, dates
+  localisées, traduction de l’ensemble des composants de l’application et de
+  l’interface de l’extension (`_locales`), et règle de lint `lint:i18n` contre
+  les nouvelles chaînes d’interface en dur. Les messages Rust restent à
+  traduire.
+- Système de design : `src/styles/tokens.css` (typographie, espacement, rayons,
+  profondeur, z-index, couleurs sémantiques), thème clair réduit à ses
+  variables, échelle de tailles de police avec plancher à 12 px et contrôle
+  automatique des valeurs littérales (`bun run lint:design`).
+- Détail et édition unifiés : création dans une modale dédiée, puis lecture et
+  modification dans le panneau persistant sur desktop, avec menu « … »
+  (historique, déplacement entre coffres, duplication, suppression) et barre
+  d’actions adaptée au pouce sur mobile.
+- Liste et barre d’outils compactes : tri et sélection dans un menu, largeur
+  minimale de 320 px, aucun débordement horizontal, pastilles d’alerte
+  explicites (« Faible », « Réutilisé », « Sans 2FA ») et bandeau de sécurité
+  dans le détail avec génération immédiate d’un nouveau mot de passe.
+- Réglages en pages (Général, Sécurité, Sauvegarde et import, Stockage, Zone
+  dangereuse) avec navigation latérale et vue compacte ; « Verrouiller
+  maintenant » reste dans la barre latérale. L’effacement du coffre local passe
+  par « Autres options » sur l’écran de déverrouillage et demande de taper
+  `EFFACER`.
+- Tableau de bord Sécurité honnête et actionnable : score plafonné à 40/100
+  quand la majorité des connexions sont faibles ou réutilisées, explication
+  du score, trois compteurs principaux, langage simplifié et ouverture des
+  catégories dans la liste filtrée de la vue principale.
+- Mobile de première classe : barre supérieure contextuelle avec retour,
+  barre d’actions basse, onglets de navigation, menu latéral inerte lorsqu’il
+  est fermé, piège à focus, appui long pour la sélection et glissement pour
+  revenir.
+- Accessibilité : navigation au clavier dans la liste, focus visible sur les
+  lignes et cartes, animations neutralisées avec `prefers-reduced-motion`, et
+  tests e2e de noms accessibles, de piège à focus, d’inertie du menu et
+  d’absence de débordement à 1280, 1024, 768 et 375 px.
+- Finitions : textes d’aide longs repliés derrière « En savoir plus » et
+  explication d’une phrase pour chaque catégorie secondaire du tableau de bord
+  Sécurité.
+- Régression visuelle optionnelle : `e2e/visual.spec.ts` capture six écrans
+  dans les deux thèmes (`bun run test:visual`).
+- Colonnes redimensionnables sur desktop : largeur de la barre latérale et de
+  la liste ajustable à la souris, au doigt ou au clavier, mémorisée localement.
+- Barre latérale repliable en rail de 64 px avec uniquement les icônes, des
+  infobulles et des noms accessibles ; état mémorisé et tiroir complet conservé
+  sur mobile.
+- Tableau de bord complet : score de santé, statistiques, points d’attention,
+  éléments prioritaires, récents, coffres, échéances et actions rapides.
+  Accessible depuis la barre latérale et l’onglet « Accueil » sur mobile.
+- Corrections d’interface : libellé « Retour à … » sur mobile, en-tête de
+  détail ramené à une ligne, bandeau d’alerte qui passe sous le texte, libellé
+  « Aucun élément » à zéro, trame de fond retirée de l’application et onglets
+  bas exclusifs. Points de rupture unifiés (1099 / 768 / 639 px en largeur,
+  deux en hauteur).
+- Réglages : navigation latérale sticky et contenu défilant indépendamment.
+- Correction du défilement résiduel en bas de l’application : le document est
+  bloqué quand l’application est montée, les panneaux gèrent leur propre
+  défilement et le débordement horizontal de la liste est masqué.
+- Icône de marque plate et monochrome, pilotée par les variables du thème :
+  carré plein et cadenas en réserve, lisibles en sombre comme en clair. Les
+  favicons et icônes PWA/Tauri sont alignés sur ce dessin.
+
 ## 0.8.0 — 2026-11-07
 
 - Stockage natif desktop : `app_data_dir()/vault/vault.coffre`, écritures

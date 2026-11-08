@@ -1,6 +1,5 @@
-import { useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  ChevronRight,
   CircleHelp,
   Clock3,
   Copy,
@@ -8,177 +7,177 @@ import {
   Link2,
   ShieldAlert,
   ShieldCheck,
+  ShieldQuestion,
 } from 'lucide-react'
 import { Modal } from './Modal'
+import { SecurityHistoryChart } from './SecurityHistoryChart'
+import { useI18n } from '../state/I18nProvider'
+import { pluralKey } from '../lib/i18n'
 import {
-  incompleteReason,
+  loadSecurityHistory,
+  recordSecuritySnapshot,
+  type SecuritySnapshot,
+} from '../lib/securityHistory'
+import {
   securityTone,
-  weakPasswordReason,
-  type DuplicateUrlGroup,
-  type ReusedPasswordGroup,
+  type SecurityCategory,
   type SecurityReport,
-  type SimilarPasswordGroup,
 } from '../lib/security'
-import {
-  itemSubtitle,
-  type LoginItem,
-  type VaultItem,
-  type VaultSummary,
-} from '../lib/types'
 
 interface SecurityDialogProps {
   report: SecurityReport
-  vaults: VaultSummary[]
+  breachCheck: boolean
+  breachStatus: 'idle' | 'checking' | 'done' | 'error'
+  onCheckBreaches: () => void
+  onOpenSettings: () => void
   onClose: () => void
-  onOpenItem: (itemId: string) => void
+  onOpenCategory: (category: SecurityCategory) => void
 }
 
-function useVaultNames(vaults: VaultSummary[]): Map<string, string> {
-  return useMemo(() => new Map(vaults.map((vault) => [vault.id, vault.name])), [vaults])
-}
-
-function ItemButton({
-  item,
-  vaultName,
-  detail,
+function CategoryButton({
+  count,
+  label,
+  hint,
+  category,
   onOpen,
 }: {
-  item: VaultItem
-  vaultName: string
-  detail?: string
-  onOpen: (itemId: string) => void
+  count: number
+  label: string
+  hint: string
+  category: SecurityCategory
+  onOpen: (category: SecurityCategory) => void
 }) {
   return (
-    <button type="button" className="security-item" onClick={() => onOpen(item.id)}>
-      <span className="security-item__icon">
-        <KeyRound size={15} />
-      </span>
-      <span className="security-item__body">
-        <span className="security-item__title">{item.title}</span>
-        <span className="security-item__meta">
-          {vaultName}
-          {itemSubtitle(item) ? ` · ${itemSubtitle(item)}` : ''}
-          {detail ? ` · ${detail}` : ''}
-        </span>
-      </span>
-      <ChevronRight size={16} className="security-item__chevron" aria-hidden="true" />
+    <button
+      type="button"
+      className={`security-category ${count === 0 ? 'security-category--empty' : ''}`}
+      onClick={() => onOpen(category)}
+    >
+      <strong>{count}</strong>
+      <span>{label}</span>
+      <small>{hint}</small>
     </button>
   )
 }
 
-function ItemList({
-  items,
-  vaultNames,
-  detailFor,
-  onOpen,
-}: {
-  items: VaultItem[]
-  vaultNames: Map<string, string>
-  detailFor?: (item: VaultItem) => string | undefined
-  onOpen: (itemId: string) => void
-}) {
-  return (
-    <div className="security-list">
-      {items.map((item) => (
-        <ItemButton
-          key={item.id}
-          item={item}
-          vaultName={vaultNames.get(item.vaultId) ?? 'Coffre'}
-          detail={detailFor?.(item)}
-          onOpen={onOpen}
-        />
-      ))}
-    </div>
-  )
-}
-
-function GroupList({
-  groups,
-  vaultNames,
+function PointButton({
+  count,
   label,
+  hint,
+  category,
   icon,
   onOpen,
 }: {
-  groups: Array<ReusedPasswordGroup | SimilarPasswordGroup>
-  vaultNames: Map<string, string>
-  label: (count: number) => string
-  icon: 'copy' | 'key'
-  onOpen: (itemId: string) => void
+  count: number
+  label: string
+  hint: string
+  category: SecurityCategory
+  icon: 'copy' | 'key' | 'clock' | 'help' | 'link' | 'breach'
+  onOpen: (category: SecurityCategory) => void
 }) {
-  const Icon = icon === 'copy' ? Copy : KeyRound
+  const Icon =
+    icon === 'copy'
+      ? Copy
+      : icon === 'clock'
+        ? Clock3
+        : icon === 'help'
+          ? CircleHelp
+          : icon === 'link'
+            ? Link2
+            : icon === 'breach'
+              ? ShieldAlert
+              : KeyRound
+
   return (
-    <div className="security-list">
-      {groups.map((group) => (
-        <div key={group.items.map((item) => item.id).join('-')} className="security-group">
-          <p className="security-group__label">
-            <Icon size={13} />
-            {label(group.items.length)}
-          </p>
-          {group.items.map((item) => (
-            <ItemButton
-              key={item.id}
-              item={item}
-              vaultName={vaultNames.get(item.vaultId) ?? 'Coffre'}
-              onOpen={onOpen}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
+    <button
+      type="button"
+      className="security-point"
+      onClick={() => onOpen(category)}
+      disabled={count === 0}
+    >
+      <Icon size={15} aria-hidden="true" />
+      <span className="security-point__body">
+        <span>{label}</span>
+        <small>{hint}</small>
+      </span>
+      <strong>{count}</strong>
+    </button>
   )
 }
 
-function DuplicateList({
-  groups,
-  vaultNames,
-  onOpen,
-}: {
-  groups: DuplicateUrlGroup[]
-  vaultNames: Map<string, string>
-  onOpen: (itemId: string) => void
-}) {
-  return (
-    <div className="security-list">
-      {groups.map((group) => (
-        <div key={group.url} className="security-group">
-          <p className="security-group__label">
-            <Link2 size={13} />
-            {group.url} · {group.items.length} éléments
-          </p>
-          {group.items.map((item) => (
-            <ItemButton
-              key={item.id}
-              item={item}
-              vaultName={vaultNames.get(item.vaultId) ?? 'Coffre'}
-              onOpen={onOpen}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-export function SecurityDialog({ report, vaults, onClose, onOpenItem }: SecurityDialogProps) {
-  const vaultNames = useVaultNames(vaults)
+export function SecurityDialog({
+  report,
+  breachCheck,
+  breachStatus,
+  onCheckBreaches,
+  onOpenSettings,
+  onClose,
+  onOpenCategory,
+}: SecurityDialogProps) {
+  const { t } = useI18n()
+  const [history, setHistory] = useState<SecuritySnapshot[]>(() => loadSecurityHistory())
   const tone = securityTone(report.score)
+  const scoreLabel =
+    report.score >= 90
+      ? t('security.score.excellent')
+      : report.score >= 75
+        ? t('security.score.good')
+        : report.score >= 50
+          ? t('security.score.fair')
+          : t('security.score.critical')
+  const scoreReason =
+    report.total === 0
+      ? t('security.reason.noLogins')
+      : report.affected === 0
+        ? t('security.reason.noIssues')
+        : report.breached.length > 0
+        ? t(
+            pluralKey(
+              report.breached.length,
+              'security.reason.breached.one',
+              'security.reason.breached.other',
+            ),
+            { count: report.breached.length, total: report.total },
+          )
+        : report.weakOrReusedCount > 0
+          ? t(
+              pluralKey(
+                report.weakOrReusedCount,
+                'security.reason.weak.one',
+                'security.reason.weak.other',
+              ),
+              { count: report.weakOrReusedCount, total: report.total },
+            )
+          : t(
+              pluralKey(
+                report.affected,
+                'security.reason.issues.one',
+                'security.reason.issues.other',
+              ),
+              { count: report.affected, total: report.total },
+            )
 
+  useEffect(() => {
+    if (report.total === 0) return
+    setHistory(recordSecuritySnapshot(report))
+  }, [report])
   const reusedCount = report.reused.reduce((total, group) => total + group.items.length, 0)
   const similarCount = report.similar.reduce((total, group) => total + group.items.length, 0)
   const duplicateCount = report.duplicates.reduce(
     (total, group) => total + group.items.length,
     0,
   )
+  const capped = report.total > 0 && report.weakOrReusedCount > report.total / 2
 
   return (
     <Modal
-      title="Sécurité du coffre"
-      description="Analyse locale des connexions actives. Aucun mot de passe ne quitte l’appareil."
+      title={t('security.title')}
+      description={t('security.description')}
       size="lg"
       onClose={onClose}
       footer={
         <button type="button" className="button button--secondary" onClick={onClose}>
-          Fermer
+          {t('common.close')}
         </button>
       }
     >
@@ -190,30 +189,30 @@ export function SecurityDialog({ report, vaults, onClose, onOpenItem }: Security
         <div className="security-score__body">
           <strong>
             {report.total === 0
-              ? 'Aucune connexion à analyser'
+              ? t('security.noLogins')
               : report.affected === 0
-                ? 'Excellent — aucun problème détecté'
-                : `${report.scoreLabel} · ${report.affected} élément${
-                    report.affected > 1 ? 's' : ''
-                  } à revoir`}
+                ? t('security.excellent')
+                : t(
+                    pluralKey(
+                      report.affected,
+                      'security.affected.one',
+                      'security.affected.other',
+                    ),
+                    { label: scoreLabel, count: report.affected },
+                  )}
           </strong>
-          <p>
-            {report.total === 0
-              ? 'Ajoutez une connexion pour commencer l’analyse.'
-              : `${report.total - report.affected}/${report.total} connexion${
-                  report.total > 1 ? 's' : ''
-                } sans problème · ${report.strongCount} solide${
-                  report.strongCount > 1 ? 's' : ''
-                }, ${report.mediumCount} moyenne${report.mediumCount > 1 ? 's' : ''}, ${
-                  report.weak.length
-                } faible${report.weak.length > 1 ? 's' : ''}.`}
-          </p>
+          <p>{scoreReason}</p>
+          {capped && <p>{t('security.capped')}</p>}
           {report.total > 0 && (
             <>
               <div
                 className="security-distribution"
                 role="img"
-                aria-label={`${report.strongCount} mots de passe solides, ${report.mediumCount} moyens, ${report.weak.length} faibles`}
+                aria-label={t('security.distribution.aria', {
+                  strong: report.strongCount,
+                  medium: report.mediumCount,
+                  weak: report.weak.length,
+                })}
               >
                 <span
                   className="security-distribution__strong"
@@ -230,13 +229,16 @@ export function SecurityDialog({ report, vaults, onClose, onOpenItem }: Security
               </div>
               <div className="security-distribution__legend">
                 <span>
-                  <i className="security-dot security-dot--strong" /> Solides
+                  <i className="security-dot security-dot--strong" />{' '}
+                  {t('security.legend.strong')}
                 </span>
                 <span>
-                  <i className="security-dot security-dot--medium" /> Moyens
+                  <i className="security-dot security-dot--medium" />{' '}
+                  {t('security.legend.medium')}
                 </span>
                 <span>
-                  <i className="security-dot security-dot--weak" /> Faibles
+                  <i className="security-dot security-dot--weak" />{' '}
+                  {t('security.legend.weak')}
                 </span>
               </div>
             </>
@@ -244,186 +246,161 @@ export function SecurityDialog({ report, vaults, onClose, onOpenItem }: Security
         </div>
       </div>
 
+      <SecurityHistoryChart history={history} />
+
+      <div
+        className={`security-breach ${
+          report.breached.length > 0 ? 'security-breach--found' : ''
+        }`}
+      >
+        <div className="security-breach__head">
+          <ShieldAlert size={20} />
+          <div>
+            <strong>{t('security.breach.title')}</strong>
+            <p>{t('security.breach.privacy')}</p>
+          </div>
+        </div>
+        {breachCheck ? (
+          <>
+            <p className="security-breach__status">
+              {breachStatus === 'checking'
+                ? t('security.breach.checking')
+                : breachStatus === 'error'
+                  ? t('security.breach.error')
+                  : breachStatus === 'done'
+                    ? report.breached.length > 0
+                      ? t(
+                          pluralKey(
+                            report.breached.length,
+                            'security.breach.found.one',
+                            'security.breach.found.other',
+                          ),
+                          { count: report.breached.length },
+                        )
+                      : t('security.breach.none')
+                    : t('security.breach.idle')}
+            </p>
+            <button
+              type="button"
+              className="button button--secondary button--sm"
+              onClick={onCheckBreaches}
+              disabled={breachStatus === 'checking'}
+            >
+              {breachStatus === 'checking'
+                ? t('security.breach.checking')
+                : t('security.breach.check')}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="security-breach__status">
+              {t('security.breach.off')}
+            </p>
+            <button
+              type="button"
+              className="button button--secondary button--sm"
+              onClick={onOpenSettings}
+            >
+              {t('security.breach.settings')}
+            </button>
+          </>
+        )}
+      </div>
+
       {report.affected === 0 && report.total > 0 && (
         <div className="security-empty">
           <ShieldCheck size={22} />
-          <p>
-            Mots de passe solides, aucun doublon, aucune réutilisation et pas de connexion
-            incomplète. Continuez à utiliser des mots de passe uniques et la double
-            authentification.
-          </p>
+          <p>{t('security.empty')}</p>
         </div>
       )}
 
       {report.total > 0 && (
-        <div className="security-summary" aria-label="Résumé des problèmes">
-          <div>
-            <strong>{report.weak.length}</strong>
-            <span>Faibles</span>
+        <>
+          <div className="security-primary" aria-label={t('security.primary')}>
+            <CategoryButton
+              count={report.weak.length}
+              label={t('security.weak')}
+              hint={t('security.weak.hint')}
+              category="weak"
+              onOpen={onOpenCategory}
+            />
+            <CategoryButton
+              count={reusedCount}
+              label={t('security.reused')}
+              hint={t('security.reused.hint')}
+              category="reused"
+              onOpen={onOpenCategory}
+            />
+            <CategoryButton
+              count={report.no2fa.length}
+              label={t('security.no2fa')}
+              hint={t('security.no2fa.hint')}
+              category="no2fa"
+              onOpen={onOpenCategory}
+            />
           </div>
-          <div>
-            <strong>{reusedCount}</strong>
-            <span>Réutilisés</span>
+
+          <div className="security-points">
+            <p className="security-points__title">{t('security.points')}</p>
+            {report.breached.length > 0 && (
+              <PointButton
+                count={report.breached.length}
+                label={t('security.breached')}
+                hint={t('security.breached.hint')}
+                category="breached"
+                icon="breach"
+                onOpen={onOpenCategory}
+              />
+            )}
+            <PointButton
+              count={similarCount}
+              label={t('security.similar')}
+              hint={t('security.similar.hint')}
+              category="similar"
+              icon="copy"
+              onOpen={onOpenCategory}
+            />
+            <PointButton
+              count={report.old.length}
+              label={t('security.old')}
+              hint={t('security.old.hint')}
+              category="old"
+              icon="clock"
+              onOpen={onOpenCategory}
+            />
+            <PointButton
+              count={report.incomplete.length}
+              label={t('security.incomplete')}
+              hint={t('security.incomplete.hint')}
+              category="incomplete"
+              icon="help"
+              onOpen={onOpenCategory}
+            />
+            <PointButton
+              count={duplicateCount}
+              label={t('security.duplicates')}
+              hint={t('security.duplicates.hint')}
+              category="duplicates"
+              icon="link"
+              onOpen={onOpenCategory}
+            />
           </div>
-          <div>
-            <strong>{similarCount}</strong>
-            <span>Variantes</span>
-          </div>
-          <div>
-            <strong>{report.no2fa.length}</strong>
-            <span>Sans 2FA</span>
-          </div>
-          <div>
-            <strong>{report.old.length}</strong>
-            <span>Anciens</span>
-          </div>
-          <div>
-            <strong>{report.incomplete.length}</strong>
-            <span>Incomplets</span>
-          </div>
-          <div>
-            <strong>{duplicateCount}</strong>
-            <span>Doublons</span>
-          </div>
-        </div>
+        </>
       )}
 
-      {report.weak.length > 0 && (
-        <section className="security-section">
-          <h3 className="security-section__title">
-            <ShieldAlert size={16} />
-            Mots de passe faibles
-            <span>{report.weak.length}</span>
-          </h3>
-          <p className="security-section__hint">
-            Utilisez le générateur de Coffre pour créer un mot de passe long et unique.
-          </p>
-          <ItemList
-            items={report.weak}
-            vaultNames={vaultNames}
-            detailFor={(item) => weakPasswordReason(item as LoginItem) ?? undefined}
-            onOpen={onOpenItem}
-          />
-        </section>
+      {report.total > 0 && report.affected > 0 && (
+        <p className="security-section__hint">
+          <ShieldAlert size={13} /> {t('security.categoryHint')}
+        </p>
       )}
 
-      {report.reused.length > 0 && (
-        <section className="security-section">
-          <h3 className="security-section__title">
-            <Copy size={16} />
-            Mots de passe réutilisés
-            <span>{reusedCount}</span>
-          </h3>
-          <p className="security-section__hint">
-            Un mot de passe compromis sur un site ne doit pas ouvrir les autres.
-          </p>
-          <GroupList
-            groups={report.reused}
-            vaultNames={vaultNames}
-            label={(count) => `Mot de passe partagé par ${count} éléments`}
-            icon="copy"
-            onOpen={onOpenItem}
-          />
-        </section>
+      {report.total === 0 && (
+        <p className="security-footnote">
+          <ShieldQuestion size={13} /> {t('security.noLoginsHint')}
+        </p>
       )}
 
-      {report.similar.length > 0 && (
-        <section className="security-section">
-          <h3 className="security-section__title">
-            <KeyRound size={16} />
-            Variantes proches
-            <span>{similarCount}</span>
-          </h3>
-          <p className="security-section__hint">
-            Des mots de passe qui ne diffèrent que par quelques chiffres ou symboles sont
-            faciles à deviner ensemble.
-          </p>
-          <GroupList
-            groups={report.similar}
-            vaultNames={vaultNames}
-            label={(count) => `Variantes partagées par ${count} éléments`}
-            icon="key"
-            onOpen={onOpenItem}
-          />
-        </section>
-      )}
-
-      {report.no2fa.length > 0 && (
-        <section className="security-section">
-          <h3 className="security-section__title">
-            <KeyRound size={16} />
-            Sans double authentification
-            <span>{report.no2fa.length}</span>
-          </h3>
-          <p className="security-section__hint">
-            Ajoutez un code TOTP pour protéger le compte même si le mot de passe fuit.
-          </p>
-          <ItemList
-            items={report.no2fa}
-            vaultNames={vaultNames}
-            detailFor={() => 'Aucun code TOTP configuré'}
-            onOpen={onOpenItem}
-          />
-        </section>
-      )}
-
-      {report.incomplete.length > 0 && (
-        <section className="security-section">
-          <h3 className="security-section__title">
-            <CircleHelp size={16} />
-            Connexions incomplètes
-            <span>{report.incomplete.length}</span>
-          </h3>
-          <p className="security-section__hint">
-            Complétez les champs manquants pour que le remplissage et l’analyse soient
-            fiables.
-          </p>
-          <ItemList
-            items={report.incomplete}
-            vaultNames={vaultNames}
-            detailFor={(item) => incompleteReason(item as LoginItem)}
-            onOpen={onOpenItem}
-          />
-        </section>
-      )}
-
-      {report.old.length > 0 && (
-        <section className="security-section">
-          <h3 className="security-section__title">
-            <Clock3 size={16} />
-            Non modifiés depuis un an
-            <span>{report.old.length}</span>
-          </h3>
-          <p className="security-section__hint">
-            Vérifiez ces comptes et changez le mot de passe s’il a été exposé.
-          </p>
-          <ItemList
-            items={report.old}
-            vaultNames={vaultNames}
-            detailFor={() => 'Dernière modification > 1 an'}
-            onOpen={onOpenItem}
-          />
-        </section>
-      )}
-
-      {report.duplicates.length > 0 && (
-        <section className="security-section">
-          <h3 className="security-section__title">
-            <Link2 size={16} />
-            Sites en doublon
-            <span>{duplicateCount}</span>
-          </h3>
-          <p className="security-section__hint">
-            Vérifiez s’il s’agit de comptes distincts ou d’éléments à fusionner.
-          </p>
-          <DuplicateList groups={report.duplicates} vaultNames={vaultNames} onOpen={onOpenItem} />
-        </section>
-      )}
-
-      <p className="security-footnote">
-        Analyse effectuée localement sur les connexions actives. Les notes, cartes,
-        identités, pièces jointes et éléments en corbeille ne sont pas inclus.
-      </p>
+      <p className="security-footnote">{t('security.footnote')}</p>
     </Modal>
   )
 }

@@ -12,9 +12,9 @@
         <img class="logo" src="./icons/icon-192.png" alt="" width="36" height="36" />
         <div class="header__text">
           <h1>Coffre</h1>
-          <p id="site">Site inconnu</p>
+          <p id="site"><span data-i18n="popup_siteUnknown">Site inconnu</span></p>
         </div>
-        <button id="settings" class="icon-button" type="button" title="Réglages">
+        <button id="settings" class="icon-button" type="button" title="Réglages" data-i18n-title="popup_settings">
           ⚙
         </button>
       </header>
@@ -22,35 +22,51 @@
       <main id="main" class="main">
         <p id="message" class="message" hidden></p>
 
+        <div id="save-prompt" class="save-prompt" hidden>
+          <p id="save-text" class="save-prompt__text"></p>
+          <div class="save-prompt__actions">
+            <button id="save-now" class="button button--primary" type="button">
+              <span data-i18n="popup_save">Enregistrer</span>
+            </button>
+            <button id="save-ignore" class="button" type="button"><span data-i18n="popup_ignore">Ignorer</span></button>
+          </div>
+        </div>
+
         <div id="search-wrap" class="search" hidden>
           <input
             id="search"
             type="search"
             autocomplete="off"
             spellcheck="false"
-            placeholder="Rechercher un identifiant…"
-            aria-label="Rechercher un identifiant"
+            placeholder="Rechercher un identifiant…" data-i18n-placeholder="popup_searchPlaceholder"
+            aria-label="Rechercher un identifiant" data-i18n-aria-label="popup_searchLabel"
           />
         </div>
 
         <ul id="results" class="results"></ul>
         <p id="empty" class="empty" hidden></p>
         <button id="show-all" class="button button--secondary" type="button" hidden>
-          Afficher toutes mes connexions
+          <span data-i18n="popup_showAll">Afficher toutes mes connexions</span>
         </button>
 
         <div id="actions" class="actions" hidden>
+          <button id="activate-inline" class="button" type="button" hidden>
+            <span data-i18n="popup_activateInline">Activer le menu dans les champs</span>
+          </button>
+          <button id="pair" class="button button--primary" type="button" hidden>
+            <span data-i18n="popup_pair">Associer l’extension</span>
+          </button>
           <button id="open-app" class="button button--primary" type="button">
-            Ouvrir Coffre
+            <span data-i18n="popup_openApp">Ouvrir Coffre</span>
           </button>
           <button id="focus-app" class="button" type="button" hidden>
-            Déverrouiller Coffre
+            <span data-i18n="popup_unlockApp">Déverrouiller Coffre</span>
           </button>
         </div>
       </main>
 
       <footer class="footer">
-        <span id="footer-status">Local · aucun serveur</span>
+        <span id="footer-status"><span data-i18n="popup_footer">Local · aucun serveur</span></span>
       </footer>
     </div>
     <script type="module" src="./popup.ts"></script>
