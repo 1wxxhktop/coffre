@@ -566,6 +566,15 @@ const wifiContentSchema = z.object({
   hidden: z.boolean(),
 })
 
+const apiCredentialContentSchema = z.object({
+  ...itemBaseSchema,
+  type: z.literal('api-credential'),
+  keyId: z.string().max(500),
+  secret: z.string().max(10_000),
+  environment: z.string().max(100),
+  endpoint: z.string().max(2_000),
+})
+
 const itemContentSchema = z.discriminatedUnion('type', [
   loginContentSchema,
   noteContentSchema,
@@ -574,6 +583,7 @@ const itemContentSchema = z.discriminatedUnion('type', [
   passkeyContentSchema,
   sshKeyContentSchema,
   wifiContentSchema,
+  apiCredentialContentSchema,
 ])
 
 /** Valide le contenu déchiffré d’un élément (imports, partages hors ligne). */
@@ -2026,6 +2036,15 @@ function cleanDraft(draft: ItemDraft): ItemContent {
             ? draft.security
             : 'WPA',
         hidden: Boolean(draft.hidden),
+      }
+    case 'api-credential':
+      return {
+        ...common,
+        type: 'api-credential',
+        keyId: cleanText(draft.keyId, 500),
+        secret: (draft.secret ?? '').slice(0, 10_000),
+        environment: cleanText(draft.environment, 100),
+        endpoint: cleanText(draft.endpoint, 2_000),
       }
   }
 }

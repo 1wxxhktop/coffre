@@ -548,6 +548,16 @@ function makeDraft(
         security: 'WPA',
         hidden: false,
       } as ItemDraft
+    case 'api-credential':
+      return {
+        ...emptyDraft('api-credential', vaultId),
+        ...common,
+        type: 'api-credential',
+        keyId: '',
+        secret: '',
+        environment: '',
+        endpoint: '',
+      } as ItemDraft
   }
 }
 
@@ -1403,6 +1413,8 @@ function fingerprintKey(item: FingerprintItem): string {
       return `ssh-key|${title}|${normalizeText(item.fingerprint)}`
     case 'wifi':
       return `wifi|${title}|${normalizeText(item.ssid)}`
+    case 'api-credential':
+      return `api-credential|${title}|${normalizeText(item.keyId)}`
   }
 }
 

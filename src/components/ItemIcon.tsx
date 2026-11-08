@@ -1,4 +1,4 @@
-import { CreditCard, FileText, Fingerprint, KeyRound, Terminal, UserRound, Wifi } from 'lucide-react'
+import { Code2, CreditCard, FileText, Fingerprint, KeyRound, Terminal, UserRound, Wifi } from 'lucide-react'
 import type { ItemType } from '../lib/types'
 
 export function ItemIcon({ type, size = 18 }: { type: ItemType; size?: number }) {
@@ -17,5 +17,7 @@ export function ItemIcon({ type, size = 18 }: { type: ItemType; size?: number })
       return <Terminal size={size} />
     case 'wifi':
       return <Wifi size={size} />
+    case 'api-credential':
+      return <Code2 size={size} />
   }
 }

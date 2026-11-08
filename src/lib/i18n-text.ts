@@ -572,6 +572,11 @@ export const EN_TEXT: Record<string, string> = {
   'Afficher le QR code Wi-Fi': 'Show Wi-Fi QR code',
   'Masquer le QR code Wi-Fi': 'Hide Wi-Fi QR code',
   'Scannez ce code pour rejoindre le réseau.': 'Scan this code to join the network.',
+  'Identifiant de clé': 'Key ID',
+  'Environnement': 'Environment',
+  'Point de terminaison': 'Endpoint',
+  'Production': 'Production',
+  'https://api.exemple.fr': 'https://api.example.com',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

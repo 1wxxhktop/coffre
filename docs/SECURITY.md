@@ -950,6 +950,18 @@ autres types :
 - les exports CSV de connexions n’incluent pas les réseaux Wi-Fi ; le format
   « Coffre complet » reste un export chiffré par le fichier `.coffre`.
 
+### 2.22 Identifiants d’API
+
+Les identifiants d’API suivent le même chiffrement que les autres éléments :
+
+- l’identifiant de clé, le secret, l’environnement et le point de terminaison
+  sont stockés dans le contenu chiffré ; les métadonnées du fichier ne les
+  exposent pas ;
+- le secret est masqué par défaut dans la fiche et n’est révélé ou copié que
+  sur action explicite ;
+- les exports CSV de connexions ne contiennent pas ces secrets ; le format
+  « Coffre complet » reste un export chiffré du fichier `.coffre`.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

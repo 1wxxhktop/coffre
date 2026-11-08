@@ -6,6 +6,7 @@ import {
   Fingerprint,
   KeySquare,
   Wifi,
+  Code2,
   History,
   KeyRound,
   LayoutDashboard,
@@ -71,6 +72,7 @@ const FILTER_KEYS: Record<ItemFilter, MessageKey> = {
   passkey: 'filter.passkey',
   'ssh-key': 'filter.sshKey',
   wifi: 'filter.wifi',
+  'api-credential': 'filter.apiCredential',
   trash: 'filter.trash',
 }
 
@@ -86,6 +88,7 @@ const FILTERS: Array<{ id: ItemFilter; icon: LucideIcon }> = [
   { id: 'passkey', icon: Fingerprint },
   { id: 'ssh-key', icon: KeySquare },
   { id: 'wifi', icon: Wifi },
+  { id: 'api-credential', icon: Code2 },
   { id: 'trash', icon: Trash2 },
 ]
 
