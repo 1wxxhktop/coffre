@@ -15,6 +15,7 @@ function vaultAccess() {
     {
       id: 'v1',
       name: 'Personnel',
+  role: 'write',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       itemCount: 0,

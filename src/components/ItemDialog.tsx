@@ -1765,7 +1765,8 @@ export function ItemDialog({
                 copyValue={copyValue}
                 copied={copied}
                 onToggleFavorite={() => void toggleFavorite()}
-                readOnly={trashed}
+                readOnly={trashed || vault?.role === 'read'}
+                vaultReadOnly={vault?.role === 'read'}
                 issue={issue}
                 onGeneratePassword={() => setShowGenerator(true)}
                 onEditItem={startEditing}
@@ -1966,6 +1967,7 @@ interface ItemDetailsProps {
   onToggleFavorite: () => void
   /** Élément en corbeille : lecture seule, ni favori ni pièces jointes modifiables. */
   readOnly?: boolean
+  vaultReadOnly?: boolean
   issue: ItemSecurityIssue | null
   onGeneratePassword: () => void
   onEditItem: () => void
@@ -1985,6 +1987,7 @@ function ItemDetails({
   copied,
   onToggleFavorite,
   readOnly = false,
+  vaultReadOnly = false,
   issue,
   onGeneratePassword,
   onEditItem,
@@ -2007,7 +2010,10 @@ function ItemDetails({
           </span>
           <div>
             <span className="item-detail__type">{itemTypeLabel(item.type)}</span>
-            <span className="item-detail__vault">{vaultName}</span>
+            <span className="item-detail__vault">
+              {vaultName}
+              {vaultReadOnly ? ` · ${tt('Lecture seule')}` : ''}
+            </span>
           </div>
         </div>
         {!readOnly && (

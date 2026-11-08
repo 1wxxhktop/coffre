@@ -57,7 +57,7 @@ import {
 import { normalizeDateOnly } from './expiry'
 import { normalizeRecoveryPhrase } from './recovery'
 import { openSharingIdentity, resealSharingIdentity } from './sharingVault'
-import type { SharingIdentity } from './sharing'
+import type { SharingIdentity, ShareRole } from './sharing'
 import type {
   ActivityEvent,
   AliasKeyService,
@@ -187,6 +187,7 @@ export interface AttachmentInput {
 export class VaultSession {
   #masterKey: Uint8Array
   #vaultKeys = new Map<string, Uint8Array>()
+  #vaultRoles = new Map<string, ShareRole>()
   #recoveryKey: Uint8Array | null = null
   #integrityKey: Uint8Array | null = null
   #locked = false
@@ -220,10 +221,21 @@ export class VaultSession {
     this.#vaultKeys.set(vaultId, key)
   }
 
+  vaultRole(vaultId: string): ShareRole {
+    this.#assertUnlocked()
+    return this.#vaultRoles.get(vaultId) ?? 'write'
+  }
+
+  setVaultRole(vaultId: string, role: ShareRole): void {
+    this.#assertUnlocked()
+    this.#vaultRoles.set(vaultId, role)
+  }
+
   removeVaultKey(vaultId: string): void {
     const key = this.#vaultKeys.get(vaultId)
     if (key) wipe(key)
     this.#vaultKeys.delete(vaultId)
+    this.#vaultRoles.delete(vaultId)
   }
 
   get hasRecoveryKey(): boolean {
@@ -286,6 +298,7 @@ export class VaultSession {
     this.#integrityKey = null
     for (const key of this.#vaultKeys.values()) wipe(key)
     this.#vaultKeys.clear()
+    this.#vaultRoles.clear()
   }
 
   #assertUnlocked(): void {
@@ -1316,10 +1329,12 @@ function vaultSummary(
   record: EncryptedVaultRecord,
   name: string,
   items: VaultItem[],
+  role: ShareRole = 'write',
 ): VaultSummary {
   return {
     id: record.id,
     name,
+    role,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     itemCount: items.filter((item) => item.vaultId === record.id && !item.deletedAt).length,
@@ -1447,14 +1462,25 @@ export async function openVaultFileWithMasterKey(
     openVaultIds.add(record.id)
 
     let name = 'Coffre sans nom'
+    let role: ShareRole = 'write'
+    let adminFingerprint: string | undefined
     try {
-      const meta = await openJson<{ name?: unknown }>(record.name, vaultKey, vaultMetaAad(record.id))
+      const meta = await openJson<{ name?: unknown; role?: unknown; adminFingerprint?: unknown }>(
+        record.name,
+        vaultKey,
+        vaultMetaAad(record.id),
+      )
       if (typeof meta.name === 'string' && meta.name.trim()) name = meta.name
+      if (meta.role === 'read') role = 'read'
+      if (typeof meta.adminFingerprint === 'string') adminFingerprint = meta.adminFingerprint
     } catch {
       warnings.push('Le nom d’un coffre n’a pas pu être déchiffré.')
     }
-
-    vaults.push(vaultSummary(record, name, []))
+    session.setVaultRole(record.id, role)
+    vaults.push({
+      ...vaultSummary(record, name, [], role),
+      ...(adminFingerprint ? { adminFingerprint } : {}),
+    })
   }
 
   if (openVaultIds.size === 0) {
@@ -2147,6 +2173,12 @@ function assertUnlocked(session: VaultSession): void {
   if (session.locked) throw new VaultLockedError()
 }
 
+function assertVaultWritable(session: VaultSession, vaultId: string): void {
+  if (session.vaultRole(vaultId) === 'read') {
+    throw new VaultValidationError('Ce coffre partagé est en lecture seule.')
+  }
+}
+
 function itemContentOfDraft(draft: ItemDraft): ItemContent {
   const cleaned = cleanDraft(draft)
   if (!cleaned.title) throw new VaultValidationError('Le titre est obligatoire')
@@ -2162,6 +2194,7 @@ export async function createItem(
   if (!session.hasVaultKey(draft.vaultId)) {
     throw new VaultValidationError('Coffre introuvable')
   }
+  assertVaultWritable(session, draft.vaultId)
 
   const content = {
     ...itemContentOfDraft(draft),
@@ -2384,6 +2417,7 @@ export async function updateItem(
   const existing = file.items.find((record) => record.id === item.id)
   if (!existing) throw new VaultValidationError('Élément introuvable')
   if (existing.vaultId !== item.vaultId) throw new VaultValidationError('Coffre incohérent')
+  assertVaultWritable(session, existing.vaultId)
 
   const knownAttachmentIds = new Set(
     file.attachments
@@ -2477,6 +2511,8 @@ export async function moveItem(
   }
   const existing = file.items.find((record) => record.id === itemId)
   if (!existing) throw new VaultValidationError('Élément introuvable')
+  assertVaultWritable(session, existing.vaultId)
+  assertVaultWritable(session, targetVaultId)
 
   const oldItemKey = await openBytes(
     existing.key,
@@ -2887,6 +2923,7 @@ export async function addAttachment(
   const existing = file.items.find((record) => record.id === item.id)
   if (!existing) throw new VaultValidationError('Élément introuvable')
   if (existing.vaultId !== item.vaultId) throw new VaultValidationError('Coffre incohérent')
+  assertVaultWritable(session, existing.vaultId)
   if (input.bytes.length === 0) {
     throw new VaultValidationError('La pièce jointe est vide')
   }
@@ -3436,7 +3473,13 @@ export async function renameVault(
 export async function addSharedVault(
   file: VaultFile,
   session: VaultSession,
-  input: { vaultId: string; name: string; key: Uint8Array },
+  input: {
+    vaultId: string
+    name: string
+    key: Uint8Array
+    role: ShareRole
+    adminFingerprint?: string
+  },
 ): Promise<{ file: VaultFile; vault: VaultSummary }> {
   assertUnlocked(session)
   if (!/^[A-Za-z0-9_-]{1,80}$/.test(input.vaultId)) {
@@ -3478,11 +3521,20 @@ export async function addSharedVault(
   const record: EncryptedVaultRecord = {
     id: input.vaultId,
     key: await sealBytes(input.key, session.masterKey, vaultKeyAad(input.vaultId)),
-    name: await sealJson({ name }, input.key, vaultMetaAad(input.vaultId)),
+    name: await sealJson(
+      {
+        name,
+        role: input.role,
+        ...(input.adminFingerprint ? { adminFingerprint: input.adminFingerprint } : {}),
+      },
+      input.key,
+      vaultMetaAad(input.vaultId),
+    ),
     createdAt: now,
     updatedAt: now,
   }
   session.setVaultKey(input.vaultId, input.key)
+  session.setVaultRole(input.vaultId, input.role)
   return {
     file: {
       ...file,
@@ -3490,7 +3542,7 @@ export async function addSharedVault(
       vaults: [...file.vaults, record],
       recovery,
     },
-    vault: vaultSummary(record, name, []),
+    vault: vaultSummary(record, name, [], input.role),
   }
 }
 

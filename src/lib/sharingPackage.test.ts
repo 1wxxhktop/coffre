@@ -8,6 +8,8 @@ import {
   generateSharingIdentity,
   publicSharingIdentity,
 } from './sharing'
+import { emptyDraft } from './types'
+import { randomBytes } from './crypto'
 
 const vaultKey = new Uint8Array(32).fill(5)
 
@@ -108,6 +110,53 @@ describe('import d’un coffre partagé', () => {
   const memberPassword = 'phrase de passe membre solide'
   const fastKdf = { memoryKiB: 8_192, iterations: 1, parallelism: 1 }
 
+  it('bloque les mutations lorsque le rôle local est read', async () => {
+    const { createVaultFile, addSharedVault, createItem, updateItem } = await import('./vault')
+    const member = await createVaultFile(memberPassword, 'Membre', fastKdf)
+    const added = await addSharedVault(member.file, member.session, {
+      vaultId: 'v_readonly',
+      name: 'Partagé lecture',
+      key: randomBytes(32),
+      role: 'read',
+    })
+    await expect(
+      createItem(added.file, member.session, {
+        ...emptyDraft('login', 'v_readonly'),
+        title: 'Interdit',
+      }),
+    ).rejects.toThrow()
+    member.session.setVaultRole('v_readonly', 'write')
+    const created = await createItem(added.file, member.session, {
+      ...emptyDraft('login', 'v_readonly'),
+      title: 'Autorisé',
+    })
+    member.session.setVaultRole('v_readonly', 'read')
+    await expect(
+      updateItem(created.file, member.session, {
+        ...created.item,
+        title: 'Modifié',
+      }),
+    ).rejects.toThrow()
+    member.session.lock()
+  })
+
+  it('autorise l’écriture lorsque le rôle est write', async () => {
+    const { createVaultFile, addSharedVault, createItem } = await import('./vault')
+    const member = await createVaultFile(memberPassword, 'Membre', fastKdf)
+    const added = await addSharedVault(member.file, member.session, {
+      vaultId: 'v_write',
+      name: 'Partagé écriture',
+      key: randomBytes(32),
+      role: 'write',
+    })
+    const created = await createItem(added.file, member.session, {
+      ...emptyDraft('login', 'v_write'),
+      title: 'Autorisé',
+    })
+    expect(created.item.title).toBe('Autorisé')
+    member.session.lock()
+  })
+
   it('ajoute le coffre partagé avec la clé reçue', async () => {
     const { createVaultFile, signVaultFile, unlockVaultFile, addSharedVault } = await import('./vault')
     const admin = await createVaultFile(adminPassword, 'Admin', fastKdf)
@@ -128,17 +177,31 @@ describe('import d’un coffre partagé', () => {
       vaultId,
       name: 'Partagé',
       key: imported.vaultKey,
+      role: imported.role,
+      adminFingerprint: imported.admin.fingerprint,
     })
     const signed = await signVaultFile(added.file, member.session, member.file)
     const opened = await unlockVaultFile(signed, memberPassword)
-    expect(opened.vaults.some((vault) => vault.id === vaultId && vault.name === 'Partagé')).toBe(
-      true,
-    )
+    expect(
+      opened.vaults.some(
+        (vault) =>
+          vault.id === vaultId && vault.name === 'Partagé' && vault.role === 'read',
+      ),
+    ).toBe(true)
+    await expect(
+      (await import('./vault')).createItem(
+        opened.file,
+        opened.session,
+        { ...emptyDraft('login', vaultId), title: 'Interdit' },
+      ),
+    ).rejects.toThrow()
     await expect(
       addSharedVault(opened.file, opened.session, {
         vaultId,
         name: 'Doublon',
         key: imported.vaultKey,
+        role: imported.role,
+        adminFingerprint: imported.admin.fingerprint,
       }),
     ).rejects.toThrow()
     opened.session.lock()
