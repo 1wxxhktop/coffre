@@ -16,6 +16,8 @@ export interface SshAgentApproval {
   fingerprint: string
   algorithm: string
   dataLen: number
+  dataSha256: string
+  dataPreview: string | null
 }
 
 /** Vérifie que l’agent SSH est disponible dans cette exécution. */

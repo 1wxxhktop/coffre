@@ -694,8 +694,9 @@ aucun socket n’est créé par défaut.
   lui-même le fichier `.coffre` et ne renvoie jamais une clé privée à la
   WebView. Les identités restent en mémoire Rust tant que l’agent tourne ;
 - chaque demande de signature émet un événement d’approbation ; la modale
-  affiche le commentaire, l’empreinte SHA-256, l’algorithme et la taille des
-  données. Sans réponse sous 60 secondes, la signature est refusée ;
+  affiche le commentaire, l’empreinte SHA-256 de la clé, l’algorithme, la taille,
+  l’empreinte SHA-256 des données et un aperçu lorsqu’elles sont textuelles.
+  Sans réponse sous 60 secondes, la signature est refusée ;
 - l’agent est arrêté au verrouillage, au démontage de l’interface ou via le
   bouton **Arrêter l’agent** ; les approbations en attente reçoivent un refus ;
 

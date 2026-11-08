@@ -46,6 +46,8 @@ pub struct SshAgentApproval {
     pub fingerprint: String,
     pub algorithm: String,
     pub data_len: usize,
+    pub data_sha256: String,
+    pub data_preview: Option<String>,
 }
 
 #[tauri::command(async)]
@@ -121,6 +123,22 @@ mod unix {
     use tauri::{AppHandle, Emitter, Manager};
 
     const APPROVAL_TIMEOUT: Duration = Duration::from_secs(60);
+
+    /// Aperçu lisible des données à signer, sans dépasser 200 caractères.
+    fn preview(data: &[u8]) -> Option<String> {
+        let text = std::str::from_utf8(data).ok()?;
+        let cleaned: String = text
+            .chars()
+            .filter(|character| !character.is_control() || matches!(character, '\n' | '\t'))
+            .take(200)
+            .collect();
+        let cleaned = cleaned.trim();
+        if cleaned.is_empty() {
+            None
+        } else {
+            Some(cleaned.to_string())
+        }
+    }
 
     #[derive(Default)]
     pub(super) struct Inner {
@@ -239,6 +257,8 @@ mod unix {
                 fingerprint: request.fingerprint.clone(),
                 algorithm: request.algorithm.clone(),
                 data_len: request.data.len(),
+                data_sha256: coffre_core::to_base64(&coffre_core::sha256(&request.data)),
+                data_preview: preview(&request.data),
             };
             if emitter.emit("coffre:ssh-agent-approval", payload).is_err() {
                 if let Ok(mut pending) = pending.lock() {
@@ -303,5 +323,18 @@ mod unix {
             let _ = sender.send(approved);
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::preview;
+
+        #[test]
+        fn apercu_des_donnees() {
+            assert_eq!(preview(b"commit\n\x07"), Some("commit".to_string()));
+            assert_eq!(preview(b"\x01\x02"), None);
+            assert_eq!(preview(&[0xff]), None);
+            assert_eq!(preview(&b"a".repeat(300)).unwrap().len(), 200);
+        }
     }
 }
