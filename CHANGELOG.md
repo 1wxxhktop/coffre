@@ -133,7 +133,8 @@
   l’accès d’urgence, enveloppes multi-membres, rotation de clé partagée et rôles
   signés. Identité persistée dans le fichier, ré-enveloppée au changement de
   mot de passe et créable depuis les réglages avec export public ; paquets de
-  partage signés par membre. Interface d’import/export à venir.
+  partage signés par membre et validation des identités/paquets importés.
+  Interface d’import/export à venir.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation

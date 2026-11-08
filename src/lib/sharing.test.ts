@@ -4,6 +4,7 @@ import {
   generateSharingIdentity,
   openEmergencyEnvelope,
   openVaultKeyFromMember,
+  parsePublicSharingIdentity,
   publicSharingIdentity,
   rotateSharedVaultKey,
   sealVaultKeyForMember,
@@ -26,6 +27,18 @@ describe('socle de partage L10', () => {
     expect(publicAlice.fingerprint).toBe(alice.fingerprint)
     expect(publicAlice).not.toHaveProperty('encryptionPrivateKey')
     expect(publicAlice).not.toHaveProperty('signingPrivateKey')
+  })
+
+  it('valide une identité publique importée', async () => {
+    const alice = await generateSharingIdentity()
+    const parsed = await parsePublicSharingIdentity(
+      JSON.stringify(publicSharingIdentity(alice)),
+    )
+    expect(parsed.fingerprint).toBe(alice.fingerprint)
+    await expect(
+      parsePublicSharingIdentity({ ...parsed, fingerprint: 'SHA256:faux' }),
+    ).rejects.toThrow()
+    await expect(parsePublicSharingIdentity('{')).rejects.toThrow()
   })
 
   it('scelle et rouvre une clé de coffre pour un membre', async () => {
