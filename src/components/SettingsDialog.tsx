@@ -26,6 +26,7 @@ import { PasswordStrength } from './PasswordStrength'
 import { RecoveryDialog } from './RecoveryDialog'
 import { EmergencyKitDialog } from './EmergencyKitDialog'
 import { KdbxExportDialog } from './KdbxExportDialog'
+import { SshAgentSettings } from './SshAgentSettings'
 import { readKdbx } from '../lib/kdbx'
 import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
@@ -1022,6 +1023,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     </details>
                   </section>
                 )}
+
+                <SshAgentSettings />
 
                 <section className="settings-section">
                   <div className="settings-section__head">

@@ -23,6 +23,7 @@ notify = "8.2.1"
 tauri-plugin-dialog = "2.8.4"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 coffre-core = { path = "crates/coffre-core" }
+coffre-ssh-agent = { path = "crates/coffre-ssh-agent" }
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
 tauri-plugin-global-shortcut = "2"

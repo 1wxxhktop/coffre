@@ -35,6 +35,7 @@ import { ItemRow } from './ItemRow'
 import { ItemDialog } from './ItemDialog'
 import { GeneratorDialog } from './GeneratorDialog'
 import { SettingsDialog } from './SettingsDialog'
+import { SshAgentBridge } from './SshAgentBridge'
 import { SecurityDialog } from './SecurityDialog'
 import { VaultFormDialog } from './VaultFormDialog'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -1520,6 +1521,8 @@ export function VaultApp() {
           onConfirm={trashSelected}
         />
       )}
+
+      <SshAgentBridge />
     </div>
   )
 }

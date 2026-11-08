@@ -14,6 +14,7 @@ use tauri::plugin::Plugin;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 mod bridge;
+mod ssh_agent;
 mod sync_store;
 mod vault_store;
 
@@ -492,6 +493,7 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .manage(bridge::BridgeState::default())
         .manage(sync_store::SyncState::default())
+        .manage(ssh_agent::SshAgentState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(NavigationGuard)
         .invoke_handler(tauri::generate_handler![
@@ -506,6 +508,10 @@ pub fn run() {
             open_external_url,
             hibp_range,
             core_merge_files,
+            ssh_agent::ssh_agent_start,
+            ssh_agent::ssh_agent_stop,
+            ssh_agent::ssh_agent_status,
+            ssh_agent::ssh_agent_respond,
             bridge::bridge_send,
             vault_read,
             vault_write,
