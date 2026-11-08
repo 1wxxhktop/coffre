@@ -494,13 +494,14 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run extension:zip` | Compile puis crée `coffre-extension.zip` |
 | `bun run extension:smoke` | Test manuel de l’extension (serveurs requis) |
 | `bun run bridge:smoke` | Smoke du relais natif stdin/socket (binaire compilé) |
-| `bun run core:test` | Tests du crate `coffre-core`, mutations, rotation et vecteurs croisés |
-| `bun run core:clippy` | Clippy strict du crate `coffre-core` |
+| `bun run core:test` | Tests de `coffre-core`, de la façade FFI et du CLI |
+| `bun run core:clippy` | Clippy strict de `coffre-core`, `coffre-core-ffi` et `coffre-cli` |
+| `bun run cli:build` | Compile `coffre-cli` en release |
 | `bun run typecheck` | Vérification TypeScript |
 | `bun run lint` | Oxlint, contrôle des jetons de design et chaînes i18n |
 | `bun run lint:i18n` | Vérifie qu’aucune chaîne d’interface n’est en dur |
 | `bun run icons` | Régénère les icônes PWA |
-| `bun run version:check` | Vérifie la cohérence des versions package/Tauri/extension/Cargo/coffre-core |
+| `bun run version:check` | Vérifie la cohérence des versions package/Tauri/extension/Cargo/cœur/CLI |
 | `bun run desktop:dev` | Lance l’application desktop Tauri |
 | `bun run desktop:build` | Produit les paquets desktop Tauri |
 | `./scripts/release-macos.sh` | Build macOS universel signé et notarié (certificat requis) |
@@ -646,7 +647,7 @@ trousseau et de la nouvelle interface) :
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
-- `cargo test -p coffre-core -p coffre-core-ffi` (11 + 1 tests) ouvre les
+- `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli` ouvre les
   fixtures TypeScript v1 à v4, crée/modifie/supprime, signe en v4, tourne le
   mot de passe, fusionne deux fichiers, exerce la façade UniFFI et relit les
   vecteurs Rust par le test TypeScript (`src/lib/coffreCoreVector.test.ts`).
@@ -664,6 +665,43 @@ cargo run -p coffre-core-ffi --bin uniffi-bindgen -- generate \
 
 La commande Tauri `core_merge_files` fusionne des fichiers chiffrés sans
 recevoir de mot de passe ni exposer de contenu clair.
+
+### CLI locale `coffre-cli`
+
+Le crate `src-tauri/crates/coffre-cli` fournit un binaire de lecture pour les
+scripts et le terminal. Il ouvre le même format v1 à v4 via `coffre-core`, ne
+modifie jamais le fichier et n’ouvre aucune connexion réseau.
+
+```bash
+cargo build --manifest-path src-tauri/Cargo.toml -p coffre-cli --release
+./src-tauri/target/release/coffre-cli --help
+
+# Le mot de passe est demandé sur le terminal, sans écho.
+./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre list
+./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre get GitHub
+./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre get GitHub --field username
+./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre totp GitHub
+
+# Pour un script : mot de passe sur stdin, jamais en argument.
+printf '%s\n' "$MASTER_PASSWORD" |
+  ./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre --password-stdin list
+
+# Injection de secrets dans l’environnement d’une commande.
+./src-tauri/target/release/coffre-cli ~/Documents/vault.coffre run \
+  --env DB_PASSWORD=prod-db \
+  --env DB_USER=prod-db::username \
+  -- ./migrate.sh
+```
+
+`--field` accepte `password` (par défaut), `username`, `notes` ou `json`.
+`run --env` accepte `NOM=RECHERCHE` ou `NOM=RECHERCHE::CHAMP`, transmet les
+valeurs uniquement par l’environnement du processus enfant et propage son code
+de sortie. Le mot de passe maître n’apparaît jamais dans `argv`. Les secrets ne
+sont écrits sur stdout que pour `get`, `totp` et la commande lancée par `run`.
+
+Cette première version lit le mot de passe dans le terminal. Le déverrouillage
+via le socket de l’application desktop (L4) reste à raccorder dans une tranche
+ultérieure de L11.
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
 système). La clé maîtresse encodée en base64 est rangée sous le service
@@ -769,6 +807,7 @@ src/
 src-tauri/        Socle desktop/mobile Tauri v2
   crates/coffre-core/  Format/crypto, mutations, fusion et vecteurs
   crates/coffre-core-ffi/  Façade UniFFI JSON pour mobile/CLI
+  crates/coffre-cli/  Lecture locale : list, get, totp, run --env
 extension/        Extension navigateur Manifest V3 (Chromium + Firefox)
 docs/             Sécurité, audit, préparation grand public, release, AutoFill macOS
 scripts/          Génération des icônes PWA, test manuel de l’extension
