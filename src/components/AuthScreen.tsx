@@ -36,6 +36,7 @@ export function AuthScreen() {
     create,
     unlock,
     unlockWithBiometrics,
+    unlockWithPrf,
     importVault,
     reset,
     error,
@@ -52,9 +53,11 @@ export function AuthScreen() {
   const [acknowledged, setAcknowledged] = useState(false)
   const [busy, setBusy] = useState(false)
   const [bioBusy, setBioBusy] = useState(false)
+  const [prfBusy, setPrfBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const bioBusyRef = useRef(false)
+  const prfBusyRef = useRef(false)
   const busyRef = useRef(false)
   const passwordRef = useRef('')
   const lastAutoBioRef = useRef(0)
@@ -128,6 +131,27 @@ export function AuthScreen() {
       // Empêche un nouveau dialogue dans la foulée de la fermeture du précédent.
       lastAutoBioRef.current = Date.now()
       setBioBusy(false)
+    }
+  }
+
+  const runPrfUnlock = async () => {
+    if (prfBusyRef.current || busyRef.current) return
+    prfBusyRef.current = true
+    setPrfBusy(true)
+    setFormError(null)
+    try {
+      const unlocked = await unlockWithPrf()
+      if (unlocked) {
+        setPassword('')
+        setConfirmPassword('')
+      }
+    } catch (caught) {
+      setFormError(
+        caught instanceof Error ? caught.message : t('auth.error.prf'),
+      )
+    } finally {
+      setPrfBusy(false)
+      prfBusyRef.current = false
     }
   }
 
@@ -290,6 +314,27 @@ export function AuthScreen() {
                     date: formatDateTime(file.updatedAt, intl),
                   })}
                 </span>
+              </div>
+            )}
+
+            {!isSetup && file?.prf && (
+              <div className="auth__biometric">
+                <button
+                  type="button"
+                  className="button button--secondary button--full"
+                  onClick={() => void runPrfUnlock()}
+                  disabled={prfBusy || busy}
+                >
+                  {prfBusy ? (
+                    <LoaderCircle size={18} className="spin" />
+                  ) : (
+                    <KeyRound size={18} />
+                  )}
+                  {prfBusy ? t('auth.prf.checking') : t('auth.prf.unlock')}
+                </button>
+                <div className="auth__separator">
+                  <span>{t('auth.prf.orPassword')}</span>
+                </div>
               </div>
             )}
 

@@ -240,6 +240,20 @@ export interface RecoveryEnvelope {
 }
 
 /**
+ * Enveloppe de déverrouillage par clé FIDO2/PRF. La clé maîtresse est scellée
+ * par une KEK dérivée de la sortie PRF et de l’identifiant du fichier.
+ */
+export interface PrfEnvelope {
+  version: 1
+  /** Identifiant de credential WebAuthn, base64url. */
+  credentialId: string
+  /** Sel PRF, base64 standard. */
+  salt: string
+  createdAt: string
+  wrap: Sealed
+}
+
+/**
  * Suppression définitive conservée en clair pour que les autres appareils
  * puissent la rejouer lors d’une fusion. Le contenu supprimé n’est plus présent.
  */
@@ -290,6 +304,8 @@ export interface VaultFile {
   attachments: EncryptedAttachmentRecord[]
   versions: EncryptedVersionRecord[]
   recovery?: RecoveryEnvelope
+  /** Déverrouillage optionnel par clé de sécurité FIDO2/PRF. */
+  prf?: PrfEnvelope
   /** Identifiant aléatoire de l’appareil qui a écrit en dernier (v4). */
   writer?: string
   /** Compteur monotone du fichier, incrémenté à chaque écriture (v4). */

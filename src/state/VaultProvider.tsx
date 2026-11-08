@@ -68,6 +68,11 @@ import {
   type RecoveryShare,
 } from '../lib/shamir'
 import { clearClipboardIfLastCopied } from '../lib/clipboard'
+import {
+  enrollPrf as createPrfEnrollment,
+  getPrfOutput,
+  openPrfEnvelope,
+} from '../lib/prf'
 import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
 import { isTauriRuntime } from '../lib/external'
 import {
@@ -143,6 +148,12 @@ interface VaultContextValue extends ProviderState {
   unlock: (password: string) => Promise<void>
   /** Déverrouille après une authentification Touch ID ; false si annulée. */
   unlockWithBiometrics: () => Promise<boolean>
+  /** Déverrouille avec la clé de sécurité FIDO2/PRF configurée. */
+  unlockWithPrf: () => Promise<boolean>
+  /** Enrôle une clé FIDO2/PRF pour le coffre courant. */
+  enrollPrf: () => Promise<void>
+  /** Révoque l’enveloppe PRF du coffre courant. */
+  removePrf: () => Promise<void>
   /** Supprime puis réenregistre la clé biométrique du coffre courant. */
   resetBiometricKey: () => Promise<void>
   lock: () => void
@@ -757,6 +768,109 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [apply, enqueue, finalizeOpen, requireVaultLock],
   )
 
+  const unlockWithPrf = useCallback(
+    () =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file?.prf) {
+          throw new Error('Aucune clé de sécurité n’est configurée pour ce coffre')
+        }
+        await requireVaultLock()
+        let prfOutput: Uint8Array
+        try {
+          prfOutput = await getPrfOutput({
+            credentialId: current.file.prf.credentialId,
+            salt: fromBase64(current.file.prf.salt),
+            rpId: window.location.hostname,
+          })
+        } catch (error) {
+          releaseVaultLock()
+          throw new Error(
+            error instanceof Error
+              ? error.message
+              : 'La clé de sécurité n’a pas fourni de sortie PRF',
+          )
+        }
+        let masterKey: Uint8Array
+        try {
+          masterKey = await openPrfEnvelope(current.file.prf, prfOutput, current.file.id)
+        } catch (error) {
+          releaseVaultLock()
+          throw new Error(
+            error instanceof Error
+              ? error.message
+              : 'Enveloppe PRF invalide',
+          )
+        } finally {
+          wipe(prfOutput)
+        }
+        try {
+          const opened = await finalizeOpen(
+            await openVaultFileWithMasterKey(current.file, masterKey),
+          )
+          epochRef.current += 1
+          apply(() => ({
+            status: 'unlocked',
+            file: opened.file,
+            session: opened.session,
+            vaults: opened.vaults,
+            items: opened.items,
+            warnings: opened.warnings,
+            error: null,
+            readOnly: opened.readOnly,
+            syncPending: false,
+            syncRevision: 0,
+          }))
+          return true
+        } catch {
+          releaseVaultLock()
+          throw new Error(
+            'La clé de sécurité n’est plus valide. Déverrouillez avec le mot de passe.',
+          )
+        } finally {
+          wipe(masterKey)
+        }
+      }),
+    [apply, enqueue, finalizeOpen, requireVaultLock],
+  )
+
+  const enrollPrf = useCallback(
+    () =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est en lecture seule.')
+        }
+        const epoch = epochRef.current
+        const envelope = await createPrfEnrollment(
+          current.session.masterKey,
+          current.file.id,
+          {
+            rpId: window.location.hostname,
+            userName: current.vaults[0]?.name ?? 'Coffre',
+          },
+        )
+        const file = await persist(current.file, { ...current.file, prf: envelope })
+        if (epochRef.current !== epoch) return
+        apply((previous) => ({ ...previous, file }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const removePrf = useCallback(
+    () =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const next = { ...current.file }
+        delete next.prf
+        const file = await persist(current.file, next)
+        apply((previous) => ({ ...previous, file }))
+      }),
+    [apply, enqueue, persist],
+  )
+
   const resetBiometricKey = useCallback(async () => {
     const current = stateRef.current
     if (!current.file || !current.session) throw new Error('Coffre verrouillé')
@@ -1309,6 +1423,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         const epoch = epochRef.current
         const draft = await changeMasterPassword(current.file, current.session, newPassword)
+        // Une enveloppe PRF scellée avec l’ancienne clé maîtresse est invalide.
+        delete draft.prf
         let file: VaultFile
         try {
           file = await persist(current.file, draft)
@@ -1377,10 +1493,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         let opened: OpenedVault
         try {
-          opened = await finalizeOpen(
-            await recoverVaultFile(current.file, phrase, newPassword),
-            { acceptRollback: true },
-          )
+          const recovered = await recoverVaultFile(current.file, phrase, newPassword)
+          delete recovered.file.prf
+          opened = await finalizeOpen(recovered, { acceptRollback: true })
           opened = await saveOpenedFile(opened)
         } catch (error) {
           releaseVaultLock()
@@ -1456,10 +1571,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           recoveryKey = await combineShares(parts)
           let opened: OpenedVault
           try {
-            opened = await finalizeOpen(
-              await recoverVaultFileWithRecoveryKey(current.file, recoveryKey, newPassword),
-              { acceptRollback: true },
+            const recovered = await recoverVaultFileWithRecoveryKey(
+              current.file,
+              recoveryKey,
+              newPassword,
             )
+            delete recovered.file.prf
+            opened = await finalizeOpen(recovered, { acceptRollback: true })
             opened = await saveOpenedFile(opened)
           } catch (error) {
             releaseVaultLock()
@@ -1895,6 +2013,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     create,
     unlock,
     unlockWithBiometrics,
+    unlockWithPrf,
+    enrollPrf,
+    removePrf,
     resetBiometricKey,
     lock,
     addVault,
