@@ -18,6 +18,22 @@ export async function createVault(page: Page): Promise<void> {
   })
 }
 
+/** Affiche la liste « Tous les éléments », quel que soit le palier responsive. */
+export async function showItems(page: Page): Promise<void> {
+  const mobileTab = page
+    .locator('.mobile-tabs')
+    .getByRole('button', { name: 'Tout', exact: true })
+  if (await mobileTab.isVisible()) {
+    await mobileTab.click()
+  } else {
+    await page
+      .locator('.sidebar')
+      .getByRole('button', { name: /^Tous les éléments/ })
+      .click()
+  }
+  await expect(page.locator('.list-pane')).toBeVisible()
+}
+
 /**
  * Ajoute une connexion via la modale de création et renvoie le panneau de
  * détail resté ouvert sur la fiche de l’élément.

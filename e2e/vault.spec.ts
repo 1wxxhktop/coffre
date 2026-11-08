@@ -4,6 +4,7 @@ import {
   closeDialog,
   createVault,
   openSettings,
+  showItems,
   sortItems,
   PASSWORD,
 } from './helpers'
@@ -77,6 +78,7 @@ test.describe('coffre et éléments', () => {
 
     await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD)
     await page.getByRole('button', { name: 'Déverrouiller' }).click()
+    await showItems(page)
     await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible({
       timeout: 45_000,
     })
