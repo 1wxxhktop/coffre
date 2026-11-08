@@ -233,7 +233,7 @@ export function analyzeSecurity(items: VaultItem[], now = Date.now()): SecurityR
 }
 
 export function securityTone(score: number): 'good' | 'warning' | 'danger' {
-  if (score >= 80) return 'good'
+  if (score >= 75) return 'good'
   if (score >= 50) return 'warning'
   return 'danger'
 }
