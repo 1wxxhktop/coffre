@@ -717,8 +717,9 @@ algorithmes non pris en charge sont refusés.
 Dans l’application desktop, **Réglages → Sécurité → Agent SSH** démarre
 l’agent à la demande. Rust ouvre le fichier local avec la clé maîtresse déjà
 déverrouillée et ne renvoie jamais les clés privées à la WebView. Chaque
-signature ouvre une modale d’approbation avec la clé, l’empreinte, l’algorithme
-et la taille des données ; sans réponse sous 60 secondes, elle est refusée.
+signature ouvre une modale d’approbation avec la clé, l’empreinte,
+l’algorithme, la taille, l’empreinte SHA-256 des données et un aperçu lorsqu’elles
+sont textuelles ; sans réponse sous 60 secondes, elle est refusée.
 L’agent s’arrête au verrouillage, à la fermeture de l’interface ou via le bouton
 **Arrêter l’agent**. Le socket est créé dans
 `app_data_dir()/ssh/agent.sock` ; aucun socket n’est ouvert par défaut.

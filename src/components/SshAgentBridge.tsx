@@ -114,6 +114,20 @@ export function SshAgentBridge() {
             </span>
           </span>
         </div>
+        <div className="detail-row">
+          <span className="detail-row__label">{t('sshAgent.approval.digest')}</span>
+          <span className="detail-row__value mono">
+            <span className="detail-row__text">{request.dataSha256}</span>
+          </span>
+        </div>
+        {request.dataPreview && (
+          <div className="detail-row detail-row--multiline">
+            <span className="detail-row__label">{t('sshAgent.approval.preview')}</span>
+            <span className="detail-row__value mono">
+              <span className="detail-row__text">{request.dataPreview}</span>
+            </span>
+          </div>
+        )}
       </div>
     </Modal>
   )
