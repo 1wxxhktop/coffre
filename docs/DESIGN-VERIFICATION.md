@@ -11,14 +11,14 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | Lint + jetons | `bun run lint` | OK, 0 erreur ; seuls des avertissements `oxlint` préexistants |
 | Jetons seuls | `bun run lint:design` | OK, aucune valeur littérale hors jetons |
 | Tests unitaires | `bun run test` | 42 fichiers, 375 tests |
-| E2E Chromium + WebKit | `bun run test:e2e` | 117 tests passés, 5 ignorés (122 exécutions) |
+| E2E Chromium + WebKit | `bun run test:e2e` | 118 tests passés, 6 ignorés (124 exécutions) |
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |
 | Build extension | `bun run extension:build` | OK |
 | Versions | `bun run version:check` | 0.8.0 cohérente |
 | Rust format | `cargo fmt -- --check` | OK |
 | Rust lint | `cargo clippy --all-targets -- -D warnings` | OK |
-| Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 13 tests desktop + 11 tests cœur + 1 test FFI |
+| Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 18 tests desktop + 12 tests cœur + 1 test FFI |
 | axe A/AA | `e2e/accessibility.spec.ts` | 0 violation sur les écrans scannés |
 
 ## Couverture e2e design
@@ -67,9 +67,11 @@ baseline de régression : les rendus de police varient entre macOS et Linux.
   checklist à exécuter est dans
   [`ACCESSIBILITY-MANUAL.md`](ACCESSIBILITY-MANUAL.md).
 - La régression visuelle `toHaveScreenshot` est optionnelle (`VISUAL=1`) et
-  les baselines versionnées sont spécifiques à macOS/Chromium. Pour la CI
-  Linux, il faut générer les baselines `-linux` dans un environnement
-  équivalent avant d’activer le test.
+  les baselines versionnées sont spécifiques à macOS/Chromium. Les baselines
+  Linux se génèrent avec le workflow manuel **Baselines visuelles Linux**
+  (`.github/workflows/visual-baselines.yml`), qui publie les fichiers
+  `*-linux.png` en artefact. Il reste à les committer avant d’activer le test
+  dans la CI générale.
 - Le working tree contient aussi des chantiers en cours (synchronisation,
   pont natif, partage hors ligne, kit d’urgence, échéances). Ils sont verts et
   inclus dans les tests, mais le découpage en PR doit être revu avant fusion :

@@ -178,8 +178,9 @@ bun run test:visual                 # comparer sur macOS
 bun run test:visual --update-snapshots
 ```
 
-Pour l’activer en CI, générer d’abord les baselines dans le conteneur Linux
-utilisé par le workflow.
+Pour l’activer en CI, générer d’abord les baselines Linux avec le workflow
+manuel **Baselines visuelles Linux**, puis committer les fichiers `*-linux.png`
+produits.
 `e2e/accessibility.spec.ts` vérifie les noms accessibles, le piège à focus, la
 réduction des animations et l’absence de violation axe A/AA sur les écrans
 principaux, dans les deux thèmes et les deux tailles.
