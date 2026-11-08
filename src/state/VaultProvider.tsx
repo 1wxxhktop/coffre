@@ -12,16 +12,22 @@ import {
   loadBackupVaultFile,
   loadVaultFile,
   loadVaultState,
+  overwriteVaultBackups,
   saveVaultFile,
   saveVaultState,
 } from '../lib/storage'
 import {
   addAttachment as addAttachmentToFile,
   addVault as addVaultToFile,
+  appendActivity,
+  deleteAliasKey as deleteAliasKeyInFile,
+  setAliasKey as setAliasKeyInFile,
   changeMasterPassword,
   checkVaultRollback,
   createItem,
+  createTemplate as createTemplateInFile,
   createVaultFile,
+  deleteTemplate as deleteTemplateInFile,
   deleteItem,
   deleteItems,
   deleteVault as deleteVaultFromFile,
@@ -43,6 +49,7 @@ import {
   trashItem as trashItemInFile,
   unlockVaultFile,
   updateItem as updateItemInFile,
+  updateTemplate as updateTemplateInFile,
   vaultFileName,
   verifyVaultFile,
   VaultValidationError,
@@ -68,6 +75,16 @@ import {
   type RecoveryShare,
 } from '../lib/shamir'
 import { clearClipboardIfLastCopied } from '../lib/clipboard'
+import {
+  exportBlobsToDirectory,
+  importBlobsFromDirectory,
+} from '../lib/blobStore'
+import {
+  clearTravelMode,
+  getTravelMode,
+  setTravelMode,
+  stripVaultForTravel,
+} from '../lib/travelMode'
 import {
   enrollPrf as createPrfEnrollment,
   getPrfOutput,
@@ -110,6 +127,10 @@ import {
   MAX_ATTACHMENT_BYTES,
   type ItemDraft,
   type VaultFile,
+  type ActivityEvent,
+  type ActivityKind,
+  type AliasKeyService,
+  type ItemTemplate,
   type VaultItem,
   type VaultStatus,
   type VaultSummary,
@@ -133,6 +154,9 @@ interface ProviderState {
   session: VaultSession | null
   vaults: VaultSummary[]
   items: VaultItem[]
+  templates: ItemTemplate[]
+  activity: ActivityEvent[]
+  aliasKeys: Partial<Record<AliasKeyService, string>>
   warnings: string[]
   error: string | null
   /** MAC global invalide : toutes les mutations sont refusées. */
@@ -160,6 +184,24 @@ interface VaultContextValue extends ProviderState {
   addVault: (name: string) => Promise<void>
   renameVault: (vaultId: string, name: string) => Promise<void>
   deleteVault: (vaultId: string) => Promise<void>
+  createTemplate: (input: {
+    name: string
+    icon?: string
+    fields: import('../lib/types').TemplateField[]
+  }) => Promise<ItemTemplate>
+  updateTemplate: (
+    templateId: string,
+    input: {
+      name: string
+      icon?: string
+      fields: import('../lib/types').TemplateField[]
+    },
+  ) => Promise<ItemTemplate>
+  deleteTemplate: (templateId: string) => Promise<void>
+  /** Active le mode voyage : retire les coffres non sûrs du fichier local. */
+  enableTravelMode: (safeVaultIds: string[], password: string) => Promise<void>
+  /** Restaure les coffres masqués depuis la synchronisation par dossier. */
+  disableTravelMode: (password: string, remotePassword?: string) => Promise<SyncRunResult>
   addItem: (draft: ItemDraft) => Promise<VaultItem>
   updateItem: (item: VaultItem) => Promise<VaultItem>
   moveItem: (itemId: string, targetVaultId: string) => Promise<VaultItem>
@@ -193,6 +235,16 @@ interface VaultContextValue extends ProviderState {
   ) => Promise<SyncConfig>
   disableSync: () => Promise<void>
   syncNow: (password?: string) => Promise<SyncRunResult>
+  /** Fusionne un fichier reçu par synchronisation locale (F2). */
+  lanSync: (remoteText: string, password?: string) => Promise<SyncRunResult>
+  /** Ajoute un événement au journal d’activité chiffré. */
+  recordActivity: (
+    kind: ActivityKind,
+    detail: string,
+    host?: string,
+  ) => Promise<void>
+  setAliasKey: (service: AliasKeyService, key: string) => Promise<void>
+  deleteAliasKey: (service: AliasKeyService) => Promise<void>
   dismissWarnings: () => void
 }
 
@@ -202,6 +254,9 @@ const initialState: ProviderState = {
   session: null,
   vaults: [],
   items: [],
+  templates: [],
+  activity: [],
+  aliasKeys: {},
   warnings: [],
   error: null,
   readOnly: false,
@@ -214,6 +269,18 @@ const VaultContext = createContext<VaultContextValue | null>(null)
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   return 'Une erreur inattendue est survenue'
+}
+
+function referencedBlobIds(items: VaultItem[]): string[] {
+  const ids = new Set<string>()
+  for (const item of items) {
+    for (const attachment of item.attachments) {
+      if (attachment.storage === 'blob' && attachment.blobId) {
+        ids.add(attachment.blobId)
+      }
+    }
+  }
+  return [...ids]
 }
 
 function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
@@ -539,6 +606,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
                 file: opened.file,
                 session: opened.session,
                 vaults: opened.vaults,
+                templates: opened.templates,
+                activity: opened.activity,
+                aliasKeys: opened.aliasKeys,
                 items: opened.items,
                 warnings: opened.warnings,
                 error: null,
@@ -654,6 +724,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           file: opened.file,
           session: opened.session,
           vaults: opened.vaults,
+          templates: opened.templates,
+          activity: opened.activity,
+          aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
           error: null,
@@ -687,6 +760,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           file: opened.file,
           session: opened.session,
           vaults: opened.vaults,
+          templates: opened.templates,
+          activity: opened.activity,
+          aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
           error: null,
@@ -745,6 +821,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             file: opened.file,
             session: opened.session,
             vaults: opened.vaults,
+            templates: opened.templates,
+            activity: opened.activity,
+            aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
             error: null,
@@ -814,6 +893,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             file: opened.file,
             session: opened.session,
             vaults: opened.vaults,
+            templates: opened.templates,
+            activity: opened.activity,
+            aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
             error: null,
@@ -918,6 +1000,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       enqueue(async () => {
         const current = stateRef.current
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (getTravelMode(current.file.id)?.enabled) {
+          throw new Error(
+            'Désactivez le mode voyage avant d’ajouter un coffre.',
+          )
+        }
         const epoch = epochRef.current
         const result = await addVaultToFile(current.file, current.session, name)
         const file = await persist(current.file, result.file)
@@ -968,6 +1055,254 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
       }),
     [apply, enqueue, persist],
+  )
+
+  const createTemplate = useCallback(
+    (input: { name: string; icon?: string; fields: import('../lib/types').TemplateField[] }) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const result = await createTemplateInFile(current.file, current.session, input)
+        const file = await persist(current.file, result.file)
+        apply((previous) => ({
+          ...previous,
+          file,
+          templates: [...previous.templates, result.template],
+        }))
+        return result.template
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const updateTemplate = useCallback(
+    (
+      templateId: string,
+      input: { name: string; icon?: string; fields: import('../lib/types').TemplateField[] },
+    ) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const result = await updateTemplateInFile(
+          current.file,
+          current.session,
+          templateId,
+          input,
+        )
+        const file = await persist(current.file, result.file)
+        apply((previous) => ({
+          ...previous,
+          file,
+          templates: previous.templates.map((template) =>
+            template.id === templateId ? result.template : template,
+          ),
+        }))
+        return result.template
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const deleteTemplate = useCallback(
+    (templateId: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const file = await persist(
+          current.file,
+          deleteTemplateInFile(current.file, templateId),
+        )
+        apply((previous) => ({
+          ...previous,
+          file,
+          templates: previous.templates.filter((template) => template.id !== templateId),
+        }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const enableTravelMode = useCallback(
+    (safeVaultIds: string[], password: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        const candidate = await deriveMasterKey(password, current.file.kdf)
+        const matches = equalBytes(candidate, current.session.masterKey)
+        wipe(candidate)
+        if (!matches) throw new Error('Le mot de passe maître est incorrect')
+
+        const safe = new Set(safeVaultIds)
+        const hidden = current.file.vaults
+          .map((vault) => vault.id)
+          .filter((id) => !safe.has(id))
+        if (safe.size === 0) {
+          throw new Error('Sélectionnez au moins un coffre sûr pour le voyage.')
+        }
+        if (hidden.length === 0) {
+          throw new Error('Tous les coffres sont déjà marqués sûrs pour le voyage.')
+        }
+
+        const stripped = stripVaultForTravel(current.file, safeVaultIds)
+        const signed = await signVaultFile(stripped, current.session, current.file, {
+          minimumRevision: revisionFloorRef.current,
+          createTombstones: false,
+        })
+        await saveVaultFile(signed)
+        await overwriteVaultBackups(signed)
+        await acceptRevision(signed)
+        for (const id of hidden) current.session.removeVaultKey(id)
+        setTravelMode(current.file.id, {
+          enabled: true,
+          safeVaultIds: Array.from(safe),
+        })
+        apply((previous) => ({
+          ...previous,
+          file: signed,
+          vaults: previous.vaults.filter((vault) => safe.has(vault.id)),
+          items: previous.items.filter((item) => safe.has(item.vaultId)),
+          syncPending: false,
+          syncRevision: previous.syncRevision + 1,
+        }))
+      }),
+    [acceptRevision, apply, enqueue],
+  )
+
+  const disableTravelMode = useCallback(
+    (password: string, remotePassword?: string) =>
+      enqueue(async (): Promise<SyncRunResult> => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        const travel = getTravelMode(current.file.id)
+        if (!travel?.enabled) {
+          throw new Error('Le mode voyage n’est pas actif.')
+        }
+        const candidate = await deriveMasterKey(password, current.file.kdf)
+        const matches = equalBytes(candidate, current.session.masterKey)
+        wipe(candidate)
+        if (!matches) throw new Error('Le mot de passe maître est incorrect')
+
+        const config = getSyncConfig(current.file.id)
+        if (!config) {
+          throw new Error(
+            'Configurez une source de synchronisation avant de désactiver le mode voyage.',
+          )
+        }
+
+        let io: {
+          list: () => Promise<SyncFileInfo[]>
+          read: (name: string) => Promise<string | null>
+        }
+        if (config.platform === 'web') {
+          const handle = await loadWebSyncHandle(current.file.id)
+          if (!handle) {
+            throw new Error(
+              'Le dossier Web n’est plus accessible. Choisissez-le à nouveau.',
+            )
+          }
+          if (!(await ensureWebSyncPermission(handle))) {
+            throw new Error('L’accès au dossier de synchronisation a été refusé.')
+          }
+          io = {
+            list: () => listWebSyncFiles(handle, current.file!.id),
+            read: (name) => readWebSyncFile(handle, current.file!.id, name),
+          }
+        } else {
+          io = {
+            list: () => listSyncFiles(config.dir),
+            read: (name) => readSyncFile(config.dir, name),
+          }
+        }
+
+        const warnings: string[] = []
+        const remotes: VaultFile[] = []
+        for (const entry of await io.list()) {
+          try {
+            const text = await io.read(entry.name)
+            if (!text) continue
+            remotes.push(parseVaultFileText(text))
+          } catch {
+            warnings.push(`Le fichier « ${entry.name} » est illisible et a été ignoré.`)
+          }
+        }
+        if (remotes.length === 0) {
+          throw new Error(
+            'Aucun fichier distant trouvé. Reconnectez une source de synchronisation contenant les coffres masqués.',
+          )
+        }
+
+        const result = await reconcileVaultFiles({
+          local: current.file,
+          session: current.session,
+          remotes,
+          password: remotePassword ?? password,
+        })
+        warnings.push(...result.warnings)
+        let signed = current.file
+        let opened: OpenedVault | null = null
+        if (result.session !== current.session || result.file !== current.file) {
+          try {
+            signed = await persistWithSession(
+              result.session,
+              current.file,
+              result.file,
+            )
+          } catch (error) {
+            if (result.session !== current.session) result.session.lock()
+            throw error
+          }
+          await overwriteVaultBackups(signed)
+          try {
+            opened = await openVaultFileWithMasterKey(
+              signed,
+              result.session.masterKey,
+            )
+          } catch {
+            current.session.lock()
+            if (result.session !== current.session) result.session.lock()
+            lock()
+            throw new Error(
+              'Le coffre restauré n’a pas pu être rouvert. Déverrouillez-le à nouveau.',
+            )
+          }
+        }
+
+        if (!opened) {
+          throw new Error(
+            'Aucun coffre masqué n’a été retrouvé dans la source de synchronisation.',
+          )
+        }
+
+        clearTravelMode(current.file.id)
+        const previousSession = current.session
+        current.session.lock()
+        if (result.session !== previousSession) result.session.lock()
+        epochRef.current += 1
+        apply((previous) => ({
+          ...previous,
+          file: signed,
+          session: opened.session,
+          vaults: opened.vaults,
+          templates: opened.templates,
+          activity: opened.activity,
+          aliasKeys: opened.aliasKeys,
+          items: opened.items,
+          warnings: opened.warnings,
+          error: null,
+          readOnly: opened.readOnly,
+          syncPending: false,
+          syncRevision: previous.syncRevision + 1,
+        }))
+        return {
+          conflicts: result.conflicts.length,
+          warnings,
+          adoptedEpoch: result.adoptedEpoch,
+        }
+      }),
+    [apply, enqueue, lock, persistWithSession],
   )
 
   const addItem = useCallback(
@@ -1415,6 +1750,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       enqueue(async () => {
         const current = stateRef.current
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (getTravelMode(current.file.id)?.enabled) {
+          throw new Error(
+            'Désactivez le mode voyage avant de changer le mot de passe maître.',
+          )
+        }
 
         const candidate = await deriveMasterKey(currentPassword, current.file.kdf)
         const matches = equalBytes(candidate, current.session.masterKey)
@@ -1489,6 +1829,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       enqueue(async () => {
         const current = stateRef.current
         if (!current.file) throw new Error('Aucun coffre local à récupérer')
+        if (getTravelMode(current.file.id)?.enabled) {
+          throw new Error(
+            'Désactivez le mode voyage avant de récupérer le coffre.',
+          )
+        }
         await requireVaultLock()
 
         let opened: OpenedVault
@@ -1508,6 +1853,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           file: opened.file,
           session: opened.session,
           vaults: opened.vaults,
+          templates: opened.templates,
+          activity: opened.activity,
+          aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
           error: null,
@@ -1563,6 +1911,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       enqueue(async () => {
         const current = stateRef.current
         if (!current.file) throw new Error('Aucun coffre local à récupérer')
+        if (getTravelMode(current.file.id)?.enabled) {
+          throw new Error(
+            'Désactivez le mode voyage avant de récupérer le coffre.',
+          )
+        }
         await requireVaultLock()
 
         const parts = shares.map(parseShareInput)
@@ -1590,6 +1943,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             file: opened.file,
             session: opened.session,
             vaults: opened.vaults,
+            templates: opened.templates,
+            activity: opened.activity,
+            aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
             error: null,
@@ -1623,6 +1979,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         let opened: OpenedVault
         try {
           file = parseVaultFileText(text)
+          if (getTravelMode(file.id)?.enabled) {
+            throw new Error(
+              'Désactivez le mode voyage avant d’importer un coffre complet.',
+            )
+          }
           opened = await finalizeOpen(await unlockVaultFile(file, password), {
             acceptRollback: true,
           })
@@ -1639,6 +2000,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           file: opened.file,
           session: opened.session,
           vaults: opened.vaults,
+          templates: opened.templates,
+          activity: opened.activity,
+          aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
           error: null,
@@ -1705,6 +2069,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       enqueue(async () => {
         const backup = await loadBackupVaultFile(generation)
         if (!backup) throw new Error('Aucune sauvegarde locale disponible')
+        if (getTravelMode(backup.id)?.enabled) {
+          throw new Error(
+            'Désactivez le mode voyage avant de restaurer une sauvegarde.',
+          )
+        }
         await requireVaultLock()
         let opened: OpenedVault
         try {
@@ -1724,6 +2093,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           file: opened.file,
           session: opened.session,
           vaults: opened.vaults,
+          templates: opened.templates,
+          activity: opened.activity,
+          aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
           error: null,
@@ -1861,6 +2233,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (current.readOnly) {
           throw new Error('Le coffre est ouvert en lecture seule.')
         }
+        if (getTravelMode(current.file.id)?.enabled) {
+          throw new Error(
+            'Le mode voyage est actif. Désactivez-le pour synchroniser sans écraser les coffres masqués.',
+          )
+        }
         const config = getSyncConfig(current.file.id)
         if (!config) throw new Error('Aucun dossier de synchronisation configuré.')
 
@@ -1969,6 +2346,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               : undefined,
         })
         syncIgnoreUntilRef.current = Date.now() + 2_000
+        if (config.platform !== 'web') {
+          try {
+            await exportBlobsToDirectory(
+              config.dir,
+              referencedBlobIds(opened?.items ?? current.items),
+            )
+            await importBlobsFromDirectory(config.dir)
+          } catch {
+            warnings.push(
+              'Les documents chiffrés n’ont pas pu être synchronisés avec le dossier.',
+            )
+          }
+        }
 
         if (opened) {
           const previousSession = current.session
@@ -1980,6 +2370,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             file: signed,
             session: opened.session,
             vaults: opened.vaults,
+            templates: opened.templates,
+            activity: opened.activity,
+            aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
             error: null,
@@ -2004,6 +2397,152 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [apply, enqueue, lock, persistWithSession],
   )
 
+  const lanSync = useCallback(
+    (remoteText: string, password?: string) =>
+      enqueue(async (): Promise<SyncRunResult> => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        let remote: VaultFile
+        try {
+          remote = parseVaultFileText(remoteText)
+        } catch {
+          throw new Error('Le fichier reçu par le réseau local est illisible.')
+        }
+
+        const result = await reconcileVaultFiles({
+          local: current.file,
+          session: current.session,
+          remotes: [remote],
+          password,
+        })
+        const warnings = [...result.warnings]
+        let signed = current.file
+        let opened: OpenedVault | null = null
+        if (result.session !== current.session || result.file !== current.file) {
+          try {
+            signed = await persistWithSession(
+              result.session,
+              current.file,
+              result.file,
+            )
+          } catch (error) {
+            if (result.session !== current.session) result.session.lock()
+            throw error
+          }
+          try {
+            opened = await openVaultFileWithMasterKey(
+              signed,
+              result.session.masterKey,
+            )
+          } catch {
+            current.session.lock()
+            if (result.session !== current.session) result.session.lock()
+            lock()
+            throw new Error(
+              'Le coffre fusionné n’a pas pu être rouvert. Déverrouillez-le à nouveau.',
+            )
+          }
+        }
+
+        syncIgnoreUntilRef.current = Date.now() + 2_000
+        if (opened) {
+          const previousSession = current.session
+          current.session.lock()
+          if (result.session !== previousSession) result.session.lock()
+          epochRef.current += 1
+          apply((previous) => ({
+            ...previous,
+            file: signed,
+            session: opened.session,
+            vaults: opened.vaults,
+            templates: opened.templates,
+            activity: opened.activity,
+            aliasKeys: opened.aliasKeys,
+            items: opened.items,
+            warnings: opened.warnings,
+            error: null,
+            readOnly: opened.readOnly,
+            syncPending: false,
+            syncRevision: previous.syncRevision + 1,
+          }))
+        } else {
+          apply((previous) => ({
+            ...previous,
+            syncPending: false,
+            syncRevision: previous.syncRevision + 1,
+          }))
+        }
+
+        return {
+          conflicts: result.conflicts.length,
+          warnings,
+          adoptedEpoch: result.adoptedEpoch,
+        }
+      }),
+    [apply, enqueue, lock, persistWithSession],
+  )
+
+  const recordActivity = useCallback(
+    (kind: ActivityKind, detail: string, host?: string) =>
+      enqueue(async () => {
+        try {
+          const current = stateRef.current
+          if (!current.file || !current.session || current.readOnly) return
+          const result = await appendActivity(current.file, current.session, {
+            kind,
+            detail,
+            host,
+          })
+          const file = await persist(current.file, result.file)
+          apply((previous) => ({
+            ...previous,
+            file,
+            activity: [result.event, ...previous.activity].slice(0, 5_000),
+          }))
+        } catch {
+          // Le journal est accessoire : une erreur ne doit pas bloquer l’action.
+        }
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const setAliasKey = useCallback(
+    (service: AliasKeyService, key: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const next = await setAliasKeyInFile(current.file, current.session, service, key)
+        const file = await persist(current.file, next)
+        apply((previous) => ({
+          ...previous,
+          file,
+          aliasKeys: { ...previous.aliasKeys, [service]: key.trim() },
+        }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const deleteAliasKey = useCallback(
+    (service: AliasKeyService) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const file = await persist(
+          current.file,
+          deleteAliasKeyInFile(current.file, service),
+        )
+        apply((previous) => {
+          const aliasKeys = { ...previous.aliasKeys }
+          delete aliasKeys[service]
+          return { ...previous, file, aliasKeys }
+        })
+      }),
+    [apply, enqueue, persist],
+  )
+
   const dismissWarnings = useCallback(() => {
     apply((previous) => ({ ...previous, warnings: [] }))
   }, [apply])
@@ -2021,6 +2560,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     addVault,
     renameVault,
     deleteVault,
+    createTemplate,
+    updateTemplate,
+    deleteTemplate,
+    enableTravelMode,
+    disableTravelMode,
     addItem,
     updateItem,
     moveItem,
@@ -2050,6 +2594,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     configureWebSync,
     disableSync,
     syncNow,
+    lanSync,
+    recordActivity,
+    setAliasKey,
+    deleteAliasKey,
     dismissWarnings,
   }
 

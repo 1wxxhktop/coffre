@@ -12,6 +12,7 @@ import {
 import { Modal } from './Modal'
 import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
+import { useVault } from '../state/VaultProvider'
 import { copySensitive } from '../lib/clipboard'
 import { downloadFile, formatDateTime } from '../lib/settings'
 import { groupShareWords } from '../lib/shamir'
@@ -38,6 +39,7 @@ const EXPIRY_CHOICES = [
  * le fichier `.coffre-share` et la clé sont remis séparément. Aucun réseau.
  */
 export function ShareItemDialog({ item, onClose }: ShareItemDialogProps) {
+  const { recordActivity } = useVault()
   const { tt } = useI18n()
   const { toast } = useToast()
   const [days, setDays] = useState(7)
@@ -68,6 +70,7 @@ export function ShareItemDialog({ item, onClose }: ShareItemDialogProps) {
       const expiresAt =
         days > 0 ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() : undefined
       setShare(await createOfflineShare(item, expiresAt))
+      void recordActivity('share', item.title)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Génération impossible')
     } finally {

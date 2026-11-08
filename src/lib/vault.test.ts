@@ -950,3 +950,27 @@ describe('déplacement entre coffres', () => {
     ).rejects.toBeInstanceOf(VaultValidationError)
   })
 })
+
+describe('signature du mode voyage', () => {
+  it('ne crée pas de pierre tombale pour les coffres retirés localement', async () => {
+    const opened = await freshVault()
+    const added = await addVault(opened.file, opened.session, 'Travail')
+    const signed = await signVaultFile(added.file, opened.session, opened.file)
+    const safeId = opened.vaults[0].id
+    const hiddenId = added.vault.id
+    const { stripVaultForTravel } = await import('./travelMode')
+    const stripped = stripVaultForTravel(signed, [safeId])
+    const travel = await signVaultFile(stripped, opened.session, signed, {
+      createTombstones: false,
+    })
+
+    expect(travel.vaults.map((vault) => vault.id)).toEqual([safeId])
+    expect(travel.tombstones?.some((tombstone) => tombstone.id === hiddenId)).toBe(
+      false,
+    )
+    expect(travel.tombstones?.some((tombstone) => tombstone.id === safeId)).toBe(
+      false,
+    )
+    opened.session.lock()
+  })
+})

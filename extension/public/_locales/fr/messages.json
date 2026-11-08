@@ -178,5 +178,113 @@
   },
   "popup_copied": {
     "message": "Mot de passe copié."
+  },
+  "menu_tabLogins": {
+    "message": "Connexions"
+  },
+  "menu_tabCards": {
+    "message": "Cartes"
+  },
+  "menu_tabIdentities": {
+    "message": "Identités"
+  },
+  "menu_includeSensitive": {
+    "message": "Inclure le CVC et le PIN (action explicite)"
+  },
+  "menu_fill": {
+    "message": "Remplir"
+  },
+  "menu_identityFallback": {
+    "message": "Identité"
+  },
+  "menu_noLogin": {
+    "message": "Sans identifiant"
+  },
+  "menu_emptyCards": {
+    "message": "Aucune carte. Ouvrez Coffre pour en ajouter."
+  },
+  "menu_emptyIdentities": {
+    "message": "Aucune identité. Ouvrez Coffre pour en ajouter."
+  },
+  "menu_emptyLogins": {
+    "message": "Aucune connexion pour ce site. Ouvrez Coffre pour en ajouter."
+  },
+  "menu_filledCard": {
+    "message": "Carte remplie."
+  },
+  "menu_filledIdentity": {
+    "message": "Identité remplie."
+  },
+  "menu_filledLogin": {
+    "message": "Identifiants remplis."
+  },
+  "menu_noPending": {
+    "message": "Aucune soumission en attente pour ce site."
+  },
+  "menu_savePrompt": {
+    "message": "Enregistrer"
+  },
+  "menu_saveFor": {
+    "message": "pour"
+  },
+  "menu_updated": {
+    "message": "Élément mis à jour."
+  },
+  "menu_saved": {
+    "message": "Élément enregistré."
+  },
+  "menu_unknownSite": {
+    "message": "Site inconnu"
+  },
+  "menu_errorAppClosed": {
+    "message": "Ouvrez Coffre pour vous connecter."
+  },
+  "menu_errorLocked": {
+    "message": "Coffre est verrouillé."
+  },
+  "menu_errorPairing": {
+    "message": "Associez l’extension à Coffre."
+  },
+  "menu_errorDomain": {
+    "message": "Cet identifiant n’est pas enregistré pour ce site."
+  },
+  "menu_errorNoPassword": {
+    "message": "Aucun champ de mot de passe détecté."
+  },
+  "menu_errorNoFields": {
+    "message": "Aucun champ compatible détecté."
+  },
+  "menu_errorNotFound": {
+    "message": "Élément introuvable ou confirmation annulée."
+  },
+  "menu_errorPermission": {
+    "message": "Autorisez l’extension à accéder à Coffre."
+  },
+  "menu_errorInsecure": {
+    "message": "Le remplissage d’une carte exige une page HTTPS."
+  },
+  "menu_errorFrame": {
+    "message": "Remplissage de carte refusé dans une iframe tierce."
+  },
+  "menu_errorGeneric": {
+    "message": "Opération impossible."
+  },
+  "menu_errorCancelled": {
+    "message": "Confirmation biométrique annulée."
+  },
+  "menu_tabCustom": {
+    "message": "Modèles"
+  },
+  "menu_emptyCustom": {
+    "message": "Aucun modèle remplissable."
+  },
+  "menu_fieldCount": {
+    "message": "champ(s) remplissable(s)"
+  },
+  "menu_alias": {
+    "message": "Créer un alias e-mail"
+  },
+  "menu_aliasCopied": {
+    "message": "Alias copié :"
   }
 }

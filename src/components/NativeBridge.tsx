@@ -9,6 +9,7 @@ import { useSettings } from '../state/SettingsProvider'
 import { isTauriRuntime } from '../lib/external'
 import { loadVaultKey, storeVaultKey } from '../lib/keychain'
 import { generateTotp, isTotpUri, parseTotpUri } from '../lib/totp'
+import { confirmSensitiveFill } from '../lib/biometrics'
 import {
   createPasskeyInVault,
   getPasskeyAssertion,
@@ -16,11 +17,20 @@ import {
   toExtensionGetResult,
 } from '../lib/passkeyBridge'
 import {
+  cardLast4,
   hostFromUrl,
+  identityFullName,
   loginAllowsHost,
+  searchCards,
+  searchIdentities,
   searchLogins,
 } from '../lib/extensionProtocol'
-import { emptyDraft, type LoginItem } from '../lib/types'
+import {
+  emptyDraft,
+  type CardItem,
+  type IdentityItem,
+  type LoginItem,
+} from '../lib/types'
 import {
   BRIDGE_KEYCHAIN_ACCOUNT,
   bridgePairingCode,
@@ -98,12 +108,13 @@ function isEncryptedEnvelope(value: unknown): value is BridgeEncryptedEnvelope {
  * lorsque le coffre est déverrouillé.
  */
 export function NativeBridge() {
-  const { status, items, vaults, addItem, updateItem, unlockWithBiometrics } =
+  const { status, items, templates, vaults, addItem, updateItem, unlockWithBiometrics, recordActivity } =
     useVault()
   const { settings } = useSettings()
   const { tt } = useI18n()
   const statusRef = useRef(status)
   const itemsRef = useRef(items)
+  const templatesRef = useRef(templates)
   const vaultsRef = useRef(vaults)
   const biometricsRef = useRef(settings.biometricUnlock)
 
@@ -114,6 +125,10 @@ export function NativeBridge() {
   useEffect(() => {
     itemsRef.current = items
   }, [items])
+
+  useEffect(() => {
+    templatesRef.current = templates
+  }, [templates])
 
   useEffect(() => {
     vaultsRef.current = vaults
@@ -261,15 +276,143 @@ export function NativeBridge() {
   const handlePayload = useCallback(
     async (payload: BridgePlainMessage): Promise<unknown> => {
       switch (payload.type) {
-        case 'search':
+        case 'search': {
+          const query = typeof payload.query === 'string' ? payload.query : ''
+          const kind =
+            payload.kind === 'card' ||
+            payload.kind === 'identity' ||
+            payload.kind === 'custom'
+              ? payload.kind
+              : 'login'
+          if (kind === 'custom') {
+            const text = query.trim().toLowerCase()
+            return {
+              type: 'search-result',
+              items: itemsRef.current
+                .filter(
+                  (item) =>
+                    item.type === 'note' &&
+                    !item.deletedAt &&
+                    Boolean(item.templateId) &&
+                    (!text || item.title.toLowerCase().includes(text)),
+                )
+                .slice(0, 50)
+                .map((item) => {
+                  const template = templatesRef.current.find(
+                    (entry) => entry.id === item.templateId,
+                  )
+                  return {
+                    id: item.id,
+                    kind: 'custom',
+                    title: item.title,
+                    fieldCount: template
+                      ? template.fields.filter((field) => field.fillable).length
+                      : item.customFields.length,
+                  }
+                }),
+            }
+          }
           return {
             type: 'search-result',
-            items: searchLogins(
-              itemsRef.current,
-              typeof payload.query === 'string' ? payload.query : '',
-            ),
+            items:
+              kind === 'card'
+                ? searchCards(itemsRef.current, query)
+                : kind === 'identity'
+                  ? searchIdentities(itemsRef.current, query)
+                  : searchLogins(itemsRef.current, query),
           }
+        }
         case 'fill': {
+          const kind =
+            payload.kind === 'card' ||
+            payload.kind === 'identity' ||
+            payload.kind === 'custom'
+              ? payload.kind
+              : 'login'
+          if (kind === 'custom') {
+            const item = itemsRef.current.find(
+              (candidate) =>
+                candidate.id === payload.itemId &&
+                !candidate.deletedAt &&
+                candidate.type === 'note' &&
+                Boolean(candidate.templateId),
+            )
+            if (!item || item.type !== 'note') {
+              return { type: 'credentials', credentials: null, error: 'not-found' }
+            }
+            const template = templatesRef.current.find(
+              (entry) => entry.id === item.templateId,
+            )
+            const values = template
+              ? template.fields
+                  .filter((field) => field.fillable)
+                  .map((field) => {
+                    const value = item.customFields.find(
+                      (entry) => entry.label === field.label,
+                    )
+                    return value ? { label: field.label, value: value.value } : null
+                  })
+                  .filter(
+                    (entry): entry is { label: string; value: string } =>
+                      entry !== null,
+                  )
+              : []
+            return {
+              type: 'credentials',
+              credentials: { kind: 'custom', id: item.id, title: item.title, values },
+            }
+          }
+          if (kind === 'card' || kind === 'identity') {
+            const item = itemsRef.current.find(
+              (candidate) =>
+                candidate.id === payload.itemId && !candidate.deletedAt,
+            )
+            if (!item || item.type !== kind) {
+              return { type: 'credentials', credentials: null, error: 'not-found' }
+            }
+            if (item.type === 'card') {
+              const includeSensitive = payload.includeSensitive === true
+              if (
+                includeSensitive &&
+                !(await confirmSensitiveFill(
+                  'Remplir le code de sécurité de la carte',
+                ))
+              ) {
+                return { type: 'credentials', credentials: null, error: 'cancelled' }
+              }
+              return {
+                type: 'credentials',
+                credentials: {
+                  kind: 'card',
+                  id: item.id,
+                  title: item.title,
+                  cardholder: item.cardholder,
+                  number: item.number,
+                  expiry: item.expiry,
+                  cvc: includeSensitive ? item.cvc : '',
+                  pin: includeSensitive ? item.pin : '',
+                  brand: item.brand,
+                },
+              }
+            }
+            return {
+              type: 'credentials',
+              credentials: {
+                kind: 'identity',
+                id: item.id,
+                title: item.title,
+                fullName: identityFullName(item),
+                firstName: item.firstName,
+                lastName: item.lastName,
+                email: item.email,
+                phone: item.phone,
+                address: item.address,
+                city: item.city,
+                postalCode: item.postalCode,
+                country: item.country,
+              },
+            }
+          }
           const item = itemsRef.current.find(
             (candidate) =>
               candidate.id === payload.itemId &&
@@ -298,15 +441,148 @@ export function NativeBridge() {
               totp = ''
             }
           }
+          void recordActivity('extension-fill', item.title, host)
           return {
             type: 'credentials',
             credentials: {
+              kind: 'login',
               id: item.id,
               title: item.title,
               username: item.username,
               password: item.password,
               totp,
             },
+          }
+        }
+        case 'save-card': {
+          const number =
+            typeof payload.number === 'string'
+              ? payload.number.replace(/\s+/g, '').trim()
+              : ''
+          if (!number) {
+            return { type: 'save-result', ok: false, error: 'invalid' }
+          }
+          const text = (value: unknown, max: number): string =>
+            typeof value === 'string' ? value.trim().slice(0, max) : ''
+          const expiry = text(payload.expiry, 20)
+          const existing = itemsRef.current.find(
+            (candidate): candidate is CardItem =>
+              candidate.type === 'card' &&
+              !candidate.deletedAt &&
+              cardLast4(candidate) === number.slice(-4) &&
+              candidate.expiry.trim() === expiry,
+          )
+          try {
+            if (existing) {
+              await updateItem({
+                ...existing,
+                cardholder: text(payload.cardholder, 200) || existing.cardholder,
+                number,
+                expiry: expiry || existing.expiry,
+                cvc: text(payload.cvc, 8) || existing.cvc,
+                pin: text(payload.pin, 12) || existing.pin,
+                brand: text(payload.brand, 40) || existing.brand,
+              })
+              return {
+                type: 'save-result',
+                ok: true,
+                updated: true,
+                itemId: existing.id,
+              }
+            }
+            const vaultId = vaultsRef.current[0]?.id
+            if (!vaultId) {
+              return { type: 'save-result', ok: false, error: 'no-vault' }
+            }
+            const item = await addItem({
+              ...emptyDraft('card', vaultId),
+              title: text(payload.title, 200) || text(payload.brand, 40) || 'Carte bancaire',
+              type: 'card',
+              cardholder: text(payload.cardholder, 200),
+              number,
+              expiry,
+              cvc: text(payload.cvc, 8),
+              pin: text(payload.pin, 12),
+              brand: text(payload.brand, 40),
+            })
+            return {
+              type: 'save-result',
+              ok: true,
+              updated: false,
+              itemId: item.id,
+            }
+          } catch {
+            return { type: 'save-result', ok: false, error: 'save-failed' }
+          }
+        }
+        case 'save-identity': {
+          const text = (value: unknown, max: number): string =>
+            typeof value === 'string' ? value.trim().slice(0, max) : ''
+          const firstName = text(payload.firstName, 200)
+          const lastName = text(payload.lastName, 200)
+          const fullName = text(payload.fullName, 400)
+          const email = text(payload.email, 500)
+          const name = [firstName, lastName].filter(Boolean).join(' ').trim() || fullName
+          if (!name && !email) {
+            return { type: 'save-result', ok: false, error: 'invalid' }
+          }
+          const existing = itemsRef.current.find(
+            (candidate): candidate is IdentityItem =>
+              candidate.type === 'identity' &&
+              !candidate.deletedAt &&
+              ((Boolean(email) &&
+                candidate.email.trim().toLowerCase() === email.toLowerCase()) ||
+                (Boolean(name) && identityFullName(candidate) === name)),
+          )
+          try {
+            if (existing) {
+              await updateItem({
+                ...existing,
+                firstName: firstName || existing.firstName,
+                lastName: lastName || existing.lastName,
+                email: email || existing.email,
+                phone: text(payload.phone, 100) || existing.phone,
+                address: text(payload.address, 500) || existing.address,
+                city: text(payload.city, 200) || existing.city,
+                postalCode: text(payload.postalCode, 40) || existing.postalCode,
+                country: text(payload.country, 200) || existing.country,
+              })
+              return {
+                type: 'save-result',
+                ok: true,
+                updated: true,
+                itemId: existing.id,
+              }
+            }
+            const vaultId = vaultsRef.current[0]?.id
+            if (!vaultId) {
+              return { type: 'save-result', ok: false, error: 'no-vault' }
+            }
+            const item = await addItem({
+              ...emptyDraft('identity', vaultId),
+              title: text(payload.title, 200) || name || email || 'Identité',
+              type: 'identity',
+              firstName,
+              lastName,
+              email,
+              phone: text(payload.phone, 100),
+              address: text(payload.address, 500),
+              city: text(payload.city, 200),
+              postalCode: text(payload.postalCode, 40),
+              country: text(payload.country, 200),
+              birthDate: '',
+              passportExpiry: '',
+              idCardExpiry: '',
+              licenseExpiry: '',
+            })
+            return {
+              type: 'save-result',
+              ok: true,
+              updated: false,
+              itemId: item.id,
+            }
+          } catch {
+            return { type: 'save-result', ok: false, error: 'save-failed' }
           }
         }
         case 'save-login': {
@@ -479,7 +755,7 @@ export function NativeBridge() {
           return { type: 'protocol-error', error: 'unknown-type' }
       }
     },
-    [addItem, loadSessionKey, updateItem],
+    [addItem, loadSessionKey, recordActivity, updateItem],
   )
 
   const handleEncrypted = useCallback(

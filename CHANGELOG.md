@@ -2,6 +2,40 @@
 
 ## Non publié
 
+- Coffre de fichiers chiffrés en flux : blobs hors `.coffre`, AES-256-GCM par
+  blocs de 64 Kio, nonce STREAM, détection de troncature/substitution,
+  commandes Tauri, client TypeScript et ajout/téléchargement/suppression depuis
+  la fiche d’élément, avec aperçu image/PDF en mémoire, synchronisation des
+  blobs par dossier, échange des blobs manquants par le réseau local F2 et
+  nettoyage des blobs orphelins.
+- Alias e-mail hors ligne : générateur « plus » et catch-all, mémorisation des
+  préférences, enregistrement dans l’élément ; intégration opt-in
+  SimpleLogin/addy.io avec clé API chiffrée dans le coffre et création/copie
+  d’alias depuis le menu de l’extension.
+- Saisie automatique desktop : séquence KeePass, compte à rebours, vérification
+  du focus avant chaque jeton, refus si la fenêtre change, commandes Tauri
+  `autotype_active_window` et `autotype_run`, raccourci global et sélection des
+  connexions correspondant à la fenêtre active.
+- Outils développeur : `coffre-cli run --env-file` avec références
+  `coffre://coffre/élément/champ`, assistant `git-credential` avec approbation
+  explicite, signature `SSHSIG`, binaire `coffre-git-sign` pour `git commit -S`,
+  génération de blocs `Host` SSH, et refus documenté des clés SSH FIDO2.
+- Journal d’activité local chiffré : événements par identifiant, AAD dédiée,
+  fusion, plafond de 5 000 entrées, page de consultation et export JSON.
+- Modèles d’éléments personnalisés : éditeur dans les réglages, champs texte,
+  secret, URL, date et texte long, stockage chiffré par modèle avec AAD dédiée,
+  fusion, pierres tombales, changement de mot de passe, récupération et
+  création d’éléments depuis un modèle et remplissage des champs `fillable`
+  depuis l’onglet Modèles de l’extension, y compris via le pont natif desktop.
+- Mode voyage (desktop) : marquage des coffres sûrs, retrait local des autres
+  coffres, éléments, pièces jointes et versions sans pierre tombale, écrasement
+  des sauvegardes locales, restauration depuis la synchronisation par dossier
+  avec vérification du mot de passe maître.
+- Synchronisation locale directe (desktop) : appairage par code/QR, identité
+  X25519 locale, transport TCP chiffré par Noise XX, carnet de pairs, réception
+  à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
+  serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
+  pendant la fenêtre de réception, mobile restant à faire.
 - Extension : remplissage des cartes bancaires et des identités/adresses depuis
   le menu à trois onglets, détection `autocomplete` et libellés français, CVC et
   PIN uniquement sur action explicite, refus des cartes hors HTTPS ou dans une

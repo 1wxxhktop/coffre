@@ -28,6 +28,7 @@ export type ImportFormat =
   | 'protonpass-json'
   | 'enpass-json'
   | 'dashlane-json'
+  | 'cxf'
   | '1pux'
   | 'keepass-xml'
   | 'csv'
@@ -47,6 +48,7 @@ export type ImportSource =
   | 'keeper'
   | 'roboform'
   | 'safeincloud'
+  | 'cxf'
   | 'generic'
 
 const SOURCE_LABELS: Record<ImportSource, string> = {
@@ -64,6 +66,7 @@ const SOURCE_LABELS: Record<ImportSource, string> = {
   keeper: 'Keeper',
   roboform: 'RoboForm',
   safeincloud: 'SafeInCloud',
+  cxf: 'CXF (FIDO)',
   generic: 'CSV générique',
 }
 
@@ -190,6 +193,9 @@ function detectImport(text: string): DetectedImport | null {
     try {
       const data: unknown = JSON.parse(trimmed)
       const obj = asRecord(data)
+      if (obj && typeof obj.exporterRpId === 'string' && Array.isArray(obj.accounts)) {
+        return { format: 'cxf', source: 'cxf' }
+      }
       if (obj && 'vaults' in obj) {
         return { format: 'protonpass-json', source: 'protonpass' }
       }
@@ -212,8 +218,10 @@ function detectImport(text: string): DetectedImport | null {
     return null
   }
 
-  const firstLine = trimmed.split(/\r?\n/, 1)[0] ?? ''
-  return /[,;\t]/.test(firstLine) ? { format: 'csv', source: 'generic' } : null
+  const lines = trimmed.split(/\r?\n/, 3)
+  const firstLine = lines[0] ?? ''
+  const delimiterLine = /[,;\t]/.test(firstLine) ? firstLine : (lines[1] ?? '')
+  return /[,;\t]/.test(delimiterLine) ? { format: 'csv', source: 'generic' } : null
 }
 
 export function detectImportFormat(text: string): ImportFormat | null {
@@ -233,6 +241,12 @@ export function parseImport(text: string, vaultId: string): ParsedImport {
 
   if (detected.format === 'csv') {
     return parseCsv(trimmed, vaultId)
+  }
+
+  if (detected.format === 'cxf') {
+    throw new ImportError(
+      'Le format CXF contient des passkeys : utilisez l’import CXF dédié.',
+    )
   }
 
   if (detected.format === 'keepass-xml') {
@@ -1542,6 +1556,7 @@ function detectCsvSource(headers: string[]): ImportSource {
   if (has('account') && has('login name')) return 'keepass'
   if (has('group') && has('title') && has('totp')) return 'keepass'
   if (has('login') && has('website')) return 'keeper'
+  if (has('name') && has('url') && has('login') && has('pwd')) return 'roboform'
   if (has('name') && has('url') && has('username') && has('password')) {
     return has('note') ? 'chromium' : 'roboform'
   }
@@ -1808,13 +1823,20 @@ function customFieldsFromRow(
   row: Row,
   headers: string[],
   originalHeaders: string[],
+  skipHeaders?: Set<string>,
 ): CustomField[] {
   const fields: CustomField[] = []
   for (let index = 0; index < headers.length; index += 1) {
     const header = headers[index]
     const value = (row[index] ?? '').trim()
     if (!header || !value) continue
-    if (KNOWN_HEADERS.has(header) || METADATA_HEADERS.has(header)) continue
+    if (
+      KNOWN_HEADERS.has(header) ||
+      METADATA_HEADERS.has(header) ||
+      skipHeaders?.has(header)
+    ) {
+      continue
+    }
     if (fields.length >= MAX_CUSTOM_FIELDS) break
 
     const type = /password|secret|token|key|pin|api/.test(header)
@@ -1828,6 +1850,29 @@ function customFieldsFromRow(
       value: value.slice(0, 10_000),
       type,
     })
+  }
+  return fields
+}
+
+/**
+ * Relit la colonne « fields » des exports CSV Bitwarden, au format
+ * `nom: valeur` séparé par des retours à la ligne.
+ */
+function parseBitwardenCsvFields(value: string): CustomField[] {
+  const fields: CustomField[] = []
+  for (const line of value.split(/\r?\n/)) {
+    const separator = line.indexOf(':')
+    if (separator <= 0) continue
+    const label = line.slice(0, separator).trim().slice(0, 80)
+    const fieldValue = line.slice(separator + 1).trim().slice(0, 10_000)
+    if (!label || !fieldValue) continue
+    fields.push({
+      id: randomId('f'),
+      label,
+      value: fieldValue,
+      type: /pass|pin|secret|token|key|api/i.test(label) ? 'hidden' : 'text',
+    })
+    if (fields.length >= MAX_CUSTOM_FIELDS) break
   }
   return fields
 }
@@ -1876,6 +1921,45 @@ function cell(row: Row, headers: string[], name: string): string {
   return index >= 0 ? (row[index] ?? '').trim() : ''
 }
 
+function looksLikeUrl(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  return (
+    /^(https?:\/\/|www\.)/i.test(trimmed) ||
+    /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(trimmed)
+  )
+}
+
+/**
+ * Certains exports (Dashlane, Keeper) n’ont pas de ligne d’en-tête. On les
+ * reconnaît à leur forme : cinq colonnes avec une URL en deuxième position
+ * (Dashlane), ou sept colonnes avec une URL en cinquième position (Keeper).
+ */
+function headerlessCsvColumns(
+  rows: Row[],
+): { labels: string[]; source: ImportSource } | null {
+  for (const row of rows.slice(0, 20)) {
+    if (row.length === 5 && looksLikeUrl(row[1]) && (row[2].trim() || row[3].trim())) {
+      return {
+        labels: ['title', 'url', 'username', 'password', 'notes'],
+        source: 'dashlane',
+      }
+    }
+    if (
+      row.length === 7 &&
+      looksLikeUrl(row[4]) &&
+      row[1].trim() &&
+      (row[2].trim() || row[3].trim())
+    ) {
+      return {
+        labels: ['folder', 'title', 'username', 'password', 'url', 'notes', ''],
+        source: 'keeper',
+      }
+    }
+  }
+  return null
+}
+
 function parseCsv(text: string, vaultId: string): ParsedImport {
   const firstLine = text.split(/\r?\n/, 1)[0] ?? ''
   const delimiter = detectDelimiter(firstLine)
@@ -1884,24 +1968,11 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
     throw new ImportError('Le fichier CSV ne contient aucune ligne de données')
   }
 
-  const originalHeaders = rows[0].map((header) => header.trim())
-  const headers = originalHeaders.map(normalizeHeader)
-  const source = detectCsvSource(headers)
-  const warnings: string[] = []
-  const items: ItemDraft[] = []
-
-  const ignoredColumns = originalHeaders.filter((_header, index) => {
-    const normalized = headers[index]
-    if (!METADATA_HEADERS.has(normalized) || normalized === 'archived') return false
-    return rows
-      .slice(1, MAX_IMPORT_ITEMS + 1)
-      .some((row) => (row[index] ?? '').trim())
-  })
-  if (ignoredColumns.length > 0) {
-    warnings.push(
-      `Colonnes ignorées : ${ignoredColumns.slice(0, 8).join(', ')}.`,
-    )
-  }
+  let originalHeaders = rows[0].map((header) => header.trim())
+  let headers = originalHeaders.map(normalizeHeader)
+  let source = detectCsvSource(headers)
+  let dataRows = rows.slice(1)
+  let headerless = false
 
   const recognized = [
     'title',
@@ -1911,13 +1982,41 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
     'notes',
     'totp',
   ].some((key) => findHeader(headers, key as keyof typeof HEADER_ALIASES) >= 0)
+
   if (!recognized) {
+    const columns = headerlessCsvColumns(rows)
+    if (columns) {
+      headerless = true
+      originalHeaders = columns.labels
+      headers = columns.labels.map(normalizeHeader)
+      dataRows = rows
+      source = columns.source
+    }
+  }
+
+  const warnings: string[] = []
+  const items: ItemDraft[] = []
+
+  const ignoredColumns = originalHeaders.filter((_header, index) => {
+    const normalized = headers[index]
+    if (!METADATA_HEADERS.has(normalized) || normalized === 'archived') return false
+    return dataRows
+      .slice(0, MAX_IMPORT_ITEMS + 1)
+      .some((row) => (row[index] ?? '').trim())
+  })
+  if (ignoredColumns.length > 0) {
+    warnings.push(
+      `Colonnes ignorées : ${ignoredColumns.slice(0, 8).join(', ')}.`,
+    )
+  }
+
+  if (!recognized && !headerless) {
     warnings.push(
       'Les en-têtes CSV sont inhabituels ; les colonnes non reconnues deviendront des champs personnalisés.',
     )
   }
 
-  for (const row of rows.slice(1, MAX_IMPORT_ITEMS + 1)) {
+  for (const row of dataRows.slice(0, MAX_IMPORT_ITEMS + 1)) {
     const urls = splitUrls(pick(row, headers, 'url'))
     const title = (
       pick(row, headers, 'title') ||
@@ -1943,7 +2042,15 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
       tags,
       favorite: parseFavorite(pick(row, headers, 'favorite')),
       customFields: [
-        ...customFieldsFromRow(row, headers, originalHeaders),
+        ...customFieldsFromRow(
+          row,
+          headers,
+          originalHeaders,
+          source === 'bitwarden' ? new Set(['fields']) : undefined,
+        ),
+        ...(source === 'bitwarden'
+          ? parseBitwardenCsvFields(cell(row, headers, 'fields'))
+          : []),
         ...parseCoffreCustomFields(pick(row, headers, 'customFields')),
       ].slice(0, MAX_CUSTOM_FIELDS),
       expiresAt: pick(row, headers, 'expiresAt').slice(0, 40),
@@ -1981,7 +2088,7 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
     items.push(makeDraft(type, vaultId, common, extras))
   }
 
-  if (rows.length - 1 > MAX_IMPORT_ITEMS) {
+  if (dataRows.length > MAX_IMPORT_ITEMS) {
     warnings.push(
       `Seuls les ${MAX_IMPORT_ITEMS} premiers éléments ont été importés.`,
     )

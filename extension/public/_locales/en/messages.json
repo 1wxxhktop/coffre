@@ -178,5 +178,113 @@
   },
   "popup_copied": {
     "message": "Password copied."
+  },
+  "menu_tabLogins": {
+    "message": "Logins"
+  },
+  "menu_tabCards": {
+    "message": "Cards"
+  },
+  "menu_tabIdentities": {
+    "message": "Identities"
+  },
+  "menu_includeSensitive": {
+    "message": "Include CVC and PIN (explicit action)"
+  },
+  "menu_fill": {
+    "message": "Fill"
+  },
+  "menu_identityFallback": {
+    "message": "Identity"
+  },
+  "menu_noLogin": {
+    "message": "No username"
+  },
+  "menu_emptyCards": {
+    "message": "No cards. Open Coffre to add one."
+  },
+  "menu_emptyIdentities": {
+    "message": "No identities. Open Coffre to add one."
+  },
+  "menu_emptyLogins": {
+    "message": "No login for this site. Open Coffre to add one."
+  },
+  "menu_filledCard": {
+    "message": "Card filled."
+  },
+  "menu_filledIdentity": {
+    "message": "Identity filled."
+  },
+  "menu_filledLogin": {
+    "message": "Credentials filled."
+  },
+  "menu_noPending": {
+    "message": "No pending submission for this site."
+  },
+  "menu_savePrompt": {
+    "message": "Save"
+  },
+  "menu_saveFor": {
+    "message": "for"
+  },
+  "menu_updated": {
+    "message": "Item updated."
+  },
+  "menu_saved": {
+    "message": "Item saved."
+  },
+  "menu_unknownSite": {
+    "message": "Unknown site"
+  },
+  "menu_errorAppClosed": {
+    "message": "Open Coffre to sign in."
+  },
+  "menu_errorLocked": {
+    "message": "Coffre is locked."
+  },
+  "menu_errorPairing": {
+    "message": "Pair the extension with Coffre."
+  },
+  "menu_errorDomain": {
+    "message": "This login is not registered for this site."
+  },
+  "menu_errorNoPassword": {
+    "message": "No password field detected."
+  },
+  "menu_errorNoFields": {
+    "message": "No compatible field detected."
+  },
+  "menu_errorNotFound": {
+    "message": "Item not found or confirmation cancelled."
+  },
+  "menu_errorPermission": {
+    "message": "Allow the extension to access Coffre."
+  },
+  "menu_errorInsecure": {
+    "message": "Filling a card requires an HTTPS page."
+  },
+  "menu_errorFrame": {
+    "message": "Card filling refused in a third-party iframe."
+  },
+  "menu_errorGeneric": {
+    "message": "Operation failed."
+  },
+  "menu_errorCancelled": {
+    "message": "Biometric confirmation cancelled."
+  },
+  "menu_tabCustom": {
+    "message": "Templates"
+  },
+  "menu_emptyCustom": {
+    "message": "No fillable template."
+  },
+  "menu_fieldCount": {
+    "message": "fillable field(s)"
+  },
+  "menu_alias": {
+    "message": "Create an email alias"
+  },
+  "menu_aliasCopied": {
+    "message": "Alias copied:"
   }
 }

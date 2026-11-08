@@ -21,12 +21,16 @@ import {
 } from 'lucide-react'
 import { Modal } from './Modal'
 import { SyncSettings } from './SyncSettings'
+import { TemplateSettings } from './TemplateSettings'
+import { ActivitySettings } from './ActivitySettings'
+import { BlobStorageSettings } from './BlobStorageSettings'
+import { SshAgentSettings } from './SshAgentSettings'
 import { ConfirmDialog } from './ConfirmDialog'
 import { PasswordStrength } from './PasswordStrength'
 import { RecoveryDialog } from './RecoveryDialog'
 import { EmergencyKitDialog } from './EmergencyKitDialog'
 import { KdbxExportDialog } from './KdbxExportDialog'
-import { SshAgentSettings } from './SshAgentSettings'
+import { CxfExportDialog } from './CxfExportDialog'
 import { readKdbx } from '../lib/kdbx'
 import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
@@ -41,10 +45,12 @@ import { ensureNotificationPermission } from '../lib/notifications'
 import { LOCALES, type Locale } from '../lib/i18n'
 import {
   dedupeImport,
+  detectImportFormat,
   importSourceLabel,
   parseImport,
   type ParsedImport,
 } from '../lib/import'
+import { parseCxf } from '../lib/cxf'
 import { parse1pux } from '../lib/onePassword'
 import { downloadFile, formatBytes, formatDateTime, pluralize } from '../lib/settings'
 import { exportCsv, type CsvExportFormat } from '../lib/export'
@@ -63,7 +69,15 @@ interface SettingsDialogProps {
   onImported?: () => void
 }
 
-type SettingsPage = 'general' | 'sync' | 'security' | 'backup' | 'storage' | 'danger'
+type SettingsPage =
+  | 'general'
+  | 'sync'
+  | 'security'
+  | 'templates'
+  | 'activity'
+  | 'backup'
+  | 'storage'
+  | 'danger'
 
 const SETTINGS_PAGES: Array<{
   id: SettingsPage
@@ -73,6 +87,8 @@ const SETTINGS_PAGES: Array<{
   { id: 'general', label: 'Général', icon: SlidersHorizontal },
   { id: 'sync', label: 'Synchronisation', icon: Cloud },
   { id: 'security', label: 'Sécurité', icon: ShieldCheck },
+  { id: 'templates', label: 'Modèles', icon: FileKey2 },
+  { id: 'activity', label: 'Journal d’activité', icon: FileKey2 },
   { id: 'backup', label: 'Sauvegarde et import', icon: FileKey2 },
   { id: 'storage', label: 'Stockage', icon: HardDrive },
   { id: 'danger', label: 'Zone dangereuse', icon: Trash2 },
@@ -95,6 +111,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     enrollPrf,
     removePrf,
     emptyTrash,
+    recordActivity,
   } = useVault()
   const { toast } = useToast()
 
@@ -146,6 +163,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const [showRecovery, setShowRecovery] = useState(false)
   const [showEmergencyKit, setShowEmergencyKit] = useState(false)
   const [showKdbxExport, setShowKdbxExport] = useState(false)
+  const [showCxfExport, setShowCxfExport] = useState(false)
   const [page, setPage] = useState<SettingsPage>('general')
   const [mobilePageOpen, setMobilePageOpen] = useState(false)
 
@@ -248,6 +266,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       downloadFile(result.content, result.filename, 'text/csv;charset=utf-8')
       const label =
         result.exported === 1 ? '1 élément exporté' : `${result.exported} éléments exportés`
+      void recordActivity('export', `CSV : ${label}`)
       toast(
         `${label} en CSV.${result.warnings.length > 0 ? ` ${result.warnings.join(' ')}` : ''}`,
         result.warnings.length > 0 ? 'info' : 'success',
@@ -297,6 +316,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       setNewPassword('')
       setConfirmPassword('')
       setPasswordDone(true)
+      void recordActivity('password-change', 'Mot de passe maître modifié')
       toast(tt('Mot de passe maître modifié'), 'success')
     } catch (caught) {
       setPasswordError(caught instanceof Error ? caught.message : 'Modification impossible')
@@ -358,7 +378,10 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
         setSourceItems(parsed)
       } else {
         const text = await selected.text()
-        const parsed = parseImport(text, target)
+        const parsed =
+          detectImportFormat(text) === 'cxf'
+            ? await parseCxf(text, target)
+            : parseImport(text, target)
         setSourceText(text)
         setSourceItems(parsed)
       }
@@ -378,7 +401,9 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       const parsed =
         sourceBytes !== null
           ? await parse1pux(sourceBytes, vaultId)
-          : parseImport(sourceText, vaultId)
+          : detectImportFormat(sourceText) === 'cxf'
+            ? await parseCxf(sourceText, vaultId)
+            : parseImport(sourceText, vaultId)
       setSourceItems(parsed)
       setSourceError(null)
     } catch (caught) {
@@ -595,6 +620,10 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
               <ArrowLeft size={15} />
               Toutes les sections
             </button>
+
+            {page === 'templates' && <TemplateSettings />}
+
+            {page === 'activity' && <ActivitySettings />}
 
             {page === 'general' && (
               <section className="settings__page" aria-labelledby="settings-general">
@@ -1205,6 +1234,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                       onClick={() => {
                         try {
                           exportVault()
+                          void recordActivity('export', 'Fichier .coffre')
                           toast(tt('Coffre exporté'), 'success')
                         } catch (caught) {
                           toast(
@@ -1226,6 +1256,14 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     >
                       <FileKey2 size={16} />
                       {tt('Exporter en KDBX')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => setShowCxfExport(true)}
+                    >
+                      <FileKey2 size={16} />
+                      {tt('Exporter en CXF')}
                     </button>
                   </div>
 
@@ -1464,7 +1502,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                       <h3>{tt("Importer depuis un autre gestionnaire")}</h3>
                       <p>
                         Bitwarden, Proton Pass, Enpass, 1Password, LastPass, Chrome,
-                        Firefox, Safari, Dashlane, KeePass…
+                        Firefox, Safari, Dashlane, KeePass, CXF…
                       </p>
                     </div>
                   </div>
@@ -1472,7 +1510,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                   <label className="file-drop">
                     <input
                       type="file"
-                      accept=".json,.csv,.xml,.1pux,application/json,text/csv,application/xml,text/xml"
+                      accept=".json,.csv,.xml,.1pux,.cxf,application/json,text/csv,application/xml,text/xml"
                       onChange={(event) => {
                         void selectSourceFile(event.target.files?.[0] ?? null)
                         event.target.value = ''
@@ -1481,7 +1519,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     />
                     <Upload size={20} />
                     <span>
-                      {sourceFile ? sourceFile.name : 'Choisir un fichier JSON, CSV, XML ou 1PUX'}
+                      {sourceFile ? sourceFile.name : 'Choisir un fichier JSON, CSV, XML, CXF ou 1PUX'}
                     </span>
                     <small>{tt("Les éléments sont ajoutés au coffre choisi, puis chiffrés.")}</small>
                   </label>
@@ -1506,7 +1544,9 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                               ? '1PUX'
                               : sourceItems.format === 'keepass-xml'
                                 ? 'XML KeePass'
-                                : 'JSON'}{' '}
+                                : sourceItems.format === 'cxf'
+                                  ? 'CXF'
+                                  : 'JSON'}{' '}
                           {importSourceLabel(sourceItems.source)}
                           {sourcePreview.duplicates.length > 0 &&
                             ` · ${sourcePreview.duplicates.length} doublon${
@@ -1740,6 +1780,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     <p>{tt("Persistance, intégrité et sauvegardes locales.")}</p>
                   </div>
                 </div>
+
+                <BlobStorageSettings />
 
                 <section className="settings-section">
                   <div className="settings-section__head">
@@ -2002,6 +2044,9 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
           vaults={vaults}
           onClose={() => setShowKdbxExport(false)}
         />
+      )}
+      {showCxfExport && (
+        <CxfExportDialog items={items} onClose={() => setShowCxfExport(false)} />
       )}
     </>
   )

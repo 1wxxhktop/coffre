@@ -896,6 +896,7 @@ pub fn rotate_password(
         kdf: new_kdf.clone(),
         vaults,
         recovery,
+        prf: None,
         updated_at: now.to_string(),
         key_epoch: Some(next_key_epoch),
         integrity: None,

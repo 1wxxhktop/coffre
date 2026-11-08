@@ -6,18 +6,51 @@
  * active. Aucun message ne quitte la machine.
  */
 
-import type { LoginItem, VaultItem } from './types'
+import type { CardItem, IdentityItem, LoginItem, VaultItem } from './types'
 
 export const EXTENSION_BRIDGE_VERSION = 1
 export const EXTENSION_MAX_RESULTS = 50
 
+export type ExtensionAutofillKind = 'login' | 'card' | 'identity' | 'custom'
+
 export interface ExtensionLoginSummary {
   id: string
+  kind?: 'login'
   title: string
   username: string
   host: string
   hasTotp: boolean
 }
+
+export interface ExtensionCardSummary {
+  id: string
+  kind: 'card'
+  title: string
+  brand: string
+  last4: string
+  expiry: string
+}
+
+export interface ExtensionIdentitySummary {
+  id: string
+  kind: 'identity'
+  title: string
+  email: string
+  fullName: string
+}
+
+export interface ExtensionCustomSummary {
+  id: string
+  kind: 'custom'
+  title: string
+  fieldCount: number
+}
+
+export type ExtensionAutofillSummary =
+  | ExtensionLoginSummary
+  | ExtensionCardSummary
+  | ExtensionIdentitySummary
+  | ExtensionCustomSummary
 
 export interface ExtensionCredentials {
   id: string
@@ -25,6 +58,61 @@ export interface ExtensionCredentials {
   username: string
   password: string
   totp: string
+}
+
+export interface ExtensionCardValues {
+  cardholder: string
+  number: string
+  expiry: string
+  cvc: string
+  pin: string
+  brand: string
+}
+
+export interface ExtensionIdentityValues {
+  fullName: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  address: string
+  city: string
+  postalCode: string
+  country: string
+}
+
+export interface ExtensionCustomValue {
+  label: string
+  value: string
+}
+
+export type ExtensionFillValues =
+  | ({ kind: 'login' } & ExtensionCredentials)
+  | { kind: 'custom'; id: string; title: string; values: ExtensionCustomValue[] }
+  | ({ kind: 'card'; id: string; title: string } & ExtensionCardValues)
+  | ({ kind: 'identity'; id: string; title: string } & ExtensionIdentityValues)
+
+export interface ExtensionCardSaveInput {
+  title?: string
+  cardholder: string
+  number: string
+  expiry: string
+  cvc?: string
+  pin?: string
+  brand?: string
+}
+
+export interface ExtensionIdentitySaveInput {
+  title?: string
+  fullName: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  address: string
+  city: string
+  postalCode: string
+  country: string
 }
 
 export interface ExtensionSaveInput {
@@ -81,8 +169,20 @@ export interface CoffreExtensionBridge {
   version: number
   search: (query: string) => Promise<ExtensionLoginSummary[]>
   fill: (itemId: string, host?: string) => Promise<ExtensionCredentials | null>
+  searchCards?: (query: string) => Promise<ExtensionCardSummary[]>
+  searchIdentities?: (query: string) => Promise<ExtensionIdentitySummary[]>
+  searchCustom?: (query: string) => Promise<ExtensionCustomSummary[]>
+  generateAlias?: (site: string) => Promise<string | null>
+  fillItem?: (
+    itemId: string,
+    options?: { host?: string; includeSensitive?: boolean },
+  ) => Promise<ExtensionFillValues | null>
   /** Enregistre ou met à jour une connexion après soumission du formulaire. */
   saveLogin?: (input: ExtensionSaveInput) => Promise<ExtensionSaveResult | null>
+  saveCard?: (input: ExtensionCardSaveInput) => Promise<ExtensionSaveResult | null>
+  saveIdentity?: (
+    input: ExtensionIdentitySaveInput,
+  ) => Promise<ExtensionSaveResult | null>
   passkeyCreate?: (
     input: ExtensionPasskeyCreateInput,
   ) => Promise<ExtensionPasskeyCreateResult | null>
@@ -186,5 +286,74 @@ export function searchLogins(
       username: item.username,
       host: hosts[0] ?? '',
       hasTotp: Boolean(item.totp),
+    }))
+}
+
+export function identityFullName(
+  item: Pick<IdentityItem, 'firstName' | 'lastName' | 'title'>,
+): string {
+  const name = [item.firstName, item.lastName].filter(Boolean).join(' ').trim()
+  return name || item.title
+}
+
+export function cardLast4(item: Pick<CardItem, 'number'>): string {
+  return item.number.replace(/\s+/g, '').slice(-4)
+}
+
+/** Classe les cartes correspondant à un texte libre. */
+export function searchCards(
+  items: VaultItem[],
+  query: string,
+): ExtensionCardSummary[] {
+  const text = normalize(query)
+  return items
+    .filter((item): item is CardItem => item.type === 'card' && !item.deletedAt)
+    .filter((item) => {
+      if (!text) return true
+      return (
+        normalize(item.title).includes(text) ||
+        normalize(item.brand).includes(text) ||
+        cardLast4(item).includes(text)
+      )
+    })
+    .sort((a, b) => a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' }))
+    .slice(0, EXTENSION_MAX_RESULTS)
+    .map((item) => ({
+      id: item.id,
+      kind: 'card',
+      title: item.title,
+      brand: item.brand,
+      last4: cardLast4(item),
+      expiry: item.expiry,
+    }))
+}
+
+/** Classe les identités correspondant à un texte libre. */
+export function searchIdentities(
+  items: VaultItem[],
+  query: string,
+): ExtensionIdentitySummary[] {
+  const text = normalize(query)
+  return items
+    .filter(
+      (item): item is IdentityItem => item.type === 'identity' && !item.deletedAt,
+    )
+    .filter((item) => {
+      if (!text) return true
+      return (
+        normalize(item.title).includes(text) ||
+        normalize(identityFullName(item)).includes(text) ||
+        normalize(item.email).includes(text) ||
+        normalize(item.phone).includes(text)
+      )
+    })
+    .sort((a, b) => a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' }))
+    .slice(0, EXTENSION_MAX_RESULTS)
+    .map((item) => ({
+      id: item.id,
+      kind: 'identity',
+      title: item.title,
+      email: item.email,
+      fullName: identityFullName(item),
     }))
 }

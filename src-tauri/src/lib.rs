@@ -13,7 +13,11 @@ use tauri::plugin::Plugin;
 #[cfg(desktop)]
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+mod alias_service;
+mod autotype;
+mod blob_store;
 mod bridge;
+mod lan_sync;
 mod ssh_agent;
 mod sync_store;
 mod vault_store;
@@ -251,6 +255,16 @@ fn quick_search_shortcut() -> Shortcut {
         Modifiers::CONTROL
     };
     Shortcut::new(Some(modifier | Modifiers::SHIFT), Code::Space)
+}
+
+#[cfg(desktop)]
+fn autotype_shortcut() -> Shortcut {
+    let modifier = if cfg!(target_os = "macos") {
+        Modifiers::SUPER
+    } else {
+        Modifiers::CONTROL
+    };
+    Shortcut::new(Some(modifier | Modifiers::SHIFT), Code::KeyA)
 }
 
 fn vault_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
@@ -493,6 +507,7 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .manage(bridge::BridgeState::default())
         .manage(sync_store::SyncState::default())
+        .manage(lan_sync::LanState::load())
         .manage(ssh_agent::SshAgentState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(NavigationGuard)
@@ -520,6 +535,25 @@ pub fn run() {
             vault_state_read,
             vault_state_write,
             vault_clear,
+            alias_service::alias_create,
+            blob_store::blob_encrypt,
+            blob_store::blob_list,
+            blob_store::blob_export_to,
+            blob_store::blob_import_from,
+            blob_store::blob_decrypt,
+            blob_store::blob_preview,
+            blob_store::blob_remove,
+            autotype::autotype_active_window,
+            autotype::autotype_run,
+            lan_sync::lan_discover,
+            lan_sync::lan_update_peer_host,
+            lan_sync::lan_identity,
+            lan_sync::lan_pair_start,
+            lan_sync::lan_pair_join,
+            lan_sync::lan_peers,
+            lan_sync::lan_forget_peer,
+            lan_sync::lan_sync_serve,
+            lan_sync::lan_sync_pull,
             sync_prepare,
             sync_list,
             sync_read,
@@ -542,6 +576,18 @@ pub fn run() {
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
+                    if event.state == ShortcutState::Pressed && shortcut == &autotype_shortcut() {
+                        let window_info = autotype::autotype_active_window().ok();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                        if let Some(info) = window_info {
+                            let _ = app.emit("coffre:autotype-request", info);
+                        }
+                        return;
+                    }
                     if event.state == ShortcutState::Pressed && shortcut == &quick_search_shortcut()
                     {
                         if let Some(window) = app.get_webview_window("main") {
@@ -557,6 +603,9 @@ pub fn run() {
         .setup(|app| {
             if let Err(error) = app.global_shortcut().register(quick_search_shortcut()) {
                 eprintln!("Raccourci global de recherche indisponible : {error}");
+            }
+            if let Err(error) = app.global_shortcut().register(autotype_shortcut()) {
+                eprintln!("Raccourci global de saisie automatique indisponible : {error}");
             }
             if let Err(error) = bridge::start_server(app.handle().clone()) {
                 eprintln!("Pont natif indisponible : {error}");

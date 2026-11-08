@@ -29,6 +29,12 @@ export interface AttachmentMeta {
   mime: string
   size: number
   createdAt: string
+  /** Stockage inline (dans le fichier) ou blob chiffré séparé. */
+  storage?: 'inline' | 'blob'
+  blobId?: string
+  /** Clé du blob, protégée par le chiffrement du contenu de l’élément. */
+  blobKey?: string
+  sha256?: string
 }
 
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
@@ -50,6 +56,8 @@ export interface ItemBase {
   notes: string
   tags: string[]
   customFields: CustomField[]
+  /** Modèle d’élément personnalisé utilisé, si applicable. */
+  templateId?: string
   attachments: AttachmentMeta[]
   /** Date de mise à la corbeille ; `null` pour un élément actif. */
   deletedAt: string | null
@@ -68,6 +76,10 @@ export interface LoginItem extends ItemBase {
   password: string
   urls: string[]
   totp: string
+  /** Séquence de saisie automatique compatible KeePass. */
+  autotypeSequence?: string
+  /** Alias e-mail généré pour ce site. */
+  emailAlias?: string
 }
 
 export interface NoteItem extends ItemBase {
@@ -203,6 +215,75 @@ export interface EncryptedAttachmentRecord {
   createdAt: string
 }
 
+/** Événement du journal d’activité local chiffré. */
+export type ActivityKind =
+  | 'unlock'
+  | 'unlock-failed'
+  | 'lock'
+  | 'export'
+  | 'password-change'
+  | 'recovery-change'
+  | 'pairing'
+  | 'share'
+  | 'extension-fill'
+  | 'autotype'
+  | 'ssh-agent'
+
+export interface ActivityEvent {
+  id: string
+  kind: ActivityKind
+  at: string
+  detail: string
+  host?: string
+}
+
+export interface EncryptedActivityRecord {
+  id: string
+  data: Sealed
+  createdAt: string
+  clock?: RecordClock
+}
+
+/** Clé API d’un service d’alias, chiffrée dans le coffre. */
+export type AliasKeyService = 'simplelogin' | 'addy'
+
+export interface EncryptedAliasKeyRecord {
+  service: AliasKeyService
+  data: Sealed
+  createdAt: string
+  clock?: RecordClock
+}
+
+/** Champ d’un modèle d’élément personnalisé. */
+export type TemplateFieldType = 'text' | 'secret' | 'url' | 'date' | 'multiline'
+
+export interface TemplateField {
+  id: string
+  label: string
+  type: TemplateFieldType
+  required?: boolean
+  fillable?: boolean
+}
+
+/** Modèle d’élément personnalisé, chiffré avec une clé dédiée. */
+export interface ItemTemplate {
+  id: string
+  name: string
+  icon: string
+  fields: TemplateField[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EncryptedTemplateRecord {
+  id: string
+  key: Sealed
+  content: Sealed
+  createdAt: string
+  updatedAt: string
+  clock?: RecordClock
+}
+
 /**
  * Version précédente du contenu d’un élément, chiffrée avec la clé de cet
  * élément et une AAD propre à la version.
@@ -237,6 +318,8 @@ export interface RecoveryEnvelope {
   key: Sealed
   guard: Sealed
   wraps: RecoveryWrap[]
+  /** Clés des modèles, scellées par la clé de récupération. */
+  templateWraps?: Array<{ templateId: string; key: Sealed }>
 }
 
 /**
@@ -258,7 +341,7 @@ export interface PrfEnvelope {
  * puissent la rejouer lors d’une fusion. Le contenu supprimé n’est plus présent.
  */
 export interface VaultTombstone {
-  kind: 'item' | 'vault'
+  kind: 'item' | 'vault' | 'template'
   id: string
   deletedAt: string
 }
@@ -303,6 +386,12 @@ export interface VaultFile {
   items: EncryptedItemRecord[]
   attachments: EncryptedAttachmentRecord[]
   versions: EncryptedVersionRecord[]
+  /** Modèles d’éléments personnalisés, chiffrés avec le fichier. */
+  templates?: EncryptedTemplateRecord[]
+  /** Journal d’activité local, chiffré événement par événement. */
+  activity?: EncryptedActivityRecord[]
+  /** Clés API des services d’alias, chiffrées par service. */
+  aliasKeys?: EncryptedAliasKeyRecord[]
   recovery?: RecoveryEnvelope
   /** Déverrouillage optionnel par clé de sécurité FIDO2/PRF. */
   prf?: PrfEnvelope

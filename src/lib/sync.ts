@@ -18,8 +18,10 @@
  */
 
 import type {
+  EncryptedActivityRecord,
   EncryptedAttachmentRecord,
   EncryptedItemRecord,
+  EncryptedTemplateRecord,
   EncryptedVaultRecord,
   EncryptedVersionRecord,
   RecoveryEnvelope,
@@ -74,6 +76,12 @@ export type SyncConflict =
       reason: 'duplicate-id'
       losing: EncryptedVersionRecord
     }
+  | {
+      kind: 'template'
+      id: string
+      reason: 'concurrent-edit'
+      losing: EncryptedTemplateRecord
+    }
 
 export interface MergeResult {
   file: VaultFile
@@ -83,7 +91,8 @@ export interface MergeResult {
 
 interface ClockedRecord {
   id: string
-  updatedAt: string
+  updatedAt?: string
+  createdAt?: string
   clock?: { rev: number; writer: string }
 }
 
@@ -125,6 +134,20 @@ function vaultFingerprint(record: EncryptedVaultRecord): string {
     record.key.c,
     record.name.n,
     record.name.c,
+    record.updatedAt,
+  ].join(':')
+}
+
+function activityFingerprint(record: EncryptedActivityRecord): string {
+  return [record.data.n, record.data.c, record.createdAt].join(':')
+}
+
+function templateFingerprint(record: EncryptedTemplateRecord): string {
+  return [
+    record.key.n,
+    record.key.c,
+    record.content.n,
+    record.content.c,
     record.updatedAt,
   ].join(':')
 }
@@ -359,6 +382,60 @@ export function mergeVaultFiles(
   }
 
   const tombstoneMap = mergeTombstones(files)
+
+  const templateRecords = new Map<string, EncryptedTemplateRecord[]>()
+  for (const file of files) {
+    for (const template of file.templates ?? []) {
+      const list = templateRecords.get(template.id) ?? []
+      list.push(template)
+      templateRecords.set(template.id, list)
+    }
+  }
+  const templates: EncryptedTemplateRecord[] = []
+  for (const records of templateRecords.values()) {
+    const { selected, conflict } = chooseRecord(records, templateFingerprint)
+    const tombstone = tombstoneMap.get(tombstoneKey('template', selected.id))
+    if (tombstone && tombstoneWins(tombstone, selected.updatedAt)) continue
+    templates.push(selected)
+    if (conflict) {
+      conflicts.push({
+        kind: 'template',
+        id: selected.id,
+        reason: 'concurrent-edit',
+        losing: conflict,
+      })
+    }
+  }
+
+  const activityRecords = new Map<string, EncryptedActivityRecord[]>()
+  for (const file of files) {
+    for (const event of file.activity ?? []) {
+      const list = activityRecords.get(event.id) ?? []
+      list.push(event)
+      activityRecords.set(event.id, list)
+    }
+  }
+  const aliasKeysById = new Map<string, NonNullable<VaultFile['aliasKeys']>[number]>()
+  for (const file of files) {
+    for (const entry of file.aliasKeys ?? []) {
+      const previous = aliasKeysById.get(entry.service)
+      if (!previous || entry.createdAt > previous.createdAt) {
+        aliasKeysById.set(entry.service, entry)
+      }
+    }
+  }
+  const aliasKeys = [...aliasKeysById.values()]
+
+  const activity: EncryptedActivityRecord[] = []
+  for (const records of activityRecords.values()) {
+    activity.push(chooseRecord(records, activityFingerprint).selected)
+  }
+  activity.sort(
+    (a, b) =>
+      compareText(b.createdAt, a.createdAt) || compareText(a.id, b.id),
+  )
+  activity.splice(5_000)
+
   const vaults: EncryptedVaultRecord[] = []
   for (const records of vaultRecords.values()) {
     const { selected, conflict } = chooseRecord(records, vaultFingerprint)
@@ -521,7 +598,13 @@ export function mergeVaultFiles(
     .sort()
     .at(-1) as string
 
-  if (vaults.length > 50 || items.length > 20_000 || attachments.length > 20_000) {
+  if (
+    vaults.length > 50 ||
+    items.length > 20_000 ||
+    attachments.length > 20_000 ||
+    templates.length > 500 ||
+    activity.length > 5_000
+  ) {
     throw new VaultSyncError(
       'limits',
       'La fusion dépasse les plafonds du format de coffre.',
@@ -538,6 +621,9 @@ export function mergeVaultFiles(
     items: items.sort((a, b) => compareText(a.id, b.id)),
     attachments,
     versions,
+    templates,
+    activity,
+    ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
     tombstones,
     writer,
     revision,

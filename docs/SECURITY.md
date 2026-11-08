@@ -599,26 +599,39 @@ reste sur l’implémentation TypeScript.
 - façade `coffre-core-ffi` pour UniFFI, en JSON sans état (le mot de passe est
   fourni à chaque appel, aucune session Rust n’est conservée), et commande
   Tauri `core_merge_files` qui fusionne des fichiers chiffrés sans mot de passe ;
+- aucune dépendance réseau dans ce crate ;
+- vecteurs croisés : les fixtures TypeScript `v1..v4` sont relues par Rust, et
+  `test-vectors/rust-v4.coffre.json` est relu par le test TypeScript de
+  production. Le MAC et les contenus déchiffrés sont vérifiés des deux côtés ;
 - CLI `coffre-cli` : ouverture en lecture seule (`list`, `get`, `totp`,
   `run --env`), sans mutation ni réseau. Le mot de passe maître est lu sans
   écho sur le terminal (`rpassword`) ou sur stdin avec `--password-stdin` ; il
   n’est jamais accepté en argument. Les valeurs ne sont écrites sur stdout que
   pour `get`, `totp` et la commande enfant de `run` ;
-- `run --env` transmet les secrets par l’environnement du processus enfant,
-  jamais par sa ligne de commande. Ce n’est pas une barrière d’isolation : un
+- `run --env-file` n’accepte que des références
+  `coffre://<coffre>/<élément>/<champ>` ; une valeur littérale est refusée pour
+  éviter de stocker un secret en clair dans un fichier `.env` ;
+- `git-credential get` exige `--approve` et ne renvoie que `username` et
+  `password` pour un hôte correspondant ; `store` et `erase` ne modifient pas
+  le coffre ;
+- `ssh-sign` signe un fichier avec une clé SSH du coffre et n’écrit que la
+  signature `SSHSIG` sur stdout ; la clé privée reste en mémoire ;
+- `coffre-git-sign` lit `COFFRE_VAULT` et éventuellement `COFFRE_PASSWORD`
+  (variable d’environnement visible par le processus Git), signe le fichier
+  fourni par Git et écrit `<fichier>.sig` ; aucune clé privée n’est écrite ;
+- `ssh-config` n’écrit aucun fichier et n’affiche que le commentaire,
+  l’empreinte et le bloc `Host`/`IdentityAgent` ; aucune clé privée n’est
+  exposée ;
+- `run --env` et `run --env-file` transmettent les secrets par l’environnement
+  du processus enfant, jamais par sa ligne de commande. Ce n’est pas une barrière d’isolation : un
   processus du même utilisateur peut inspecter l’environnement (par exemple
   `/proc/<pid>/environ` sous Linux) et l’enfant peut les journaliser ou les
   retransmettre. L’option vise les outils locaux de courte durée ;
 - les clés et buffers cryptographiques du CLI restent en `Zeroizing` ; les
   valeurs JSON déchiffrées vivent en mémoire jusqu’à la fin du processus, comme
   dans la façade FFI ;
-- aucune dépendance réseau dans ce crate ;
-- vecteurs croisés : les fixtures TypeScript `v1..v4` sont relues par Rust, et
-  `test-vectors/rust-v4.coffre.json` est relu par le test TypeScript de
-  production. Le MAC et les contenus déchiffrés sont vérifiés des deux côtés ;
 - la CI exécute `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli`
-  sur Linux,
-  macOS et Windows. Les bindings Swift/Kotlin sont générés avec
+  sur Linux, macOS et Windows. Les bindings Swift/Kotlin sont générés avec
   `uniffi-bindgen` ; leur intégration dans les extensions mobiles relève de L8.
 
 ### 2.16 Compatibilité KeePass KDBX 4
@@ -684,7 +697,115 @@ Le remplissage étendu de l’extension applique les règles suivantes :
   (quatre derniers chiffres, titulaire, e-mail) ; le numéro complet, le CVC et
   le PIN ne sont transmis qu’après le clic de remplissage.
 
-### 2.19 Noyau de l’agent SSH
+### 2.19 Synchronisation locale directe (F2)
+
+La synchronisation locale est réservée aux applications desktop et désactivée
+par défaut :
+
+- chaque appareil possède une identité X25519 générée localement, stockée dans
+  `lan/identity.json` avec des permissions `0600` ; le carnet de pairs est dans
+  `lan/peers.json` ;
+- le code d’appairage contient l’adresse locale, le port, la clé publique de
+  l’appareil et un secret aléatoire à usage unique. Il expire au bout de deux
+  minutes et ne doit pas être conservé après l’appairage ;
+- l’appairage et la synchronisation utilisent Noise
+  `XX_25519_ChaChaPoly_BLAKE2s` ; chaque côté vérifie la clé statique distante
+  contre le code ou le carnet de pairs avant d’échanger le moindre fichier ;
+- un appareil non appairé est refusé après la poignée de main, sans recevoir de
+  fichier ni d’information sur le coffre ;
+- le port TCP `47823` n’est ouvert que pendant une réception explicitement
+  demandée, pendant au plus deux minutes ; aucun port n’est maintenu ouvert
+  entre deux synchronisations ;
+- les fichiers échangés sont déjà chiffrés par le format `.coffre` ; Noise
+  ajoute la confidentialité et l’authentification du transport ;
+- pendant la fenêtre de réception, l’appareil s’annonce en mDNS sous
+  `_coffre._tcp.local.` avec son identifiant et son nom ; la découverte ne
+  renvoie que des adresses et des identifiants, jamais de secret ;
+- aucune connexion Internet et aucun serveur ne sont utilisés ; l’adresse
+  initiale vient du code d’appairage.
+
+### 2.17 Déverrouillage FIDO2/PRF
+
+Le déverrouillage par clé de sécurité est optionnel et désactivé tant qu’aucune
+enveloppe n’est configurée.
+
+- La cérémonie WebAuthn crée un credential résident avec `userVerification:
+  'required'` et l’extension `prf` ; le champ `prf.results.first` fournit
+  32 octets.
+- Une KEK AES-256 est dérivée par HKDF-SHA-256 avec un sel aléatoire de
+  32 octets et l’identifiant du fichier. La clé maîtresse est scellée par
+  AES-256-GCM avec l’AAD `coffre:v1:prf-unlock:<idFichier>`.
+- Le résultat PRF ne quitte jamais la mémoire et est effacé après dérivation.
+  Aucun secret PRF, aucune clé maîtresse et aucun sel ne sont journalisés.
+- L’enveloppe `prf` est révocable depuis les réglages. Elle est supprimée lors
+  d’un changement de mot de passe maître ou d’une récupération, car elle est
+  scellée avec l’ancienne clé.
+- Le MAC global ne couvre pas l’enveloppe PRF, comme l’enveloppe de récupération.
+  L’AEAD et l’identifiant de fichier empêchent sa réutilisation sur un autre
+  fichier ; retirer l’enveloppe ne fait que revenir au mot de passe.
+- Limites : la clé doit prendre en charge PRF ; le support des WebViews
+  desktop varie ; la validation avec une YubiKey 5 réelle reste à effectuer.
+  Aucun repli silencieux vers un authentificateur non PRF n’est effectué.
+
+### 2.20 Mode voyage (F6)
+
+Le mode voyage est local à l’appareil et n’est jamais synchronisé :
+
+- seuls les coffres marqués « sûrs pour le voyage » restent dans le fichier
+  local ; les autres coffres, leurs éléments, pièces jointes et versions sont
+  retirés du fichier et des trois sauvegardes locales ;
+- la suppression est signée **sans pierre tombale** : les autres appareils ne
+  reçoivent pas d’ordre de suppression et peuvent restaurer les coffres ;
+- l’activation et la désactivation vérifient le mot de passe maître ; la
+  désactivation exige une source de synchronisation par dossier contenant les
+  coffres masqués et refuse de continuer si aucun fichier distant n’est trouvé ;
+- pendant le mode voyage, la synchronisation par dossier normale est bloquée
+  pour ne pas écraser la copie distante complète avec le fichier local réduit ;
+- les pierres tombales existantes sont conservées : elles ne contiennent aucun
+  ciphertext, seulement des identifiants et des dates ;
+- le mode voyage protège contre l’inspection de l’appareil, **pas contre une
+  contrainte exercée sur la personne** ni contre un adversaire qui obtient le
+  mot de passe maître.
+
+### 2.21 Modèles d’éléments personnalisés (F16)
+
+Les modèles sont des métadonnées chiffrées, séparées des éléments :
+
+- chaque modèle possède une clé aléatoire de 32 octets, scellée par la clé
+  maîtresse avec l’AAD `coffre:v1:template-key:<id>` ;
+- son contenu (nom, icône, champs) est chiffré avec cette clé et l’AAD
+  `coffre:v1:template-content:<id>` ;
+- les modèles sont couverts par le MAC global et fusionnés par horloge ; une
+  suppression crée une pierre tombale `template` ;
+- la clé de récupération contient une enveloppe `templateWraps` pour chaque
+  modèle ; le changement de mot de passe et la récupération ré-enveloppent les
+  clés sans réécrire les contenus ;
+- l’éditeur propose des champs texte, secret, URL, date et texte long ; les
+  champs marqués remplissables apparaissent dans l’onglet Modèles de
+  l’extension et sont remplis par rapprochement de libellé, après clic ;
+- aucun modèle n’est envoyé sur le réseau en dehors du fichier `.coffre`
+  synchronisé ou exporté par l’utilisateur.
+
+### 2.22 Journal d’activité local (F11)
+
+Le journal d’activité est chiffré et local au coffre :
+
+- chaque événement est chiffré avec la clé maîtresse et l’AAD
+  `coffre:v1:activity:<id>` ; le fichier ne contient ni domaine, ni titre
+  d’élément, ni détail en clair ;
+- les événements sont fusionnés entre appareils par identifiant, plafonnés à
+  5 000 entrées et couverts par le MAC global ;
+- le journal est ré-enveloppé lors d’un changement de mot de passe ;
+- une récupération par phrase ou parts réinitialise le journal, car les
+  anciens événements sont scellés par l’ancienne clé maîtresse ;
+- les échecs de déverrouillage ne sont pas enregistrés : aucun secret n’est
+  disponible pour chiffrer l’événement tant que le coffre est verrouillé ;
+- l’export JSON est une action explicite de l’utilisateur ; le fichier produit
+  est en clair et doit être protégé comme une sauvegarde sensible ;
+- aucun journal n’est envoyé sur le réseau en dehors du fichier `.coffre`
+  synchronisé ou exporté.
+
+### 2.22 Noyau de l’agent SSH
 
 Le crate `src-tauri/crates/coffre-ssh-agent` fournit l’agent `SSH_AUTH_SOCK`.
 L’application desktop l’active à la demande depuis **Réglages → Sécurité** ;
@@ -719,7 +840,8 @@ aucun socket n’est créé par défaut.
 - l’approbation reçoit le commentaire, l’empreinte SHA-256, l’algorithme et les
   données exactes à signer, jamais la clé privée ;
 - ed25519 et RSA sont pris en charge ; les clés RSA de moins de 2048 bits, les
-  clés chiffrées par phrase de passe et les algorithmes inconnus sont refusés ;
+  clés chiffrées par phrase de passe, les clés FIDO2 `sk-ssh-*` et les
+  algorithmes inconnus sont refusés ;
 - la clé publique stockée dans l’élément est comparée à celle dérivée de la clé
   privée avant toute utilisation ;
 - les messages sont plafonnés à 256 Kio, les données à signer sont effacées
@@ -737,28 +859,80 @@ aucun socket n’est créé par défaut.
   faire), et la mémorisation porte sur une clé pendant 15 secondes, pas sur un
   hôte.
 
-### 2.20 Déverrouillage FIDO2/PRF
+### 2.23 Saisie automatique desktop (F9)
 
-Le déverrouillage par clé de sécurité est optionnel et désactivé tant qu’aucune
-enveloppe n’est configurée.
+La saisie automatique est une action explicite depuis une connexion :
 
-- La cérémonie WebAuthn crée un credential résident avec `userVerification:
-  'required'` et l’extension `prf` ; le champ `prf.results.first` fournit
-  32 octets.
-- Une KEK AES-256 est dérivée par HKDF-SHA-256 avec un sel aléatoire de
-  32 octets et l’identifiant du fichier. La clé maîtresse est scellée par
-  AES-256-GCM avec l’AAD `coffre:v1:prf-unlock:<idFichier>`.
-- Le résultat PRF ne quitte jamais la mémoire et est effacé après dérivation.
-  Aucun secret PRF, aucune clé maîtresse et aucun sel ne sont journalisés.
-- L’enveloppe `prf` est révocable depuis les réglages. Elle est supprimée lors
-  d’un changement de mot de passe maître ou d’une récupération, car elle est
-  scellée avec l’ancienne clé.
-- Le MAC global ne couvre pas l’enveloppe PRF, comme l’enveloppe de récupération.
-  L’AEAD et l’identifiant de fichier empêchent sa réutilisation sur un autre
-  fichier ; retirer l’enveloppe ne fait que revenir au mot de passe.
-- Limites : la clé doit prendre en charge PRF ; le support des WebViews
-  desktop varie ; la validation avec une YubiKey 5 réelle reste à effectuer.
-  Aucun repli silencieux vers un authentificateur non PRF n’est effectué.
+- Coffre masque sa fenêtre, attend 650 ms puis identifie la fenêtre active ;
+- Rust compare l’identifiant de fenêtre et le PID avant **chaque jeton** ; si
+  le focus change, la séquence est interrompue avec une erreur ;
+- les jetons sont limités à 4 000 caractères, les délais à 60 secondes, et les
+  jetons inconnus sont refusés ;
+- les valeurs `{USERNAME}`, `{PASSWORD}` et `{TOTP}` ne sont transmises que par
+  l’IPC local entre la WebView et Rust ; elles ne sont jamais journalisées ni
+  écrites sur disque ;
+- sur macOS, la permission **Accessibilité** est requise pour envoyer les
+  événements clavier ; le message d’erreur explique comment l’accorder ;
+- la fenêtre active est refusée si son nom contient « Coffre », pour éviter une
+  saisie dans l’application elle-même ;
+- le raccourci global `Cmd+Shift+A`/`Ctrl+Shift+A` capture la fenêtre active
+  avant de ramener Coffre au premier plan, puis propose les connexions
+  correspondantes ; la fenêtre cible est revérifiée au moment de la frappe ;
+- la saisie automatique est journalisée dans le journal d’activité chiffré
+  (type `autotype`, titre de l’élément et nom de l’application cible) ;
+- Windows et Linux utilisent la même bibliothèque d’entrée, mais leurs
+  permissions et leur comportement n’ont pas encore été validés.
+
+### 2.24 Alias e-mail hors ligne (F7)
+
+Le générateur d’alias est entièrement local :
+
+- l’adresse de base, le mode et l’étiquette sont transformés en adresse
+  « plus » ou catch-all sans requête réseau ;
+- l’alias est stocké dans le champ `emailAlias` de l’élément et dans le
+  contenu chiffré du coffre ;
+- les préférences d’adresse de base et de mode sont mémorisées dans le
+  `localStorage` de l’application ; elles ne contiennent aucun secret ;
+- aucun service SimpleLogin/addy.io n’est contacté sans saisie explicite d’une
+  clé API et clic sur « Générer via le service » ; les URL sont fixes
+  (`app.simplelogin.io`, `app.addy.io`) ; la clé peut être chiffrée dans la
+  section `aliasKeys` du coffre, une entrée par service, et est ré-enveloppée
+  lors d’un changement de mot de passe ; le menu de l’extension peut générer
+  un alias hors ligne et le copier dans le presse-papiers, sans requête
+  réseau ;
+- aucun alias n’est envoyé sur le réseau en dehors du fichier `.coffre`
+  synchronisé ou exporté.
+
+### 2.25 Coffre de fichiers chiffrés en flux (F8)
+
+Les blobs sont des fichiers chiffrés séparés du `.coffre` :
+
+- stockage dans `vault/blobs/<id>` avec un identifiant restreint
+  (`[a-zA-Z0-9_-]`, 80 caractères) pour empêcher toute traversée de chemin ;
+- chiffrement AES-256-GCM par blocs de 64 Kio ; nonce de 12 octets formé d’un
+  préfixe aléatoire de 7 octets, d’un compteur de 4 octets et d’un drapeau de
+  dernier bloc ;
+- chaque bloc est authentifié avec l’en-tête du blob, son index et le drapeau
+  de dernier bloc dans l’AAD ; une troncature, un réordonnancement ou une
+  substitution échoue avant écriture du clair ;
+- les fichiers sont écrits atomiquement (`.tmp` puis renommage) et reçoivent
+  les permissions `0600` ; le dossier `blobs` est en `0700` ;
+- les aperçus sont déchiffrés en mémoire et plafonnés à 16 Mio ; aucune copie
+  en clair n’est créée pour un aperçu ;
+- la clé de blob est stockée dans les métadonnées de la pièce jointe, elles-mêmes
+  chiffrées avec la clé de l’élément ; elle n’apparaît jamais en clair dans le
+  fichier `.coffre` ;
+- l’ajout et le téléchargement passent par des dialogues natifs explicites ;
+  la suppression de la pièce jointe retire aussi le blob ;
+- la synchronisation par dossier copie les blobs chiffrés dans
+  `Coffre/<idFichier>/blobs/` et importe les blobs absents ; aucun clair n’est
+  écrit ; les réglages de stockage listent les blobs et permettent de supprimer
+  ceux qui ne sont référencés par aucun élément ; la synchronisation des blobs
+  par le réseau local F2 transfère les blobs manquants après l’échange du
+  `.coffre`, par blocs de 256 Kio et uniquement pour les identifiants
+  référencés, avec un plafond de 2 Gio par transfert ; un test Rust en boucle
+  locale vérifie l’échange entre deux dossiers de blobs ; un test manuel de 1 Gio vérifie le streaming en mémoire
+  constante.
 
 ## 3. Stockage local
 
@@ -1162,8 +1336,9 @@ La WebView n’accède au système que par des commandes IPC explicites :
 | Groupe | Rôle |
 | --- | --- |
 | `keychain_store`, `keychain_load`, `keychain_delete` | trousseau de session |
-| `biometric_available`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS |
+| `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS |
 | `vault_read`, `vault_write`, `vault_backup_read`, `vault_backup_write`, `vault_clear` | stockage natif du coffre |
+| `lan_identity`, `lan_pair_start`, `lan_pair_join`, `lan_peers`, `lan_forget_peer`, `lan_sync_serve`, `lan_sync_pull` | synchronisation locale |
 | `open_external_url` | ouverture contrôlée de liens http(s) |
 
 Le service du trousseau est `app.coffre.desktop` et le compte est l’identifiant

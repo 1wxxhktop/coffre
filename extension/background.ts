@@ -1,5 +1,10 @@
 import type {
+  ExtensionAutofillKind,
+  ExtensionAutofillSummary,
+  ExtensionCardSaveInput,
   ExtensionCredentials,
+  ExtensionFillValues,
+  ExtensionIdentitySaveInput,
   ExtensionLoginSummary,
   ExtensionPasskeyCreateInput,
   ExtensionPasskeyCreateResult,
@@ -14,6 +19,8 @@ import {
   nativePair,
   nativePasskeyCreate,
   nativePasskeyGet,
+  nativeSaveCard,
+  nativeSaveIdentity,
   nativeSaveLogin,
   nativeSearch,
   nativeStatus,
@@ -37,6 +44,10 @@ interface ExtensionMessage {
   url?: string
   appUrl?: string
   kind?: string
+  formKind?: string
+  includeSensitive?: boolean
+  card?: Record<string, unknown>
+  identity?: Record<string, unknown>
   requestId?: string
   payload?: unknown
   decision?: string
@@ -205,28 +216,30 @@ async function requireNativeCredentials(
   status: AppStatus,
   itemId: string,
   host: string,
-): Promise<{ credentials?: ExtensionCredentials | null; error?: string }> {
+  kind: ExtensionAutofillKind = 'login',
+  includeSensitive = false,
+): Promise<{ credentials?: ExtensionFillValues | null; error?: string }> {
   if (!status.paired) return { error: 'needs-pairing' }
   if (!status.unlocked) return { error: 'locked' }
-  if (!host) return { error: 'domain-mismatch' }
-  const result = await nativeFill(itemId, host)
+  if (kind === 'login' && !host) return { error: 'domain-mismatch' }
+  const result = await nativeFill(itemId, host, kind, includeSensitive)
   if (result.error) return { error: result.error }
   return {
-    credentials: (result.credentials as ExtensionCredentials | null) ?? null,
+    credentials: (result.credentials as ExtensionFillValues | null) ?? null,
   }
 }
 
-async function search(query: string): Promise<{
-  items?: ExtensionLoginSummary[]
-  error?: string
-}> {
+async function search(
+  query: string,
+  kind: ExtensionAutofillKind = 'login',
+): Promise<{ items?: ExtensionAutofillSummary[]; error?: string }> {
   const status = await readStatus()
   if (status.mode === 'native') {
     if (!status.paired) return { error: 'needs-pairing' }
     if (!status.unlocked) return { error: 'locked' }
-    const result = await nativeSearch(query)
+    const result = await nativeSearch(query, kind)
     return {
-      items: (result.items as ExtensionLoginSummary[] | undefined) ?? [],
+      items: (result.items as ExtensionAutofillSummary[] | undefined) ?? [],
       error: result.error,
     }
   }
@@ -237,20 +250,38 @@ async function search(query: string): Promise<{
     const [result] = await api.scripting.executeScript({
       target: { tabId: status.tabId },
       world: 'MAIN',
-      func: async (value: string) => {
+      func: async (value: string, wanted: string) => {
         const bridge = (
           window as unknown as {
             __coffreExtension?: {
               search: (query: string) => Promise<ExtensionLoginSummary[]>
+              searchCards?: (query: string) => Promise<ExtensionAutofillSummary[]>
+              searchIdentities?: (
+                query: string,
+              ) => Promise<ExtensionAutofillSummary[]>
+              searchCustom?: (
+                query: string,
+              ) => Promise<ExtensionAutofillSummary[]>
             }
           }
         ).__coffreExtension
         if (!bridge) return []
+        if (wanted === 'card' && bridge.searchCards) {
+          return bridge.searchCards(value)
+        }
+        if (wanted === 'identity' && bridge.searchIdentities) {
+          return bridge.searchIdentities(value)
+        }
+        if (wanted === 'custom' && bridge.searchCustom) {
+          return bridge.searchCustom(value)
+        }
         return bridge.search(value)
       },
-      args: [query],
+      args: [query, kind],
     })
-    return { items: (result?.result as ExtensionLoginSummary[] | undefined) ?? [] }
+    return {
+      items: (result?.result as ExtensionAutofillSummary[] | undefined) ?? [],
+    }
   } catch {
     return { error: 'permission' }
   }
@@ -260,7 +291,9 @@ async function credentialsFromTab(
   status: AppStatus,
   itemId: string,
   host: string,
-): Promise<{ credentials?: ExtensionCredentials | null; error?: string }> {
+  kind: ExtensionAutofillKind = 'login',
+  includeSensitive = false,
+): Promise<{ credentials?: ExtensionFillValues | null; error?: string }> {
   if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
   if (!status.unlocked) return { error: 'locked' }
 
@@ -268,7 +301,12 @@ async function credentialsFromTab(
     const [result] = await api.scripting.executeScript({
       target: { tabId: status.tabId },
       world: 'MAIN',
-      func: async (id: string, pageHost: string) => {
+      func: async (
+        id: string,
+        pageHost: string,
+        wanted: string,
+        sensitive: boolean,
+      ) => {
         const bridge = (
           window as unknown as {
             __coffreExtension?: {
@@ -276,16 +314,33 @@ async function credentialsFromTab(
                 itemId: string,
                 host?: string,
               ) => Promise<ExtensionCredentials | null>
+              fillItem?: (
+                itemId: string,
+                options?: { host?: string; includeSensitive?: boolean },
+              ) => Promise<ExtensionFillValues | null>
+              searchCustom?: (query: string) => Promise<ExtensionAutofillSummary[]>
+              fillCustom?: (itemId: string) => Promise<ExtensionFillValues | null>
             }
           }
         ).__coffreExtension
         if (!bridge) return null
-        return bridge.fill(id, pageHost)
+        if (wanted === 'custom' && bridge.fillCustom) {
+          return bridge.fillCustom(id)
+        }
+        if (bridge.fillItem) {
+          return bridge.fillItem(id, {
+            host: pageHost,
+            includeSensitive: sensitive,
+          })
+        }
+        if (wanted !== 'login') return null
+        const login = await bridge.fill(id, pageHost)
+        return login ? { kind: 'login', ...login } : null
       },
-      args: [itemId, host],
+      args: [itemId, host, kind, includeSensitive],
     })
     return {
-      credentials: (result?.result as ExtensionCredentials | null | undefined) ?? null,
+      credentials: (result?.result as ExtensionFillValues | null | undefined) ?? null,
     }
   } catch {
     return { error: 'permission' }
@@ -421,15 +476,21 @@ async function fill(
   if (fetched.error) return { error: fetched.error }
   const data = fetched.credentials
   if (!data) return { error: 'not-found' }
+  if (data.kind !== 'login') return { error: 'no-fields' }
 
   return injectCredentials(targetId, data)
 }
 
 interface PendingSave {
   host: string
+  kind: ExtensionAutofillKind
+  label: string
+  detail: string
+  url: string
   username: string
   password: string
-  url: string
+  card?: ExtensionCardSaveInput
+  identity?: ExtensionIdentitySaveInput
   expires: number
   timer: number
 }
@@ -489,22 +550,30 @@ async function fetchCredentials(
   itemId: string,
   host: string,
   status: AppStatus,
-): Promise<{ credentials?: ExtensionCredentials | null; error?: string }> {
+  kind: ExtensionAutofillKind = 'login',
+  includeSensitive = false,
+): Promise<{ credentials?: ExtensionFillValues | null; error?: string }> {
   if (status.mode === 'native') {
-    return requireNativeCredentials(status, itemId, host)
+    return requireNativeCredentials(status, itemId, host, kind, includeSensitive)
   }
-  return credentialsFromTab(status, itemId, host)
+  return credentialsFromTab(status, itemId, host, kind, includeSensitive)
 }
 
 async function menuSearch(
   tabId: number,
   host: string,
   query: string,
-): Promise<{ items?: ExtensionLoginSummary[]; error?: string; recentId?: string }> {
-  const result = await search(query.trim() || host)
+  kind: ExtensionAutofillKind = 'login',
+): Promise<{
+  items?: ExtensionAutofillSummary[]
+  error?: string
+  recentId?: string
+}> {
+  const result = await search(query.trim() || host, kind)
   if (result.error) return { error: result.error }
   const recent = recentSelections.get(tabId)
   const recentId =
+    kind === 'login' &&
     recent &&
     recent.expires > Date.now() &&
     (recent.host === host || hostMatches(recent.host, host))
@@ -518,12 +587,20 @@ async function menuFill(
   frameId: number,
   host: string,
   itemId: string,
+  kind: ExtensionAutofillKind = 'login',
+  includeSensitive = false,
 ): Promise<{ ok?: boolean; error?: string }> {
   if (!validTabFrame(tabId, frameId) || !host || !itemId) {
     return { error: 'invalid' }
   }
   const status = await readStatus()
-  const fetched = await fetchCredentials(itemId, host, status)
+  const fetched = await fetchCredentials(
+    itemId,
+    host,
+    status,
+    kind,
+    includeSensitive,
+  )
   if (fetched.error) return { error: fetched.error }
   const credentials = fetched.credentials
   if (!credentials) return { error: 'not-found' }
@@ -532,24 +609,22 @@ async function menuFill(
     const response = (await api.tabs.sendMessage(
       tabId,
       {
-        type: 'COFFRE_FILL_CREDENTIALS',
+        type: 'COFFRE_FILL_ITEM',
         host,
-        credentials: {
-          username: credentials.username,
-          password: credentials.password,
-          totp: credentials.totp,
-        },
+        values: credentials,
       },
       { frameId },
     )) as { ok?: boolean; error?: string } | undefined
     if (!response?.ok) {
       return { error: response?.error ?? 'no-fields' }
     }
-    recentSelections.set(tabId, {
-      itemId,
-      host,
-      expires: Date.now() + 120_000,
-    })
+    if (kind === 'login') {
+      recentSelections.set(tabId, {
+        itemId,
+        host,
+        expires: Date.now() + 120_000,
+      })
+    }
     return { ok: true }
   } catch {
     return { error: 'no-tab' }
@@ -571,6 +646,10 @@ function setPendingSave(
   void updateActionBadge()
 }
 
+function pendingText(value: unknown, max: number): string {
+  return typeof value === 'string' ? value.trim().slice(0, max) : ''
+}
+
 async function formSubmitted(
   sender: chrome.runtime.MessageSender,
   message: ExtensionMessage,
@@ -584,9 +663,77 @@ async function formSubmitted(
     typeof message.host === 'string'
       ? hostFromUrl(message.host) || message.host.trim().toLowerCase()
       : ''
-  const username = typeof message.username === 'string' ? message.username : ''
-  const password = typeof message.password === 'string' ? message.password : ''
-  if (!host || !password) return { prompt: false }
+  if (!host) return { prompt: false }
+  const kind: ExtensionAutofillKind =
+    message.formKind === 'card' || message.formKind === 'identity'
+      ? message.formKind
+      : 'login'
+  const url = typeof message.url === 'string' ? message.url : ''
+  const base = {
+    host,
+    kind,
+    url,
+    username: '',
+    password: '',
+  }
+
+  let pending: Omit<PendingSave, 'expires' | 'timer'>
+  if (kind === 'card') {
+    const card = message.card ?? {}
+    const number = pendingText(card.number, 40).replace(/\s+/g, '')
+    if (!number) return { prompt: false }
+    const cardholder = pendingText(card.cardholder, 200)
+    const expiry = pendingText(card.expiry, 20)
+    const last4 = number.slice(-4)
+    pending = {
+      ...base,
+      label: cardholder || `Carte •••• ${last4}`,
+      detail: `•••• ${last4}${expiry ? ` · ${expiry}` : ''}`,
+      card: {
+        cardholder,
+        number,
+        expiry,
+        cvc: pendingText(card.cvc, 8),
+        pin: pendingText(card.pin, 12),
+        brand: pendingText(card.brand, 40),
+      },
+    }
+  } else if (kind === 'identity') {
+    const identity = message.identity ?? {}
+    const firstName = pendingText(identity.firstName, 200)
+    const lastName = pendingText(identity.lastName, 200)
+    const fullName = pendingText(identity.fullName, 400)
+    const email = pendingText(identity.email, 500)
+    const name = [firstName, lastName].filter(Boolean).join(' ').trim() || fullName
+    if (!name && !email) return { prompt: false }
+    pending = {
+      ...base,
+      label: name || email,
+      detail: email,
+      identity: {
+        fullName,
+        firstName,
+        lastName,
+        email,
+        phone: pendingText(identity.phone, 100),
+        address: pendingText(identity.address, 500),
+        city: pendingText(identity.city, 200),
+        postalCode: pendingText(identity.postalCode, 40),
+        country: pendingText(identity.country, 200),
+      },
+    }
+  } else {
+    const username = pendingText(message.username, 500)
+    const password = typeof message.password === 'string' ? message.password : ''
+    if (!password) return { prompt: false }
+    pending = {
+      ...base,
+      label: username || host,
+      detail: '',
+      username,
+      password,
+    }
+  }
 
   const status = await readStatus()
   const canSave =
@@ -595,12 +742,7 @@ async function formSubmitted(
       : Boolean(status.appOpen && status.unlocked)
   if (!canSave) return { prompt: false }
 
-  setPendingSave(saveKey(tabId as number, frameId as number), {
-    host,
-    username,
-    password,
-    url: typeof message.url === 'string' ? message.url : '',
-  })
+  setPendingSave(saveKey(tabId as number, frameId as number), pending)
   return { prompt: true }
 }
 
@@ -654,6 +796,124 @@ async function saveCredentials(
   }
 }
 
+async function saveCard(
+  input: ExtensionCardSaveInput,
+): Promise<{ ok?: boolean; updated?: boolean; itemId?: string; error?: string }> {
+  const status = await readStatus()
+  if (status.mode === 'native') {
+    if (!status.paired) return { error: 'needs-pairing' }
+    if (!status.unlocked) return { error: 'locked' }
+    return nativeSaveCard(input)
+  }
+  if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
+  if (!status.unlocked) return { error: 'locked' }
+
+  try {
+    const [result] = await api.scripting.executeScript({
+      target: { tabId: status.tabId },
+      world: 'MAIN',
+      func: async (values: {
+        title?: string
+        cardholder: string
+        number: string
+        expiry: string
+        cvc?: string
+        pin?: string
+        brand?: string
+      }) => {
+        const bridge = (
+          window as unknown as {
+            __coffreExtension?: {
+              saveCard?: (input: {
+                title?: string
+                cardholder: string
+                number: string
+                expiry: string
+                cvc?: string
+                pin?: string
+                brand?: string
+              }) => Promise<{ id: string; updated: boolean } | null>
+            }
+          }
+        ).__coffreExtension
+        if (!bridge?.saveCard) return null
+        return bridge.saveCard(values)
+      },
+      args: [input],
+    })
+    const saved = result?.result as
+      | { id: string; updated: boolean }
+      | null
+      | undefined
+    if (!saved) return { error: 'save-failed' }
+    return { ok: true, updated: saved.updated, itemId: saved.id }
+  } catch {
+    return { error: 'permission' }
+  }
+}
+
+async function saveIdentity(
+  input: ExtensionIdentitySaveInput,
+): Promise<{ ok?: boolean; updated?: boolean; itemId?: string; error?: string }> {
+  const status = await readStatus()
+  if (status.mode === 'native') {
+    if (!status.paired) return { error: 'needs-pairing' }
+    if (!status.unlocked) return { error: 'locked' }
+    return nativeSaveIdentity(input)
+  }
+  if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
+  if (!status.unlocked) return { error: 'locked' }
+
+  try {
+    const [result] = await api.scripting.executeScript({
+      target: { tabId: status.tabId },
+      world: 'MAIN',
+      func: async (values: {
+        title?: string
+        fullName: string
+        firstName: string
+        lastName: string
+        email: string
+        phone: string
+        address: string
+        city: string
+        postalCode: string
+        country: string
+      }) => {
+        const bridge = (
+          window as unknown as {
+            __coffreExtension?: {
+              saveIdentity?: (input: {
+                title?: string
+                fullName: string
+                firstName: string
+                lastName: string
+                email: string
+                phone: string
+                address: string
+                city: string
+                postalCode: string
+                country: string
+              }) => Promise<{ id: string; updated: boolean } | null>
+            }
+          }
+        ).__coffreExtension
+        if (!bridge?.saveIdentity) return null
+        return bridge.saveIdentity(values)
+      },
+      args: [input],
+    })
+    const saved = result?.result as
+      | { id: string; updated: boolean }
+      | null
+      | undefined
+    if (!saved) return { error: 'save-failed' }
+    return { ok: true, updated: saved.updated, itemId: saved.id }
+  } catch {
+    return { error: 'permission' }
+  }
+}
+
 async function menuSave(
   tabId: number,
   frameId: number,
@@ -665,11 +925,16 @@ async function menuSave(
     pendingSaves.delete(key)
     return { error: 'no-pending' }
   }
-  const result = await saveCredentials({
-    host: pending.host,
-    username: pending.username,
-    password: pending.password,
-  })
+  const result =
+    pending.kind === 'card' && pending.card
+      ? await saveCard(pending.card)
+      : pending.kind === 'identity' && pending.identity
+        ? await saveIdentity(pending.identity)
+        : await saveCredentials({
+            host: pending.host,
+            username: pending.username,
+            password: pending.password,
+          })
   if (result.ok) {
     clearPendingSave(key)
   }
@@ -1001,14 +1266,19 @@ async function passkeyRequest(
 
 async function contentContext(
   sender: chrome.runtime.MessageSender,
-): Promise<{ tabId: number; frameId: number; host: string } | null> {
+): Promise<{ tabId: number; frameId: number; host: string; topHost: string } | null> {
   const tabId = sender.tab?.id
   const frameId = sender.frameId
   if (!Number.isInteger(tabId) || !Number.isInteger(frameId)) return null
   const url = sender.url ?? sender.tab?.url ?? ''
   const host = hostFromUrl(url)
   if (!host) return null
-  return { tabId: tabId as number, frameId: frameId as number, host }
+  return {
+    tabId: tabId as number,
+    frameId: frameId as number,
+    host,
+    topHost: sender.tab?.url ? hostFromUrl(sender.tab.url) : '',
+  }
 }
 
 async function openApp(): Promise<{ ok: boolean }> {
@@ -1092,11 +1362,44 @@ async function handle(
         ? { ok: true }
         : { error: 'expired' }
     }
+    case 'ALIAS_GENERATE': {
+      const host = message.host ?? ''
+      const status = await readStatus()
+      if (status.mode === 'native') return { error: 'unsupported' }
+      if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
+      if (!status.unlocked) return { error: 'locked' }
+      try {
+        const [result] = await api.scripting.executeScript({
+          target: { tabId: status.tabId },
+          world: 'MAIN',
+          func: async (site: string) => {
+            const bridge = (
+              window as unknown as {
+                __coffreExtension?: {
+                  generateAlias?: (site: string) => Promise<string | null>
+                }
+              }
+            ).__coffreExtension
+            return bridge?.generateAlias ? bridge.generateAlias(site) : null
+          },
+          args: [host],
+        })
+        const alias = result?.result as string | null | undefined
+        return alias ? { alias } : { error: 'alias' }
+      } catch {
+        return { error: 'permission' }
+      }
+    }
     case 'MENU_SEARCH':
       return menuSearch(
         Number(message.tabId),
         message.host ?? '',
         message.query ?? '',
+        message.kind === 'card' ||
+        message.kind === 'identity' ||
+        message.kind === 'custom'
+          ? message.kind
+          : 'login',
       )
     case 'MENU_FILL':
       return menuFill(
@@ -1104,6 +1407,12 @@ async function handle(
         Number(message.frameId),
         message.host ?? '',
         message.itemId ?? '',
+        message.kind === 'card' ||
+        message.kind === 'identity' ||
+        message.kind === 'custom'
+          ? message.kind
+          : 'login',
+        message.includeSensitive === true,
       )
     case 'FORM_SUBMITTED':
       return formSubmitted(sender, message)
@@ -1115,7 +1424,12 @@ async function handle(
         return { pending: null }
       }
       return {
-        pending: { username: pending.username, host: pending.host },
+        pending: {
+          username: pending.label,
+          host: pending.host,
+          kind: pending.kind,
+          detail: pending.detail,
+        },
       }
     }
     case 'SAVE_NOW':
@@ -1128,8 +1442,10 @@ async function handle(
       if (!pending) return { pending: null }
       return {
         pending: {
-          username: pending.username,
+          username: pending.label,
           host: pending.host,
+          kind: pending.kind,
+          detail: pending.detail,
           tabId,
           frameId: Number(key.split(':')[1]),
         },

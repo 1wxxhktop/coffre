@@ -8,10 +8,19 @@
  */
 
 import {
+  detectAutofillFields,
+  detectCardFields,
+  detectIdentityFields,
   detectLoginFields,
+  fillDetectedCard,
+  fillDetectedIdentity,
   fillDetectedLogin,
+  fillFieldsByLabel,
+  canFillCard,
   isVisible,
-  type DetectedLoginFields,
+  readCardValues,
+  readIdentityValues,
+  type DetectedAutofill,
 } from './detect'
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
 
@@ -26,12 +35,16 @@ interface ContentContext {
   tabId: number
   frameId: number
   host: string
+  topHost: string
 }
+
+type AutofillKind = 'login' | 'card' | 'identity'
 
 interface MenuHandle {
   host: HTMLDivElement
   iframe: HTMLIFrameElement
   mode: 'badge' | 'save'
+  kind: AutofillKind
   anchor: HTMLInputElement
   width: number
   height: number
@@ -120,6 +133,7 @@ function setMenuSize(width: number, height: number) {
 
 function showMenu(
   anchor: HTMLInputElement,
+  kind: AutofillKind,
   mode: 'badge' | 'save' = 'badge',
 ): void {
   if (!context) return
@@ -151,6 +165,8 @@ function showMenu(
   url.searchParams.set('tab', String(context.tabId))
   url.searchParams.set('frame', String(context.frameId))
   url.searchParams.set('host', context.host)
+  url.searchParams.set('top', context.topHost)
+  url.searchParams.set('kind', kind)
   url.searchParams.set('mode', mode)
   iframe.src = url.toString()
   shadow.append(iframe)
@@ -162,6 +178,7 @@ function showMenu(
     host,
     iframe,
     mode,
+    kind,
     anchor,
     width: mode === 'badge' ? 40 : 340,
     height: mode === 'badge' ? 40 : 430,
@@ -171,16 +188,21 @@ function showMenu(
 
 function refreshDetection(): void {
   if (Date.now() < dismissedUntil) return
-  const fields = detectLoginFields(document)
-  if (!fields.password) {
+  const detected = detectAutofillFields(document)
+  if (!detected) {
     removeMenu()
     return
   }
   if (menu && menu.mode === 'badge') {
-    menu.anchor = fields.password
+    if (menu.kind !== detected.kind) {
+      removeMenu()
+      showMenu(detected.anchor, detected.kind)
+      return
+    }
+    menu.anchor = detected.anchor
     positionMenu()
   } else if (!menu) {
-    showMenu(fields.password)
+    showMenu(detected.anchor, detected.kind)
   }
 }
 
@@ -192,33 +214,90 @@ function scheduleDetection() {
 function handleFocus(event: FocusEvent) {
   const target = event.target
   if (!(target instanceof HTMLInputElement)) return
-  if (target.type !== 'password' && target.type !== 'text' && target.type !== 'email') {
+  if (
+    ![
+      'password',
+      'text',
+      'email',
+      'tel',
+      'number',
+      'search',
+      '',
+    ].includes(target.type)
+  ) {
     return
   }
   scheduleDetection()
 }
 
-function fieldsForSave(): DetectedLoginFields | null {
-  const fields = detectLoginFields(document)
-  if (!fields.password || !fields.username) return null
-  if (!fields.password.value) return null
-  return fields
+function fieldsForSave(): DetectedAutofill | null {
+  return detectAutofillFields(document)
+}
+
+function isCrossOriginFrame(): boolean {
+  try {
+    return window.top !== null && window.top.location.origin !== location.origin
+  } catch {
+    return true
+  }
+}
+
+function cardFillAllowed(): boolean {
+  return canFillCard(location.protocol, isCrossOriginFrame(), location.hostname)
 }
 
 function handleSubmit() {
-  const fields = fieldsForSave()
-  if (!fields || !context) return
+  const detected = fieldsForSave()
+  if (!detected || !context) return
+  const url = location.href
+  const host = context.host
+  if (detected.kind === 'login') {
+    const fields = detected.login
+    if (!fields.password || !fields.username || !fields.password.value) return
+    void send<{ prompt?: boolean }>({
+      type: 'FORM_SUBMITTED',
+      host,
+      username: fields.username.value,
+      password: fields.password.value,
+      url,
+    })
+      .then((response) => {
+        if (response?.prompt && fields.password) {
+          showMenu(fields.password, 'login', 'save')
+        }
+      })
+      .catch(() => undefined)
+    return
+  }
+  if (detected.kind === 'card') {
+    const values = readCardValues(detected.card)
+    if (!values.number) return
+    void send<{ prompt?: boolean }>({
+      type: 'FORM_SUBMITTED',
+      formKind: 'card',
+      host,
+      card: values,
+      url,
+    })
+      .then((response) => {
+        if (response?.prompt) showMenu(detected.anchor, 'card', 'save')
+      })
+      .catch(() => undefined)
+    return
+  }
+  const values = readIdentityValues(detected.identity)
+  if (!values.email && !values.firstName && !values.lastName && !values.fullName) {
+    return
+  }
   void send<{ prompt?: boolean }>({
     type: 'FORM_SUBMITTED',
-    host: context.host,
-    username: fields.username?.value ?? '',
-    password: fields.password?.value ?? '',
-    url: location.href,
+    formKind: 'identity',
+    host,
+    identity: values,
+    url,
   })
     .then((response) => {
-      if (response?.prompt && fields.password) {
-        showMenu(fields.password, 'save')
-      }
+      if (response?.prompt) showMenu(detected.anchor, 'identity', 'save')
     })
     .catch(() => undefined)
 }
@@ -228,12 +307,32 @@ api.runtime.onMessage.addListener(
     message: {
       type?: string
       host?: string
-      credentials?: { username?: string; password?: string; totp?: string }
+      values?: {
+        kind?: string
+        username?: string
+        password?: string
+        totp?: string
+        cardholder?: string
+        number?: string
+        expiry?: string
+        cvc?: string
+        pin?: string
+        brand?: string
+        fullName?: string
+        firstName?: string
+        lastName?: string
+        email?: string
+        phone?: string
+        address?: string
+        city?: string
+        postalCode?: string
+        country?: string
+      }
     },
     _sender,
     sendResponse,
   ) => {
-    if (message?.type !== 'COFFRE_FILL_CREDENTIALS') return
+    if (message?.type !== 'COFFRE_FILL_ITEM') return
     const pageHost = hostFromUrl(location.href)
     const expected = hostFromUrl(message.host ?? '') || message.host || ''
     if (
@@ -244,8 +343,82 @@ api.runtime.onMessage.addListener(
       sendResponse({ ok: false, error: 'domain-mismatch' })
       return
     }
-    const values = message.credentials
-    if (!values?.password) {
+    const values = message.values
+    if (!values) {
+      sendResponse({ ok: false, error: 'credentials' })
+      return
+    }
+
+    if (values.kind === 'custom') {
+      const entries = Array.isArray((values as { values?: unknown }).values)
+        ? ((values as { values: Array<{ label?: unknown; value?: unknown }> }).values)
+        : []
+      const filled = fillFieldsByLabel(
+        entries
+          .map((entry) => ({
+            label: typeof entry.label === 'string' ? entry.label : '',
+            value: typeof entry.value === 'string' ? entry.value : '',
+          }))
+          .filter((entry) => entry.label && entry.value),
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+
+    if (values.kind === 'card') {
+      if (!cardFillAllowed()) {
+        sendResponse({ ok: false, error: 'insecure-context' })
+        return
+      }
+      const fields = detectCardFields(document)
+      if (!fields) {
+        sendResponse({ ok: false, error: 'no-fields' })
+        return
+      }
+      const filled = fillDetectedCard(
+        fields,
+        {
+          cardholder: values.cardholder ?? '',
+          number: values.number ?? '',
+          expiry: values.expiry ?? '',
+          cvc: values.cvc ?? '',
+          pin: values.pin ?? '',
+          brand: values.brand ?? '',
+        },
+        Boolean(values.cvc || values.pin),
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+
+    if (values.kind === 'identity') {
+      const fields = detectIdentityFields(document)
+      if (!fields) {
+        sendResponse({ ok: false, error: 'no-fields' })
+        return
+      }
+      const filled = fillDetectedIdentity(fields, {
+        fullName: values.fullName ?? '',
+        firstName: values.firstName ?? '',
+        lastName: values.lastName ?? '',
+        email: values.email ?? '',
+        phone: values.phone ?? '',
+        address: values.address ?? '',
+        city: values.city ?? '',
+        postalCode: values.postalCode ?? '',
+        country: values.country ?? '',
+      })
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+
+    if (!values.password) {
       sendResponse({ ok: false, error: 'credentials' })
       return
     }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
+  AtSign,
   CalendarClock,
   Check,
   Clock,
@@ -13,6 +14,7 @@ import {
   FolderInput,
   Globe,
   History,
+  Keyboard,
   Link2,
   LoaderCircle,
   MoreHorizontal,
@@ -34,6 +36,8 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { GeneratorDialog } from './GeneratorDialog'
 import { HistoryDialog } from './HistoryDialog'
 import { ShareItemDialog } from './ShareItemDialog'
+import { AutoTypeDialog } from './AutoTypeDialog'
+import { EmailAliasDialog } from './EmailAliasDialog'
 import { TotpCode } from './TotpCode'
 import { ItemIcon } from './ItemIcon'
 import { useVault } from '../state/VaultProvider'
@@ -42,6 +46,8 @@ import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { copySensitive } from '../lib/clipboard'
 import { randomId } from '../lib/crypto'
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
+import { decryptBlob, encryptBlob, newBlobKey, previewBlob, removeBlob } from '../lib/blobStore'
 import { formatDateTime } from '../lib/settings'
 import {
   cardExpiryDate,
@@ -59,7 +65,7 @@ import {
   type SecurityReport,
 } from '../lib/security'
 import { changePasswordUrl, safeExternalUrl as safeUrl } from '../lib/url'
-import { handleExternalClick, openExternal } from '../lib/external'
+import { handleExternalClick, isTauriRuntime, openExternal } from '../lib/external'
 import { isTotpUri } from '../lib/totp'
 import {
   CUSTOM_FIELD_TYPES,
@@ -266,6 +272,9 @@ export function ItemDialog({
   const [showPermanentDelete, setShowPermanentDelete] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showAutoType, setShowAutoType] = useState(false)
+  const [showAlias, setShowAlias] = useState(false)
+  const [preview, setPreview] = useState<{ name: string; mime: string; url: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
@@ -372,6 +381,9 @@ export function ItemDialog({
     setAttachmentBusy(true)
     setAttachmentError(null)
     try {
+      if (attachmentToDelete.storage === 'blob' && attachmentToDelete.blobId) {
+        await removeBlob(attachmentToDelete.blobId).catch(() => undefined)
+      }
       const updated = await removeAttachment(current, attachmentToDelete.id)
       setCurrent(updated)
       setDraft((previous) => ({ ...previous, attachments: updated.attachments }))
@@ -386,12 +398,116 @@ export function ItemDialog({
     }
   }
 
+  const uploadLargeAttachment = async () => {
+    if (!current) return
+    setAttachmentBusy(true)
+    setAttachmentError(null)
+    try {
+      const selected = await openDialog({
+        multiple: false,
+        title: tt('Choisir un document volumineux'),
+      })
+      if (typeof selected !== 'string') return
+      if (current.attachments.length >= MAX_ATTACHMENTS_PER_ITEM) {
+        throw new Error(
+          `Un élément ne peut pas contenir plus de ${MAX_ATTACHMENTS_PER_ITEM} pièces jointes.`,
+        )
+      }
+      const blobId = randomId('blob')
+      const blobKey = newBlobKey()
+      const info = await encryptBlob({ id: blobId, sourcePath: selected, key: blobKey })
+      const name = selected.split(/[\\/]/).pop() || 'document'
+      const extension = name.split('.').pop()?.toLowerCase() ?? ''
+      const mime =
+        extension === 'pdf'
+          ? 'application/pdf'
+          : ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(extension)
+            ? `image/${extension === 'jpg' ? 'jpeg' : extension}`
+            : 'application/octet-stream'
+      const updated = await updateItem({
+        ...current,
+        attachments: [
+          ...current.attachments,
+          {
+            id: randomId('a'),
+            name,
+            mime,
+            size: info.size,
+            createdAt: new Date().toISOString(),
+            storage: 'blob',
+            blobId,
+            blobKey,
+            sha256: info.sha256,
+          },
+        ],
+      })
+      setCurrent(updated)
+      setDraft((previous) => ({ ...previous, attachments: updated.attachments }))
+      toast(tt('Document chiffré ajouté'), 'success')
+    } catch (caught) {
+      setAttachmentError(
+        caught instanceof Error ? caught.message : tt('Ajout du document impossible'),
+      )
+    } finally {
+      setAttachmentBusy(false)
+    }
+  }
+
+  const previewAttachment = async (attachment: AttachmentMeta) => {
+    if (
+      attachment.storage !== 'blob' ||
+      !attachment.blobId ||
+      !attachment.blobKey ||
+      !(attachment.mime.startsWith('image/') || attachment.mime === 'application/pdf')
+    ) {
+      return
+    }
+    setAttachmentBusy(true)
+    setAttachmentError(null)
+    try {
+      const base64 = await previewBlob({
+        id: attachment.blobId,
+        key: attachment.blobKey,
+        maxBytes: 16 * 1024 * 1024,
+      })
+      const binary = atob(base64)
+      const bytes = new Uint8Array(binary.length)
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index)
+      }
+      const url = URL.createObjectURL(new Blob([bytes], { type: attachment.mime }))
+      setPreview({ name: attachment.name, mime: attachment.mime, url })
+    } catch (caught) {
+      setAttachmentError(
+        caught instanceof Error ? caught.message : tt('Aperçu impossible'),
+      )
+    } finally {
+      setAttachmentBusy(false)
+    }
+  }
+
+  const closePreview = () => {
+    if (preview) URL.revokeObjectURL(preview.url)
+    setPreview(null)
+  }
+
   const saveAttachment = async (attachmentId: string) => {
     if (!current) return
     setAttachmentBusy(true)
     setAttachmentError(null)
     try {
-      await downloadAttachment(current, attachmentId)
+      const attachment = current.attachments.find((entry) => entry.id === attachmentId)
+      if (attachment?.storage === 'blob' && attachment.blobId && attachment.blobKey) {
+        const target = await saveDialog({ defaultPath: attachment.name })
+        if (typeof target !== 'string') return
+        await decryptBlob({
+          id: attachment.blobId,
+          targetPath: target,
+          key: attachment.blobKey,
+        })
+      } else {
+        await downloadAttachment(current, attachmentId)
+      }
       toast(tt('Pièce jointe téléchargée'), 'success')
     } catch (caught) {
       setAttachmentError(
@@ -783,14 +899,34 @@ export function ItemDialog({
         </button>
       )}
       {current?.type === 'login' && (
-        <button
-          type="button"
-          className="button button--secondary"
-          onClick={() => void copyValue(current.password, 'Mot de passe')}
-        >
-          <Copy size={16} />
-          Copier le mot de passe
-        </button>
+        <>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => void copyValue(current.password, 'Mot de passe')}
+          >
+            <Copy size={16} />
+            Copier le mot de passe
+          </button>
+          {isTauriRuntime() && (
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => setShowAutoType(true)}
+            >
+              <Keyboard size={16} />
+              Saisie automatique
+            </button>
+          )}
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => setShowAlias(true)}
+          >
+            <AtSign size={16} />
+            Alias e-mail
+          </button>
+        </>
       )}
       {moreMenu}
     </>
@@ -1369,6 +1505,8 @@ export function ItemDialog({
                     : 'Enregistrez d’abord l’élément pour pouvoir y ajouter une pièce jointe.'
                 }
                 onAdd={uploadAttachments}
+                onAddLarge={isTauriRuntime() ? uploadLargeAttachment : undefined}
+                onPreview={previewAttachment}
                 onDownload={saveAttachment}
                 onDelete={setAttachmentToDelete}
               />
@@ -1558,6 +1696,38 @@ export function ItemDialog({
 
       {showShare && current && (
         <ShareItemDialog item={current} onClose={() => setShowShare(false)} />
+      )}
+      {showAutoType && current?.type === 'login' && (
+        <AutoTypeDialog item={current} onClose={() => setShowAutoType(false)} />
+      )}
+      {preview && (
+        <Modal
+          title={preview.name}
+          description={tt('Aperçu en mémoire, sans écriture en clair sur le disque.')}
+          size="lg"
+          onClose={closePreview}
+        >
+          {preview.mime.startsWith('image/') ? (
+            <img className="blob-preview" src={preview.url} alt={preview.name} />
+          ) : (
+            <iframe className="blob-preview-frame" src={preview.url} title={preview.name} />
+          )}
+        </Modal>
+      )}
+      {showAlias && current?.type === 'login' && (
+        <EmailAliasDialog
+          item={current}
+          onApply={(alias) => {
+            void updateItem({
+              ...current,
+              emailAlias: alias,
+              username: current.username || alias,
+            })
+              .then(() => toast(tt('Alias e-mail enregistré'), 'success'))
+              .catch(() => toast(tt('Alias e-mail impossible'), 'error'))
+          }}
+          onClose={() => setShowAlias(false)}
+        />
       )}
 
       {attachmentToDelete && (
@@ -2075,6 +2245,8 @@ interface AttachmentsSectionProps {
   canDelete?: boolean
   hint?: string
   onAdd: (files: FileList | null) => Promise<void>
+  onAddLarge?: () => Promise<void>
+  onPreview?: (attachment: AttachmentMeta) => Promise<void>
   onDownload: (attachmentId: string) => Promise<void>
   onDelete: (attachment: AttachmentMeta) => void
 }
@@ -2087,6 +2259,8 @@ function AttachmentsSection({
   canDelete = true,
   hint,
   onAdd,
+  onAddLarge,
+  onPreview,
   onDownload,
   onDelete,
 }: AttachmentsSectionProps) {
@@ -2100,6 +2274,17 @@ function AttachmentsSection({
             <span className="attachments__count">{attachments.length}</span>
           )}
         </span>
+        {canAdd && onAddLarge && (
+          <button
+            type="button"
+            className="button button--ghost button--sm"
+            onClick={() => void onAddLarge()}
+            disabled={busy}
+          >
+            <FileUp size={14} />
+            {tt('Document volumineux')}
+          </button>
+        )}
         {canAdd && (
           <label className={`button button--ghost button--sm ${busy ? 'is-disabled' : ''}`}>
             {busy ? (
@@ -2137,6 +2322,21 @@ function AttachmentsSection({
                   {formatBytes(attachment.size)} · {attachment.mime}
                 </span>
               </span>
+              {onPreview &&
+                attachment.storage === 'blob' &&
+                (attachment.mime.startsWith('image/') ||
+                  attachment.mime === 'application/pdf') && (
+                  <button
+                    type="button"
+                    className="icon-button icon-button--sm"
+                    onClick={() => void onPreview(attachment)}
+                    disabled={busy}
+                    aria-label={`Aperçu de ${attachment.name}`}
+                    title={tt('Aperçu')}
+                  >
+                    <Eye size={15} />
+                  </button>
+                )}
               <button
                 type="button"
                 className="icon-button icon-button--sm"

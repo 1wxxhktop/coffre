@@ -576,6 +576,7 @@ pub fn merge(local: &VaultFile, remotes: &[VaultFile]) -> Result<MergeResult, Me
         attachments,
         versions,
         recovery,
+        prf: local.prf.clone(),
         writer: Some(writer),
         revision: Some(revision),
         key_epoch: Some(key_epoch),

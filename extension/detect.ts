@@ -230,3 +230,546 @@ export function fillDetectedLogin(
   }
   return filled
 }
+
+/* ------------------------------------------------------------------ */
+/* Cartes bancaires et identités                                       */
+/* ------------------------------------------------------------------ */
+
+export interface DetectedCardFields {
+  form: HTMLFormElement | null
+  cardholder: HTMLInputElement | null
+  number: HTMLInputElement | null
+  expiry: HTMLInputElement | null
+  expiryMonth: HTMLInputElement | null
+  expiryYear: HTMLInputElement | null
+  cvc: HTMLInputElement | null
+  pin: HTMLInputElement | null
+  brand: HTMLInputElement | null
+}
+
+export interface DetectedIdentityFields {
+  form: HTMLFormElement | null
+  fullName: HTMLInputElement | null
+  firstName: HTMLInputElement | null
+  lastName: HTMLInputElement | null
+  email: HTMLInputElement | null
+  phone: HTMLInputElement | null
+  address: HTMLInputElement | null
+  city: HTMLInputElement | null
+  postalCode: HTMLInputElement | null
+  country: HTMLInputElement | null
+}
+
+export type DetectedAutofill =
+  | { kind: 'login'; login: DetectedLoginFields; anchor: HTMLInputElement }
+  | { kind: 'card'; card: DetectedCardFields; anchor: HTMLInputElement }
+  | { kind: 'identity'; identity: DetectedIdentityFields; anchor: HTMLInputElement }
+
+export interface CardFillValues {
+  cardholder: string
+  number: string
+  expiry: string
+  cvc: string
+  pin: string
+  brand: string
+}
+
+export interface IdentityFillValues {
+  fullName: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  address: string
+  city: string
+  postalCode: string
+  country: string
+}
+
+/** Hôtes de prestataires de paiement autorisés dans une iframe tierce. */
+const PAYMENT_PROVIDER_HOSTS = [
+  'stripe.com',
+  'stripe.network',
+  'adyen.com',
+  'paypal.com',
+  'paypalobjects.com',
+  'braintreepayments.com',
+  'braintreegateway.com',
+  'checkout.com',
+  'worldpay.com',
+  'klarna.com',
+  'mollie.com',
+  'squareup.com',
+  'authorize.net',
+  'cybersource.com',
+  '2checkout.com',
+  'payplug.com',
+  'systempay.com',
+  'ingenico.com',
+  'ogone.com',
+  'hipay.com',
+  'mangopay.com',
+  'lyra.com',
+  'payzen.eu',
+]
+
+export function isPaymentProviderHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase().replace(/^www\./, '')
+  if (!normalized) return false
+  return PAYMENT_PROVIDER_HOSTS.some(
+    (provider) => normalized === provider || normalized.endsWith(`.${provider}`),
+  )
+}
+
+/**
+ * Une carte ne peut être remplie que sur HTTPS, et dans une iframe tierce
+ * uniquement si elle appartient à un prestataire de paiement connu.
+ */
+export function canFillCard(
+  protocol: string,
+  crossOriginFrame: boolean,
+  host: string,
+): boolean {
+  if (protocol !== 'https:') return false
+  if (!crossOriginFrame) return true
+  return isPaymentProviderHost(host)
+}
+
+function autocompleteTokens(input: HTMLInputElement): string[] {
+  return (input.getAttribute('autocomplete') ?? '')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+function hasAutocomplete(input: HTMLInputElement, ...values: string[]): boolean {
+  const tokens = autocompleteTokens(input)
+  return values.some((value) => tokens.includes(value))
+}
+
+function textMatch(input: HTMLInputElement, pattern: RegExp): boolean {
+  return pattern.test(descriptors(input))
+}
+
+interface FieldCandidate<T extends string> {
+  field: T
+  input: HTMLInputElement
+  score: number
+  form: HTMLFormElement | null
+}
+
+function visibleInputs(document: Document): HTMLInputElement[] {
+  return Array.from(document.querySelectorAll<HTMLInputElement>('input')).filter(
+    (input) => isVisible(input) && !input.disabled && !input.readOnly,
+  )
+}
+
+function bestCandidates<T extends string>(
+  document: Document,
+  specs: Array<{ field: T; score: (input: HTMLInputElement) => number }>,
+): FieldCandidate<T>[] {
+  const inputs = visibleInputs(document)
+  const result: FieldCandidate<T>[] = []
+  const used = new Set<HTMLInputElement>()
+  for (const spec of specs) {
+    let best: FieldCandidate<T> | null = null
+    for (const input of inputs) {
+      if (used.has(input)) continue
+      const score = spec.score(input)
+      if (score <= 0) continue
+      if (!best || score > best.score) {
+        best = { field: spec.field, input, score, form: input.form }
+      }
+    }
+    if (best) {
+      used.add(best.input)
+      result.push(best)
+    }
+  }
+  return result
+}
+
+function byField<T extends string>(
+  candidates: FieldCandidate<T>[],
+  field: T,
+): HTMLInputElement | null {
+  return candidates.find((candidate) => candidate.field === field)?.input ?? null
+}
+
+function dominantForm(
+  candidates: Array<{ form: HTMLFormElement | null }>,
+): HTMLFormElement | null {
+  const counts = new Map<HTMLFormElement, number>()
+  for (const candidate of candidates) {
+    if (!candidate.form) continue
+    counts.set(candidate.form, (counts.get(candidate.form) ?? 0) + 1)
+  }
+  let best: HTMLFormElement | null = null
+  let bestCount = 0
+  for (const [form, count] of counts) {
+    if (count > bestCount) {
+      best = form
+      bestCount = count
+    }
+  }
+  return best
+}
+
+/** Détecte un formulaire de carte bancaire. */
+export function detectCardFields(document: Document): DetectedCardFields | null {
+  const candidates = bestCandidates(document, [
+    {
+      field: 'number',
+      score: (input) =>
+        (hasAutocomplete(input, 'cc-number') ? 12 : 0) +
+        (textMatch(input, /card.?number|num[ée]ro de carte|num[ée]ro carte|cc-number|\bpan\b/i)
+          ? 5
+          : 0) +
+        (input.inputMode === 'numeric' ? 1 : 0),
+    },
+    {
+      field: 'expiry',
+      score: (input) => {
+        if (hasAutocomplete(input, 'cc-exp-month', 'cc-exp-year')) return 0
+        if (textMatch(input, /mois|month|ann[ée]e|year/i)) return 0
+        return (
+          (hasAutocomplete(input, 'cc-exp') ? 12 : 0) +
+          (textMatch(input, /expir|expiry|exp\.?\s*date|date d.expiration|mm\s*[/.-]\s*yy/i)
+            ? 5
+            : 0)
+        )
+      },
+    },
+    {
+      field: 'expiryMonth',
+      score: (input) =>
+        (hasAutocomplete(input, 'cc-exp-month') ? 12 : 0) +
+        (textMatch(input, /exp.*month|mois d.expiration|mois/i) ? 3 : 0),
+    },
+    {
+      field: 'expiryYear',
+      score: (input) =>
+        (hasAutocomplete(input, 'cc-exp-year') ? 12 : 0) +
+        (textMatch(input, /exp.*year|ann[ée]e d.expiration|ann[ée]e/i) ? 3 : 0),
+    },
+    {
+      field: 'cvc',
+      score: (input) =>
+        (hasAutocomplete(input, 'cc-csc') ? 12 : 0) +
+        (textMatch(input, /cvc|cvv|csc|security.?code|code de s[ée]curit[ée]/i)
+          ? 6
+          : 0),
+    },
+    {
+      field: 'cardholder',
+      score: (input) =>
+        (hasAutocomplete(input, 'cc-name') ? 12 : 0) +
+        (textMatch(input, /card.?holder|titulaire|name on card|nom sur la carte/i)
+          ? 6
+          : 0),
+    },
+    {
+      field: 'pin',
+      score: (input) =>
+        (hasAutocomplete(input, 'cc-pin') ? 12 : 0) +
+        (textMatch(input, /card.?pin|code pin|\bpin\b/i) ? 5 : 0),
+    },
+    {
+      field: 'brand',
+      score: (input) =>
+        (hasAutocomplete(input, 'cc-type') ? 12 : 0) +
+        (textMatch(input, /card.?type|card.?brand|r[ée]seau|brand/i) ? 4 : 0),
+    },
+  ])
+
+  const cardForm = dominantForm(candidates)
+  if (cardForm && visiblePasswords(document).some((input) => input.form === cardForm)) {
+    return null
+  }
+  const number = byField(candidates, 'number')
+  const expiry = byField(candidates, 'expiry')
+  const expiryMonth = byField(candidates, 'expiryMonth')
+  const expiryYear = byField(candidates, 'expiryYear')
+  const cvc = byField(candidates, 'cvc')
+  const cardholder = byField(candidates, 'cardholder')
+  const pin = byField(candidates, 'pin')
+  const brand = byField(candidates, 'brand')
+  const hasExpiry = Boolean(expiry || (expiryMonth && expiryYear))
+  const strong = Boolean(number || (hasExpiry && cvc))
+  if (!strong) return null
+  if (!number && !hasExpiry && !cvc && !cardholder) return null
+
+  return {
+    form: cardForm,
+    cardholder,
+    number,
+    expiry,
+    expiryMonth,
+    expiryYear,
+    cvc,
+    pin,
+    brand,
+  }
+}
+
+/** Détecte un formulaire d’identité ou d’adresse. */
+export function detectIdentityFields(
+  document: Document,
+): DetectedIdentityFields | null {
+  const candidates = bestCandidates(document, [
+    {
+      field: 'fullName',
+      score: (input) =>
+        (hasAutocomplete(input, 'name') ? 10 : 0) +
+        (textMatch(input, /full.?name|nom complet|nom et pr[ée]nom/i) ? 6 : 0),
+    },
+    {
+      field: 'firstName',
+      score: (input) =>
+        (hasAutocomplete(input, 'given-name') ? 10 : 0) +
+        (textMatch(input, /first.?name|pr[ée]nom|given.?name/i) ? 6 : 0),
+    },
+    {
+      field: 'lastName',
+      score: (input) =>
+        (hasAutocomplete(input, 'family-name') ? 10 : 0) +
+        (textMatch(
+          input,
+          /last.?name|surname|family.?name|nom de famille|\bnom\b/i,
+        )
+          ? 6
+          : 0),
+    },
+    {
+      field: 'email',
+      score: (input) =>
+        (hasAutocomplete(input, 'email') ? 10 : 0) +
+        (inputType(input) === 'email' ? 6 : 0) +
+        (textMatch(input, /e.?mail|courriel/i) ? 4 : 0),
+    },
+    {
+      field: 'phone',
+      score: (input) =>
+        (hasAutocomplete(input, 'tel') ? 10 : 0) +
+        (inputType(input) === 'tel' ? 6 : 0) +
+        (textMatch(input, /phone|t[ée]l[ée]phone|mobile|portable/i) ? 4 : 0),
+    },
+    {
+      field: 'address',
+      score: (input) =>
+        (hasAutocomplete(input, 'street-address', 'address-line1') ? 10 : 0) +
+        (textMatch(input, /address|adresse|street|rue/i) ? 5 : 0),
+    },
+    {
+      field: 'city',
+      score: (input) =>
+        (hasAutocomplete(input, 'address-level2') ? 10 : 0) +
+        (textMatch(input, /city|ville|town/i) ? 5 : 0),
+    },
+    {
+      field: 'postalCode',
+      score: (input) =>
+        (hasAutocomplete(input, 'postal-code') ? 10 : 0) +
+        (textMatch(input, /postal|zip|code postal/i) ? 6 : 0),
+    },
+    {
+      field: 'country',
+      score: (input) =>
+        (hasAutocomplete(input, 'country', 'country-name') ? 10 : 0) +
+        (textMatch(input, /country|pays/i) ? 5 : 0),
+    },
+  ])
+
+  if (candidates.length < 3) return null
+  const identityForm = dominantForm(candidates)
+  if (
+    identityForm &&
+    visiblePasswords(document).some((input) => input.form === identityForm)
+  ) {
+    return null
+  }
+  const addressLike = ['address', 'city', 'postalCode', 'country'] as const
+  const hasAddress = addressLike.some((field) => byField(candidates, field))
+  const hasContact = Boolean(byField(candidates, 'email') || byField(candidates, 'phone'))
+  if (!hasAddress && !hasContact) return null
+
+  return {
+    form: identityForm,
+    fullName: byField(candidates, 'fullName'),
+    firstName: byField(candidates, 'firstName'),
+    lastName: byField(candidates, 'lastName'),
+    email: byField(candidates, 'email'),
+    phone: byField(candidates, 'phone'),
+    address: byField(candidates, 'address'),
+    city: byField(candidates, 'city'),
+    postalCode: byField(candidates, 'postalCode'),
+    country: byField(candidates, 'country'),
+  }
+}
+
+/** Détecte le formulaire le plus pertinent de la page. */
+export function detectAutofillFields(document: Document): DetectedAutofill | null {
+  const login = detectLoginFields(document)
+  if (login.password) {
+    return {
+      kind: 'login',
+      login,
+      anchor: login.password,
+    }
+  }
+
+  const card = detectCardFields(document)
+  if (card) {
+    return {
+      kind: 'card',
+      card,
+      anchor:
+        card.number ??
+        card.expiry ??
+        card.expiryMonth ??
+        card.cvc ??
+        card.cardholder ??
+        card.pin ??
+        card.brand!,
+    }
+  }
+
+  const identity = detectIdentityFields(document)
+  if (identity) {
+    return {
+      kind: 'identity',
+      identity,
+      anchor:
+        identity.email ??
+        identity.firstName ??
+        identity.fullName ??
+        identity.address ??
+        identity.postalCode ??
+        identity.city ??
+        identity.phone ??
+        identity.country!,
+    }
+  }
+
+  return null
+}
+
+function fillValue(input: HTMLInputElement | null, value: string): number {
+  if (!input || !value) return 0
+  setNativeValue(input, value)
+  return 1
+}
+
+/** Remplit une carte. Le CVC et le PIN ne sont remplis que si demandé. */
+export function fillDetectedCard(
+  fields: DetectedCardFields,
+  values: CardFillValues,
+  includeSensitive: boolean,
+): number {
+  let filled = 0
+  filled += fillValue(fields.cardholder, values.cardholder)
+  filled += fillValue(fields.number, values.number)
+  filled += fillValue(fields.brand, values.brand)
+
+  const expiry = values.expiry.trim()
+  if (fields.expiry) {
+    filled += fillValue(fields.expiry, expiry)
+  } else {
+    const match = /^(\d{1,2})\s*[/.-]\s*(\d{2}|\d{4})$/.exec(expiry)
+    if (match) {
+      filled += fillValue(fields.expiryMonth, match[1].padStart(2, '0'))
+      filled += fillValue(
+        fields.expiryYear,
+        match[2].length === 2 ? `20${match[2]}` : match[2],
+      )
+    }
+  }
+
+  if (includeSensitive) {
+    filled += fillValue(fields.cvc, values.cvc)
+    filled += fillValue(fields.pin, values.pin)
+  }
+
+  if (filled > 0) (fields.number ?? fields.cardholder)?.focus()
+  return filled
+}
+
+/** Remplit une identité ou une adresse. */
+export function fillDetectedIdentity(
+  fields: DetectedIdentityFields,
+  values: IdentityFillValues,
+): number {
+  let filled = 0
+  filled += fillValue(fields.fullName, values.fullName)
+  filled += fillValue(fields.firstName, values.firstName)
+  filled += fillValue(fields.lastName, values.lastName)
+  filled += fillValue(fields.email, values.email)
+  filled += fillValue(fields.phone, values.phone)
+  filled += fillValue(fields.address, values.address)
+  filled += fillValue(fields.city, values.city)
+  filled += fillValue(fields.postalCode, values.postalCode)
+  filled += fillValue(fields.country, values.country)
+  if (filled > 0) (fields.email ?? fields.firstName ?? fields.address)?.focus()
+  return filled
+}
+
+function readValue(input: HTMLInputElement | null): string {
+  return input?.value.trim() ?? ''
+}
+
+/** Relit une carte saisie dans un formulaire, pour l’enregistrer. */
+export function readCardValues(fields: DetectedCardFields): CardFillValues {
+  const expiry =
+    readValue(fields.expiry) ||
+    [readValue(fields.expiryMonth), readValue(fields.expiryYear)]
+      .filter(Boolean)
+      .join('/')
+  return {
+    cardholder: readValue(fields.cardholder),
+    number: readValue(fields.number),
+    expiry,
+    cvc: readValue(fields.cvc),
+    pin: readValue(fields.pin),
+    brand: readValue(fields.brand),
+  }
+}
+
+/** Relit une identité saisie dans un formulaire, pour l’enregistrer. */
+export function readIdentityValues(
+  fields: DetectedIdentityFields,
+): IdentityFillValues {
+  return {
+    fullName: readValue(fields.fullName),
+    firstName: readValue(fields.firstName),
+    lastName: readValue(fields.lastName),
+    email: readValue(fields.email),
+    phone: readValue(fields.phone),
+    address: readValue(fields.address),
+    city: readValue(fields.city),
+    postalCode: readValue(fields.postalCode),
+    country: readValue(fields.country),
+  }
+}
+
+/** Remplit des champs personnalisés en rapprochant leur libellé. */
+export function fillFieldsByLabel(
+  values: Array<{ label: string; value: string }>,
+): number {
+  let filled = 0
+  const inputs = visibleInputs(document)
+  const used = new Set<HTMLInputElement>()
+  for (const value of values) {
+    const needle = value.label.trim().toLowerCase()
+    if (!needle || !value.value) continue
+    const input = inputs.find(
+      (candidate) =>
+        !used.has(candidate) &&
+        descriptors(candidate).toLowerCase().includes(needle),
+    )
+    if (!input) continue
+    setNativeValue(input, value.value)
+    used.add(input)
+    filled += 1
+  }
+  return filled
+}
