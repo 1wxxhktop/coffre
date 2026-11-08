@@ -455,8 +455,11 @@ pub fn bind_socket(path: &std::path::Path) -> io::Result<std::os::unix::net::Uni
     use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 
     if let Some(parent) = path.parent() {
+        let created = !parent.exists();
         std::fs::create_dir_all(parent)?;
-        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
+        if created {
+            std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
+        }
     }
     if let Ok(metadata) = std::fs::symlink_metadata(path) {
         if !metadata.file_type().is_socket() {

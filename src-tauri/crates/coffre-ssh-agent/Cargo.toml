@@ -7,10 +7,13 @@ license = "GPL-3.0-only"
 description = "Noyau de l’agent SSH local de Coffre"
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
+coffre-core = { path = "../coffre-core" }
 ed25519-dalek = "2"
 rsa = { version = "0.9", features = ["sha2"] }
 serde_json = "1"
 sha2 = "0.10"
+rpassword = "7"
 ssh-key = { version = "0.6.7", default-features = false, features = ["std", "ed25519", "rsa", "encryption", "rand_core"] }
 zeroize = "1"
 

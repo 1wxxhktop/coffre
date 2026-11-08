@@ -498,6 +498,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run core:test` | Tests de `coffre-core`, de la façade FFI, du CLI et du noyau SSH |
 | `bun run core:clippy` | Clippy strict de `coffre-core`, `coffre-core-ffi`, `coffre-cli` et `coffre-ssh-agent` |
 | `bun run cli:build` | Compile `coffre-cli` en release |
+| `bun run ssh:build` | Compile le binaire `coffre-ssh-agent` en release |
 | `bun run typecheck` | Vérification TypeScript |
 | `bun run lint` | Oxlint, contrôle des jetons de design et chaînes i18n |
 | `bun run lint:i18n` | Vérifie qu’aucune chaîne d’interface n’est en dur |
@@ -649,7 +650,7 @@ trousseau et de la nouvelle interface) :
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
 - `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent`
-  (11 + 1 + 9 + 9 tests) ouvre les
+  (11 + 1 + 9 + 11 tests) ouvre les
   fixtures TypeScript v1 à v4, crée/modifie/supprime, signe en v4, tourne le
   mot de passe, fusionne deux fichiers, exerce la façade UniFFI et relit les
   vecteurs Rust par le test TypeScript (`src/lib/coffreCoreVector.test.ts`).
@@ -717,6 +718,22 @@ Ce noyau n’est pas encore activé dans l’application : la fenêtre d’appro
 (avec Touch ID), le déverrouillage via le socket de l’application desktop et le
 nom du socket dans `app_data_dir()` restent à raccorder. Aucun socket n’est
 ouvert tant que cette intégration n’est pas explicitement lancée.
+
+Le binaire `coffre-ssh-agent` permet de l’utiliser dès maintenant dans un
+terminal :
+
+```bash
+cargo build --manifest-path src-tauri/Cargo.toml -p coffre-ssh-agent --release
+./src-tauri/target/release/coffre-ssh-agent ~/Documents/vault.coffre --list
+./src-tauri/target/release/coffre-ssh-agent ~/Documents/vault.coffre
+# puis, dans un autre terminal :
+export SSH_AUTH_SOCK=/chemin/indiqué/par/l-agent
+ssh-add -l
+```
+
+Chaque signature affiche la clé, son empreinte et le nombre d’octets, puis
+demande une confirmation explicite. Sans terminal interactif, la signature est
+refusée. Sous Windows, le named pipe reste à implémenter.
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
 système). La clé maîtresse encodée en base64 est rangée sous le service
