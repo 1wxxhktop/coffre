@@ -495,8 +495,8 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run extension:zip` | Compile puis crée `coffre-extension.zip` |
 | `bun run extension:smoke` | Test manuel de l’extension (serveurs requis) |
 | `bun run bridge:smoke` | Smoke du relais natif stdin/socket (binaire compilé) |
-| `bun run core:test` | Tests de `coffre-core`, de la façade FFI et du CLI |
-| `bun run core:clippy` | Clippy strict de `coffre-core`, `coffre-core-ffi` et `coffre-cli` |
+| `bun run core:test` | Tests de `coffre-core`, de la façade FFI, du CLI et du noyau SSH |
+| `bun run core:clippy` | Clippy strict de `coffre-core`, `coffre-core-ffi`, `coffre-cli` et `coffre-ssh-agent` |
 | `bun run cli:build` | Compile `coffre-cli` en release |
 | `bun run typecheck` | Vérification TypeScript |
 | `bun run lint` | Oxlint, contrôle des jetons de design et chaînes i18n |
@@ -648,7 +648,8 @@ trousseau et de la nouvelle interface) :
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
-- `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli` ouvre les
+- `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent`
+  (11 + 1 + 9 + 9 tests) ouvre les
   fixtures TypeScript v1 à v4, crée/modifie/supprime, signe en v4, tourne le
   mot de passe, fusionne deux fichiers, exerce la façade UniFFI et relit les
   vecteurs Rust par le test TypeScript (`src/lib/coffreCoreVector.test.ts`).
@@ -703,6 +704,19 @@ sont écrits sur stdout que pour `get`, `totp` et la commande lancée par `run`.
 Cette première version lit le mot de passe dans le terminal. Le déverrouillage
 via le socket de l’application desktop (L4) reste à raccorder dans une tranche
 ultérieure de L11.
+
+### Noyau de l’agent SSH
+
+Le crate `src-tauri/crates/coffre-ssh-agent` prépare l’agent `SSH_AUTH_SOCK` :
+protocole agent, liste d’identités, signatures ed25519 et RSA (2048 bits
+minimum), socket Unix créé en `0600` dans un dossier `0700`, et callback
+d’approbation obligatoire pour chaque signature. Les clés chiffrées et les
+algorithmes non pris en charge sont refusés.
+
+Ce noyau n’est pas encore activé dans l’application : la fenêtre d’approbation
+(avec Touch ID), le déverrouillage via le socket de l’application desktop et le
+nom du socket dans `app_data_dir()` restent à raccorder. Aucun socket n’est
+ouvert tant que cette intégration n’est pas explicitement lancée.
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
 système). La clé maîtresse encodée en base64 est rangée sous le service
@@ -809,6 +823,7 @@ src-tauri/        Socle desktop/mobile Tauri v2
   crates/coffre-core/  Format/crypto, mutations, fusion et vecteurs
   crates/coffre-core-ffi/  Façade UniFFI JSON pour mobile/CLI
   crates/coffre-cli/  Lecture locale : list, get, totp, run --env
+  crates/coffre-ssh-agent/  Noyau de l’agent SSH_AUTH_SOCK
 extension/        Extension navigateur Manifest V3 (Chromium + Firefox)
 docs/             Sécurité, audit, préparation grand public, release, AutoFill macOS
 scripts/          Génération des icônes PWA, test manuel de l’extension

@@ -684,6 +684,30 @@ Le remplissage étendu de l’extension applique les règles suivantes :
   (quatre derniers chiffres, titulaire, e-mail) ; le numéro complet, le CVC et
   le PIN ne sont transmis qu’après le clic de remplissage.
 
+### 2.19 Noyau de l’agent SSH
+
+Le crate `src-tauri/crates/coffre-ssh-agent` prépare l’agent `SSH_AUTH_SOCK`.
+Il n’est pas encore activé par l’application : aucun socket n’est créé tant que
+l’intégration desktop n’est pas lancée explicitement.
+
+- le socket est créé à la demande avec des permissions `0600` dans un dossier
+  `0700` ; un chemin existant qui n’est pas un socket est refusé et un ancien
+  socket est supprimé avant la réécoute ;
+- chaque demande de signature passe par un callback d’approbation bloquant.
+  Sans décision positive, la réponse est `SSH_AGENT_FAILURE` ; aucun mode
+  « tout autoriser » n’est exposé par le crate ;
+- l’approbation reçoit le commentaire, l’empreinte SHA-256, l’algorithme et les
+  données exactes à signer, jamais la clé privée ;
+- ed25519 et RSA sont pris en charge ; les clés RSA de moins de 2048 bits, les
+  clés chiffrées par phrase de passe et les algorithmes inconnus sont refusés ;
+- la clé publique stockée dans l’élément est comparée à celle dérivée de la clé
+  privée avant toute utilisation ;
+- les messages sont plafonnés à 256 Kio, les données à signer sont effacées
+  après la demande et aucun contenu de clé ni secret n’est journalisé ;
+- limites : le socket Unix n’est pas implémenté sous Windows (named pipe à
+  faire), la fenêtre d’approbation et Touch ID restent à raccorder, et aucune
+  mémorisation d’approbation par hôte n’est encore proposée.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

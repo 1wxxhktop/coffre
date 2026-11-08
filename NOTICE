@@ -95,6 +95,9 @@ Desktop et mobile :
   - rpassword                         Apache-2.0
   - hmac                              MIT OR Apache-2.0
   - sha1                              MIT OR Apache-2.0
+  - ssh-key                           Apache-2.0 OR MIT
+  - ed25519-dalek                     BSD-3-Clause
+  - rsa                               MIT OR Apache-2.0
 
 Les polices utilisées par l’interface sont les polices système de l’appareil ;
 aucune police distante n’est embarquée ni téléchargée. Les icônes de l’interface

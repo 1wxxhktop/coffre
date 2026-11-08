@@ -41,5 +41,5 @@ keyring = { version = "3.6", default-features = false, features = ["windows-nati
 keyring = { version = "3.6", default-features = false, features = ["sync-secret-service"] }
 
 [workspace]
-members = [".", "crates/coffre-core", "crates/coffre-core-ffi", "crates/coffre-cli"]
+members = [".", "crates/coffre-core", "crates/coffre-core-ffi", "crates/coffre-cli", "crates/coffre-ssh-agent"]
 resolver = "3"
