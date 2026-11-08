@@ -68,7 +68,7 @@ test.describe('intégrité du fichier', () => {
       'Coffre ouvert en lecture seule',
       { timeout: 45_000 },
     )
-    await expect(page.getByRole('button', { name: 'Nouvel élément' })).toBeDisabled()
+    await expect(page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' })).toBeDisabled()
   })
 
   test('avertit lorsque la révision déjà vue est supérieure au fichier', async ({
