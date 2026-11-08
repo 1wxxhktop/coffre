@@ -116,6 +116,7 @@ export function Sidebar({
                 className={`sidebar__item ${
                   filter === entry.id ? 'is-active' : ''
                 } ${entry.id === 'trash' ? 'sidebar__item--trash' : ''}`}
+                aria-current={filter === entry.id ? 'page' : undefined}
                 onClick={() => {
                   onFilterChange(entry.id)
                   onClose()
@@ -166,6 +167,7 @@ export function Sidebar({
               <button
                 type="button"
                 className="sidebar__vault-main"
+                aria-current={vaultFilter === vault.id ? 'page' : undefined}
                 onClick={() => {
                   onVaultChange(vault.id)
                   onClose()

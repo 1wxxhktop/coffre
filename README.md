@@ -649,7 +649,7 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   complet.
 - Pas de protection contre un OS compromis, un keylogger, une extension
   malveillante ou une injection de code dans la page.
-- Le bundle initial fait environ 682 Ko minifiés (213 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
+- Le bundle initial fait environ 682 Ko minifiés (214 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
   `hash-wasm` pourront être chargés à la demande dans une version ultérieure.
 - Les tests de bout en bout utilisent Chromium et WebKit ; Firefox et les
   WebViews Android/iOS réelles doivent encore être validés.

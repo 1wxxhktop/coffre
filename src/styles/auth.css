@@ -133,7 +133,7 @@
 
 .auth__features small {
   color: var(--dim);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 /* Emblème décoratif -------------------------------------------------- */
@@ -194,7 +194,7 @@
   border-radius: 99px;
   background: var(--panel-2);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -265,7 +265,7 @@
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.025);
   color: var(--dim);
-  font-size: 10.5px;
+  font-size: 11.5px;
 }
 
 .auth__vault-meta strong {
@@ -297,7 +297,7 @@
 .auth__fineprint {
   margin-top: 18px;
   color: var(--dim);
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 1.55;
 }
 
@@ -312,7 +312,7 @@
   max-width: 1240px;
   margin: 0 auto;
   color: var(--dim);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.04em;
 }
 
@@ -341,7 +341,7 @@
   align-items: center;
   gap: 9px;
   color: var(--dim);
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 /* ------------------------------------------------------------------ */
@@ -405,7 +405,7 @@
 .error-card__block p {
   margin-top: 5px;
   color: var(--dim);
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -433,7 +433,7 @@
   gap: 6px;
   margin-top: 20px;
   color: var(--dim);
-  font-size: 10.5px;
+  font-size: 11.5px;
 }
 
 /* ------------------------------------------------------------------ */
@@ -507,7 +507,7 @@
   }
 
   .auth__footer {
-    font-size: 9px;
+    font-size: 10.5px;
   }
 
   .error-card__row {
@@ -534,7 +534,7 @@
   align-items: center;
   gap: 10px;
   color: var(--dim);
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -587,11 +587,11 @@
   }
 
   .auth__features strong {
-    font-size: 12px;
+    font-size: 12.5px;
   }
 
   .auth__features small {
-    font-size: 10.5px;
+    font-size: 11.5px;
   }
 
   .auth__visual {
@@ -609,7 +609,7 @@
 
   .auth__subtitle {
     margin-top: 6px;
-    font-size: 12.5px;
+    font-size: 13px;
   }
 
   .auth__vault-meta {
@@ -634,7 +634,7 @@
 
   .auth__fineprint {
     margin-top: 12px;
-    font-size: 9.5px;
+    font-size: 11px;
   }
 }
 
