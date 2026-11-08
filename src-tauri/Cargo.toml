@@ -34,6 +34,7 @@ active-win-pos-rs = "0.11"
 mdns-sd = "0.21"
 coffre-core = { path = "crates/coffre-core" }
 coffre-ssh-agent = { path = "crates/coffre-ssh-agent" }
+tauri-plugin-clipboard-manager = "2"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
 tauri-plugin-global-shortcut = "2"

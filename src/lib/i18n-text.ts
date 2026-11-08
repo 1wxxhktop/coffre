@@ -95,6 +95,8 @@ export const EN_TEXT: Record<string, string> = {
   'Mot de passe actuel': 'Current password',
   'Mot de passe du fichier': 'File password',
   'Mot de passe maître': 'Master password',
+  'Mot de passe maître incorrect': 'Incorrect master password',
+  'Mot de passe maître pour l’export CSV': 'Master password for the CSV export',
   'Mot de passe maître, récupération et trousseau du système.':
     'Master password, recovery and system keychain.',
   'Mots de passe (Apple) — connexions': 'Passwords (Apple) — logins',

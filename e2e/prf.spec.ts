@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 const PASSWORD = 'phrase de passe de test solide'
 
-test('enrôle puis utilise une clé FIDO2/PRF', async ({ page, browserName }) => {
+test('enrôle puis utilise une clé FIDO2/PRF', async ({ page, browserName, baseURL }) => {
   test.skip(browserName !== 'chromium', 'WebAuthn virtuel via CDP/Chromium')
   const client = await page.context().newCDPSession(page)
   await client.send('WebAuthn.enable')
@@ -18,7 +18,10 @@ test('enrôle puis utilise une clé FIDO2/PRF', async ({ page, browserName }) =>
     },
   })
 
-  await page.goto('http://localhost:4173')
+  // WebAuthn exige un nom d’hôte (`localhost`) plutôt qu’une adresse IP ; le
+  // port suit `baseURL` pour viser le serveur lancé par Playwright.
+  const port = new URL(baseURL ?? 'http://127.0.0.1:4173').port
+  await page.goto(`http://localhost:${port}`)
   await page.getByLabel('Nom du coffre').fill('Personnel')
   await page.getByLabel('Mot de passe maître').fill(PASSWORD)
   await page.getByLabel('Confirmer le mot de passe').fill(PASSWORD)

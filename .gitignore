@@ -30,6 +30,6 @@ blob-report
 *.sln
 *.sw?
 
-# Outils d’agents locaux
+# Outils d’agents locaux (mémoire, worktrees) : jamais versionnés
 .claude/
 .workbuddy-ai/

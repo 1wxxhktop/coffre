@@ -475,6 +475,34 @@ describe('import CSV', () => {
 })
 
 describe('import Enpass JSON', () => {
+  it('borne les chaînes de dossiers profondes ou cycliques', () => {
+    const depth = 50_000
+    const folders = Array.from({ length: depth }, (_, index) => ({
+      uuid: `f${index}`,
+      parent_uuid: index === 0 ? `f${depth - 1}` : `f${index - 1}`,
+      title: `D${index}`,
+    }))
+    const parsed = parseImport(
+      JSON.stringify({
+        folders,
+        items: [
+          {
+            uuid: 'item',
+            title: 'Profond',
+            category: 'note',
+            folders: [`f${depth - 1}`],
+            fields: [],
+          },
+        ],
+      }),
+      VAULT_ID,
+    )
+    expect(parsed.items).toHaveLength(1)
+    const tag = parsed.items[0].tags[0] ?? ''
+    expect(tag.split(' / ').length).toBeLessThanOrEqual(16)
+    expect(tag.length).toBeLessThanOrEqual(40)
+  })
+
   const enpassExport = {
     folders: [
       { uuid: 'folder-work', parent_uuid: '', title: 'Travail' },

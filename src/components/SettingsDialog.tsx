@@ -37,7 +37,7 @@ import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
-import { estimateEntropy } from '../lib/crypto'
+import { estimateEntropy } from '../lib/strength'
 import { keychainAvailable } from '../lib/keychain'
 import { biometricAvailable } from '../lib/biometrics'
 import { prfSupported } from '../lib/prf'
@@ -113,6 +113,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     removePrf,
     emptyTrash,
     recordActivity,
+    confirmMasterPassword,
   } = useVault()
   const { toast } = useToast()
 
@@ -174,6 +175,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const [persistBusy, setPersistBusy] = useState(false)
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimate | null>(null)
   const [csvFormat, setCsvFormat] = useState<CsvExportFormat>('apple')
+  const [csvPassword, setCsvPassword] = useState('')
+  const [csvBusy, setCsvBusy] = useState(false)
 
   const [verifyBusy, setVerifyBusy] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
@@ -261,8 +264,17 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     }
   }
 
-  const exportCsvFile = () => {
+  const exportCsvFile = async () => {
+    if (!csvPassword) return
+    setCsvBusy(true)
     try {
+      // Un export en clair de tout le coffre exige de ressaisir le mot de
+      // passe maître : une session laissée ouverte ne suffit pas.
+      if (!(await confirmMasterPassword(csvPassword))) {
+        toast(tt('Mot de passe maître incorrect'), 'error')
+        return
+      }
+      setCsvPassword('')
       const result = exportCsv(items, vaults, csvFormat)
       downloadFile(result.content, result.filename, 'text/csv;charset=utf-8')
       const label =
@@ -274,6 +286,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       )
     } catch (caught) {
       toast(caught instanceof Error ? caught.message : tt('Export CSV impossible'), 'error')
+    } finally {
+      setCsvBusy(false)
     }
   }
 
@@ -1296,13 +1310,26 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     </select>
                   </label>
 
+                  <label className="field field--full">
+                    <span className="field__label">{tt("Mot de passe maître")}</span>
+                    <input
+                      className="input"
+                      type="password"
+                      autoComplete="current-password"
+                      value={csvPassword}
+                      onChange={(event) => setCsvPassword(event.target.value)}
+                      aria-label={tt("Mot de passe maître pour l’export CSV")}
+                    />
+                  </label>
+
                   <div className="settings-actions settings-actions--start">
                     <button
                       type="button"
                       className="button button--secondary"
-                      onClick={exportCsvFile}
+                      onClick={() => void exportCsvFile()}
+                      disabled={!csvPassword || csvBusy}
                     >
-                      <Download size={16} />
+                      {csvBusy ? <LoaderCircle size={16} className="spin" /> : <Download size={16} />}
                       {tt("Exporter en CSV")}
                     </button>
                   </div>

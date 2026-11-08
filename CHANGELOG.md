@@ -2,6 +2,27 @@
 
 ## Non publié
 
+- Correctifs de l’audit du 7 novembre 2026, portés sur le format 4 :
+  - écritures contrôlées dans le navigateur : une modification calculée à
+    partir d’une version périmée est refusée au lieu d’effacer celle d’un
+    autre onglet ; chaque déverrouillage relit le fichier enregistré ;
+  - verrouillage pendant un enregistrement : la modification en cours est
+    signée et enregistrée avant l’effacement des clés, au lieu d’être perdue ;
+  - fermeture de page : l’état passe à « verrouillé » (bfcache) sans retirer
+    la clé du déverrouillage rapide ;
+  - suppression d’un coffre : la clé n’est retirée de la session qu’après
+    l’écriture réussie ;
+  - export CSV en clair soumis à la saisie du mot de passe maître ;
+  - estimateur de robustesse par motifs (dictionnaires, clavier, suites,
+    dates, substitutions), sorti de `crypto.ts` pour ne pas alourdir
+    l’extension ;
+  - desktop : presse-papiers natif marqué secret et effacement différé fiable,
+    raison Touch ID fixée côté Rust, serveur de développement refusé dans les
+    builds de production, rotation des sauvegardes sans fichier courant ;
+  - import Enpass : résolution des dossiers itérative et bornée ;
+  - CI : actions épinglées par SHA, `persist-credentials: false`, permissions
+    minimales et tests avant signature dans la release.
+
 - Coffre de fichiers chiffrés en flux : blobs hors `.coffre`, AES-256-GCM par
   blocs de 64 Kio, nonce STREAM, détection de troncature/substitution,
   commandes Tauri, client TypeScript et ajout/téléchargement/suppression depuis

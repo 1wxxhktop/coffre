@@ -1,17 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   deriveMasterKey,
-  estimateEntropy,
   fromBase64,
   newKdfParams,
   openBytes,
-  passwordStrength,
   randomBytes,
   sealBytes,
   toBase64,
   utf8,
   wipe,
 } from './crypto'
+import { estimateEntropy, passwordStrength } from './strength'
 
 const FAST_KDF = {
   memoryKiB: 8_192,
@@ -93,11 +92,41 @@ describe('Argon2id', () => {
 describe('entropie', () => {
   it('classe les mots de passe faibles et forts', () => {
     expect(passwordStrength(estimateEntropy('123456'))).toMatchObject({ score: 0 })
-    expect(passwordStrength(estimateEntropy('MotDePasse!2026-very-long'))).toMatchObject({
-      score: 4,
-    })
+    expect(
+      passwordStrength(estimateEntropy('J’aime les croissants du dimanche matin')),
+    ).toMatchObject({ score: 4 })
+    expect(estimateEntropy('Xk9#mP2$vL7q')).toBeGreaterThanOrEqual(50)
     expect(estimateEntropy('passwordpassword')).toBeLessThanOrEqual(30)
     expect(estimateEntropy('abcabcabcabc')).toBeLessThanOrEqual(30)
+  })
+
+  it('reconnaît les mots de passe humains malgré leur longueur', () => {
+    // Mots du dictionnaire, rangées de clavier, suites, années et leetspeak :
+    // tous ces exemples dépassaient 50 bits avec l’ancienne estimation.
+    for (const password of [
+      'Azertyuiop123',
+      'P@ssw0rd2024!',
+      'Motdepasse2024!',
+      'Jetaime123456',
+      'Soleil2024!!',
+      'Qwertyuiop12',
+      'Bonjour123456',
+      'Marseille2024',
+      'Coffre2026!!!',
+    ]) {
+      expect(estimateEntropy(password), password).toBeLessThan(50)
+    }
+  })
+
+  it('accepte les phrases de passe et les mots de passe aléatoires', () => {
+    for (const password of [
+      'phrase de passe de test solide',
+      'correct horse battery staple',
+      'tR8!wZq4@nB1',
+      'kV3-pL9-xQ2-mN7',
+    ]) {
+      expect(estimateEntropy(password), password).toBeGreaterThanOrEqual(50)
+    }
   })
 
   it('efface un buffer', () => {

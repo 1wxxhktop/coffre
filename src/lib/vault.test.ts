@@ -242,6 +242,9 @@ describe('coffres', () => {
     const afterDelete = await deleteVault(withItem.file, opened.session, added.vault.id)
     expect(afterDelete.vaults).toHaveLength(1)
     expect(afterDelete.items).toHaveLength(0)
+    // La clé reste en session tant que l’écriture n’a pas réussi : un échec
+    // d’enregistrement ne doit pas laisser un coffre visible mais illisible.
+    expect(() => opened.session.vaultKey(added.vault.id)).not.toThrow()
     unlocked.session.lock()
   })
 

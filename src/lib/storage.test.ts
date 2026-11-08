@@ -9,6 +9,7 @@ import {
   restoreBackup,
   saveVaultFile,
   saveVaultState,
+  StorageConflictError,
 } from './storage'
 import { createVaultFile } from './vault'
 import type { VaultFile } from './types'
@@ -86,6 +87,35 @@ describe('stockage local', () => {
     expect(restored?.id).toBe(first.id)
     expect((await loadVaultFile())?.id).toBe(first.id)
     expect((await loadBackupVaultFile(1))?.id).toBe(third.id)
+  })
+
+  it('refuse une écriture calculée à partir d’une version périmée', async () => {
+    const base = await makeVault()
+    await saveVaultFile(base)
+
+    // Un premier onglet enregistre une modification à partir de `base`.
+    const fromTabA = { ...base, updatedAt: '2030-01-01T00:00:00.000Z' }
+    await saveVaultFile(fromTabA, { expected: base })
+
+    // Un second onglet, resté sur `base`, ne doit pas l’écraser.
+    const fromTabB = { ...base, updatedAt: '2030-01-02T00:00:00.000Z' }
+    await expect(saveVaultFile(fromTabB, { expected: base })).rejects.toBeInstanceOf(
+      StorageConflictError,
+    )
+    expect((await loadVaultFile())?.updatedAt).toBe(fromTabA.updatedAt)
+    // La sauvegarde n’a pas tourné lors de l’écriture refusée.
+    expect((await loadBackupVaultFile(1))?.updatedAt).toBe(base.updatedAt)
+  })
+
+  it('ignore une sauvegarde illisible dans la liste', async () => {
+    await saveVaultFile(await makeVault())
+    await saveVaultFile(await makeVault())
+    const { openDB } = await import('idb')
+    const db = await openDB('coffre', 1)
+    await db.put('vault', { format: 'coffre', broken: true }, 'backup:2')
+    db.close()
+    const listed = await listLocalBackups()
+    expect(listed.map((entry) => entry.generation)).toEqual([1])
   })
 
   it('efface toutes les données', async () => {
