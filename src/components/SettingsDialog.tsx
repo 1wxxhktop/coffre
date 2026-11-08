@@ -409,6 +409,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
         setSourceText('')
         setSourceBytes(null)
         setSkipDuplicates(true)
+        onImported?.()
       }
     } catch (caught) {
       setSourceError(caught instanceof Error ? caught.message : tt('Import impossible'))
