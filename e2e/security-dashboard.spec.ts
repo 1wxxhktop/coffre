@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, closeDialog, createVault, PASSWORD } from './helpers'
+import { addLogin, closeDialog, createVault } from './helpers'
 
 test('affiche le tableau de bord Sécurité et ouvre un élément à corriger', async ({ page }) => {
   await createVault(page)

@@ -14,18 +14,18 @@
   gap: 12px;
   min-height: 66px;
   padding: 14px 16px;
-  border: 1px solid rgba(139, 124, 246, 0.2);
+  border: 1px solid var(--line-strong);
   border-radius: 12px;
   background:
-    radial-gradient(120% 140% at 0% 0%, rgba(139, 124, 246, 0.11), transparent 60%),
-    #0a0d14;
+    radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 60%),
+    var(--bg-soft);
 }
 
 .generator__output code {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
-  color: #ddd8ff;
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: 17px;
   letter-spacing: 0.03em;
@@ -68,7 +68,7 @@
   padding: 5px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #0a0d14;
+  background: var(--bg-soft);
 }
 
 .type-picker__item {
@@ -298,7 +298,7 @@
 }
 
 .detail-link a:hover {
-  color: #c4b5fd;
+  color: var(--accent-bright);
 }
 
 .custom-fields {
@@ -394,7 +394,7 @@
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #0a0d14;
+  background: var(--bg-soft);
 }
 
 .attachment__icon {
@@ -404,8 +404,8 @@
   height: 28px;
   flex: none;
   border-radius: 8px;
-  background: rgba(94, 234, 212, 0.06);
-  color: #7dd3c7;
+  background: var(--accent-soft);
+  color: var(--success);
 }
 
 .attachment__body {
@@ -443,7 +443,7 @@
   padding: 12px 13px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #0a0d14;
+  background: var(--bg-soft);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
@@ -608,7 +608,7 @@
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background: #0d1018;
+  background: var(--panel-2);
 }
 
 .totp__ring span {

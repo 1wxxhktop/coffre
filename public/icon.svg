@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <linearGradient id="bg" x1="40" y1="30" x2="470" y2="490" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#b9adff" />
-      <stop offset="0.5" stop-color="#8b7cf6" />
-      <stop offset="1" stop-color="#4fd1c5" />
+      <stop offset="0" stop-color="#e4e4e7" />
+      <stop offset="0.5" stop-color="#a1a1aa" />
+      <stop offset="1" stop-color="#52525b" />
     </linearGradient>
     <linearGradient id="shine" x1="100" y1="60" x2="300" y2="260" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ffffff" stop-opacity="0.28" />
@@ -21,6 +21,6 @@
     stroke-linecap="round"
   />
   <rect x="128" y="232" width="256" height="196" rx="56" fill="#0b0d12" />
-  <circle cx="256" cy="310" r="23" fill="#d7d3ff" />
-  <path d="M256 330v42" stroke="#d7d3ff" stroke-width="22" stroke-linecap="round" />
+  <circle cx="256" cy="310" r="23" fill="#e4e4e7" />
+  <path d="M256 330v42" stroke="#e4e4e7" stroke-width="22" stroke-linecap="round" />
 </svg>
