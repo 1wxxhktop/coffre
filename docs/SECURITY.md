@@ -1006,12 +1006,20 @@ Le générateur peut appliquer les contraintes d’un site :
 
 ### 2.26 Socle de partage et accès d’urgence (L10)
 
-Le module `src/lib/sharing.ts` prépare le partage de coffres et l’accès
-d’urgence. Il n’est pas encore relié au format `.coffre` ni à l’interface.
+Les modules `src/lib/sharing.ts` et `src/lib/sharingVault.ts` préparent le
+partage de coffres et l’accès d’urgence. L’identité est persistée dans le champ
+`sharing` du fichier `.coffre` ; l’interface de partage reste à intégrer.
 
 - chaque identité contient une paire X25519 pour HPKE et une paire Ed25519 pour
-  signer les rôles ; les clés privées sont destinées à être scellées par la clé
-  du coffre et ne sont jamais persistées par ce module ;
+  signer les rôles ; les clés publiques et l’empreinte sont en clair, les clés
+  privées sont scellées par la clé maîtresse avec une AAD liée au fichier et aux
+  deux clés publiques ;
+- le ciphertext des clés privées est couvert par le MAC global v4 ; une clé
+  publique modifiée fait échouer l’ouverture AEAD, et déplacer l’enveloppe vers
+  un autre fichier échoue également ;
+- l’identité est ré-enveloppée lors d’un changement de mot de passe et supprimée
+  lors d’une récupération, car elle est scellée par l’ancienne clé maîtresse ;
+  la fusion de synchronisation conserve l’identité locale si elle existe ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;
@@ -1023,8 +1031,8 @@ d’urgence. Il n’est pas encore relié au format `.coffre` ni à l’interfac
   la révocation prépare une nouvelle clé et de nouvelles enveloppes pour les
   membres restants, sans réutiliser l’ancienne ;
 - aucune requête réseau n’est effectuée ;
-- limites : la distribution des clés, la révocation par rotation, le stockage
-  des identités dans le fichier et l’interface de partage restent à intégrer.
+- limites : la distribution des clés et l’interface de partage restent à
+  intégrer ; la révocation par rotation est préparée mais pas encore exposée.
   L’accès d’urgence immédiat est préparé ; le délai imposé et le partage Shamir
   2/3 restent à concevoir.
 

@@ -10,7 +10,7 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | TypeScript | `bun run typecheck` | OK |
 | Lint + jetons | `bun run lint` | OK, 0 erreur ; seuls des avertissements `oxlint` préexistants |
 | Jetons seuls | `bun run lint:design` | OK, aucune valeur littérale hors jetons |
-| Tests unitaires | `bun run test` | 58 fichiers, 423 tests |
+| Tests unitaires | `bun run test` | 58 fichiers, 427 tests |
 | E2E Chromium + WebKit | `bun run test:e2e` | 118 tests passés, 6 ignorés (124 exécutions) |
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |
