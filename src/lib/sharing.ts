@@ -119,6 +119,39 @@ export async function generateSharingIdentity(): Promise<SharingIdentity> {
   }
 }
 
+/** Valide une identité publique reçue par fichier ou collage. */
+export async function parsePublicSharingIdentity(
+  value: unknown,
+): Promise<PublicSharingIdentity> {
+  let data: unknown = value
+  if (typeof value === 'string') {
+    try {
+      data = JSON.parse(value)
+    } catch {
+      throw new SharingError('Identité de partage JSON invalide')
+    }
+  }
+  if (!data || typeof data !== 'object') {
+    throw new SharingError('Identité de partage invalide')
+  }
+  const record = data as Record<string, unknown>
+  const encryptionPublicKey = record.encryptionPublicKey
+  const signingPublicKey = record.signingPublicKey
+  const fingerprint = record.fingerprint
+  if (
+    typeof encryptionPublicKey !== 'string' ||
+    typeof signingPublicKey !== 'string' ||
+    typeof fingerprint !== 'string'
+  ) {
+    throw new SharingError('Identité de partage incomplète')
+  }
+  const expected = await sharingFingerprint(encryptionPublicKey, signingPublicKey)
+  if (expected !== fingerprint) {
+    throw new SharingError('Empreinte de partage incohérente')
+  }
+  return { encryptionPublicKey, signingPublicKey, fingerprint }
+}
+
 /** Partie publiable d’une identité. */
 export function publicSharingIdentity(identity: SharingIdentity): PublicSharingIdentity {
   return {

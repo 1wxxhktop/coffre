@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createSharedVaultPackage,
   openSharedVaultPackage,
+  parseSharedVaultPackage,
 } from './sharingPackage'
 import {
   generateSharingIdentity,
@@ -38,6 +39,22 @@ describe('paquet de partage', () => {
     expect(Array.from(bobImport.vaultKey)).toEqual(Array.from(vaultKey))
     const carolImport = await openSharedVaultPackage(pkg, carol)
     expect(carolImport.role).toBe('write')
+  })
+
+  it('valide un paquet importé et refuse une signature altérée', async () => {
+    const { pkg } = await packageWithMembers()
+    const parsed = await parseSharedVaultPackage(JSON.stringify(pkg))
+    expect(parsed.members).toHaveLength(3)
+    const altered = {
+      ...pkg,
+      members: pkg.members.map((member, index) =>
+        index === 1
+          ? { ...member, role: { ...member.role, signature: 'AAAA' } }
+          : member,
+      ),
+    }
+    await expect(parseSharedVaultPackage(altered)).rejects.toThrow()
+    await expect(parseSharedVaultPackage('{')).rejects.toThrow()
   })
 
   it('refuse une identité absente du paquet', async () => {

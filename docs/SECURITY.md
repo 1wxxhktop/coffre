@@ -1027,6 +1027,8 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   ni contenu déchiffré ; son import vérifie la signature du rôle et l’identité
   du destinataire avant d’ouvrir la clé. Le paquet révèle l’identifiant du
   coffre et la liste des membres : le transmettre par un canal de confiance ;
+- les identités publiques et les paquets importés sont validés (forme,
+  empreinte recalculée, cohérence des rôles et signatures) avant utilisation ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;

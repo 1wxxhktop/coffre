@@ -9,6 +9,7 @@
 
 import {
   openVaultKeyFromMember,
+  parsePublicSharingIdentity,
   publicSharingIdentity,
   signShareRole,
   verifyShareRole,
@@ -33,6 +34,83 @@ export interface SharedVaultPackage {
   createdAt: string
   admin: PublicSharingIdentity
   members: SharedVaultMember[]
+}
+
+/** Valide un paquet reçu avant de l’exposer à l’interface. */
+export async function parseSharedVaultPackage(
+  value: unknown,
+): Promise<SharedVaultPackage> {
+  let data: unknown = value
+  if (typeof value === 'string') {
+    try {
+      data = JSON.parse(value)
+    } catch {
+      throw new Error('Paquet de partage JSON invalide')
+    }
+  }
+  if (!data || typeof data !== 'object') {
+    throw new Error('Paquet de partage invalide')
+  }
+  const record = data as Record<string, unknown>
+  if (
+    record.version !== 1 ||
+    typeof record.vaultId !== 'string' ||
+    typeof record.createdAt !== 'string' ||
+    !Array.isArray(record.members)
+  ) {
+    throw new Error('Paquet de partage incomplet')
+  }
+  const admin = await parsePublicSharingIdentity(record.admin)
+  const members: SharedVaultMember[] = []
+  for (const entry of record.members) {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error('Membre de partage invalide')
+    }
+    const member = entry as Record<string, unknown>
+    const identity = await parsePublicSharingIdentity(member.identity)
+    const role = member.role as Record<string, unknown> | undefined
+    const wrap = member.wrap as Record<string, unknown> | undefined
+    if (
+      !role ||
+      typeof role.vaultId !== 'string' ||
+      typeof role.memberFingerprint !== 'string' ||
+      (role.role !== 'read' && role.role !== 'write') ||
+      typeof role.issuedAt !== 'string' ||
+      typeof role.issuedBy !== 'string' ||
+      typeof role.signature !== 'string' ||
+      !wrap ||
+      typeof wrap.enc !== 'string' ||
+      typeof wrap.ciphertext !== 'string'
+    ) {
+      throw new Error('Membre de partage incomplet')
+    }
+    if (role.vaultId !== record.vaultId || role.memberFingerprint !== identity.fingerprint) {
+      throw new Error('Rôle de partage incohérent')
+    }
+    const signed = {
+      vaultId: role.vaultId,
+      memberFingerprint: role.memberFingerprint,
+      role: role.role,
+      issuedAt: role.issuedAt,
+      issuedBy: role.issuedBy,
+      signature: role.signature,
+    } as SignedShareRole
+    if (!(await verifyShareRole(signed, admin.signingPublicKey))) {
+      throw new Error('Signature du rôle invalide')
+    }
+    members.push({
+      identity,
+      role: signed,
+      wrap: { enc: wrap.enc, ciphertext: wrap.ciphertext },
+    })
+  }
+  return {
+    version: 1,
+    vaultId: record.vaultId,
+    createdAt: record.createdAt,
+    admin,
+    members,
+  }
 }
 
 export interface SharedVaultImport {
