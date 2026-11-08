@@ -725,8 +725,10 @@ L’agent s’arrête au verrouillage, à la fermeture de l’interface ou via l
 `app_data_dir()/ssh/agent.sock` ; aucun socket n’est ouvert par défaut.
 
 Lorsque le déverrouillage par Touch ID est activé, l’approbation d’une
-signature demande aussi une authentification biométrique réussie. Le named pipe
-Windows reste à implémenter.
+signature demande aussi une authentification biométrique réussie. Une case
+optionnelle, décochée par défaut, permet d’autoriser la même clé pendant
+15 secondes pour les opérations qui enchaînent plusieurs signatures. Le named
+pipe Windows reste à implémenter.
 
 Le binaire `coffre-ssh-agent` permet de l’utiliser dès maintenant dans un
 terminal :

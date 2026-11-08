@@ -702,6 +702,10 @@ aucun socket n’est créé par défaut.
 - si le déverrouillage par Touch ID est activé, une authentification
   biométrique réussie est exigée après le clic sur **Signer**. Une annulation
   laisse la demande ouverte ; elle expire normalement après 60 secondes ;
+- une case décochée par défaut permet d’autoriser la même clé pendant
+  15 secondes ; les signatures suivantes avec la même empreinte sont approuvées
+  sans nouvelle modale ni Touch ID. Cette mémorisation reste en mémoire,
+  n’est jamais persistée et est effacée au verrouillage ;
 - Git peut signer via `ssh-keygen -Y sign` et l’agent : la clé privée reste
   dans le coffre et chaque signature passe par la même approbation. Un test
   crée un commit Git réellement signé avec l’agent ;
@@ -730,7 +734,8 @@ aucun socket n’est créé par défaut.
 - au plus 16 connexions simultanées sont servies ; les suivantes sont
   fermées immédiatement ;
 - limites : le socket Unix n’est pas implémenté sous Windows (named pipe à
-  faire), et aucune mémorisation d’approbation par hôte n’est encore proposée.
+  faire), et la mémorisation porte sur une clé pendant 15 secondes, pas sur un
+  hôte.
 
 ## 3. Stockage local
 
