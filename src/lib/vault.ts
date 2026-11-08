@@ -470,12 +470,22 @@ const passkeyContentSchema = z.object({
   signCount: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
 })
 
+const sshKeyContentSchema = z.object({
+  ...itemBaseSchema,
+  type: z.literal('ssh-key'),
+  privateKey: z.string().max(100_000),
+  publicKey: z.string().max(20_000),
+  fingerprint: z.string().max(500),
+  comment: z.string().max(500),
+})
+
 const itemContentSchema = z.discriminatedUnion('type', [
   loginContentSchema,
   noteContentSchema,
   cardContentSchema,
   identityContentSchema,
   passkeyContentSchema,
+  sshKeyContentSchema,
 ])
 
 /** Valide le contenu déchiffré d’un élément (imports, partages hors ligne). */
@@ -1670,6 +1680,15 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         privateKey: (draft.privateKey ?? '').slice(0, 10_000),
         publicKeyCose: (draft.publicKeyCose ?? '').slice(0, 10_000),
         signCount: Math.max(0, Math.floor(draft.signCount || 0)),
+      }
+    case 'ssh-key':
+      return {
+        ...common,
+        type: 'ssh-key',
+        privateKey: (draft.privateKey ?? '').slice(0, 100_000),
+        publicKey: cleanText(draft.publicKey, 20_000),
+        fingerprint: cleanText(draft.fingerprint, 500),
+        comment: cleanText(draft.comment, 500),
       }
   }
 }

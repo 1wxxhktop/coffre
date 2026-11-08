@@ -6,7 +6,7 @@
  * sections personnalisées. Le format de fichier, lui, est propre à Coffre.
  */
 
-export const ITEM_TYPES = ['login', 'note', 'card', 'identity', 'passkey'] as const
+export const ITEM_TYPES = ['login', 'note', 'card', 'identity', 'passkey', 'ssh-key'] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]
 
@@ -121,12 +121,23 @@ export interface PasskeyItem extends ItemBase {
   signCount: number
 }
 
+/** Clé SSH stockée avec sa clé publique et son empreinte. */
+export interface SshKeyItem extends ItemBase {
+  type: 'ssh-key'
+  /** Clé privée au format OpenSSH ou PEM. */
+  privateKey: string
+  publicKey: string
+  fingerprint: string
+  comment: string
+}
+
 export type VaultItem =
   | LoginItem
   | NoteItem
   | CardItem
   | IdentityItem
   | PasskeyItem
+  | SshKeyItem
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -408,6 +419,15 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         publicKeyCose: '',
         signCount: 0,
       }
+    case 'ssh-key':
+      return {
+        ...base,
+        type: 'ssh-key',
+        privateKey: '',
+        publicKey: '',
+        fingerprint: '',
+        comment: '',
+      }
   }
 }
 
@@ -425,6 +445,8 @@ export function itemSubtitle(item: VaultItem): string {
     }
     case 'passkey':
       return item.userName || item.rpId || 'Passkey'
+    case 'ssh-key':
+      return item.comment || item.fingerprint || 'Clé SSH'
   }
 }
 
@@ -440,5 +462,7 @@ export function itemTypeLabel(type: ItemType): string {
       return 'Identité'
     case 'passkey':
       return 'Passkey'
+    case 'ssh-key':
+      return 'Clé SSH'
   }
 }

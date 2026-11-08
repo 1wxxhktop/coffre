@@ -21,7 +21,7 @@ export function SshAgentSettings() {
   const [copied, setCopied] = useState(false)
   const available = sshAgentSupported()
   const keyCount = items.filter(
-    (item) => (item as { type: string }).type === 'ssh-key' && !item.deletedAt,
+    (item) => item.type === 'ssh-key' && !item.deletedAt,
   ).length
 
   useEffect(() => {

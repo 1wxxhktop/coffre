@@ -111,12 +111,15 @@ function searchableText(item: ReturnType<typeof useVault>['items'][number]): str
     case 'passkey':
       common.push(item.rpId, item.userName)
       break
+    case 'ssh-key':
+      common.push(item.comment, item.fingerprint, item.publicKey)
+      break
   }
 
   return normalize(common.join(' '))
 }
 
-const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'passkey']
+const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'passkey', 'ssh-key']
 
 const SECURITY_CATEGORY_KEYS: Record<SecurityCategory, MessageKey> = {
   breached: 'security.category.breached',

@@ -817,7 +817,7 @@ export function ItemDialog({
                   role="tablist"
                   aria-label={tt('Type d’élément')}
                 >
-                  {(['login', 'note', 'card', 'identity'] as ItemType[]).map((type) => (
+                  {(['login', 'note', 'card', 'identity', 'ssh-key'] as ItemType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -1208,6 +1208,52 @@ export function ItemDialog({
                       type="date"
                       value={draft.licenseExpiry}
                       onChange={(event) => patch({ licenseExpiry: event.target.value })}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {draft.type === 'ssh-key' && (
+                <div className="form-grid">
+                  <label className="field field--full">
+                    <span className="field__label">{tt('Clé privée')}</span>
+                    <textarea
+                      className="input input--mono"
+                      rows={6}
+                      value={draft.privateKey}
+                      onChange={(event) => patch({ privateKey: event.target.value })}
+                      placeholder={tt('-----BEGIN OPENSSH PRIVATE KEY-----')}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="field field--full">
+                    <span className="field__label">{tt('Clé publique')}</span>
+                    <textarea
+                      className="input input--mono"
+                      rows={3}
+                      value={draft.publicKey}
+                      onChange={(event) => patch({ publicKey: event.target.value })}
+                      placeholder={tt('ssh-ed25519 AAAA…')}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Empreinte')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.fingerprint}
+                      onChange={(event) => patch({ fingerprint: event.target.value })}
+                      placeholder={tt('SHA256:…')}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Commentaire')}</span>
+                    <input
+                      className="input"
+                      value={draft.comment}
+                      onChange={(event) => patch({ comment: event.target.value })}
+                      maxLength={500}
                     />
                   </label>
                 </div>
@@ -1780,6 +1826,32 @@ function ItemDetails({
               Passkey WebAuthn · clé privée conservée dans le coffre
             </div>
           </div>
+        </div>
+      )}
+
+      {item.type === 'ssh-key' && (
+        <div className="detail-list">
+          <SecretRow
+            label="Clé privée"
+            value={item.privateKey}
+            revealed={revealed.has('ssh-private')}
+            onToggle={() => toggleReveal('ssh-private')}
+            onCopy={() => void copyValue(item.privateKey, 'Clé privée')}
+            copied={copied === 'Clé privée'}
+          />
+          <DetailRow
+            label="Clé publique"
+            value={item.publicKey}
+            onCopy={() => void copyValue(item.publicKey, 'Clé publique')}
+            copied={copied === 'Clé publique'}
+          />
+          <DetailRow
+            label="Empreinte"
+            value={item.fingerprint}
+            onCopy={() => void copyValue(item.fingerprint, 'Empreinte')}
+            copied={copied === 'Empreinte'}
+          />
+          <DetailRow label="Commentaire" value={item.comment} />
         </div>
       )}
 

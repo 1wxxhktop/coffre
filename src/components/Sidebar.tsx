@@ -4,6 +4,7 @@ import {
   CreditCard,
   FileText,
   Fingerprint,
+  KeySquare,
   History,
   KeyRound,
   LayoutDashboard,
@@ -67,6 +68,7 @@ const FILTER_KEYS: Record<ItemFilter, MessageKey> = {
   note: 'filter.note',
   identity: 'filter.identity',
   passkey: 'filter.passkey',
+  'ssh-key': 'filter.sshKey',
   trash: 'filter.trash',
 }
 
@@ -80,6 +82,7 @@ const FILTERS: Array<{ id: ItemFilter; icon: LucideIcon }> = [
   { id: 'note', icon: FileText },
   { id: 'identity', icon: UserRound },
   { id: 'passkey', icon: Fingerprint },
+  { id: 'ssh-key', icon: KeySquare },
   { id: 'trash', icon: Trash2 },
 ]
 

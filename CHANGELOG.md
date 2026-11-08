@@ -75,6 +75,9 @@
   la clé privée ne figure pas dans la réponse destinée au navigateur ; le smoke
   de l’extension couvre la création, la connexion, le `clientDataJSON`, le hash
   de RP ID et la vérification de la signature ECDSA avec les primitives Node.
+- Nouveau type `ssh-key` : clé privée, clé publique, empreinte et commentaire
+  chiffrés, avec formulaire, fiche détaillée et filtre « Clés SSH ». Aucune clé
+  privée n’est incluse dans les exports CSV.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation
