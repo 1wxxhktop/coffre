@@ -124,7 +124,8 @@ de confiance, même avec 157 tests.
 
 La CI compile Windows/Linux, mais aucune exécution réelle, aucun test
 d’installation, aucun test de trousseau ni de WebView n’a été réalisé. Le build
-local est arm64 uniquement.
+local arm64 et le build **universel** (arm64 + x86_64) ont été validés, mais le
+binaire Intel n’a pas été exécuté sur un Mac Intel.
 
 ### B-09 — Portabilité des données — **traité en 0.8.0**
 
