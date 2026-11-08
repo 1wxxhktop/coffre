@@ -220,12 +220,9 @@ describe('coffres', () => {
   it('détecte une enveloppe de récupération corrompue', async () => {
     const opened = await freshVault()
     const phrase = 'abacus abdomen abdominal abide abiding ability abject ablaze abode abort'
-    const withRecovery = await enableRecovery(
-      opened.file,
-      opened.session,
-      phrase,
-      FAST_KDF,
-    )
+    const enabled = await enableRecovery(opened.file, opened.session, phrase, FAST_KDF)
+    enabled.install(opened.session)
+    const withRecovery = enabled.file
     const corrupted = {
       ...withRecovery,
       recovery: {
@@ -256,15 +253,12 @@ describe('coffres', () => {
 })
 
 describe('changement de mot de passe maître', () => {
-  it('ré-enveloppe les clés sans réchiffrer les éléments', async () => {
+  it('ouvre le coffre avec le nouveau mot de passe uniquement', async () => {
     const opened = await freshVault()
     const { file, item } = await addLogin(opened)
-    const updated = await changeMasterPassword(
-      file,
-      opened.session,
-      'nouvelle phrase de passe',
-      FAST_KDF,
-    )
+    const updated = (
+      await changeMasterPassword(file, opened.session, 'nouvelle phrase de passe', FAST_KDF)
+    ).file
 
     await expect(unlockVaultFile(updated, PASSWORD)).rejects.toBeInstanceOf(WrongPasswordError)
 
@@ -522,6 +516,43 @@ describe('pièces jointes', () => {
     ).toThrow(VaultValidationError)
   })
 
+  it('l’ancien mot de passe ne lit pas le contenu écrit après le changement', async () => {
+    const opened = await freshVault()
+    const { file } = await addLogin(opened)
+    // Sauvegarde ou export antérieur, protégé par l’ancien mot de passe.
+    const backup = parseVaultFile(JSON.parse(serializeVault(file)))
+
+    const changed = await changeMasterPassword(file, opened.session, 'nouvelle phrase de passe', FAST_KDF)
+    changed.install(opened.session)
+
+    // Les clés de coffre de l’ancienne copie ne déchiffrent pas les nouveaux éléments.
+    const hybrid = { ...changed.file, kdf: backup.kdf, vaults: backup.vaults }
+    const opening = await unlockVaultFile(hybrid, PASSWORD)
+    expect(opening.items).toHaveLength(0)
+    expect(opening.warnings.length).toBeGreaterThan(0)
+    opening.session.lock()
+
+    const reopened = await unlockVaultFile(changed.file, 'nouvelle phrase de passe')
+    expect(reopened.items).toHaveLength(1)
+    reopened.session.lock()
+    opened.session.lock()
+  })
+
+  it('n’installe les nouvelles clés qu’après confirmation', async () => {
+    const opened = await freshVault()
+    const { file } = await addLogin(opened)
+    const before = opened.session.masterKey.slice()
+
+    const changed = await changeMasterPassword(file, opened.session, 'nouvelle phrase de passe', FAST_KDF)
+    // Écriture échouée : la session reste celle du fichier encore sur disque.
+    changed.discard()
+    expect(opened.session.masterKey).toEqual(before)
+    const stillOpen = await openVaultFileWithMasterKey(file, opened.session.masterKey)
+    expect(stillOpen.items).toHaveLength(1)
+    stillOpen.session.lock()
+    opened.session.lock()
+  })
+
   it('conserve les pièces jointes après un changement de mot de passe', async () => {
     const opened = await freshVault()
     const { file, item } = await addLogin(opened)
@@ -530,12 +561,9 @@ describe('pièces jointes', () => {
       mime: 'text/plain',
       bytes: new TextEncoder().encode('toujours là'),
     })
-    const changed = await changeMasterPassword(
-      added.file,
-      opened.session,
-      'nouvelle phrase de passe',
-      FAST_KDF,
-    )
+    const changed = (
+      await changeMasterPassword(added.file, opened.session, 'nouvelle phrase de passe', FAST_KDF)
+    ).file
     const unlocked = await unlockVaultFile(changed, 'nouvelle phrase de passe')
     const read = await openAttachment(
       unlocked.file,

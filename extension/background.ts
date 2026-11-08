@@ -1,6 +1,8 @@
-import type {
-  ExtensionCredentials,
-  ExtensionLoginSummary,
+import {
+  credentialsMatchPage,
+  hostFromUrl,
+  type ExtensionCredentials,
+  type ExtensionLoginSummary,
 } from '../src/lib/extensionProtocol'
 
 const DEFAULT_APP_URL = 'http://localhost:1420'
@@ -12,6 +14,8 @@ interface ExtensionMessage {
   itemId?: string
   tabId?: number
   appUrl?: string
+  /** Confirmation explicite de l’utilisateur malgré un domaine différent. */
+  force?: boolean
 }
 
 interface AppStatus {
@@ -126,21 +130,48 @@ async function credentials(itemId: string): Promise<{
   }
 }
 
+interface FillResult {
+  ok?: boolean
+  filled?: number
+  error?: string
+  pageHost?: string
+  itemHosts?: string[]
+}
+
 async function fill(
   itemId: string,
   tabId: number | undefined,
-): Promise<{ ok?: boolean; filled?: number; error?: string }> {
-  const fetched = await credentials(itemId)
-  if (fetched.error) return { error: fetched.error }
-  const data = fetched.credentials
-  if (!data) return { error: 'not-found' }
-
+  force = false,
+): Promise<FillResult> {
   let targetId = tabId
   if (!targetId) {
     const [active] = await chrome.tabs.query({ active: true, currentWindow: true })
     targetId = active?.id
   }
   if (!targetId) return { error: 'no-tab' }
+
+  // L’URL de l’onglet visé est lisible grâce à `activeTab` (clic sur l’icône).
+  let pageUrl = ''
+  try {
+    pageUrl = (await chrome.tabs.get(targetId)).url ?? ''
+  } catch {
+    return { error: 'no-tab' }
+  }
+
+  const fetched = await credentials(itemId)
+  if (fetched.error) return { error: fetched.error }
+  const data = fetched.credentials
+  if (!data) return { error: 'not-found' }
+
+  // Défense contre l’hameçonnage : on ne remplit pas une page dont le domaine
+  // ne correspond à aucune adresse de l’élément, sauf confirmation explicite.
+  if (!force && !credentialsMatchPage(data.hosts, pageUrl)) {
+    return {
+      error: 'domain-mismatch',
+      pageHost: hostFromUrl(pageUrl),
+      itemHosts: data.hosts ?? [],
+    }
+  }
 
   try {
     const [result] = await chrome.scripting.executeScript({
@@ -261,7 +292,7 @@ async function handle(message: ExtensionMessage): Promise<unknown> {
     case 'SEARCH':
       return search(message.query ?? '')
     case 'FILL':
-      return fill(message.itemId ?? '', message.tabId)
+      return fill(message.itemId ?? '', message.tabId, message.force === true)
     case 'OPEN_APP':
     case 'FOCUS_APP':
       return openApp()

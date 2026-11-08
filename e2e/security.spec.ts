@@ -2,13 +2,17 @@ import { expect, test } from '@playwright/test'
 import { addLogin, closeDialog, createVault, openSettings } from './helpers'
 
 test.describe('sécurité de l’interface', () => {
-  test('aucune requête tierce et neutralisation des URL dangereuses', async ({ page }) => {
+  test('aucune requête tierce et neutralisation des URL dangereuses', async ({
+    page,
+    baseURL,
+  }) => {
+    const appHost = new URL(baseURL ?? 'http://127.0.0.1:4173').host
     const external: string[] = []
     page.on('request', (request) => {
       const url = new URL(request.url())
       if (
         (url.protocol === 'http:' || url.protocol === 'https:') &&
-        url.host !== '127.0.0.1:4173'
+        url.host !== appHost
       ) {
         external.push(request.url())
       }

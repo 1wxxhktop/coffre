@@ -56,6 +56,7 @@ import type {
   KdfParams,
   RecoveryEnvelope,
   RecoveryWrap,
+  Sealed,
   VaultFile,
   VaultItem,
   VaultSummary,
@@ -194,9 +195,27 @@ export class VaultSession {
     this.#recoveryKey = null
   }
 
-  replaceMasterKey(next: Uint8Array): void {
-    wipe(this.#masterKey)
-    this.#masterKey = next
+  /**
+   * Remplace les clés de la session après une rotation enregistrée. Les
+   * anciennes clés sont effacées ; la session devient propriétaire des
+   * nouvelles.
+   */
+  installKeys(next: {
+    masterKey?: Uint8Array
+    vaultKeys: Map<string, Uint8Array>
+    recoveryKey?: Uint8Array | null
+  }): void {
+    this.#assertUnlocked()
+    if (next.masterKey) {
+      wipe(this.#masterKey)
+      this.#masterKey = next.masterKey
+    }
+    for (const key of this.#vaultKeys.values()) wipe(key)
+    this.#vaultKeys = new Map(next.vaultKeys)
+    if (next.recoveryKey !== undefined) {
+      if (this.#recoveryKey) wipe(this.#recoveryKey)
+      this.#recoveryKey = next.recoveryKey
+    }
   }
 
   lock(): void {
@@ -707,19 +726,231 @@ export async function openVaultFileWithMasterKey(
 }
 
 /* ------------------------------------------------------------------ */
-/* Récupération optionnelle                                            */
+/* Récupération optionnelle et rotation des clés                       */
 /* ------------------------------------------------------------------ */
 
 /**
- * Construit l’enveloppe de récupération et renvoie aussi la clé de
- * récupération, que l’appelant doit conserver dans la session.
+ * Résultat d’une opération qui change les clés (mot de passe, phrase). Le
+ * fichier est prêt à être enregistré ; les nouvelles clés ne sont installées
+ * dans la session qu’après une écriture réussie (`install`), sinon elles sont
+ * effacées (`discard`). Un échec d’écriture laisse donc la session cohérente
+ * avec le fichier encore présent sur disque.
  */
-async function buildRecoveryEnvelope(
+export interface RekeyedVault {
+  file: VaultFile
+  install(session: VaultSession): void
+  discard(): void
+}
+
+interface PendingKeys {
+  masterKey?: Uint8Array
+  vaultKeys: Map<string, Uint8Array>
+  /** `undefined` : inchangée ; `null` : supprimée. */
+  recoveryKey?: Uint8Array | null
+}
+
+function pendingRekey(file: VaultFile, keys: PendingKeys): RekeyedVault {
+  let settled = false
+  return {
+    file,
+    install(session) {
+      if (settled) throw new VaultValidationError('Clés déjà installées ou effacées')
+      settled = true
+      session.installKeys(keys)
+    },
+    discard() {
+      if (settled) return
+      settled = true
+      wipe(keys.masterKey ?? undefined, keys.recoveryKey ?? undefined, ...keys.vaultKeys.values())
+    },
+  }
+}
+
+interface RotatedContent {
+  vaults: EncryptedVaultRecord[]
+  items: EncryptedItemRecord[]
+  versions: EncryptedVersionRecord[]
+  attachments: EncryptedAttachmentRecord[]
+  vaultKeys: Map<string, Uint8Array>
+}
+
+const UNREADABLE_BEFORE_ROTATION =
+  'Une partie du coffre est illisible : lancez « Vérifier le coffre » et exportez une sauvegarde avant de changer de secret.'
+
+/**
+ * Régénère toutes les clés de contenu : une clé neuve par coffre et par
+ * élément, puis rechiffre noms, contenus, versions et pièces jointes. Un ancien
+ * secret (mot de passe ou phrase) associé à une ancienne copie du fichier ne
+ * donne donc plus accès au contenu enregistré après le changement.
+ */
+async function rotateContentKeys(
+  file: VaultFile,
+  oldVaultKey: (vaultId: string) => Uint8Array,
+  masterKey: Uint8Array,
+): Promise<RotatedContent> {
+  const now = new Date().toISOString()
+  const vaultKeys = new Map<string, Uint8Array>()
+  const nextItems = new Map<string, EncryptedItemRecord>()
+  const nextVersions = new Map<string, EncryptedVersionRecord>()
+  const nextAttachments = new Map<string, EncryptedAttachmentRecord>()
+
+  const reseal = async (
+    sealed: Sealed,
+    from: Uint8Array,
+    to: Uint8Array,
+    aad: string,
+  ): Promise<Sealed> => {
+    const plaintext = await openBytes(sealed, from, aad)
+    try {
+      return await sealBytes(plaintext, to, aad)
+    } finally {
+      wipe(plaintext)
+    }
+  }
+
+  try {
+    const vaults: EncryptedVaultRecord[] = []
+    for (const record of file.vaults) {
+      const previousKey = oldVaultKey(record.id)
+      const key = randomBytes(KDF_DEFAULTS.keyLength)
+      vaultKeys.set(record.id, key)
+      let name: Sealed
+      try {
+        name = await reseal(record.name, previousKey, key, vaultMetaAad(record.id))
+      } catch {
+        throw new VaultIntegrityError(UNREADABLE_BEFORE_ROTATION)
+      }
+      vaults.push({
+        ...record,
+        key: await sealBytes(key, masterKey, vaultKeyAad(record.id)),
+        name,
+        updatedAt: now,
+      })
+    }
+
+    const versionsByItem = new Map<string, EncryptedVersionRecord[]>()
+    for (const version of file.versions) {
+      const list = versionsByItem.get(version.itemId) ?? []
+      list.push(version)
+      versionsByItem.set(version.itemId, list)
+    }
+    const attachmentsByItem = new Map<string, EncryptedAttachmentRecord[]>()
+    for (const attachment of file.attachments) {
+      const list = attachmentsByItem.get(attachment.itemId) ?? []
+      list.push(attachment)
+      attachmentsByItem.set(attachment.itemId, list)
+    }
+
+    for (const record of file.items) {
+      const previousVaultKey = oldVaultKey(record.vaultId)
+      const vaultKey = vaultKeys.get(record.vaultId)
+      if (!vaultKey) throw new VaultLockedError()
+      const itemKey = randomBytes(KDF_DEFAULTS.keyLength)
+      let previousItemKey: Uint8Array | null = null
+      try {
+        previousItemKey = await openBytes(
+          record.key,
+          previousVaultKey,
+          itemKeyAad(record.vaultId, record.id),
+        )
+        nextItems.set(record.id, {
+          ...record,
+          key: await sealBytes(itemKey, vaultKey, itemKeyAad(record.vaultId, record.id)),
+          content: await reseal(
+            record.content,
+            previousItemKey,
+            itemKey,
+            itemContentAad(record.vaultId, record.id),
+          ),
+        })
+        for (const version of versionsByItem.get(record.id) ?? []) {
+          nextVersions.set(version.id, {
+            ...version,
+            content: await reseal(
+              version.content,
+              previousItemKey,
+              itemKey,
+              itemVersionAad(record.vaultId, record.id, version.id),
+            ),
+          })
+        }
+        for (const attachment of attachmentsByItem.get(record.id) ?? []) {
+          nextAttachments.set(attachment.id, {
+            ...attachment,
+            data: await reseal(
+              attachment.data,
+              previousItemKey,
+              itemKey,
+              itemAttachmentAad(record.vaultId, record.id, attachment.id),
+            ),
+          })
+        }
+      } catch (error) {
+        if (error instanceof VaultLockedError) throw error
+        throw new VaultIntegrityError(UNREADABLE_BEFORE_ROTATION)
+      } finally {
+        wipe(itemKey)
+        if (previousItemKey) wipe(previousItemKey)
+      }
+    }
+
+    // L’ordre d’origine est conservé : il départage les versions de même date.
+    const pick = <T extends { id: string }>(list: T[], next: Map<string, T>): T[] =>
+      list.map((entry) => {
+        const rotated = next.get(entry.id)
+        if (!rotated) throw new VaultIntegrityError(UNREADABLE_BEFORE_ROTATION)
+        return rotated
+      })
+
+    return {
+      vaults,
+      items: pick(file.items, nextItems),
+      versions: pick(file.versions, nextVersions),
+      attachments: pick(file.attachments, nextAttachments),
+      vaultKeys,
+    }
+  } catch (error) {
+    for (const key of vaultKeys.values()) wipe(key)
+    throw error
+  }
+}
+
+/** Copie des clés de coffre courantes, pour une opération sans rotation. */
+function copyVaultKeys(file: VaultFile, session: VaultSession): Map<string, Uint8Array> {
+  const keys = new Map<string, Uint8Array>()
+  for (const record of file.vaults) keys.set(record.id, session.vaultKey(record.id).slice())
+  return keys
+}
+
+async function recoveryWraps(
+  vaults: EncryptedVaultRecord[],
+  vaultKeys: Map<string, Uint8Array>,
+  recoveryKey: Uint8Array,
+): Promise<RecoveryWrap[]> {
+  const wraps: RecoveryWrap[] = []
+  for (const record of vaults) {
+    const key = vaultKeys.get(record.id)
+    if (!key) throw new VaultLockedError()
+    wraps.push({
+      vaultId: record.id,
+      key: await sealBytes(key, recoveryKey, recoveryVaultKeyAad(record.id)),
+    })
+  }
+  return wraps
+}
+
+/**
+ * Active, remplace ou supprime la phrase de récupération d’un coffre
+ * déverrouillé. Remplacer une phrase existante fait aussi tourner toutes les
+ * clés de contenu : l’ancienne phrase, même associée à une ancienne copie du
+ * fichier, ne permet plus de lire ce qui est enregistré ensuite.
+ */
+export async function enableRecovery(
   file: VaultFile,
   session: VaultSession,
   phrase: string,
-  kdfOverrides: Partial<KdfParams>,
-): Promise<{ envelope: RecoveryEnvelope; recoveryKey: Uint8Array }> {
+  kdfOverrides: Partial<KdfParams> = {},
+): Promise<RekeyedVault> {
   assertUnlocked(session)
   const normalized = normalizeRecoveryPhrase(phrase)
   if (!normalized) {
@@ -729,77 +960,82 @@ async function buildRecoveryEnvelope(
   const kdf: KdfParams = { ...newKdfParams(), ...kdfOverrides, algorithm: 'argon2id' }
   const phraseKey = await deriveMasterKey(normalized, kdf)
   const recoveryKey = randomBytes(KDF_DEFAULTS.keyLength)
+  let vaultKeys: Map<string, Uint8Array> | null = null
 
   try {
-    const key = await sealBytes(recoveryKey, phraseKey, recoveryKeyAad())
-    const guard = await sealBytes(recoveryKey, session.masterKey, recoveryGuardAad())
-    const wraps: RecoveryWrap[] = []
-    for (const record of file.vaults) {
-      wraps.push({
-        vaultId: record.id,
-        key: await sealBytes(
-          session.vaultKey(record.id),
-          recoveryKey,
-          recoveryVaultKeyAad(record.id),
-        ),
-      })
+    const masterKey = session.masterKey
+    let content: Pick<VaultFile, 'vaults' | 'items' | 'versions' | 'attachments'>
+    if (file.recovery) {
+      const rotated = await rotateContentKeys(file, (id) => session.vaultKey(id), masterKey)
+      vaultKeys = rotated.vaultKeys
+      content = rotated
+    } else {
+      vaultKeys = copyVaultKeys(file, session)
+      content = file
     }
 
-    return {
-      envelope: {
-        version: 1,
-        kdf,
-        createdAt: new Date().toISOString(),
-        key,
-        guard,
-        wraps,
-      },
-      recoveryKey,
+    const envelope: RecoveryEnvelope = {
+      version: 1,
+      kdf,
+      createdAt: new Date().toISOString(),
+      key: await sealBytes(recoveryKey, phraseKey, recoveryKeyAad()),
+      guard: await sealBytes(recoveryKey, masterKey, recoveryGuardAad()),
+      wraps: await recoveryWraps(content.vaults, vaultKeys, recoveryKey),
     }
+
+    return pendingRekey(
+      {
+        ...file,
+        version: 3,
+        updatedAt: new Date().toISOString(),
+        vaults: content.vaults,
+        items: content.items,
+        versions: content.versions,
+        attachments: content.attachments,
+        recovery: envelope,
+      },
+      { vaultKeys, recoveryKey },
+    )
   } catch (error) {
     wipe(recoveryKey)
+    if (vaultKeys) for (const key of vaultKeys.values()) wipe(key)
     throw error
   } finally {
     wipe(phraseKey)
   }
 }
 
-/** Active ou remplace la phrase de récupération d’un coffre déverrouillé. */
-export async function enableRecovery(
+/**
+ * Supprime l’enveloppe de récupération. Les clés de contenu tournent : la
+ * phrase supprimée ne lit plus le contenu enregistré ensuite.
+ */
+export async function disableRecovery(
   file: VaultFile,
   session: VaultSession,
-  phrase: string,
-  kdfOverrides: Partial<KdfParams> = {},
-): Promise<VaultFile> {
-  const { envelope, recoveryKey } = await buildRecoveryEnvelope(
-    file,
-    session,
-    phrase,
-    kdfOverrides,
-  )
-  session.setRecoveryKey(recoveryKey)
-
-  return {
+): Promise<RekeyedVault> {
+  assertUnlocked(session)
+  if (!file.recovery) {
+    return pendingRekey(file, { vaultKeys: copyVaultKeys(file, session), recoveryKey: null })
+  }
+  const rotated = await rotateContentKeys(file, (id) => session.vaultKey(id), session.masterKey)
+  const next: VaultFile = {
     ...file,
     version: 3,
     updatedAt: new Date().toISOString(),
-    recovery: envelope,
+    vaults: rotated.vaults,
+    items: rotated.items,
+    versions: rotated.versions,
+    attachments: rotated.attachments,
   }
-}
-
-/** Supprime l’enveloppe de récupération ; la phrase devient inutile. */
-export function disableRecovery(file: VaultFile, session: VaultSession): VaultFile {
-  assertUnlocked(session)
-  session.clearRecoveryKey()
-  const next: VaultFile = { ...file, version: 3, updatedAt: new Date().toISOString() }
   delete next.recovery
-  return next
+  return pendingRekey(next, { vaultKeys: rotated.vaultKeys, recoveryKey: null })
 }
 
 /**
  * Déverrouille un fichier avec la phrase de récupération et impose un nouveau
- * mot de passe maître. Les clés de coffre sont ré-enveloppées sous la nouvelle
- * clé maîtresse ; l’enveloppe de récupération reste valable.
+ * mot de passe maître. Les clés de contenu sont régénérées : l’ancien mot de
+ * passe, même avec une ancienne copie du fichier, ne lit pas le nouveau
+ * contenu. L’enveloppe de récupération reste valable.
  */
 export async function recoverVaultFile(
   file: VaultFile,
@@ -860,35 +1096,38 @@ export async function recoverVaultFile(
     const now = new Date().toISOString()
     const kdf: KdfParams = { ...newKdfParams(), ...kdfOverrides, algorithm: 'argon2id' }
     const masterKey = await deriveMasterKey(newPassword, kdf)
+    let rotated: RotatedContent | null = null
     try {
-      const vaults: EncryptedVaultRecord[] = []
-      for (const record of file.vaults) {
-        const vaultKey = keys.get(record.id) as Uint8Array
-        vaults.push({
-          ...record,
-          key: await sealBytes(vaultKey, masterKey, vaultKeyAad(record.id)),
-          updatedAt: now,
-        })
-      }
+      rotated = await rotateContentKeys(
+        file,
+        (id) => {
+          const key = keys.get(id)
+          if (!key) throw new VaultLockedError()
+          return key
+        },
+        masterKey,
+      )
 
-      const guard = await sealBytes(recoveryKey, masterKey, recoveryGuardAad())
       const next: VaultFile = {
         ...file,
         version: 3,
         kdf,
-        vaults,
+        vaults: rotated.vaults,
+        items: rotated.items,
+        versions: rotated.versions,
+        attachments: rotated.attachments,
         updatedAt: now,
-        recovery: { ...recovery, guard },
+        recovery: {
+          ...recovery,
+          guard: await sealBytes(recoveryKey, masterKey, recoveryGuardAad()),
+          wraps: await recoveryWraps(rotated.vaults, rotated.vaultKeys, recoveryKey),
+        },
       }
 
-      try {
-        return await openVaultFileWithMasterKey(next, masterKey)
-      } finally {
-        wipe(masterKey)
-      }
-    } catch (error) {
+      return await openVaultFileWithMasterKey(next, masterKey)
+    } finally {
       wipe(masterKey)
-      throw error
+      if (rotated) for (const key of rotated.vaultKeys.values()) wipe(key)
     }
   } finally {
     wipe(recoveryKey)
@@ -1995,7 +2234,9 @@ export async function deleteVault(
     throw new VaultValidationError('Impossible de supprimer le dernier coffre')
   }
 
-  session.removeVaultKey(vaultId)
+  // La clé reste dans la session : l’appelant ne la retire qu’une fois le
+  // nouveau fichier enregistré, pour qu’un échec d’écriture ne laisse pas un
+  // coffre encore présent sur disque sans clé en mémoire.
   const recovery = file.recovery
     ? {
         ...file.recovery,
@@ -2014,60 +2255,62 @@ export async function deleteVault(
   }
 }
 
+/**
+ * Change le mot de passe maître et fait tourner toutes les clés de contenu.
+ * L’ancien mot de passe, même associé à une ancienne copie du fichier
+ * (sauvegarde, export), ne permet donc pas de lire ce qui est enregistré
+ * ensuite. La phrase de récupération éventuelle reste valable.
+ */
 export async function changeMasterPassword(
   file: VaultFile,
   session: VaultSession,
   newPassword: string,
   kdfOverrides: Partial<KdfParams> = {},
-): Promise<VaultFile> {
+): Promise<RekeyedVault> {
   assertUnlocked(session)
+  if (file.recovery && !session.hasRecoveryKey) {
+    throw new VaultValidationError(
+      'La clé de récupération n’est pas disponible ; régénérez la phrase avant de changer le mot de passe',
+    )
+  }
+
   const kdf: KdfParams = { ...newKdfParams(), ...kdfOverrides, algorithm: 'argon2id' }
   const nextMasterKey = await deriveMasterKey(newPassword, kdf)
+  let rotated: RotatedContent | null = null
 
   try {
-    const vaults: EncryptedVaultRecord[] = []
-    for (const record of file.vaults) {
-      const key = session.vaultKey(record.id)
-      vaults.push({
-        ...record,
-        key: await sealBytes(key, nextMasterKey, vaultKeyAad(record.id)),
-        updatedAt: new Date().toISOString(),
-      })
-    }
+    rotated = await rotateContentKeys(file, (id) => session.vaultKey(id), nextMasterKey)
 
     let recovery = file.recovery
     if (recovery) {
-      if (!session.hasRecoveryKey) {
-        throw new VaultValidationError(
-          'La clé de récupération n’est pas disponible ; régénérez la phrase avant de changer le mot de passe',
-        )
-      }
+      const recoveryKey = session.recoveryKey()
       recovery = {
         ...recovery,
-        guard: await sealBytes(
-          session.recoveryKey(),
-          nextMasterKey,
-          recoveryGuardAad(),
-        ),
+        guard: await sealBytes(recoveryKey, nextMasterKey, recoveryGuardAad()),
+        wraps: await recoveryWraps(rotated.vaults, rotated.vaultKeys, recoveryKey),
       }
     }
 
-    session.replaceMasterKey(nextMasterKey)
-
-    return {
-      ...file,
-      version: 3,
-      kdf,
-      vaults,
-      updatedAt: new Date().toISOString(),
-      recovery,
-    }
+    return pendingRekey(
+      {
+        ...file,
+        version: 3,
+        kdf,
+        vaults: rotated.vaults,
+        items: rotated.items,
+        versions: rotated.versions,
+        attachments: rotated.attachments,
+        updatedAt: new Date().toISOString(),
+        recovery,
+      },
+      { masterKey: nextMasterKey, vaultKeys: rotated.vaultKeys },
+    )
   } catch (error) {
     wipe(nextMasterKey)
+    if (rotated) for (const key of rotated.vaultKeys.values()) wipe(key)
     throw error
   }
 }
-
 export function serializeVault(file: VaultFile, pretty = true): string {
   return JSON.stringify(file, null, pretty ? 2 : 0)
 }

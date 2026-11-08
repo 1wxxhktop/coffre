@@ -29,3 +29,7 @@ blob-report
 *.njsproj
 *.sln
 *.sw?
+
+# Outils d’assistance locaux (mémoire, worktrees) : jamais versionnés
+.workbuddy-ai/
+.claude/worktrees/

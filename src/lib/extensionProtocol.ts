@@ -25,6 +25,8 @@ export interface ExtensionCredentials {
   username: string
   password: string
   totp: string
+  /** Domaines enregistrés pour l’élément, comparés à la page avant remplissage. */
+  hosts?: string[]
 }
 
 export interface CoffreExtensionBridge {
@@ -57,6 +59,22 @@ export function hostMatches(itemHost: string, pageHost: string): boolean {
     itemHost.endsWith(`.${pageHost}`) ||
     pageHost.endsWith(`.${itemHost}`)
   )
+}
+
+/**
+ * Règle stricte utilisée avant de remplir une page : même domaine, ou page
+ * sur un sous-domaine du domaine enregistré. L’inverse (identifiant de
+ * `compte.exemple.fr` sur `exemple.fr`) n’est pas accepté sans confirmation.
+ */
+export function hostAllowsFill(itemHost: string, pageHost: string): boolean {
+  if (!itemHost || !pageHost) return false
+  return pageHost === itemHost || pageHost.endsWith(`.${itemHost}`)
+}
+
+/** Vrai si l’un des domaines de l’élément autorise le remplissage de la page. */
+export function credentialsMatchPage(hosts: string[] | undefined, pageUrl: string): boolean {
+  const pageHost = hostFromUrl(pageUrl)
+  return (hosts ?? []).some((host) => hostAllowsFill(host, pageHost))
 }
 
 function normalize(value: string): string {

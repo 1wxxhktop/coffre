@@ -34,14 +34,16 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
   const [revision, setRevision] = useState(0)
   const [copied, setCopied] = useState(false)
 
-  const password = useMemo(
-    () => generatePassword(passwordOptions),
-    [passwordOptions, revision],
-  )
-  const passphrase = useMemo(
-    () => generatePassphrase(passphraseOptions),
-    [passphraseOptions, revision],
-  )
+  // `revision` force un nouveau tirage quand l’utilisateur clique sur
+  // « Régénérer » sans changer les options.
+  const password = useMemo(() => {
+    void revision
+    return generatePassword(passwordOptions)
+  }, [passwordOptions, revision])
+  const passphrase = useMemo(() => {
+    void revision
+    return generatePassphrase(passphraseOptions)
+  }, [passphraseOptions, revision])
 
   const value = mode === 'password' ? password : passphrase
   const entropy =

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { hostFromUrl, hostMatches, searchLogins } from './extensionProtocol'
+import {
+  credentialsMatchPage,
+  hostAllowsFill,
+  hostFromUrl,
+  hostMatches,
+  searchLogins,
+} from './extensionProtocol'
 import type { VaultItem } from './types'
 
 function login(
@@ -86,5 +92,22 @@ describe('passerelle extension', () => {
 
   it('ne renvoie rien pour un domaine inconnu', () => {
     expect(searchLogins(items, 'inconnu.example')).toEqual([])
+  })
+})
+
+describe('contrôle de domaine avant remplissage', () => {
+  it('accepte le même domaine et ses sous-domaines', () => {
+    expect(hostAllowsFill('github.com', 'github.com')).toBe(true)
+    expect(hostAllowsFill('github.com', 'gist.github.com')).toBe(true)
+    expect(credentialsMatchPage(['github.com'], 'https://www.github.com/login')).toBe(true)
+  })
+
+  it('refuse un autre domaine, un domaine parent ou une page sans adresse', () => {
+    expect(hostAllowsFill('github.com', 'github.com.evil.example')).toBe(false)
+    expect(hostAllowsFill('github.com', 'evilgithub.com')).toBe(false)
+    expect(hostAllowsFill('accounts.example.com', 'example.com')).toBe(false)
+    expect(credentialsMatchPage(['github.com'], 'about:blank')).toBe(false)
+    expect(credentialsMatchPage([], 'https://github.com')).toBe(false)
+    expect(credentialsMatchPage(undefined, 'https://github.com')).toBe(false)
   })
 })

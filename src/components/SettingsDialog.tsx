@@ -62,6 +62,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     resetBiometricKey,
     lock,
     emptyTrash,
+    confirmMasterPassword,
   } = useVault()
   const { toast } = useToast()
 
@@ -102,6 +103,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const [persistBusy, setPersistBusy] = useState(false)
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimate | null>(null)
   const [csvFormat, setCsvFormat] = useState<CsvExportFormat>('apple')
+  const [csvPassword, setCsvPassword] = useState('')
+  const [csvBusy, setCsvBusy] = useState(false)
 
   const [verifyBusy, setVerifyBusy] = useState(false)
   const [verifyError, setVerifyError] = useState<string | null>(null)
@@ -164,8 +167,17 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     }
   }
 
-  const exportCsvFile = () => {
+  const exportCsvFile = async () => {
+    if (!csvPassword) return
+    setCsvBusy(true)
     try {
+      // Un export en clair de tout le coffre exige de ressaisir le mot de
+      // passe maître : une session laissée ouverte ne suffit pas.
+      if (!(await confirmMasterPassword(csvPassword))) {
+        toast('Mot de passe maître incorrect', 'error')
+        return
+      }
+      setCsvPassword('')
       const result = exportCsv(items, vaults, csvFormat)
       downloadFile(result.content, result.filename, 'text/csv;charset=utf-8')
       const label =
@@ -176,6 +188,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       )
     } catch (caught) {
       toast(caught instanceof Error ? caught.message : 'Export CSV impossible', 'error')
+    } finally {
+      setCsvBusy(false)
     }
   }
 
@@ -446,6 +460,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
             <p className="settings-copy">
               Recommandé : dès que Coffre n’est plus visible, les clés sont effacées de la
               mémoire. Ce verrouillage s’applique même si le délai d’inactivité est désactivé.
+              L’extension navigateur a besoin d’un onglet Coffre déverrouillé : avec cette
+              option, ouvrez Coffre dans une fenêtre séparée qui reste visible.
             </p>
 
             <div className="settings-divider" />
@@ -533,11 +549,13 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     <span>Déverrouiller avec Touch ID (empreinte)</span>
                   </label>
                   <p className="settings-copy">
-                    La clé maîtresse est rangée dans un trousseau biométrique séparé et
-                    n’est libérée qu’après une authentification réussie. Le dialogue
-                    Touch ID s’ouvre automatiquement lorsque la fenêtre Coffre est
-                    activée. La clé reste en place pendant le verrouillage pour permettre
-                    le déverrouillage rapide, puis elle est supprimée si l’option est
+                    La clé maîtresse est rangée dans une entrée séparée du trousseau de
+                    session ; Coffre ne la relit qu’après une empreinte reconnue. Il
+                    s’agit d’une protection de l’application, pas du système : un
+                    programme qui obtient l’accès à votre trousseau (avec le mot de passe
+                    de session) peut la lire sans empreinte. Le dialogue Touch ID s’ouvre
+                    automatiquement lorsque la fenêtre Coffre est activée. La clé reste en
+                    place pendant le verrouillage, puis elle est supprimée si l’option est
                     désactivée ou le coffre réinitialisé.
                   </p>
                   {settings.biometricUnlock && (
@@ -578,8 +596,10 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
               <p className="settings-copy">
                 La clé est conservée hors du coffre, protégée par votre session
                 système (macOS, Windows ou Linux). Elle est supprimée dès que le
-                coffre est verrouillé : le déverrouillage rapide s’applique donc
-                après un rechargement ou un redémarrage de l’application.
+                coffre est verrouillé (bouton, inactivité ou arrière-plan). Si vous
+                quittez Coffre sans le verrouiller, il se rouvrira sans mot de passe
+                au prochain lancement : toute personne ayant accès à votre session
+                pourra alors l’ouvrir.
               </p>
             </section>
           )}
@@ -592,8 +612,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
               <div>
                 <h3>Mot de passe maître</h3>
                 <p>
-                  Le changer ré-enveloppe les clés de coffre. Vos éléments ne sont pas
-                  réchiffrés.
+                  Le changer régénère toutes les clés et rechiffre le contenu : l’ancien
+                  mot de passe ne pourra plus lire ce qui sera enregistré ensuite.
                 </p>
               </div>
             </div>
@@ -716,7 +736,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
               Le CSV est un fichier <strong>en clair</strong> : importez-le immédiatement,
               puis supprimez-le. Le format Mots de passe ne contient que les connexions
               actives ; le format complet inclut tous les éléments, sans les pièces
-              jointes.
+              jointes. N’ouvrez pas ce fichier dans un tableur : une valeur commençant
+              par « = » pourrait y être interprétée comme une formule.
             </p>
 
             <label className="field field--full">
@@ -731,13 +752,26 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
               </select>
             </label>
 
+            <label className="field field--full">
+              <span className="field__label">Mot de passe maître</span>
+              <input
+                className="input"
+                type="password"
+                autoComplete="current-password"
+                value={csvPassword}
+                onChange={(event) => setCsvPassword(event.target.value)}
+                aria-label="Mot de passe maître pour l’export CSV"
+              />
+            </label>
+
             <div className="settings-actions settings-actions--start">
               <button
                 type="button"
                 className="button button--secondary"
-                onClick={exportCsvFile}
+                onClick={() => void exportCsvFile()}
+                disabled={!csvPassword || csvBusy}
               >
-                <Download size={16} />
+                {csvBusy ? <LoaderCircle size={16} className="spin" /> : <Download size={16} />}
                 Exporter en CSV
               </button>
             </div>

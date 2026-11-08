@@ -1,5 +1,28 @@
 # Journal des changements
 
+## Non publié
+
+- Correction de deux pertes de données : un onglet resté ouvert relit le coffre
+  avant de le déverrouiller, une écriture calculée sur une version périmée est
+  refusée, et un verrouillage pendant un enregistrement conserve la
+  modification. Un import interrompu par le verrouillage est annulé sans
+  écriture partielle ni contenu déchiffré dans l’état verrouillé.
+- Rotation complète des clés au changement de mot de passe, au remplacement ou
+  à la suppression de la phrase et à la récupération ; les nouvelles clés ne
+  sont installées qu’après une écriture réussie.
+- Nouvel indicateur de robustesse : dictionnaires, claviers AZERTY/QWERTY,
+  suites, années et leetspeak (« Marseille2024 » passe de 77 à 17 bits).
+- Extension : contrôle du domaine avant remplissage, avec confirmation
+  explicite ; message sur le verrouillage en arrière-plan.
+- Desktop : copie et effacement natifs du presse-papiers (secret exclu des
+  historiques), texte Touch ID fixé côté natif, serveur de développement refusé
+  en production, migration IndexedDB sans perte de sauvegarde puis effacement
+  de l’ancienne copie.
+- Export CSV protégé par le mot de passe maître ; fermeture de page sans
+  suppression de la clé de déverrouillage rapide (comportement déterministe).
+- CI et release : actions épinglées par SHA, release sans cache partagé et
+  avec tests avant signature, specs e2e vérifiées par TypeScript.
+
 ## 0.8.0 — 2026-11-07
 
 - Stockage natif desktop : `app_data_dir()/vault/vault.coffre`, écritures

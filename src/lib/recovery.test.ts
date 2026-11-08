@@ -13,6 +13,7 @@ import {
   unlockVaultFile,
   VaultValidationError,
   WrongPasswordError,
+  type VaultSession,
 } from './vault'
 import {
   generateRecoveryPhrase,
@@ -20,7 +21,7 @@ import {
   normalizeRecoveryPhrase,
   RECOVERY_WORDS,
 } from './recovery'
-import { emptyDraft, type ItemDraft, type LoginItem } from './types'
+import { emptyDraft, type ItemDraft, type LoginItem, type VaultFile } from './types'
 
 const PASSWORD = 'phrase de passe de test solide'
 const NEW_PASSWORD = 'nouvelle phrase de passe solide'
@@ -60,11 +61,18 @@ describe('phrase de récupération', () => {
   })
 })
 
+/** Active la phrase puis installe les clés, comme le fait l’application après l’écriture. */
+async function enable(file: VaultFile, session: VaultSession): Promise<VaultFile> {
+  const enabled = await enableRecovery(file, session, PHRASE, FAST_KDF)
+  enabled.install(session)
+  return enabled.file
+}
+
 describe('enveloppe de récupération', () => {
   it('active une enveloppe et la relit après sérialisation', async () => {
     const opened = await freshVault()
     const withItem = await addLogin(opened)
-    const file = await enableRecovery(withItem.file, opened.session, PHRASE, FAST_KDF)
+    const file = await enable(withItem.file, opened.session)
 
     expect(file.version).toBe(3)
     expect(file.recovery?.wraps).toHaveLength(1)
@@ -83,7 +91,7 @@ describe('enveloppe de récupération', () => {
 
   it('refuse une enveloppe incomplète', async () => {
     const opened = await freshVault()
-    const file = await enableRecovery(opened.file, opened.session, PHRASE, FAST_KDF)
+    const file = await enable(opened.file, opened.session)
     expect(() =>
       parseVaultFile({
         ...file,
@@ -95,7 +103,7 @@ describe('enveloppe de récupération', () => {
   it('récupère le coffre et impose un nouveau mot de passe', async () => {
     const opened = await freshVault()
     const withItem = await addLogin(opened)
-    const file = await enableRecovery(withItem.file, opened.session, PHRASE, FAST_KDF)
+    const file = await enable(withItem.file, opened.session)
 
     const recovered = await recoverVaultFile(
       parseVaultFile(JSON.parse(serializeVault(file))),
@@ -127,7 +135,7 @@ describe('enveloppe de récupération', () => {
 
   it('refuse une phrase incorrecte', async () => {
     const opened = await freshVault()
-    const file = await enableRecovery(opened.file, opened.session, PHRASE, FAST_KDF)
+    const file = await enable(opened.file, opened.session)
     await expect(
       recoverVaultFile(
         file,
@@ -140,7 +148,7 @@ describe('enveloppe de récupération', () => {
 
   it('couvre les coffres ajoutés et oublie les coffres supprimés', async () => {
     const opened = await freshVault()
-    const file = await enableRecovery(opened.file, opened.session, PHRASE, FAST_KDF)
+    const file = await enable(opened.file, opened.session)
 
     const added = await addVault(file, opened.session, 'Travail')
     expect(added.file.recovery?.wraps).toHaveLength(2)
@@ -157,13 +165,10 @@ describe('enveloppe de récupération', () => {
 
   it('maintient la phrase après un changement de mot de passe', async () => {
     const opened = await freshVault()
-    const file = await enableRecovery(opened.file, opened.session, PHRASE, FAST_KDF)
-    const changed = await changeMasterPassword(
-      file,
-      opened.session,
-      NEW_PASSWORD,
-      FAST_KDF,
-    )
+    const file = await enable(opened.file, opened.session)
+    const changed = (
+      await changeMasterPassword(file, opened.session, NEW_PASSWORD, FAST_KDF)
+    ).file
 
     const recovered = await recoverVaultFile(
       changed,
@@ -177,8 +182,10 @@ describe('enveloppe de récupération', () => {
 
   it('supprime l’enveloppe et rend la phrase inutile', async () => {
     const opened = await freshVault()
-    const file = await enableRecovery(opened.file, opened.session, PHRASE, FAST_KDF)
-    const removed = disableRecovery(file, opened.session)
+    const file = await enable(opened.file, opened.session)
+    const disabled = await disableRecovery(file, opened.session)
+    disabled.install(opened.session)
+    const removed = disabled.file
 
     expect(removed.recovery).toBeUndefined()
     expect(opened.session.hasRecoveryKey).toBe(false)
@@ -192,5 +199,29 @@ describe('enveloppe de récupération', () => {
     await expect(
       recoverVaultFile(opened.file, PHRASE, NEW_PASSWORD, FAST_KDF),
     ).rejects.toThrow(VaultValidationError)
+  })
+
+  it('l’ancienne phrase ne lit pas le contenu écrit après son remplacement', async () => {
+    const opened = await freshVault()
+    const withItem = await addLogin(opened)
+    const first = await enable(withItem.file, opened.session)
+    // Copie conservée par un attaquant qui connaît l’ancienne phrase.
+    const stolen = parseVaultFile(JSON.parse(serializeVault(first)))
+
+    const replaced = await enableRecovery(
+      first,
+      opened.session,
+      'zebra zero zesty zigzag zipfile zipping zippy zodiac zombie zone',
+      FAST_KDF,
+    )
+    replaced.install(opened.session)
+
+    // Ancienne enveloppe + éléments réchiffrés : la phrase ouvre l’enveloppe,
+    // mais les clés qu’elle donne ne déchiffrent plus le nouveau contenu.
+    const hybrid: VaultFile = { ...replaced.file, recovery: stolen.recovery }
+    await expect(
+      recoverVaultFile(hybrid, PHRASE, NEW_PASSWORD, FAST_KDF),
+    ).rejects.toThrow()
+    opened.session.lock()
   })
 })

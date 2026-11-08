@@ -25,12 +25,19 @@ const extensionPath = join(workDir, 'extension')
 cpSync(extensionSource, extensionPath, { recursive: true })
 
 const targetOrigin = new URL(TARGET_URL).origin
+// Même formulaire servi sous un autre nom d’hôte : sert à vérifier que
+// l’extension refuse de remplir un domaine qui ne correspond pas à l’élément.
+const otherUrl = new URL(TARGET_URL)
+otherUrl.hostname = otherUrl.hostname === 'localhost' ? '127.0.0.1' : 'localhost'
+const OTHER_URL = otherUrl.toString()
 const manifestPath = join(extensionPath, 'manifest.json')
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-if (!manifest.host_permissions.includes(`${targetOrigin}/*`)) {
-  manifest.host_permissions.push(`${targetOrigin}/*`)
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+for (const origin of [targetOrigin, otherUrl.origin]) {
+  if (!manifest.host_permissions.includes(`${origin}/*`)) {
+    manifest.host_permissions.push(`${origin}/*`)
+  }
 }
+writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
 
 const context = await chromium.launchPersistentContext(join(workDir, 'profile'), {
   headless: false,
@@ -108,13 +115,38 @@ try {
   assert.equal(values.username, 'ada')
   assert.equal(values.password, 's3cret!')
 
+  // Une page d’un autre domaine n’est pas remplie sans confirmation.
+  const other = await context.newPage()
+  await other.goto(OTHER_URL)
+  const otherTab = (await extensionPage.evaluate(() => chrome.tabs.query({}))).find(
+    (tab) => tab.url?.startsWith(otherUrl.origin),
+  )
+  assert.ok(otherTab?.id)
+  const mismatch = await extensionPage.evaluate(
+    ({ id, tabId }) => chrome.runtime.sendMessage({ type: 'FILL', itemId: id, tabId }),
+    { id: itemId, tabId: otherTab.id },
+  )
+  assert.equal(mismatch.error, 'domain-mismatch')
+  assert.deepEqual(mismatch.itemHosts, [host])
+  const untouched = await other.evaluate(() => document.querySelector('#password').value)
+  assert.equal(untouched, '')
+
+  // Avec confirmation explicite, le remplissage a lieu.
+  const forced = await extensionPage.evaluate(
+    ({ id, tabId }) =>
+      chrome.runtime.sendMessage({ type: 'FILL', itemId: id, tabId, force: true }),
+    { id: itemId, tabId: otherTab.id },
+  )
+  assert.equal(forced.ok, true)
+  await other.close()
+
   await app.getByRole('button', { name: 'Verrouiller' }).first().click()
   const locked = await extensionPage.evaluate(() =>
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }),
   )
   assert.equal(locked.unlocked, false)
 
-  console.log('Extension : recherche, remplissage et verrouillage validés.')
+  console.log('Extension : recherche, remplissage, contrôle de domaine et verrouillage validés.')
 } finally {
   await context.close()
   rmSync(workDir, { recursive: true, force: true })

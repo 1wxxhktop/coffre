@@ -3,6 +3,7 @@ import { useVault } from '../state/VaultProvider'
 import { generateTotp, isTotpUri, parseTotpUri } from '../lib/totp'
 import {
   EXTENSION_BRIDGE_VERSION,
+  hostFromUrl,
   searchLogins,
   type CoffreExtensionBridge,
 } from '../lib/extensionProtocol'
@@ -46,6 +47,7 @@ export function ExtensionBridge() {
           username: item.username,
           password: item.password,
           totp,
+          hosts: item.urls.map(hostFromUrl).filter(Boolean),
         }
       },
     }

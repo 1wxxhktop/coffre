@@ -12,6 +12,7 @@
  */
 
 import { argon2id } from 'hash-wasm'
+import { estimatePasswordBits } from './strength'
 import type { KdfParams, Sealed } from './types'
 
 const encoder = new TextEncoder()
@@ -378,41 +379,14 @@ export function recoveryVaultKeyAad(vaultId: string): string {
   return `coffre:v1:recovery-vault-key:${vaultId}`
 }
 
-/** Estimation d'entropie utilisée par l'indicateur de robustesse. */
+/**
+ * Estimation d’entropie utilisée par l’indicateur de robustesse et par le
+ * contrôle du mot de passe maître. Elle tient compte des mots du dictionnaire,
+ * des rangées de clavier, des suites, des années et des substitutions : voir
+ * `strength.ts`.
+ */
 export function estimateEntropy(password: string): number {
-  if (!password) return 0
-
-  let pool = 0
-  if (/[a-z]/.test(password)) pool += 26
-  if (/[A-Z]/.test(password)) pool += 26
-  if (/[0-9]/.test(password)) pool += 10
-  if (/[^a-zA-Z0-9]/.test(password)) pool += 33
-  if (/\s/.test(password)) pool += 1
-
-  let entropy = password.length * Math.log2(Math.max(pool, 1))
-
-  const unique = new Set(password).size
-  if (unique <= 4) entropy *= 0.5
-  if (/^(.)\1+$/.test(password)) entropy = Math.min(entropy, 8)
-  if (/^(.{2,})\1+$/.test(password)) entropy = Math.min(entropy, 30)
-
-  // Mot de passe trivial : un motif courant, éventuellement suivi de quelques
-  // chiffres ou symboles. On plafonne fortement, quelle que soit la longueur.
-  const trivial =
-    /^(?:0123|1234|abcd|qwerty|azerty|password|motdepasse|admin|welcome|letmein)[\d!?._@#$%-]{0,4}$/i
-  if (trivial.test(password)) {
-    entropy = Math.min(entropy, 20)
-  } else if (
-    /(?:^|[^a-z])(?:password|motdepasse|qwerty|azerty|admin|welcome|letmein|monkey|dragon|princesse|soleil|amour)(?:[^a-z]|$)/i.test(
-      password,
-    )
-  ) {
-    // Un mot du dictionnaire est déjà connu de l'attaquant : on retire les
-    // bits qu'il apporte artificiellement, sans écraser le reste.
-    entropy = Math.max(0, entropy - 10)
-  }
-
-  return Math.max(0, Math.round(entropy))
+  return estimatePasswordBits(password)
 }
 
 export function passwordStrength(entropy: number): {

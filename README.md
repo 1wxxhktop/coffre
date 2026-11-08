@@ -7,8 +7,8 @@ chiffré sur votre appareil. Aucun compte, aucun serveur, aucune synchronisation
 aucune télémétrie. L’interface est en français.
 
 > **État du projet — 0.8.0 (trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 157 tests unitaires et
-> 17 parcours Playwright exécutés sur Chromium et WebKit (34 exécutions). Une
+> La version web/PWA est fonctionnelle et couverte par 172 tests unitaires et
+> 19 parcours Playwright exécutés sur Chromium et WebKit (38 exécutions). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
 > rapide optionnel par le trousseau du système et une disposition en colonnes
@@ -64,7 +64,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   modification ou type. Les filtres (récents, favoris, types, corbeille) restent
   dans la barre latérale pour éviter les doublons.
 - **Générateur** de mots de passe et de phrases de passe (liste EFF de
-  7 776 mots), avec réglages et estimation d’entropie.
+  7 776 mots), avec réglages et estimation d’entropie. L’indicateur de
+  robustesse reconnaît les mots du dictionnaire, les rangées de clavier, les
+  suites, les années et le leetspeak : « Marseille2024 » est jugé très faible.
 - **TOTP** (RFC 6238) : import d’une URI `otpauth://`, codes SHA-1/256/512,
   compte à rebours.
 - **Copie temporaire** : effacement du presse-papiers après un délai et au
@@ -82,7 +84,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Vérification d’intégrité** à la demande : déchiffre chaque coffre, élément,
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
-- **Changement de mot de passe maître** sans réchiffrer tous les éléments.
+- **Changement de mot de passe maître avec rotation des clés** : toutes les
+  clés de coffre et d’élément sont régénérées et le contenu rechiffré, pour que
+  l’ancien mot de passe ne lise pas ce qui est enregistré ensuite.
 - **Phrase de récupération optionnelle** : dix mots générés localement,
   enveloppe séparée des clés de coffre, déverrouillage d’urgence avec choix
   d’un nouveau mot de passe maître.
@@ -95,10 +99,13 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   de détail persistant, avec édition sur place et navigation clavier.
 - **Trousseau natif (desktop)** : déverrouillage rapide optionnel par le
   trousseau macOS, Windows ou Linux. La clé maîtresse n’y est écrite que si
-  l’option est activée et elle est supprimée au verrouillage.
+  l’option est activée ; elle est supprimée au verrouillage, mais conservée si
+  l’application est quittée sans verrouiller (réouverture sans mot de passe).
 - **Touch ID (desktop macOS)** : déverrouillage par empreinte. La clé est rangée
-  dans un trousseau biométrique séparé et n’est libérée qu’après une
-  authentification réussie ; `keychain_load` ne peut pas la lire.
+  dans une entrée séparée du trousseau et Coffre ne la relit qu’après une
+  empreinte reconnue. C’est une barrière **applicative** : sans contrôle d’accès
+  biométrique au niveau du système, un programme qui obtient l’accès au
+  trousseau (mot de passe de session) peut la lire sans empreinte.
 - **Dérivation Argon2id dans un Web Worker** et index de recherche pré-calculé ;
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks
@@ -163,7 +170,11 @@ Le fichier `.coffre` contient alors une enveloppe chiffrée :
 En cas d’oubli du mot de passe maître, « Déverrouiller avec une phrase de
 récupération » ouvre le coffre et impose un nouveau mot de passe. L’ancien mot
 de passe cesse alors de fonctionner ; la phrase reste valable. Supprimer ou
-remplacer la phrase depuis les réglages invalide immédiatement l’ancienne.
+remplacer la phrase depuis les réglages fait tourner toutes les clés : l’ancienne
+phrase n’ouvre plus le coffre courant ni ce qui sera enregistré ensuite. Elle
+ouvre toujours les copies antérieures (sauvegardes locales, exports `.coffre`)
+qui contenaient son enveloppe : supprimez ces copies si la phrase est
+compromise. Il en va de même pour un ancien mot de passe maître.
 
 Une phrase perdue ne peut pas être retrouvée, et une phrase compromise donne
 accès à tout coffre dont le fichier est obtenu : conservez-la sur papier,
@@ -301,9 +312,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (157 tests) |
+| `bun run test` | Tests Vitest (172 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (34 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (38 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
@@ -384,16 +395,19 @@ trousseau et de la nouvelle interface) :
 - l’application se lance, initialise le stockage natif
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB, reste stable et n’ouvre aucune connexion réseau ;
-- les 34 exécutions Playwright passent sur Chromium et WebKit, moteur des
+- les 38 exécutions Playwright passent sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
-- `cargo test --lib` exécute 3 tests : stockage natif (rotation, permissions,
-  effacement) et détection de LocalAuthentication/Touch ID sur la machine de
-  build.
+- `cargo test --lib` exécute 5 tests : stockage natif (rotation, migration,
+  permissions, effacement), filtrage des URL internes (production et
+  développement) et, sur macOS, détection de LocalAuthentication/Touch ID.
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
 système). La clé maîtresse encodée en base64 est rangée sous le service
 `app.coffre.desktop`, avec l’identifiant du fichier `.coffre` comme compte, puis
-supprimée au verrouillage. Sur un appareil partagé, laissez l’option désactivée.
+supprimée à chaque verrouillage (bouton, inactivité, arrière-plan). Elle est
+conservée quand la fenêtre est fermée sans verrouiller : c’est ce qui permet la
+réouverture sans mot de passe. Sur un appareil partagé, laissez l’option
+désactivée.
 
 Sur macOS, l’option **Touch ID** remplace ce trousseau silencieux : la clé est
 rangée dans le service séparé `app.coffre.desktop.biometric` et la commande
@@ -515,8 +529,13 @@ mot de passe maître
 ```
 
 Changer le mot de passe maître régénère le sel et la clé maîtresse, puis
-ré-enveloppe uniquement les clés de coffre. Les éléments, leurs versions et les
-pièces jointes ne sont pas réchiffrés.
+fait tourner toutes les clés de contenu : nouvelle clé par coffre et par
+élément, noms, éléments, versions et pièces jointes rechiffrés. Une ancienne
+copie du fichier associée à l’ancien mot de passe ne donne donc aucune clé
+valable pour le contenu écrit ensuite. Remplacer ou supprimer la phrase de
+récupération, et récupérer un coffre avec la phrase, déclenchent la même
+rotation. Les nouvelles clés ne sont installées dans la session qu’après une
+écriture réussie.
 
 ```text
 phrase de récupération (10 mots EFF)
@@ -579,10 +598,18 @@ Le format complet et les garanties sont documentés dans
 - Stockage natif atomique sur desktop, ou IndexedDB persistant sur le Web, avec
   contrôle d’intégrité complet à la demande.
 - Aucune requête réseau : polices système, icônes locales, aucune analytique.
-- Le presse-papiers est effacé au mieux après le délai choisi.
+- Le presse-papiers est effacé après le délai choisi et au verrouillage. Sur
+  desktop, la copie et l’effacement sont natifs (secret exclu des historiques
+  de presse-papiers) ; sur le Web, l’effacement dépend du navigateur (voir les
+  limites).
 - L’extension navigateur ne stocke aucun secret : elle lit les identifiants
   depuis l’onglet Coffre déverrouillé, en mémoire, et ne dispose que de l’accès
-  temporaire à l’onglet actif.
+  temporaire à l’onglet actif. Elle refuse de remplir une page dont le domaine
+  ne correspond à aucune adresse de l’élément, sauf confirmation explicite.
+- Les écritures Web sont contrôlées : un onglet ne peut pas écraser un coffre
+  modifié entre-temps par un autre onglet, et le déverrouillage relit toujours
+  le fichier enregistré.
+- L’export CSV en clair exige de ressaisir le mot de passe maître.
 - **Le bundle desktop macOS produit localement n’est ni signé ni notarisé.** La chaîne de release signée est prête, mais le certificat Apple et les secrets de notarisation manquent.
 - **Le projet n’a pas fait l’objet d’un audit de sécurité indépendant.**
 
@@ -595,7 +622,11 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 
 - L’extension navigateur est disponible pour Chromium ; Firefox n’est pas encore
   validé. Elle exige l’onglet Coffre ouvert et déverrouillé, et ne remplit ni ne
-  soumet les formulaires automatiquement.
+  soumet les formulaires automatiquement. Avec le réglage par défaut, Coffre se
+  verrouille dès que son onglet passe en arrière-plan, donc dès que vous allez
+  sur le site à remplir : ouvrez Coffre dans une **fenêtre séparée** qui reste
+  visible, ou désactivez « Verrouiller lorsque l’onglet passe en
+  arrière-plan ».
 - Pas de synchronisation entre appareils : la sauvegarde passe par un fichier
   `.coffre` que vous transportez vous-même.
 - Pas d’import direct depuis un export chiffré ou une archive propriétaire : les
@@ -625,8 +656,14 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   fichier chiffré (métadonnées non chiffrées).
 - Les secrets sont en clair dans la mémoire du navigateur pendant que le coffre
   est déverrouillé. Les effacements en JavaScript sont au mieux.
-- L’estimation de robustesse est heuristique, pas un modèle de dictionnaire
-  complet.
+- Sur le Web, l’effacement différé du presse-papiers n’est garanti que si la
+  page a le focus : sinon le navigateur refuse lecture et écriture, et le
+  secret reste copié jusqu’à la prochaine copie.
+- L’estimation de robustesse repose sur des dictionnaires intégrés (français,
+  anglais, liste EFF, prénoms et villes courants) : elle écarte les mots de
+  passe humains usuels, mais n’est pas exhaustive comme zxcvbn.
+- Touch ID est une barrière applicative (voir plus haut) ; une protection par
+  `SecAccessControl` ou Secure Enclave demande une signature Developer ID.
 - Pas de protection contre un OS compromis, un keylogger, une extension
   malveillante ou une injection de code dans la page.
 - Le bundle initial fait environ 660 Ko minifiés (207 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et

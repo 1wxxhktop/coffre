@@ -854,6 +854,9 @@ function enpassItemFields(item: Record<string, unknown>): EnpassField[] {
   return fields
 }
 
+/** Profondeur maximale d’un chemin de dossiers Enpass. */
+const ENPASS_MAX_FOLDER_DEPTH = 16
+
 function enpassFolderPaths(root: Record<string, unknown>): Map<string, string> {
   const folders = new Map<string, { title: string; parent: string }>()
   for (const folder of recordList(root.folders)) {
@@ -866,23 +869,24 @@ function enpassFolderPaths(root: Record<string, unknown>): Map<string, string> {
     })
   }
 
+  // Résolution itérative et bornée : un fichier piégé (chaîne de dossiers très
+  // profonde ou cyclique) ne peut ni épuiser la pile ni produire des chemins
+  // démesurés. Au-delà de la profondeur maximale, seuls les derniers niveaux
+  // sont conservés.
   const paths = new Map<string, string>()
-  const resolve = (uuid: string, seen: Set<string>): string => {
-    const cached = paths.get(uuid)
-    if (cached) return cached
-    const folder = folders.get(uuid)
-    if (!folder) return ''
-    if (seen.has(uuid)) return folder.title
-    seen.add(uuid)
-    const parent =
-      folder.parent && folder.parent !== uuid
-        ? resolve(folder.parent, seen)
-        : ''
-    const path = parent ? `${parent} / ${folder.title}` : folder.title
-    paths.set(uuid, path)
-    return path
+  for (const uuid of folders.keys()) {
+    const titles: string[] = []
+    const seen = new Set<string>()
+    let cursor: string | undefined = uuid
+    while (cursor && !seen.has(cursor) && titles.length < ENPASS_MAX_FOLDER_DEPTH) {
+      const folder = folders.get(cursor)
+      if (!folder) break
+      seen.add(cursor)
+      titles.unshift(folder.title)
+      cursor = folder.parent || undefined
+    }
+    paths.set(uuid, titles.join(' / '))
   }
-  for (const uuid of folders.keys()) resolve(uuid, new Set())
   return paths
 }
 

@@ -38,7 +38,14 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
-  instance desktop unique, effacement du presse-papiers au verrouillage.
+  instance desktop unique, effacement natif du presse-papiers sur desktop.
+- **Cohérence des écritures** : rechargement du fichier au déverrouillage,
+  écriture refusée si un autre onglet a modifié le coffre, fichier enregistré
+  conservé même si le verrouillage survient pendant l’écriture, import annulé
+  sans écriture partielle s’il est interrompu.
+- **Rotation des clés** : changement de mot de passe, remplacement ou
+  suppression de la phrase et récupération régénèrent toutes les clés de
+  contenu.
 - **Récupération** : phrase EFF de 10 mots, enveloppe séparée, vérification de
   l’enveloppe à l’intégrité.
 - **Desktop** : Tauri v2, capability minimale, navigation externe contrôlée,
@@ -47,9 +54,10 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 157 tests unitaires (14 fichiers), 34 exécutions Playwright,
-  3 tests Rust, smoke extension avec CSP production, Lighthouse accessibilité
-  1,0.
+- **Tests** : 172 tests unitaires (15 fichiers), 38 exécutions Playwright
+  (dont les scénarios multi-onglets et verrouillage pendant l’écriture), 5 tests
+  Rust (4 sur toutes les plateformes), smoke extension en CI sur le serveur de
+  développement (contrôle de domaine compris), Lighthouse accessibilité 1,0.
 - **Documentation** : SECURITY, audit, AutoFill, Proton Pass, native, README.
 
 ---
@@ -109,7 +117,9 @@ iOS et Android ou assumer explicitement un périmètre desktop.
 ### B-06 — Touch ID de niveau OS
 
 Touch ID est une barrière applicative : la clé est dans le trousseau classique
-et peut provoquer un second dialogue ACL. Le modèle cible est un élément
+et peut provoquer un second dialogue ACL. Un programme qui obtient l’accès au
+trousseau de session la lit sans empreinte ; l’interface et le README le disent
+désormais explicitement. Le modèle cible est un élément
 `SecAccessControl` (`kSecAccessControlBiometryCurrentSet`) ou une clé Secure
 Enclave qui chiffre la clé maîtresse. Cela demande une évolution native et une
 signature stable.
@@ -118,7 +128,7 @@ signature stable.
 
 Aucun audit cryptographique ni test d’intrusion externe n’a été réalisé. Pour un
 produit qui contient tous les mots de passe d’une personne, c’est un prérequis
-de confiance, même avec 157 tests.
+de confiance, même avec 172 tests.
 
 ### B-08 — Validation Windows/Linux et macOS Intel
 

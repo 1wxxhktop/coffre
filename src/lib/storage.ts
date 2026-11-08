@@ -41,6 +41,32 @@ export class StorageError extends Error {
   }
 }
 
+/**
+ * Le fichier enregistré ne correspond plus à celui à partir duquel la
+ * modification a été calculée : un autre onglet l’a remplacé entre-temps.
+ * L’écriture est refusée pour ne pas effacer ses changements.
+ */
+export class StorageConflictError extends StorageError {
+  constructor() {
+    super(
+      'Le coffre a été modifié dans un autre onglet. Verrouillez puis déverrouillez Coffre pour recharger la dernière version.',
+    )
+    this.name = 'StorageConflictError'
+  }
+}
+
+/** Options d’écriture : `expected` est la version à partir de laquelle on écrit. */
+export interface SaveOptions {
+  expected?: Pick<VaultFile, 'id' | 'updatedAt'>
+}
+
+function sameRevision(
+  stored: Pick<VaultFile, 'id' | 'updatedAt'> | undefined,
+  expected: Pick<VaultFile, 'id' | 'updatedAt'>,
+): boolean {
+  return Boolean(stored) && stored?.id === expected.id && stored?.updatedAt === expected.updatedAt
+}
+
 let dbPromise: Promise<IDBPDatabase<CoffreDb>> | null = null
 
 function database(): Promise<IDBPDatabase<CoffreDb>> {
@@ -85,11 +111,20 @@ async function loadIndexedDbVaultFile(): Promise<VaultFile | null> {
   }
 }
 
-async function saveIndexedDbVaultFile(file: VaultFile): Promise<void> {
+async function saveIndexedDbVaultFile(file: VaultFile, options: SaveOptions = {}): Promise<void> {
   try {
     const db = await database()
     const tx = db.transaction(STORE, 'readwrite')
     const store = tx.objectStore(STORE)
+
+    // Contrôle de concurrence dans la même transaction que l’écriture : si un
+    // autre onglet a enregistré entre-temps, on abandonne sans rien toucher.
+    const current = await store.get(CURRENT_KEY)
+    if (options.expected && !sameRevision(current, options.expected)) {
+      tx.abort()
+      await tx.done.catch(() => undefined)
+      throw new StorageConflictError()
+    }
 
     // Rotation : la sauvegarde la plus ancienne est écrasée en dernier.
     for (let generation = MAX_LOCAL_BACKUPS; generation > 1; generation--) {
@@ -97,11 +132,11 @@ async function saveIndexedDbVaultFile(file: VaultFile): Promise<void> {
       if (previous) await store.put(previous, backupKey(generation))
     }
 
-    const current = await store.get(CURRENT_KEY)
     if (current) await store.put(current, BACKUP_KEY)
     await store.put(file, CURRENT_KEY)
     await tx.done
   } catch (error) {
+    if (error instanceof StorageConflictError) throw error
     throw new StorageError('Impossible d’enregistrer le coffre', { cause: error })
   }
 }
@@ -183,6 +218,14 @@ async function loadNativeVaultFile(): Promise<VaultFile | null> {
     }
   }
   await nativeInvoke('vault_write', { contents: nativeJson(legacy) })
+
+  // Relecture de contrôle, puis effacement de la copie IndexedDB : elle reste
+  // sinon chiffrée avec un ancien mot de passe et réapparaîtrait si le
+  // fichier natif était supprimé.
+  const written = await nativeInvoke<string | null>('vault_read')
+  if (written && parseNative(written, 'Le coffre migré').id === legacy.id) {
+    await clearIndexedDbStorage().catch(() => undefined)
+  }
   return legacy
 }
 
@@ -210,12 +253,17 @@ export async function hasVaultFile(): Promise<boolean> {
   }
 }
 
-export async function saveVaultFile(file: VaultFile): Promise<void> {
+/**
+ * Enregistre le coffre. Avec `expected`, l’écriture est refusée si le fichier
+ * enregistré n’est plus celui dont la modification est partie (Web : plusieurs
+ * onglets). L’application desktop n’a qu’une instance et qu’une fenêtre.
+ */
+export async function saveVaultFile(file: VaultFile, options: SaveOptions = {}): Promise<void> {
   if (isTauriRuntime()) {
     await nativeInvoke('vault_write', { contents: nativeJson(file) })
     return
   }
-  await saveIndexedDbVaultFile(file)
+  await saveIndexedDbVaultFile(file, options)
 }
 
 export async function loadBackupVaultFile(generation = 1): Promise<VaultFile | null> {
@@ -268,12 +316,17 @@ export async function listLocalBackups(): Promise<LocalBackupInfo[]> {
     for (let generation = 1; generation <= MAX_LOCAL_BACKUPS; generation++) {
       const raw = await db.get(STORE, backupKey(generation))
       if (!raw) continue
-      backups.push({
-        generation,
-        id: raw.id,
-        updatedAt: raw.updatedAt,
-        items: raw.items.length,
-      })
+      try {
+        const file = parseVaultFile(raw)
+        backups.push({
+          generation,
+          id: file.id,
+          updatedAt: file.updatedAt,
+          items: file.items.length,
+        })
+      } catch {
+        // Sauvegarde illisible : ignorée, les autres restent proposées.
+      }
     }
     return backups
   } catch (error) {

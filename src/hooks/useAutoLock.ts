@@ -52,8 +52,6 @@ export function useAutoLock(
       lastActivity = Date.now()
     }
 
-    const onPageHide = () => lock()
-
     const events: Array<keyof WindowEventMap> = [
       'pointerdown',
       'pointermove',
@@ -67,7 +65,8 @@ export function useAutoLock(
       window.addEventListener(event, touch, { passive: true })
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
-    window.addEventListener('pagehide', onPageHide)
+    // La fermeture de page (`pagehide`) est gérée par VaultProvider : elle
+    // verrouille sans retirer la clé du déverrouillage rapide.
 
     const interval =
       timeout > 0
@@ -81,7 +80,6 @@ export function useAutoLock(
     return () => {
       for (const event of events) window.removeEventListener(event, touch)
       document.removeEventListener('visibilitychange', onVisibilityChange)
-      window.removeEventListener('pagehide', onPageHide)
       if (interval !== null) window.clearInterval(interval)
     }
   }, [minutes, lockOnHide])

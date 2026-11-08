@@ -165,13 +165,22 @@ Le changement de mot de passe :
 
 1. génère un nouveau sel et de nouveaux paramètres Argon2id ;
 2. dérive une nouvelle clé maîtresse ;
-3. ré-enveloppe chaque clé de coffre avec la nouvelle clé maîtresse ;
-4. remplace la clé maîtresse en mémoire et efface l’ancienne.
+3. génère une nouvelle clé pour chaque coffre et chaque élément, puis rechiffre
+   les noms de coffres, les contenus, les versions et les pièces jointes ;
+4. enveloppe les nouvelles clés de coffre avec la nouvelle clé maîtresse et,
+   si une phrase est configurée, avec la clé de récupération existante ;
+5. enregistre le fichier, puis seulement installe les nouvelles clés dans la
+   session et efface les anciennes. Si l’écriture échoue, les nouvelles clés
+   sont effacées et la session reste celle du fichier encore sur disque.
 
-Les éléments ne sont pas réchiffrés : leurs clés et leurs contenus restent
-inchangés. Cette opération est atomique du point de vue du fichier produit, mais
-la sauvegarde locale (fichier natif ou IndexedDB) peut encore contenir la
-version précédente. Voir [§ 5.2](#52-sauvegarde-locale).
+Grâce à cette rotation, l’ancien mot de passe associé à une ancienne copie du
+fichier (sauvegarde locale, export) ne donne aucune clé valable pour le contenu
+enregistré après le changement. Ces anciennes copies restent en revanche
+lisibles avec l’ancien mot de passe : supprimez-les si celui-ci est compromis.
+Voir [§ 5.2](#52-sauvegarde-locale). Remplacer ou supprimer la phrase de
+récupération, et récupérer un coffre avec la phrase, déclenchent la même
+rotation. Un élément illisible bloque l’opération : il faut d’abord vérifier
+le coffre et exporter une sauvegarde.
 
 ### 2.6 Ce qui est visible dans un fichier `.coffre`
 
@@ -247,6 +256,13 @@ passerelle en mémoire supprimée au verrouillage.
   worker et la page active ; ils ne sont ni journalisés ni persistés.
 - Le remplissage est déclenché par un clic ; aucun formulaire n’est soumis
   automatiquement.
+- Avant de remplir, le service worker compare le domaine de l’onglet visé aux
+  adresses de l’élément (même domaine ou sous-domaine). En cas de différence,
+  rien n’est injecté et le popup demande une confirmation explicite, qui
+  signale le risque d’hameçonnage.
+- Avec le verrouillage en arrière-plan (réglage par défaut), l’onglet Coffre se
+  verrouille dès qu’on passe sur le site à remplir : il faut l’ouvrir dans une
+  fenêtre séparée qui reste visible, ou désactiver l’option.
 - Tout code exécuté dans l’onglet Coffre pendant le déverrouillage peut appeler
   la passerelle. Le risque est équivalent à celui d’un XSS dans l’application :
   verrouillez le coffre après usage et n’installez que des extensions de
@@ -448,7 +464,9 @@ Il n’existe ni question secrète, ni compte, ni récupération par un tiers. U
 - elle permet de rouvrir le coffre et d’imposer un nouveau mot de passe maître ;
 - elle reste valable après un changement de mot de passe, un ajout de coffre ou
   un export/réimport ;
-- la remplacer ou la supprimer invalide immédiatement l’ancienne.
+- la remplacer ou la supprimer fait tourner toutes les clés de contenu :
+  l’ancienne phrase n’ouvre plus le coffre courant. Elle ouvre encore les copies
+  antérieures (sauvegardes locales, exports) qui contenaient son enveloppe.
 
 Sans phrase configurée, perdre le mot de passe maître revient à perdre les
 données. Avec une phrase, la sécurité repose sur deux secrets : le fichier
@@ -609,16 +627,22 @@ l’autorisation peut être oubliée après chaque recompilation. Une signature
 Developer ID stable, avec notarisation, est nécessaire pour une confiance
 durable. Ce dialogue keychain est distinct de Touch ID.
 
-Limite assumée : le trousseau reste celui de la session utilisateur et
-l’authentification est imposée par l’application. Un processus disposant déjà
-des droits de l’utilisateur pourrait tenter de lire l’entrée biométrique ;
-le modèle de menace exclut un OS compromis. Sur un appareil partagé, préférez
-le mot de passe maître seul.
+Limite assumée : Touch ID est une barrière **applicative**. L’entrée est un
+mot de passe générique du trousseau de session, sans `SecAccessControl`
+biométrique : un processus qui obtient l’accès au trousseau (avec le mot de
+passe de session, ou via « Toujours autoriser ») lit la clé sans empreinte.
+Le texte du dialogue Touch ID est fixé côté natif ; la WebView ne peut pas le
+modifier. Le modèle cible (`kSecAccessControlBiometryCurrentSet` ou clé Secure
+Enclave) exige une signature Developer ID stable. Sur un appareil partagé,
+préférez le mot de passe maître seul.
 
 Le déverrouillage rapide est **optionnel et désactivé par défaut**
 (`keychainUnlock`). La clé n’est enregistrée que si l’utilisateur active
-l’option, puis elle est supprimée au verrouillage, à la réinitialisation et au
-changement de coffre. Une clé périmée est détectée à l’ouverture : l’entrée est
+l’option, puis elle est supprimée à chaque verrouillage (bouton, inactivité,
+arrière-plan), à la réinitialisation et au changement de coffre. Elle est
+conservée quand la page ou l’application se ferme sans verrouillage : c’est le
+but de l’option, et cela signifie que Coffre se rouvre alors sans mot de passe
+pour toute personne ayant accès à la session. Une clé périmée est détectée à l’ouverture : l’entrée est
 effacée et l’application revient à la saisie du mot de passe maître. Cette
 protection réduit les ressaisies après un rechargement, mais elle élargit la
 surface d’attaque : tout code exécuté dans la WebView, ou tout processus
@@ -640,12 +664,12 @@ Windows/Linux restent à valider.
 
 | Risque | Impact | Atténuation actuelle |
 | --- | --- | --- |
-| Mot de passe maître faible | Déchiffrement hors ligne | Argon2id, minimum 12 caractères, indicateur de robustesse |
+| Mot de passe maître faible | Déchiffrement hors ligne | Argon2id, minimum 12 caractères, 50 bits estimés avec dictionnaires, claviers, suites et années |
 | XSS ou code servi compromis | Vol des secrets pendant le déverrouillage | Pas de réseau, CSP fournie, dépendances verrouillées, Tauri CSP |
 | Extension malveillante | Lecture du DOM, du presse-papiers, des frappes | Navigateur/profil dédié, désactivation des extensions |
 | Extension Coffre compromise | Lecture des identifiants pendant le remplissage | Aucun stockage, accès limité à l’onglet actif, verrouillage après usage |
 | Appareil compromis | Keylogging, mémoire, écran | Hors périmètre ; utiliser un OS à jour |
-| Presse-papiers non effacé | Fuite vers une autre application | Effacement au mieux, délai court |
+| Presse-papiers non effacé | Fuite vers une autre application | Effacement natif sur desktop (secret exclu des historiques), au mieux sur le Web, délai court |
 | Perte du mot de passe | Perte définitive sans phrase configurée | Phrase de récupération optionnelle (~129 bits) ; exports réguliers |
 | Phrase de récupération compromise | Ouverture du coffre avec le fichier | Phrase non stockée, à conserver séparément ; remplacement immédiat en cas de doute |
 | Corruption du stockage | Perte du coffre courant | Trois générations `backup`, validation, vérification d’intégrité, export |
