@@ -5,16 +5,27 @@
   "version": "0.8.0",
   "description": "__MSG_extDescription__",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv0wTopESfRXuz6R3wl0Zz2ID/5MqqjCRCMacZgsd66A3Q1A+wtASlg6cMc21m0fNQe40GWMinZk/mJW2R7Z/U6OaaR4spIn14illA87Z8e3qnnqnYSGRBnsDEhzCXROvHLdnccg9y6/fxmafeO002QN3bbX1onJs6G+wSi/OmCW6Fd/WCjKqH71KBwe6QMQ5//dAcxQnWlYxLW7ie9r85oy6lVFV+StUy9yoel//bQ/QeZ8kaFxZQiSYHEIv5ZYjsFpBe8Ec7Kvz7h4ohjPtEoK3eSdKvr1Egla9usL86coyAro8f+kCzAA1WH+4aGlzZ4DMm10yUIRTRTq75Z200QIDAQAB",
-  "permissions": ["activeTab", "scripting", "storage", "nativeMessaging"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "nativeMessaging",
+    "clipboardWrite"
+  ],
   "host_permissions": [
     "http://localhost:1420/*",
     "http://127.0.0.1:1420/*",
     "http://localhost:4173/*",
     "http://127.0.0.1:4173/*"
   ],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "background": {
-    "scripts": ["background.js"],
+    "scripts": [
+      "background.js"
+    ],
     "service_worker": "background.js",
     "type": "module"
   },
@@ -28,7 +39,10 @@
         "chunks/*",
         "icons/*"
       ],
-      "matches": ["http://*/*", "https://*/*"]
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
     }
   ],
   "browser_specific_settings": {
@@ -36,7 +50,9 @@
       "id": "coffre@1wxxhktop.github.io",
       "strict_min_version": "128.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   },
