@@ -27,7 +27,7 @@
     "message": "Show all my logins"
   },
   "popup_activateInline": {
-    "message": "Enable the inline menu"
+    "message": "Enable in-page filling"
   },
   "popup_pair": {
     "message": "Pair the extension"

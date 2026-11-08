@@ -161,15 +161,15 @@ function renderStatus() {
   searchInput.disabled = false
   if (status.hostAccess === false) {
     showMessage(
-      'Activez le menu dans les champs pour remplir les formulaires directement.',
+      'Activez le remplissage dans les champs pour remplir les formulaires directement.',
       'info',
     )
-    actions.hidden = false
-    openAppButton.hidden = true
-    activateInlineButton.hidden = false
   } else {
     hideMessage()
   }
+  actions.hidden = false
+  openAppButton.hidden = true
+  activateInlineButton.hidden = false
   footerStatus.textContent =
     status.mode === 'native'
       ? 'Coffre desktop · pont natif local'
@@ -383,7 +383,7 @@ activateInlineButton.addEventListener('click', () => {
         origins: ['http://*/*', 'https://*/*'],
       })
       if (!granted) {
-        showMessage('Permission refusée pour le menu dans les champs.', 'error')
+        showMessage('Permission refusée pour le remplissage dans les champs.', 'error')
         return
       }
       await send({ type: 'ENABLE_INLINE' })
@@ -404,7 +404,7 @@ activateInlineButton.addEventListener('click', () => {
           // Le content script injecte le script de repli si `world` manque.
         }
       }
-      showMessage('Menu dans les champs activé. Rechargez les autres onglets.', 'success')
+      showMessage('Remplissage dans les champs activé. Rechargez les autres onglets.', 'success')
       await init()
     } catch {
       showMessage('Activation impossible sur cette page.', 'error')

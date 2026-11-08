@@ -132,10 +132,11 @@ try {
   await app.getByRole('button', { name: 'Créer mon coffre' }).click()
   await app
     .getByRole('button', { name: 'Nouvel élément' })
+    .first()
     .waitFor({ timeout: 45_000 })
   await app.getByRole('button', { name: 'Tous les éléments' }).first().click()
 
-  await app.getByRole('button', { name: 'Nouvel élément' }).click()
+  await app.getByRole('button', { name: 'Nouvel élément' }).first().click()
   const form = app.getByRole('dialog')
   await form.getByLabel('Titre', { exact: true }).fill('Example')
   await form.getByLabel('Identifiant', { exact: true }).fill('ada')

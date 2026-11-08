@@ -27,7 +27,7 @@
     "message": "Afficher toutes mes connexions"
   },
   "popup_activateInline": {
-    "message": "Activer le menu dans les champs"
+    "message": "Activer le remplissage dans les champs"
   },
   "popup_pair": {
     "message": "Associer l’extension"
