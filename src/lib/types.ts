@@ -215,10 +215,15 @@ export interface VaultSummary {
 
 export type VaultStatus = 'loading' | 'empty' | 'locked' | 'unlocked' | 'error'
 
+export type ThemePreference = 'dark' | 'light' | 'system'
+
 export interface AppSettings {
+  theme: ThemePreference
   autoLockMinutes: number
   clipboardClearSeconds: number
   lockOnHide: boolean
+  /** Desktop : verrouiller lorsque la fenêtre perd le focus. */
+  lockOnFocusLoss: boolean
   /** Durée de conservation de la corbeille ; 0 = jamais purger automatiquement. */
   trashRetentionDays: number
   /** Desktop : mémoriser la clé maîtresse dans le trousseau du système. */
@@ -228,9 +233,11 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  theme: 'dark',
   autoLockMinutes: 5,
   clipboardClearSeconds: 30,
   lockOnHide: true,
+  lockOnFocusLoss: false,
   trashRetentionDays: 30,
   keychainUnlock: false,
   biometricUnlock: false,

@@ -15,6 +15,10 @@ export function loadSettings(): AppSettings {
     const trashRetentionDays = Number(parsed.trashRetentionDays)
 
     return {
+      theme:
+        parsed.theme === 'light' || parsed.theme === 'system' || parsed.theme === 'dark'
+          ? parsed.theme
+          : DEFAULT_SETTINGS.theme,
       autoLockMinutes: AUTO_LOCK_VALUES.includes(autoLockMinutes)
         ? autoLockMinutes
         : DEFAULT_SETTINGS.autoLockMinutes,
@@ -25,6 +29,10 @@ export function loadSettings(): AppSettings {
         typeof parsed.lockOnHide === 'boolean'
           ? parsed.lockOnHide
           : DEFAULT_SETTINGS.lockOnHide,
+      lockOnFocusLoss:
+        typeof parsed.lockOnFocusLoss === 'boolean'
+          ? parsed.lockOnFocusLoss
+          : DEFAULT_SETTINGS.lockOnFocusLoss,
       trashRetentionDays: TRASH_RETENTION_VALUES.includes(trashRetentionDays)
         ? trashRetentionDays
         : DEFAULT_SETTINGS.trashRetentionDays,

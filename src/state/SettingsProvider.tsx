@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from 'react'
@@ -17,6 +18,25 @@ const SettingsContext = createContext<SettingsContextValue | null>(null)
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings())
+
+  useEffect(() => {
+    const root = document.documentElement
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)')
+    const apply = () => {
+      const theme =
+        settings.theme === 'system'
+          ? media?.matches === false
+            ? 'light'
+            : 'dark'
+          : settings.theme
+      root.dataset.theme = theme
+      root.style.colorScheme = theme
+    }
+    apply()
+    if (settings.theme !== 'system' || !media) return
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  }, [settings.theme])
 
   const updateSettings = useCallback((partial: Partial<AppSettings>) => {
     setSettings((previous) => {

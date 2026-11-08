@@ -11,6 +11,13 @@
   complet Coffre pour tous les éléments, réimportable.
 - Chaîne de release macOS : build universel, signature Developer ID,
   notarisation, vérification `spctl`, workflow sur tag et documentation.
+- Tableau de bord Sécurité local (faiblesses, réutilisation, ancienneté, 2FA,
+  doublons).
+- Actions groupées : sélection multiple, favoris et corbeille.
+- Thèmes sombre, clair et système.
+- Import 1Password `.1pux`.
+- Variante Firefox de l’extension, avec manifeste compatible Chromium.
+- Verrouillage à la perte de focus sur desktop et raccourci global de recherche.
 - Trousseau natif macOS/Windows/Linux et déverrouillage rapide optionnel.
 - Déverrouillage Touch ID sur macOS, avec service de trousseau séparé.
 - Interface desktop en colonnes (navigation, liste, détail persistant).

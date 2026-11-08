@@ -4,6 +4,8 @@ interface AppStatus {
   appUrl: string
 }
 
+const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
+
 const input = document.getElementById('app-url') as HTMLInputElement
 const saveButton = document.getElementById('save') as HTMLButtonElement
 const testButton = document.getElementById('test') as HTMLButtonElement
@@ -11,7 +13,7 @@ const openButton = document.getElementById('open') as HTMLButtonElement
 const status = document.getElementById('status') as HTMLParagraphElement
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
-  return chrome.runtime.sendMessage(payload) as Promise<T>
+  return api.runtime.sendMessage(payload) as Promise<T>
 }
 
 function setStatus(text: string, kind: 'ok' | 'error' | 'info' = 'info') {
@@ -55,7 +57,7 @@ saveButton.addEventListener('click', () => {
       return
     }
 
-    const granted = await chrome.permissions.request({
+    const granted = await api.permissions.request({
       origins: [`${url}/*`],
     })
     if (!granted) {
