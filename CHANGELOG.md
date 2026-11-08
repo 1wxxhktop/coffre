@@ -85,6 +85,10 @@
   mot de passe lu sans écho sur le terminal ou sur stdin, jamais en argument.
   Injection des secrets par l’environnement du processus enfant, propagation
   du code de sortie, tests unitaires et d’intégration, CI Linux/macOS/Windows.
+- Noyau de l’agent SSH `coffre-ssh-agent` : protocole `SSH_AUTH_SOCK`, liste
+  d’identités, signatures ed25519 et RSA, socket Unix `0600` et approbation
+  obligatoire pour chaque signature. L’intégration desktop (fenêtre, Touch ID)
+  reste à raccorder ; aucun socket n’est ouvert par défaut.
 - Surveillance des fuites optionnelle et désactivée par défaut : calcul SHA-1
   local, envoi des 5 premiers caractères seulement à Have I Been Pwned avec
   `Add-Padding`, réponse parsée en mémoire et résultats intégrés au tableau de
