@@ -1,0 +1,87 @@
+import { describe, expect, it } from 'vitest'
+import {
+  createSharedVaultPackage,
+  openSharedVaultPackage,
+} from './sharingPackage'
+import {
+  generateSharingIdentity,
+  publicSharingIdentity,
+} from './sharing'
+
+const vaultKey = new Uint8Array(32).fill(5)
+
+async function packageWithMembers() {
+  const admin = await generateSharingIdentity()
+  const bob = await generateSharingIdentity()
+  const carol = await generateSharingIdentity()
+  const pkg = await createSharedVaultPackage({
+    vaultId: 'v_shared',
+    vaultKey,
+    admin,
+    members: [
+      { identity: publicSharingIdentity(admin), role: 'write' },
+      { identity: publicSharingIdentity(bob), role: 'read' },
+      { identity: publicSharingIdentity(carol), role: 'write' },
+    ],
+    createdAt: '2026-11-09T00:00:00.000Z',
+  })
+  return { admin, bob, carol, pkg }
+}
+
+describe('paquet de partage', () => {
+  it('enveloppe la clé et signe le rôle de chaque membre', async () => {
+    const { admin, bob, carol, pkg } = await packageWithMembers()
+    expect(pkg.admin.fingerprint).toBe(admin.fingerprint)
+    expect(pkg.members).toHaveLength(3)
+    const bobImport = await openSharedVaultPackage(pkg, bob)
+    expect(bobImport.role).toBe('read')
+    expect(Array.from(bobImport.vaultKey)).toEqual(Array.from(vaultKey))
+    const carolImport = await openSharedVaultPackage(pkg, carol)
+    expect(carolImport.role).toBe('write')
+  })
+
+  it('refuse une identité absente du paquet', async () => {
+    const { pkg } = await packageWithMembers()
+    const eve = await generateSharingIdentity()
+    await expect(openSharedVaultPackage(pkg, eve)).rejects.toThrow()
+  })
+
+  it('refuse un rôle altéré ou une signature invalide', async () => {
+    const { bob, pkg } = await packageWithMembers()
+    const altered = {
+      ...pkg,
+      members: pkg.members.map((member) =>
+        member.identity.fingerprint === bob.fingerprint
+          ? { ...member, role: { ...member.role, role: 'write' as const } }
+          : member,
+      ),
+    }
+    await expect(openSharedVaultPackage(altered, bob)).rejects.toThrow()
+
+    const otherAdmin = await generateSharingIdentity()
+    const forged = {
+      ...pkg,
+      admin: publicSharingIdentity(otherAdmin),
+    }
+    await expect(openSharedVaultPackage(forged, bob)).rejects.toThrow()
+  })
+
+  it('refuse une enveloppe altérée', async () => {
+    const { bob, pkg } = await packageWithMembers()
+    const altered = {
+      ...pkg,
+      members: pkg.members.map((member) =>
+        member.identity.fingerprint === bob.fingerprint
+          ? {
+              ...member,
+              wrap: {
+                ...member.wrap,
+                ciphertext: `${member.wrap.ciphertext.slice(0, -2)}AA`,
+              },
+            }
+          : member,
+      ),
+    }
+    await expect(openSharedVaultPackage(altered, bob)).rejects.toThrow()
+  })
+})
