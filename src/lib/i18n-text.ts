@@ -625,6 +625,8 @@ export const EN_TEXT: Record<string, string> = {
   'Importer le coffre': 'Import vault',
   'Coffre partagé importé': 'Shared vault imported',
   'Import du coffre impossible': 'Could not import the vault',
+  'Les éléments seront ajoutés par la synchronisation du coffre.':
+    'Items will be added by vault synchronization.',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':
