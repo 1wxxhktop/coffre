@@ -379,6 +379,8 @@ trousseau et de la nouvelle interface) :
 
 - `Coffre.app` (10,25 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,33 Mio) générés
   dans `src-tauri/target/release/bundle/` ;
+- build **universel** ad hoc (`arm64` + `x86_64`) validé :
+  `Coffre.app` 20,62 Mio et `Coffre_0.8.0_universal.dmg` 6,46 Mio ;
 - l’application se lance, initialise le stockage natif
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB, reste stable et n’ouvre aucune connexion réseau ;
