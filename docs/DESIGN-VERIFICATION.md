@@ -1,6 +1,6 @@
 # Vérification du lot design D1–D9
 
-Date : 8 novembre 2026. État vérifié sur `main` (`d98e667`). Ce rapport
+Date : 8 novembre 2026. État vérifié le 8 novembre 2026 sur `main`. Ce rapport
 accompagne les captures de [`design-captures/`](design-captures/).
 
 ## Résultats
@@ -10,7 +10,7 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | TypeScript | `bun run typecheck` | OK |
 | Lint + jetons | `bun run lint` | OK, 0 erreur ; seuls des avertissements `oxlint` préexistants |
 | Jetons seuls | `bun run lint:design` | OK, aucune valeur littérale hors jetons |
-| Tests unitaires | `bun run test` | 40 fichiers, 367 tests |
+| Tests unitaires | `bun run test` | 42 fichiers, 375 tests |
 | E2E Chromium + WebKit | `bun run test:e2e` | 117 tests passés, 5 ignorés (122 exécutions) |
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |

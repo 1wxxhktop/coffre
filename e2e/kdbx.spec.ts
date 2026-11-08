@@ -22,6 +22,7 @@ test('exporte un coffre en KDBX 4 puis le réimporte', async ({ page }, testInfo
   expect(path).not.toBeNull()
   const exportPath = testInfo.outputPath('coffre.kdbx')
   await download.saveAs(exportPath)
+  await expect(exportDialog).toHaveCount(0)
 
   await closeDialog(page)
 

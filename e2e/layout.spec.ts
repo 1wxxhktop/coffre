@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { addLogin, closeDialog, createVault, PASSWORD } from './helpers'
+import { addLogin, closeDialog, createVault, showItems, PASSWORD } from './helpers'
 
 async function drag(page: Page, handleName: string, deltaX: number) {
   const handle = page.getByRole('separator', { name: handleName })

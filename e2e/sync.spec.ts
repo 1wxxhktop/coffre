@@ -69,7 +69,7 @@ test.describe('synchronisation', () => {
     await page.reload()
     await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD)
     await page.getByRole('button', { name: 'Déverrouiller' }).click()
-    await expect(page.getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
+    await expect(page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
       timeout: 45_000,
     })
     const reopenedSettings = await openSettings(page, 'Synchronisation')

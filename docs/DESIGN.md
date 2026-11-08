@@ -102,12 +102,16 @@ liste de pages.
 
 ### Tableau de bord
 
-La vue « Tableau de bord » rassemble l’essentiel du coffre : score de santé,
-statistiques, points d’attention, éléments prioritaires, récents, coffres et
-échéances. Elle est accessible depuis la barre latérale et l’onglet « Accueil »
-sur mobile. Les catégories de sécurité ouvrent la liste filtrée correspondante,
-et les actions rapides permettent de créer un élément ou de générer un mot de
-passe.
+La vue « Tableau de bord » est la page d’accueil par défaut après le
+déverrouillage. Elle rassemble l’essentiel du coffre : score de santé,
+statistiques, points d’attention, éléments prioritaires, récents, coffres,
+échéances et un état du stockage local. Ce dernier indique la dernière écriture,
+signale une synchronisation en attente et rappelle les trois sauvegardes
+tournantes chiffrées en AES-256-GCM ; le bouton « Réglages » ouvre directement
+la synchronisation. La vue reste accessible depuis la barre latérale et
+l’onglet « Accueil » sur mobile. Les catégories de sécurité ouvrent la liste
+filtrée correspondante, et les actions rapides permettent de créer un élément
+ou de générer un mot de passe.
 
 ### Colonnes redimensionnables
 
@@ -162,7 +166,7 @@ bun run build
 Les tests `e2e/design.spec.ts` vérifient l’absence de débordement à 1280, 1024,
 768 et 375 px, l’inertie du menu mobile, la barre d’actions mobile, le menu du
 détail, le thème clair, la navigation aux flèches, le parcours
-créer → lire → modifier → supprimer sans modale sur desktop, la génération d’un
+créer en modale → lire et modifier dans le panneau de détail, la génération d’un
 mot de passe depuis le bandeau de sécurité, les gestes de retour et la
 navigation en pages des réglages.
 

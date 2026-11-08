@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, closeDialog, createVault, openSettings } from './helpers'
+import { addLogin, closeDialog, createVault, openSettings, showItems } from './helpers'
 
 const NEW_PASSWORD = 'nouvelle phrase de passe solide'
 
@@ -46,10 +46,11 @@ test.describe('phrase de récupération', () => {
     await unlock.getByLabel('Confirmer le mot de passe').fill(NEW_PASSWORD)
     await unlock.getByRole('button', { name: 'Récupérer le coffre' }).click()
 
-    await expect(page.getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
+    await expect(page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
       timeout: 45_000,
     })
-    await expect(page.getByText('GitHub')).toBeVisible()
+    await showItems(page)
+    await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible()
 
     // L’ancien mot de passe ne doit plus ouvrir le coffre.
     await page.getByRole('button', { name: 'Verrouiller' }).first().click()
@@ -59,7 +60,7 @@ test.describe('phrase de récupération', () => {
 
     await page.getByLabel('Mot de passe', { exact: true }).fill(NEW_PASSWORD)
     await page.getByRole('button', { name: 'Déverrouiller', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
+    await expect(page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
       timeout: 45_000,
     })
   })

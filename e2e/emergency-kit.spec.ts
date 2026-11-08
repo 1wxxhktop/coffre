@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, closeDialog, createVault, openSettings } from './helpers'
+import { addLogin, closeDialog, createVault, openSettings, showItems } from './helpers'
 
 const NEW_PASSWORD = 'nouvelle phrase de passe solide'
 
@@ -77,8 +77,9 @@ test('génère un kit d’urgence et restaure le coffre avec trois parts sur cin
   await unlock.getByLabel('Confirmer le mot de passe').fill(NEW_PASSWORD)
   await unlock.getByRole('button', { name: 'Récupérer le coffre' }).click()
 
-  await expect(page.getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
+  await expect(page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
     timeout: 45_000,
   })
-  await expect(page.getByText('GitHub')).toBeVisible()
+  await showItems(page)
+  await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible()
 })
