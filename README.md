@@ -7,7 +7,7 @@ chiffré sur votre appareil. Aucun compte, aucun serveur, aucune synchronisation
 aucune télémétrie. L’interface est en français.
 
 > **État du projet — 0.8.0 (trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 164 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 167 tests unitaires et
 > 23 parcours Playwright exécutés sur Chromium et WebKit (46 exécutions). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -85,9 +85,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Vérification d’intégrité** à la demande : déchiffre chaque coffre, élément,
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
-- **Tableau de bord Sécurité** : score local, mots de passe faibles, réutilisés
-  ou anciens, absence de 2FA et sites en doublon, avec accès direct aux éléments
-  à corriger.
+- **Tableau de bord Sécurité** : score et répartition des mots de passe,
+  faiblesses, réutilisations, variantes proches, ancienneté, absence de 2FA,
+  connexions incomplètes et sites en doublon, avec accès direct aux éléments à
+  corriger.
 - **Changement de mot de passe maître** sans réchiffrer tous les éléments.
 - **Phrase de récupération optionnelle** : dix mots générés localement,
   enveloppe séparée des clés de coffre, déverrouillage d’urgence avec choix
@@ -311,7 +312,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (164 tests) |
+| `bun run test` | Tests Vitest (167 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (46 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
@@ -649,7 +650,7 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   complet.
 - Pas de protection contre un OS compromis, un keylogger, une extension
   malveillante ou une injection de code dans la page.
-- Le bundle initial fait environ 682 Ko minifiés (214 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
+- Le bundle initial fait environ 688 Ko minifiés (215 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
   `hash-wasm` pourront être chargés à la demande dans une version ultérieure.
 - Les tests de bout en bout utilisent Chromium et WebKit ; Firefox et les
   WebViews Android/iOS réelles doivent encore être validés.

@@ -258,3 +258,7 @@
   background: var(--accent-soft);
   color: var(--accent-bright);
 }
+
+:root[data-theme="light"] .security-summary > div {
+  background: rgba(9, 9, 11, 0.025);
+}
