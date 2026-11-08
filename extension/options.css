@@ -1,15 +1,19 @@
 :root {
-  --bg: #07090e;
-  --panel: #10131c;
-  --panel-2: #151925;
-  --text: #eef0f6;
-  --muted: #9ba4b5;
-  --dim: #6f7889;
-  --line: rgba(255, 255, 255, 0.075);
-  --accent: #8b7cf6;
-  --accent-bright: #a99bff;
-  --success: #34d399;
-  --danger: #f87171;
+  --bg: #09090b;
+  --panel: #111113;
+  --panel-2: #18181b;
+  --text: #fafafa;
+  --muted: #a1a1aa;
+  --dim: #71717a;
+  --line: rgba(255, 255, 255, 0.08);
+  --accent: #fafafa;
+  --accent-bright: #ffffff;
+  --accent-2: #a1a1aa;
+  --accent-soft: rgba(255, 255, 255, 0.06);
+  --primary: #fafafa;
+  --primary-foreground: #09090b;
+  --success: #22c55e;
+  --danger: #ef4444;
   color-scheme: dark;
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto,
@@ -28,7 +32,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 15% 0%, rgba(139, 124, 246, 0.16), transparent 45%),
+    radial-gradient(circle at 15% 0%, var(--accent-soft), transparent 45%),
     var(--bg);
 }
 
@@ -111,7 +115,7 @@ body {
 
 .field input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(139, 124, 246, 0.16);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .actions {
@@ -137,12 +141,12 @@ body {
 
 .button--primary {
   border-color: transparent;
-  color: #0b0716;
-  background: var(--accent-bright);
+  color: var(--primary-foreground);
+  background: var(--primary);
 }
 
 .button--primary:hover {
-  background: #bcb0ff;
+  background: #e4e4e7;
 }
 
 .status {

@@ -14,7 +14,7 @@
 - Tableau de bord Sécurité local (faiblesses, réutilisation, ancienneté, 2FA,
   doublons).
 - Actions groupées : sélection multiple, favoris et corbeille.
-- Thèmes sombre, clair et système.
+- Thèmes sombre/clair neutres (noir et blanc) et mode système.
 - Import 1Password `.1pux`.
 - Variante Firefox de l’extension, avec manifeste compatible Chromium.
 - Verrouillage à la perte de focus sur desktop et raccourci global de recherche.

@@ -111,7 +111,7 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks
   entre onglets ; les liens externes Tauri s’ouvrent dans le navigateur système.
-- **Thèmes sombre, clair et système**, interface responsive, sélecteurs natifs
+- **Thèmes neutres sombre/clair** (noir et blanc) et **mode système**, interface responsive, sélecteurs natifs
   habillés, accessibilité clavier et modales avec piège à focus.
 
 ### Corbeille et historique
@@ -396,10 +396,10 @@ bun run desktop:build
 Le build a été validé sur macOS arm64 (0.7.0, puis 0.8.0 après l’ajout du
 trousseau et de la nouvelle interface) :
 
-- `Coffre.app` (10,44 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,40 Mio) générés
+- `Coffre.app` (10,40 Mio) et `Coffre_0.8.0_aarch64.dmg` (3,29 Mio) générés
   dans `src-tauri/target/release/bundle/` ;
 - build **universel** ad hoc (`arm64` + `x86_64`) validé :
-  `Coffre.app` 21,01 Mio et `Coffre_0.8.0_universal.dmg` 6,60 Mio ;
+  `Coffre.app` 20,97 Mio et `Coffre_0.8.0_universal.dmg` 6,48 Mio ;
 - l’application se lance, initialise le stockage natif
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB, reste stable et n’ouvre aucune connexion réseau ;
