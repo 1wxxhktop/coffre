@@ -593,6 +593,7 @@ export const EN_TEXT: Record<string, string> = {
   'Certificat': 'Certificate',
   'Autre': 'Other',
   'Pièce jointe principale': 'Primary attachment',
+  'Règles du site appliquées :': 'Site rules applied:',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

@@ -183,6 +183,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   générations de copie locale de secours, restaurables depuis l’écran de
   récupération. Export CSV en clair au format **Mots de passe (Apple)** pour les
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
+- **Règles de mot de passe par site** : le générateur applique les contraintes
+  de longueur, classes et symboles du dataset Apple « Password Manager
+  Resources », embarqué localement et sans requête réseau.
 - **Compatibilité KeePass** : import et export KDBX 4 avec un mot de passe
   dédié (et fichier clé à l’import), sans pièces jointes ni historique Coffre.
 - **Déverrouillage FIDO2/PRF** : une clé de sécurité compatible PRF peut

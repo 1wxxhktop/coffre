@@ -989,6 +989,21 @@ principale est une pièce jointe Coffre :
 - les exports CSV de connexions n’incluent pas les documents ; le format
   « Coffre complet » reste un export chiffré du fichier `.coffre`.
 
+### 2.25 Règles de mot de passe par site
+
+Le générateur peut appliquer les contraintes d’un site :
+
+- le dataset Apple « Password Manager Resources » est embarqué dans
+  l’application (`src/assets/password-rules.json`) ; aucune requête réseau n’est
+  faite pour récupérer ou mettre à jour les règles ;
+- les règles sont appliquées localement au moment de la génération ; le mot de
+  passe généré n’est jamais envoyé sur le réseau ;
+- le parseur accepte les classes de caractères contenant des virgules, des
+  espaces ou des points-virgules ; les règles inconnues ou invalides sont
+  ignorées et le générateur revient à ses options normales ;
+- le dataset est distribué sous licence MIT par Apple et son attribution figure
+  dans `NOTICE`.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

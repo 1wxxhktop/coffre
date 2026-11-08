@@ -14,6 +14,7 @@ import {
   type PasswordOptions,
 } from '../lib/generator'
 import { copySensitive } from '../lib/clipboard'
+import { generatePasswordForRules, passwordRulesForUrl, sitePasswordEntropy } from '../lib/passwordRules'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
@@ -21,11 +22,13 @@ import { useToast } from '../state/ToastProvider'
 interface GeneratorDialogProps {
   onClose: () => void
   onUse?: (value: string) => void
+  /** URL ou hôte permettant d’appliquer les règles du site. */
+  url?: string
 }
 
 type Mode = 'password' | 'passphrase'
 
-export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
+export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
   const { settings } = useSettings()
   const { tt } = useI18n()
   const { toast } = useToast()
@@ -36,9 +39,13 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
   const [revision, setRevision] = useState(0)
   const [copied, setCopied] = useState(false)
 
+  const siteRules = useMemo(() => passwordRulesForUrl(url ?? ''), [url])
   const password = useMemo(
-    () => generatePassword(passwordOptions),
-    [passwordOptions, revision],
+    () =>
+      siteRules
+        ? generatePasswordForRules(siteRules.rules, passwordOptions.length)
+        : generatePassword(passwordOptions),
+    [passwordOptions, revision, siteRules],
   )
   const passphrase = useMemo(
     () => generatePassphrase(passphraseOptions),
@@ -48,7 +55,9 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
   const value = mode === 'password' ? password : passphrase
   const entropy =
     mode === 'password'
-      ? generatedEntropy(passwordOptions)
+      ? siteRules
+        ? sitePasswordEntropy(siteRules.rules, passwordOptions.length)
+        : generatedEntropy(passwordOptions)
       : passphraseEntropy(passphraseOptions)
 
   const updatePassword = (partial: Partial<PasswordOptions>) => {
@@ -114,6 +123,11 @@ export function GeneratorDialog({ onClose, onUse }: GeneratorDialogProps) {
       }
     >
       <div className="generator">
+        {mode === 'password' && siteRules && (
+          <p className="settings-copy">
+            {tt('Règles du site appliquées :')} <strong>{siteRules.domain}</strong>
+          </p>
+        )}
         <div className="tabs" role="tablist" aria-label={tt('Type de secret')}>
           <button
             type="button"
