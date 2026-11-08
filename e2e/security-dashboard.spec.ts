@@ -14,6 +14,13 @@ test('affiche le tableau de bord Sécurité et ouvre un élément à corriger', 
   await expect(dialog.getByRole('heading', { name: 'Sécurité du coffre' })).toBeVisible()
   await expect(dialog.getByText('Mots de passe faibles')).toBeVisible()
   await expect(dialog.locator('.security-score__value')).toContainText('/100')
+  const summary = dialog.locator('.security-summary')
+  await expect(summary).toContainText('Faibles')
+  await expect(summary).toContainText('Réutilisés')
+  await expect(summary).toContainText('Sans 2FA')
+  await expect(summary).toContainText('Incomplets')
+  await expect(summary).toContainText('Doublons')
+  await expect(dialog.locator('.security-distribution__legend')).toContainText('Solides')
   await expect(dialog.getByText('Sans double authentification')).toBeVisible()
 
   await dialog.locator('.security-item').filter({ hasText: 'Compte faible' }).first().click()
