@@ -2,6 +2,9 @@
 
 ## Non publié
 
+- Liste groupée automatiquement par date : sections « Aujourd’hui », « Hier »,
+  « 7 derniers jours », « Ce mois-ci » puis par mois, en-têtes sticky, tri
+  appliqué à l’intérieur des groupes et option pour revenir à une liste plate.
 - Correctifs de l’audit du 7 novembre 2026, portés sur le format 4 :
   - écritures contrôlées dans le navigateur : une modification calculée à
     partir d’une version périmée est refusée au lieu d’effacer celle d’un
