@@ -856,8 +856,11 @@ dependencies = [
 name = "coffre-ssh-agent"
 version = "0.8.0"
 dependencies = [
+ "clap",
+ "coffre-core",
  "ed25519-dalek",
  "rand_core 0.6.4",
+ "rpassword",
  "rsa",
  "serde_json",
  "sha2",

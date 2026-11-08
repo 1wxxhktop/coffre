@@ -704,6 +704,13 @@ l’intégration desktop n’est pas lancée explicitement.
   privée avant toute utilisation ;
 - les messages sont plafonnés à 256 Kio, les données à signer sont effacées
   après la demande et aucun contenu de clé ni secret n’est journalisé ;
+- le binaire `coffre-ssh-agent` exige un terminal interactif (`/dev/tty`) pour
+  approuver chaque signature ; sans terminal, il refuse la demande. Le mot de
+  passe du coffre est lu sans écho ou sur stdin avec `--password-stdin`, jamais
+  en argument ;
+- l’agent supprime son socket à l’arrêt s’il est toujours propriétaire du même
+  fichier (comparaison du périphérique et de l’inode), et le prochain démarrage
+  nettoie un socket orphelin ;
 - limites : le socket Unix n’est pas implémenté sous Windows (named pipe à
   faire), la fenêtre d’approbation et Touch ID restent à raccorder, et aucune
   mémorisation d’approbation par hôte n’est encore proposée.
