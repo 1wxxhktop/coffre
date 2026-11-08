@@ -686,9 +686,18 @@ Le remplissage étendu de l’extension applique les règles suivantes :
 
 ### 2.19 Noyau de l’agent SSH
 
-Le crate `src-tauri/crates/coffre-ssh-agent` prépare l’agent `SSH_AUTH_SOCK`.
-Il n’est pas encore activé par l’application : aucun socket n’est créé tant que
-l’intégration desktop n’est pas lancée explicitement.
+Le crate `src-tauri/crates/coffre-ssh-agent` fournit l’agent `SSH_AUTH_SOCK`.
+L’application desktop l’active à la demande depuis **Réglages → Sécurité** ;
+aucun socket n’est créé par défaut.
+
+- l’activation transmet la clé maîtresse par l’IPC local à Rust ; Rust ouvre
+  lui-même le fichier `.coffre` et ne renvoie jamais une clé privée à la
+  WebView. Les identités restent en mémoire Rust tant que l’agent tourne ;
+- chaque demande de signature émet un événement d’approbation ; la modale
+  affiche le commentaire, l’empreinte SHA-256, l’algorithme et la taille des
+  données. Sans réponse sous 60 secondes, la signature est refusée ;
+- l’agent est arrêté au verrouillage, au démontage de l’interface ou via le
+  bouton **Arrêter l’agent** ; les approbations en attente reçoivent un refus ;
 
 - le socket est créé à la demande avec des permissions `0600` dans un dossier
   `0700` ; un chemin existant qui n’est pas un socket est refusé et un ancien
@@ -714,7 +723,7 @@ l’intégration desktop n’est pas lancée explicitement.
 - au plus 16 connexions simultanées sont servies ; les suivantes sont
   fermées immédiatement ;
 - limites : le socket Unix n’est pas implémenté sous Windows (named pipe à
-  faire), la fenêtre d’approbation et Touch ID restent à raccorder, et aucune
+  faire), Touch ID n’est pas encore imposé avant l’approbation, et aucune
   mémorisation d’approbation par hôte n’est encore proposée.
 
 ## 3. Stockage local

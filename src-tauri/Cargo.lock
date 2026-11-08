@@ -798,6 +798,7 @@ version = "0.8.0"
 dependencies = [
  "block2",
  "coffre-core",
+ "coffre-ssh-agent",
  "keyring",
  "notify",
  "objc2",

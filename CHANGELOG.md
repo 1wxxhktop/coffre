@@ -87,8 +87,9 @@
   du code de sortie, tests unitaires et d’intégration, CI Linux/macOS/Windows.
 - Agent SSH `coffre-ssh-agent` : protocole `SSH_AUTH_SOCK`, liste d’identités,
   signatures ed25519 et RSA, socket Unix `0600`, approbation obligatoire dans le
-  terminal et binaire `--list`. L’intégration desktop (fenêtre, Touch ID) reste
-  à raccorder ; aucun socket n’est ouvert par défaut.
+  terminal et binaire `--list`. Intégration desktop avec démarrage depuis les
+  réglages, modale d’approbation par signature et arrêt automatique au
+  verrouillage ; Touch ID reste à raccorder.
 - Surveillance des fuites optionnelle et désactivée par défaut : calcul SHA-1
   local, envoi des 5 premiers caractères seulement à Have I Been Pwned avec
   `Add-Padding`, réponse parsée en mémoire et résultats intégrés au tableau de

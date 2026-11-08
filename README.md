@@ -714,10 +714,17 @@ minimum), socket Unix créé en `0600` dans un dossier `0700`, et callback
 d’approbation obligatoire pour chaque signature. Les clés chiffrées et les
 algorithmes non pris en charge sont refusés.
 
-Ce noyau n’est pas encore activé dans l’application : la fenêtre d’approbation
-(avec Touch ID), le déverrouillage via le socket de l’application desktop et le
-nom du socket dans `app_data_dir()` restent à raccorder. Aucun socket n’est
-ouvert tant que cette intégration n’est pas explicitement lancée.
+Dans l’application desktop, **Réglages → Sécurité → Agent SSH** démarre
+l’agent à la demande. Rust ouvre le fichier local avec la clé maîtresse déjà
+déverrouillée et ne renvoie jamais les clés privées à la WebView. Chaque
+signature ouvre une modale d’approbation avec la clé, l’empreinte, l’algorithme
+et la taille des données ; sans réponse sous 60 secondes, elle est refusée.
+L’agent s’arrête au verrouillage, à la fermeture de l’interface ou via le bouton
+**Arrêter l’agent**. Le socket est créé dans
+`app_data_dir()/ssh/agent.sock` ; aucun socket n’est ouvert par défaut.
+
+Touch ID n’est pas encore imposé pour l’agent, et le named pipe Windows reste à
+implémenter.
 
 Le binaire `coffre-ssh-agent` permet de l’utiliser dès maintenant dans un
 terminal :
