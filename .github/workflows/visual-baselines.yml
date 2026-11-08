@@ -1,0 +1,50 @@
+name: Baselines visuelles Linux
+
+# Régression visuelle optionnelle : les captures dépendent du système
+# (polices et rendu Chromium). Ce workflow manuel génère les baselines Linux
+# sans les activer dans la CI générale. Télécharger l’artefact, puis committer
+# les fichiers *-linux.png dans e2e/visual.spec.ts-snapshots/.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: 1.4.3
+
+jobs:
+  visual:
+    name: Générer les captures Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Installer Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Générer les baselines
+        run: bun run test:visual --update-snapshots
+
+      - name: Publier les baselines Linux
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-baselines-linux
+          path: e2e/visual.spec.ts-snapshots/*-linux.png
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Rappeler la suite
+        run: |
+          echo "Télécharger l’artefact visual-baselines-linux, puis committer les"
+          echo "fichiers *-linux.png dans e2e/visual.spec.ts-snapshots/."
