@@ -577,6 +577,13 @@ export const EN_TEXT: Record<string, string> = {
   'Point de terminaison': 'Endpoint',
   'Production': 'Production',
   'https://api.exemple.fr': 'https://api.example.com',
+  'Clé de licence': 'License key',
+  'Licencié à': 'Licensed to',
+  'Version': 'Version',
+  'Site web': 'Website',
+  'Date d’achat': 'Purchase date',
+  'XXXX-XXXX-XXXX-XXXX': 'XXXX-XXXX-XXXX-XXXX',
+  'https://exemple.fr': 'https://example.com',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

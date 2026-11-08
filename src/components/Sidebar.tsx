@@ -7,6 +7,7 @@ import {
   KeySquare,
   Wifi,
   Code2,
+  BadgeCheck,
   History,
   KeyRound,
   LayoutDashboard,
@@ -73,6 +74,7 @@ const FILTER_KEYS: Record<ItemFilter, MessageKey> = {
   'ssh-key': 'filter.sshKey',
   wifi: 'filter.wifi',
   'api-credential': 'filter.apiCredential',
+  'software-license': 'filter.softwareLicense',
   trash: 'filter.trash',
 }
 
@@ -89,6 +91,7 @@ const FILTERS: Array<{ id: ItemFilter; icon: LucideIcon }> = [
   { id: 'ssh-key', icon: KeySquare },
   { id: 'wifi', icon: Wifi },
   { id: 'api-credential', icon: Code2 },
+  { id: 'software-license', icon: BadgeCheck },
   { id: 'trash', icon: Trash2 },
 ]
 

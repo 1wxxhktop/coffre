@@ -24,6 +24,7 @@ export const FILTER_LABELS: Record<ItemFilter, string> = {
   'ssh-key': 'Clés SSH',
   wifi: 'Wi-Fi',
   'api-credential': 'Identifiants d’API',
+  'software-license': 'Licences logicielles',
 }
 
 export const FILTER_MESSAGE_KEYS: Record<ItemFilter, MessageKey> = {
@@ -40,6 +41,7 @@ export const FILTER_MESSAGE_KEYS: Record<ItemFilter, MessageKey> = {
   'ssh-key': 'filter.sshKey',
   wifi: 'filter.wifi',
   'api-credential': 'filter.apiCredential',
+  'software-license': 'filter.softwareLicense',
 }
 
 export function isItemFilter(value: string): value is ItemFilter {
