@@ -265,6 +265,8 @@ interface VaultContextValue extends ProviderState {
   syncNow: (password?: string) => Promise<SyncRunResult>
   /** Fusionne un fichier reçu par synchronisation locale (F2). */
   lanSync: (remoteText: string, password?: string) => Promise<SyncRunResult>
+  /** Vrai si `password` est le mot de passe maître de la session ouverte. */
+  confirmMasterPassword: (password: string) => Promise<boolean>
   /** Ajoute un événement au journal d’activité chiffré. */
   recordActivity: (
     kind: ActivityKind,
@@ -351,6 +353,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // réécrire l’entrée du trousseau à chaque déverrouillage, ce qui redéclenche
   // l’autorisation d’accès macOS.
   const biometricKeyFileRef = useRef<string | null>(null)
+  /**
+   * Session qui vient d’être verrouillée alors qu’une écriture était en cours.
+   * Ses clés restent en mémoire le temps que les tâches déjà en file se
+   * terminent, pour que la modification soit signée et enregistrée au lieu
+   * d’être perdue ; elles sont effacées juste après.
+   */
+  const drainingRef = useRef<{ session: VaultSession; readOnly: boolean } | null>(null)
 
   const apply = useCallback((updater: (previous: ProviderState) => ProviderState) => {
     const next = updater(stateRef.current)
@@ -403,7 +412,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const signed = await signVaultFile(next, session, base, {
         minimumRevision: revisionFloorRef.current,
       })
-      await saveVaultFile(signed)
+      // Écriture contrôlée : refusée si le fichier enregistré n’est plus
+      // `base`, c’est-à-dire si un autre onglet l’a modifié entre-temps.
+      await saveVaultFile(signed, { expected: base })
       await acceptRevision(signed)
       return signed
     },
@@ -418,13 +429,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const persist = useCallback(
     async (base: VaultFile, next: VaultFile): Promise<VaultFile> => {
       const current = stateRef.current
-      if (current.readOnly) {
+      // Verrouillé pendant cette mutation : on termine l’écriture avec la
+      // session encore en cours d’effacement (voir `lockWith`).
+      const draining = current.session ? null : drainingRef.current
+      const readOnly = draining ? draining.readOnly : current.readOnly
+      if (readOnly) {
         throw new Error(
           'Le coffre est ouvert en lecture seule : l’intégrité du fichier n’a pas pu être vérifiée.',
         )
       }
-      if (!current.session) throw new Error('Coffre verrouillé')
-      return persistWithSession(current.session, base, next)
+      const session = current.session ?? draining?.session
+      if (!session || session.locked) throw new Error('Coffre verrouillé')
+      return persistWithSession(session, base, next)
     },
     [persistWithSession],
   )
@@ -699,26 +715,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [apply, state.syncRevision, watchedSyncFileId])
 
-  useEffect(() => {
-    const onBeforeUnload = () => {
+  useEffect(
+    () => () => {
       stateRef.current.session?.lock()
       releaseVaultLock()
-      void clearClipboardIfLastCopied()
+    },
+    [],
+  )
+
+  /**
+   * Relit le fichier enregistré avant un déverrouillage. Une écriture terminée
+   * après un verrouillage, ou faite par un autre onglet, est ainsi prise en
+   * compte : la prochaine écriture contrôlée partira de la bonne base.
+   */
+  const reloadFile = useCallback(async (): Promise<VaultFile> => {
+    const file = await loadVaultFile()
+    if (!file) {
+      apply(() => ({ ...initialState, status: 'empty' }))
+      throw new Error('Le coffre local a été effacé depuis un autre onglet.')
     }
-    const onPageHide = () => {
-      stateRef.current.session?.lock()
-      releaseVaultLock()
-      void clearClipboardIfLastCopied()
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    window.addEventListener('pagehide', onPageHide)
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload)
-      window.removeEventListener('pagehide', onPageHide)
-      stateRef.current.session?.lock()
-      releaseVaultLock()
-    }
-  }, [])
+    apply((previous) => (previous.status === 'unlocked' ? previous : { ...previous, file }))
+    return file
+  }, [apply])
 
   /** Refuse l’ouverture si un autre onglet détient déjà la session. */
   const requireVaultLock = useCallback(async () => {
@@ -770,8 +788,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const unlock = useCallback(
     (password: string) =>
       enqueue(async () => {
-        const current = stateRef.current
-        if (!current.file) throw new Error('Aucun coffre local à déverrouiller')
+        // Le fichier enregistré fait foi : un autre onglet, ou une écriture
+        // terminée après un verrouillage, a pu le modifier depuis le chargement.
+        const current = { ...stateRef.current, file: await reloadFile() }
         await requireVaultLock()
         let opened: OpenedVault
         try {
@@ -800,19 +819,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
         rememberCurrentKey()
       }),
-    [apply, enqueue, finalizeOpen, rememberCurrentKey, requireVaultLock],
+    [apply, enqueue, finalizeOpen, rememberCurrentKey, reloadFile, requireVaultLock],
   )
 
   const unlockWithBiometrics = useCallback(
     () =>
       enqueue(async () => {
-        const current = stateRef.current
-        if (!current.file) throw new Error('Aucun coffre local à déverrouiller')
+        // Le fichier enregistré fait foi : un autre onglet, ou une écriture
+        // terminée après un verrouillage, a pu le modifier depuis le chargement.
+        const current = { ...stateRef.current, file: await reloadFile() }
         await requireVaultLock()
 
         let result: Awaited<ReturnType<typeof loadBiometricKey>>
         try {
-          result = await loadBiometricKey(current.file.id, 'Déverrouiller Coffre')
+          result = await loadBiometricKey(current.file.id)
         } catch (error) {
           releaseVaultLock()
           throw new Error(
@@ -872,14 +892,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           wipe(masterKey)
         }
       }),
-    [apply, enqueue, finalizeOpen, requireVaultLock],
+    [apply, enqueue, finalizeOpen, reloadFile, requireVaultLock],
   )
 
   const unlockWithPrf = useCallback(
     () =>
       enqueue(async () => {
-        const current = stateRef.current
-        if (!current.file?.prf) {
+        const current = { ...stateRef.current, file: await reloadFile() }
+        if (!current.file.prf) {
           throw new Error('Aucune clé de sécurité n’est configurée pour ce coffre')
         }
         await requireVaultLock()
@@ -941,7 +961,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           wipe(masterKey)
         }
       }),
-    [apply, enqueue, finalizeOpen, requireVaultLock],
+    [apply, enqueue, finalizeOpen, reloadFile, requireVaultLock],
   )
 
   const enrollPrf = useCallback(
@@ -1128,16 +1148,32 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     biometricKeyFileRef.current = current.file.id
   }, [])
 
-  const lock = useCallback(() => {
+  /**
+   * Verrouille la session. `forgetQuickUnlock` retire aussi la clé du
+   * trousseau silencieux : c’est le cas d’un verrouillage explicite, par
+   * inactivité ou en arrière-plan. À la fermeture de la page, la clé est
+   * conservée, ce qui est le but du déverrouillage rapide au relancement.
+   */
+  const lockWith = useCallback((forgetQuickUnlock: boolean) => {
     const current = stateRef.current
     if (current.status !== 'unlocked') return
     epochRef.current += 1
     revisionFloorRef.current = 0
-    current.session?.lock()
+    const session = current.session
+    if (session) {
+      // L’interface passe immédiatement à « verrouillé ». Les clés sont
+      // effacées dès que les tâches déjà en file sont terminées : une écriture
+      // lancée avant le verrouillage est enregistrée au lieu d’être perdue.
+      drainingRef.current = { session, readOnly: current.readOnly }
+      void queueRef.current.then(() => {
+        if (drainingRef.current?.session === session) drainingRef.current = null
+        session.lock()
+      })
+    }
     releaseVaultLock()
     void clearClipboardIfLastCopied()
     if (current.file) {
-      void deleteVaultKey(current.file.id)
+      if (forgetQuickUnlock) void deleteVaultKey(current.file.id)
       // Avec Touch ID, la clé biométrique reste disponible pour le prochain
       // déverrouillage ; sinon on nettoie toute entrée résiduelle.
       if (!settingsRef.current.biometricUnlock) {
@@ -1156,6 +1192,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       syncPending: false,
     }))
   }, [apply])
+
+  const lock = useCallback(() => lockWith(true), [lockWith])
+
+  useEffect(() => {
+    // Fermeture, rechargement ou mise en cache (bfcache) : la session est
+    // effacée et l’état passe à « verrouillé », pour qu’une page restaurée
+    // depuis le cache ne présente jamais un coffre ouvert sans clés. La clé
+    // du déverrouillage rapide est conservée pour le prochain lancement.
+    const onPageHide = () => lockWith(false)
+    window.addEventListener('beforeunload', onPageHide)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      window.removeEventListener('beforeunload', onPageHide)
+      window.removeEventListener('pagehide', onPageHide)
+    }
+  }, [lockWith])
 
   const addVault = useCallback(
     (name: string) =>
@@ -1208,6 +1260,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const epoch = epochRef.current
         const next = await deleteVaultFromFile(current.file, current.session, vaultId)
         const file = await persist(current.file, next)
+        current.session.removeVaultKey(vaultId)
         if (epochRef.current !== epoch) return
         apply((previous) => ({
           ...previous,
@@ -2654,6 +2707,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [apply, enqueue, lock, persistWithSession],
   )
 
+  const confirmMasterPassword = useCallback(
+    (password: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const candidate = await deriveMasterKey(password, current.file.kdf)
+        try {
+          return !current.session.locked && equalBytes(candidate, current.session.masterKey)
+        } finally {
+          wipe(candidate)
+        }
+      }),
+    [enqueue],
+  )
+
   const recordActivity = useCallback(
     (kind: ActivityKind, detail: string, host?: string) =>
       enqueue(async () => {
@@ -2768,6 +2836,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     disableSync,
     syncNow,
     lanSync,
+    confirmMasterPassword,
     recordActivity,
     setAliasKey,
     deleteAliasKey,

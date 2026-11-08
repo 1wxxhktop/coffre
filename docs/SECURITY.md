@@ -177,6 +177,19 @@ inchangés. Cette opération est atomique du point de vue du fichier produit, ma
 la sauvegarde locale (fichier natif ou IndexedDB) peut encore contenir la
 version précédente. Voir [§ 5.2](#52-sauvegarde-locale).
 
+Si l’écriture échoue après le changement de clés, la session est verrouillée :
+le fichier sur disque utilise encore l’ancien mot de passe, et l’application ne
+continue jamais avec des clés qui ne correspondent pas au fichier enregistré.
+
+Limite connue : comme les clés de coffre ne changent pas, l’ancien mot de passe
+associé à une **ancienne copie** du fichier (sauvegarde, export, dossier
+synchronisé) ouvre toujours les clés de coffre, donc aussi le contenu ajouté
+ensuite si l’attaquant obtient aussi le nouveau fichier. Une rotation des clés
+de contenu n’est pas appliquée, car elle couperait l’accès des membres des
+coffres partagés ([§ 2.26](#226-socle-de-partage-et-accès-durgence-l10)) ;
+après une fuite de l’ancien mot de passe, créez un nouveau coffre et importez-y
+les éléments.
+
 ### 2.5.1 Déplacement d’un élément entre coffres
 
 Déplacer un élément ne recopie aucun ciphertext tel quel : la clé d’élément,
@@ -1129,10 +1142,22 @@ dans un export `.coffre`.
   précédentes glissent de `backup` vers `backup:2` puis `backup:3`, la plus
   ancienne étant écrasée. Dans l’application desktop, la rotation est effectuée
   par Rust avant le renommage atomique du nouveau fichier.
-- Le verrouillage efface les clés en mémoire et vide l’état React.
+- Dans le navigateur, chaque mutation est une écriture contrôlée : la
+  transaction IndexedDB vérifie que le fichier enregistré est toujours celui à
+  partir duquel la modification a été calculée. Sinon, l’écriture est refusée
+  (`StorageConflictError`) au lieu d’effacer la modification d’un autre onglet.
+- Chaque déverrouillage relit le fichier enregistré : une écriture terminée
+  après un verrouillage, ou faite ailleurs, sert de base aux écritures suivantes.
+- Le verrouillage vide immédiatement l’état React et efface les clés en
+  mémoire. Si une écriture était déjà en cours, les clés restent le temps de la
+  signer et de l’enregistrer (quelques centaines de millisecondes), puis sont
+  effacées : la modification n’est pas perdue, et rien n’est relu en clair.
 - Un rechargement de page, un `pagehide` ou une fermeture d’onglet verrouille le
-  coffre : les clés ne sont jamais persistées. Un retour depuis le cache
-  d’arrière-plan (bfcache) retrouve donc un coffre verrouillé.
+  coffre et passe l’état à « verrouillé » : les clés ne sont jamais persistées.
+  Un retour depuis le cache d’arrière-plan (bfcache) retrouve donc un coffre
+  verrouillé. La clé du déverrouillage rapide (trousseau) est conservée dans ce
+  cas, puisque c’est son rôle au relancement ; un verrouillage explicite, par
+  inactivité ou en arrière-plan la retire.
 - La vérification d’intégrité déchiffre tous les enregistrements — contenus,
   versions et pièces jointes — et compare la taille des pièces jointes à leurs
   métadonnées ; elle ne modifie pas le fichier.
@@ -1238,8 +1263,15 @@ MAC et la révision.
 
 ### 4.2 Presse-papiers
 
-La copie utilise `navigator.clipboard.writeText` lorsque disponible, sinon un
-repli `execCommand('copy')`. L’effacement automatique :
+Dans l’application desktop, la copie passe par une commande Rust
+(`clipboard_copy_secret`) qui marque le contenu comme secret pour les
+gestionnaires d’historique du système ; l’effacement différé
+(`clipboard_clear_if`) lit le presse-papiers côté natif, sans dépendre d’un
+geste de l’utilisateur, et n’efface que si le contenu est toujours le secret
+copié. La WebView ne reçoit aucune permission `clipboard-manager`.
+
+Dans le navigateur, la copie utilise `navigator.clipboard.writeText` lorsque
+disponible, sinon un repli `execCommand('copy')`. L’effacement automatique :
 
 - lit le presse-papiers après le délai configuré ;
 - tente aussi un effacement immédiat au verrouillage ;

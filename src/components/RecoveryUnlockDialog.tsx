@@ -11,7 +11,7 @@ import { Modal } from './Modal'
 import { PasswordStrength } from './PasswordStrength'
 import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
-import { estimateEntropy } from '../lib/crypto'
+import { estimateEntropy } from '../lib/strength'
 import { isRecoveryPhrase, RECOVERY_WORDS } from '../lib/recovery'
 import { parseShareInput } from '../lib/shamir'
 

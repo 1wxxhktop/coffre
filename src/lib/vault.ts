@@ -3556,7 +3556,8 @@ export async function deleteVault(
     throw new VaultValidationError('Impossible de supprimer le dernier coffre')
   }
 
-  session.removeVaultKey(vaultId)
+  // La clé reste dans la session : l’appelant la retire après une écriture
+  // réussie, sinon un échec laisserait un coffre visible mais illisible.
   const recovery = file.recovery
     ? {
         ...file.recovery,

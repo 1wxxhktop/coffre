@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -50,7 +51,9 @@ export function Modal({
   const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef(onClose)
 
-  closeRef.current = onClose
+  useLayoutEffect(() => {
+    closeRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     const id = modalId

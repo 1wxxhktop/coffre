@@ -144,12 +144,17 @@ struct BiometricResult {
 ///
 /// L’authentification est faite dans cette commande : la WebView ne peut pas
 /// lire une clé biométrique sans passer par Touch ID.
+/// Texte du dialogue Touch ID. Il est fixé ici, et non fourni par la WebView,
+/// pour qu’un script ne puisse pas présenter une demande trompeuse.
+#[cfg(target_os = "macos")]
+const BIOMETRIC_REASON: &str = "déverrouiller Coffre";
+
 #[tauri::command]
-async fn biometric_load(account: String, reason: String) -> Result<BiometricResult, String> {
+async fn biometric_load(account: String) -> Result<BiometricResult, String> {
     #[cfg(target_os = "macos")]
     {
         let authenticated =
-            tauri::async_runtime::spawn_blocking(move || biometric::authenticate(&reason))
+            tauri::async_runtime::spawn_blocking(|| biometric::authenticate(BIOMETRIC_REASON))
                 .await
                 .map_err(|error| error.to_string())??;
 
@@ -173,7 +178,7 @@ async fn biometric_load(account: String, reason: String) -> Result<BiometricResu
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (account, reason);
+        let _ = account;
         Err("Le déverrouillage par empreinte n’est pas disponible sur cette plateforme.".into())
     }
 }
@@ -359,15 +364,24 @@ fn sync_unwatch(state: tauri::State<'_, sync_store::SyncState>) -> Result<(), St
     sync_store::unwatch(state)
 }
 
-/// Vrai pour les URL internes de l’application (production et développement).
+/// Vrai pour les URL internes de l’application. Le serveur de développement
+/// (`localhost:1420`) n’est accepté que dans les builds de débogage : en
+/// production, une page locale quelconque sur ce port ne doit pas pouvoir
+/// s’exécuter dans la coque Tauri ni appeler ses commandes.
 fn is_local_url(url: &tauri::Url) -> bool {
+    is_local_url_for(url, cfg!(debug_assertions))
+}
+
+fn is_local_url_for(url: &tauri::Url, allow_dev_server: bool) -> bool {
     match url.scheme() {
         "tauri" => true,
         "http" | "https" => {
             let host = url.host_str();
             let port = url.port_or_known_default();
             host == Some("tauri.localhost")
-                || (host == Some("localhost") || host == Some("127.0.0.1")) && port == Some(1420)
+                || allow_dev_server
+                    && (host == Some("localhost") || host == Some("127.0.0.1"))
+                    && port == Some(1420)
         }
         _ => false,
     }
@@ -483,6 +497,35 @@ async fn hibp_range(prefix: String) -> Result<String, String> {
     Ok(body)
 }
 
+/// Copie un secret dans le presse-papiers du système en demandant aux
+/// gestionnaires d’historique (macOS, Windows, Linux) de l’ignorer.
+#[tauri::command]
+fn clipboard_copy_secret(app: tauri::AppHandle, text: String) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    app.clipboard()
+        .write_secret(text)
+        .map_err(|error| error.to_string())
+}
+
+/// Efface le presse-papiers s’il contient encore exactement `expected`.
+///
+/// La lecture native ne dépend pas d’un geste de l’utilisateur, contrairement à
+/// `navigator.clipboard.readText()` dans WebKit : l’effacement différé
+/// fonctionne donc réellement dans l’application desktop. Un contenu copié
+/// entre-temps par l’utilisateur n’est jamais effacé.
+#[tauri::command]
+fn clipboard_clear_if(app: tauri::AppHandle, expected: String) -> Result<bool, String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    let clipboard = app.clipboard();
+    match clipboard.read_text() {
+        Ok(current) if !expected.is_empty() && current == expected => {
+            clipboard.clear().map_err(|error| error.to_string())?;
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
 /// Empêche la WebView de naviguer vers un site distant. Une telle navigation
 /// est redirigée vers le navigateur système, ce qui évite d’exécuter du contenu
 /// distant dans la coque Tauri.
@@ -511,6 +554,9 @@ pub fn run() {
         .manage(ssh_agent::SshAgentState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(NavigationGuard)
+        // Utilisé uniquement depuis les commandes Rust ci-dessus : aucune
+        // permission `clipboard-manager:*` n’est accordée à la WebView.
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             keychain_store,
             keychain_load,
@@ -528,6 +574,8 @@ pub fn run() {
             ssh_agent::ssh_agent_status,
             ssh_agent::ssh_agent_respond,
             bridge::bridge_send,
+            clipboard_copy_secret,
+            clipboard_clear_if,
             vault_read,
             vault_write,
             vault_backup_read,
@@ -636,27 +684,37 @@ mod hibp_tests {
     }
 }
 
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 mod tests {
-    #[test]
-    fn internal_urls_are_allowed() {
-        assert!(super::is_local_url(
-            &tauri::Url::parse("tauri://localhost/index.html").unwrap()
-        ));
-        assert!(super::is_local_url(
-            &tauri::Url::parse("http://tauri.localhost/").unwrap()
-        ));
-        assert!(super::is_local_url(
-            &tauri::Url::parse("http://localhost:1420/").unwrap()
-        ));
-        assert!(!super::is_local_url(
-            &tauri::Url::parse("https://example.com/").unwrap()
-        ));
-        assert!(!super::is_local_url(
-            &tauri::Url::parse("http://localhost:9999/").unwrap()
-        ));
+    use super::is_local_url_for;
+
+    fn url(value: &str) -> tauri::Url {
+        tauri::Url::parse(value).unwrap()
     }
 
+    #[test]
+    fn urls_internes_autorisees() {
+        for allow_dev in [false, true] {
+            assert!(is_local_url_for(
+                &url("tauri://localhost/index.html"),
+                allow_dev
+            ));
+            assert!(is_local_url_for(&url("http://tauri.localhost/"), allow_dev));
+            assert!(!is_local_url_for(&url("https://example.com/"), allow_dev));
+            assert!(!is_local_url_for(&url("http://localhost:9999/"), allow_dev));
+            assert!(!is_local_url_for(&url("file:///etc/passwd"), allow_dev));
+        }
+    }
+
+    #[test]
+    fn serveur_de_dev_refuse_en_production() {
+        assert!(is_local_url_for(&url("http://localhost:1420/"), true));
+        assert!(is_local_url_for(&url("http://127.0.0.1:1420/"), true));
+        assert!(!is_local_url_for(&url("http://localhost:1420/"), false));
+        assert!(!is_local_url_for(&url("http://127.0.0.1:1420/"), false));
+    }
+
+    #[cfg(target_os = "macos")]
     #[test]
     fn local_authentication_is_queryable() {
         // Aucune authentification n’est déclenchée : on vérifie seulement que
