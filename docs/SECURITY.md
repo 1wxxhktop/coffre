@@ -962,6 +962,17 @@ Les identifiants d’API suivent le même chiffrement que les autres éléments 
 - les exports CSV de connexions ne contiennent pas ces secrets ; le format
   « Coffre complet » reste un export chiffré du fichier `.coffre`.
 
+### 2.23 Licences logicielles
+
+Les clés de licence sont chiffrées avec le contenu de l’élément :
+
+- la clé, le titulaire, la version, le site web et la date d’achat restent dans
+  le contenu chiffré ; les métadonnées du fichier ne les exposent pas ;
+- la clé est masquée par défaut et n’est révélée ou copiée que sur action
+  explicite ;
+- les exports CSV de connexions ne contiennent pas ces clés ; le format
+  « Coffre complet » reste un export chiffré du fichier `.coffre`.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

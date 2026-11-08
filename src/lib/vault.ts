@@ -575,6 +575,16 @@ const apiCredentialContentSchema = z.object({
   endpoint: z.string().max(2_000),
 })
 
+const softwareLicenseContentSchema = z.object({
+  ...itemBaseSchema,
+  type: z.literal('software-license'),
+  licenseKey: z.string().max(10_000),
+  licensedTo: z.string().max(500),
+  version: z.string().max(100),
+  website: z.string().max(2_000),
+  purchaseDate: z.string().max(40),
+})
+
 const itemContentSchema = z.discriminatedUnion('type', [
   loginContentSchema,
   noteContentSchema,
@@ -584,6 +594,7 @@ const itemContentSchema = z.discriminatedUnion('type', [
   sshKeyContentSchema,
   wifiContentSchema,
   apiCredentialContentSchema,
+  softwareLicenseContentSchema,
 ])
 
 /** Valide le contenu déchiffré d’un élément (imports, partages hors ligne). */
@@ -2045,6 +2056,16 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         secret: (draft.secret ?? '').slice(0, 10_000),
         environment: cleanText(draft.environment, 100),
         endpoint: cleanText(draft.endpoint, 2_000),
+      }
+    case 'software-license':
+      return {
+        ...common,
+        type: 'software-license',
+        licenseKey: (draft.licenseKey ?? '').slice(0, 10_000),
+        licensedTo: cleanText(draft.licensedTo, 500),
+        version: cleanText(draft.version, 100),
+        website: cleanText(draft.website, 2_000),
+        purchaseDate: normalizeDateOnly(draft.purchaseDate ?? ''),
       }
   }
 }

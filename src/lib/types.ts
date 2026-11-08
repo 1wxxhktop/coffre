@@ -15,6 +15,7 @@ export const ITEM_TYPES = [
   'ssh-key',
   'wifi',
   'api-credential',
+  'software-license',
 ] as const
 
 export const WIFI_SECURITY = ['WPA', 'WEP', 'nopass'] as const
@@ -174,6 +175,16 @@ export interface ApiCredentialItem extends ItemBase {
   endpoint: string
 }
 
+/** Licence logicielle avec sa clé et son titulaire. */
+export interface SoftwareLicenseItem extends ItemBase {
+  type: 'software-license'
+  licenseKey: string
+  licensedTo: string
+  version: string
+  website: string
+  purchaseDate: string
+}
+
 export type VaultItem =
   | LoginItem
   | NoteItem
@@ -183,6 +194,7 @@ export type VaultItem =
   | SshKeyItem
   | WifiItem
   | ApiCredentialItem
+  | SoftwareLicenseItem
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -584,6 +596,16 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         environment: '',
         endpoint: '',
       }
+    case 'software-license':
+      return {
+        ...base,
+        type: 'software-license',
+        licenseKey: '',
+        licensedTo: '',
+        version: '',
+        website: '',
+        purchaseDate: '',
+      }
   }
 }
 
@@ -607,6 +629,8 @@ export function itemSubtitle(item: VaultItem): string {
       return item.ssid || 'Wi-Fi'
     case 'api-credential':
       return item.keyId || item.environment || 'Identifiant d’API'
+    case 'software-license':
+      return item.licensedTo || item.version || 'Licence logicielle'
   }
 }
 
@@ -628,5 +652,7 @@ export function itemTypeLabel(type: ItemType): string {
       return 'Wi-Fi'
     case 'api-credential':
       return 'Identifiant d’API'
+    case 'software-license':
+      return 'Licence logicielle'
   }
 }

@@ -558,6 +558,17 @@ function makeDraft(
         environment: '',
         endpoint: '',
       } as ItemDraft
+    case 'software-license':
+      return {
+        ...emptyDraft('software-license', vaultId),
+        ...common,
+        type: 'software-license',
+        licenseKey: '',
+        licensedTo: '',
+        version: '',
+        website: '',
+        purchaseDate: '',
+      } as ItemDraft
   }
 }
 
@@ -1415,6 +1426,8 @@ function fingerprintKey(item: FingerprintItem): string {
       return `wifi|${title}|${normalizeText(item.ssid)}`
     case 'api-credential':
       return `api-credential|${title}|${normalizeText(item.keyId)}`
+    case 'software-license':
+      return `software-license|${title}|${normalizeText(item.licensedTo)}`
   }
 }
 

@@ -957,7 +957,7 @@ export function ItemDialog({
                   role="tablist"
                   aria-label={tt('Type d’élément')}
                 >
-                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential'] as ItemType[]).map((type) => (
+                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential', 'software-license'] as ItemType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -1490,6 +1490,60 @@ export function ItemDialog({
                       onChange={(event) => patch({ endpoint: event.target.value })}
                       maxLength={2_000}
                       placeholder={tt('https://api.exemple.fr')}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {draft.type === 'software-license' && (
+                <div className="form-grid">
+                  <label className="field field--full">
+                    <span className="field__label">{tt('Clé de licence')}</span>
+                    <textarea
+                      className="input input--mono"
+                      rows={3}
+                      value={draft.licenseKey}
+                      onChange={(event) => patch({ licenseKey: event.target.value })}
+                      maxLength={10_000}
+                      placeholder={tt('XXXX-XXXX-XXXX-XXXX')}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Licencié à')}</span>
+                    <input
+                      className="input"
+                      value={draft.licensedTo}
+                      onChange={(event) => patch({ licensedTo: event.target.value })}
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Version')}</span>
+                    <input
+                      className="input"
+                      value={draft.version}
+                      onChange={(event) => patch({ version: event.target.value })}
+                      maxLength={100}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Site web')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.website}
+                      onChange={(event) => patch({ website: event.target.value })}
+                      maxLength={2_000}
+                      placeholder={tt('https://exemple.fr')}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Date d’achat')}</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={draft.purchaseDate}
+                      onChange={(event) => patch({ purchaseDate: event.target.value })}
                     />
                   </label>
                 </div>
@@ -2194,6 +2248,28 @@ function ItemDetails({
             copied={copied === 'Point de terminaison'}
             mono
           />
+        </div>
+      )}
+
+      {item.type === 'software-license' && (
+        <div className="detail-list">
+          <SecretRow
+            label="Clé de licence"
+            value={item.licenseKey}
+            revealed={revealed.has('license-key')}
+            onToggle={() => toggleReveal('license-key')}
+            onCopy={() => void copyValue(item.licenseKey, 'Clé de licence')}
+            copied={copied === 'Clé de licence'}
+          />
+          <DetailRow label="Licencié à" value={item.licensedTo} />
+          <DetailRow label="Version" value={item.version} />
+          <DetailRow
+            label="Site web"
+            value={item.website}
+            onCopy={() => void copyValue(item.website, 'Site web')}
+            copied={copied === 'Site web'}
+          />
+          <DetailRow label="Date d’achat" value={item.purchaseDate} />
         </div>
       )}
 
