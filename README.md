@@ -183,6 +183,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   générations de copie locale de secours, restaurables depuis l’écran de
   récupération. Export CSV en clair au format **Mots de passe (Apple)** pour les
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
+- **Identité de partage (préparation L10)** : création depuis les réglages,
+  empreinte SHA-256 et export public sans clé privée. Le partage effectif des
+  coffres reste à venir.
 - **Règles de mot de passe par site** : le générateur applique les contraintes
   de longueur, classes et symboles du dataset Apple « Password Manager
   Resources », embarqué localement et sans requête réseau.

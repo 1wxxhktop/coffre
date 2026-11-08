@@ -594,6 +594,19 @@ export const EN_TEXT: Record<string, string> = {
   'Autre': 'Other',
   'Pièce jointe principale': 'Primary attachment',
   'Règles du site appliquées :': 'Site rules applied:',
+  'Identité de partage': 'Sharing identity',
+  'Prépare le partage de coffres avec un contact de confiance.':
+    'Prepare vault sharing with a trusted contact.',
+  'Identité de partage créée': 'Sharing identity created',
+  'Création de l’identité impossible': 'Could not create the identity',
+  'Transmettez cette identité publique hors bande. Elle ne contient aucune clé privée.':
+    'Share this public identity out of band. It contains no private key.',
+  'Identité publique': 'Public identity',
+  'Identité copiée': 'Identity copied',
+  'Copier l’identité publique': 'Copy public identity',
+  'Aucune identité de partage pour ce coffre.':
+    'No sharing identity for this vault.',
+  'Créer mon identité': 'Create my identity',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

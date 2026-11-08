@@ -131,8 +131,9 @@
 - Socle de partage L10 : identités X25519 et Ed25519, empreintes SHA-256,
   enveloppes HPKE X25519/HKDF-SHA-256/AES-256-GCM pour les clés de coffre et
   l’accès d’urgence, enveloppes multi-membres, rotation de clé partagée et rôles
-  signés. Identité persistée dans le fichier et ré-enveloppée au changement de
-  mot de passe ; interface de partage à venir.
+  signés. Identité persistée dans le fichier, ré-enveloppée au changement de
+  mot de passe et créable depuis les réglages avec export public ; interface de
+  partage effectif à venir.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation
