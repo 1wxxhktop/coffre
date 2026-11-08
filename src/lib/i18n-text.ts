@@ -371,6 +371,12 @@ export const EN_TEXT: Record<string, string> = {
   'Supprimé le': 'Deleted on',
   'pièce jointe': 'attachment',
   'pièces jointes': 'attachments',
+  'Clé privée': 'Private key',
+  'Clé publique': 'Public key',
+  'Empreinte': 'Fingerprint',
+  '-----BEGIN OPENSSH PRIVATE KEY-----': '-----BEGIN OPENSSH PRIVATE KEY-----',
+  'ssh-ed25519 AAAA…': 'ssh-ed25519 AAAA…',
+  'SHA256:…': 'SHA256:…',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

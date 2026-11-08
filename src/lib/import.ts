@@ -514,6 +514,16 @@ function makeDraft(
         ...common,
         type: 'passkey',
       } as ItemDraft
+    case 'ssh-key':
+      return {
+        ...emptyDraft('ssh-key', vaultId),
+        ...common,
+        type: 'ssh-key',
+        privateKey: '',
+        publicKey: '',
+        fingerprint: '',
+        comment: '',
+      } as ItemDraft
   }
 }
 
@@ -1365,6 +1375,8 @@ function fingerprintKey(item: FingerprintItem): string {
       return `note|${title}|${normalizeText(item.notes).slice(0, 200)}`
     case 'passkey':
       return `passkey|${title}|${normalizeText(item.rpId)}|${normalizeText(item.userName)}`
+    case 'ssh-key':
+      return `ssh-key|${title}|${normalizeText(item.fingerprint)}`
   }
 }
 

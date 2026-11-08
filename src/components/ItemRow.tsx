@@ -31,6 +31,7 @@ const TYPE_KEYS: Record<VaultItem['type'], MessageKey> = {
   card: 'itemType.card',
   identity: 'itemType.identity',
   passkey: 'itemType.passkey',
+  'ssh-key': 'itemType.sshKey',
 }
 
 interface ItemRowProps {

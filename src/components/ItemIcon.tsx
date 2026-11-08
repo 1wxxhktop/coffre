@@ -1,4 +1,4 @@
-import { CreditCard, FileText, Fingerprint, KeyRound, UserRound } from 'lucide-react'
+import { CreditCard, FileText, Fingerprint, KeyRound, Terminal, UserRound } from 'lucide-react'
 import type { ItemType } from '../lib/types'
 
 export function ItemIcon({ type, size = 18 }: { type: ItemType; size?: number }) {
@@ -13,5 +13,7 @@ export function ItemIcon({ type, size = 18 }: { type: ItemType; size?: number })
       return <UserRound size={size} />
     case 'passkey':
       return <Fingerprint size={size} />
+    case 'ssh-key':
+      return <Terminal size={size} />
   }
 }
