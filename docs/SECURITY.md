@@ -934,6 +934,22 @@ Les blobs sont des fichiers chiffrés séparés du `.coffre` :
   locale vérifie l’échange entre deux dossiers de blobs ; un test manuel de 1 Gio vérifie le streaming en mémoire
   constante.
 
+### 2.21 Réseaux Wi-Fi
+
+Les identifiants Wi-Fi sont chiffrés avec le contenu de l’élément, comme les
+autres types :
+
+- le SSID, le mot de passe, la sécurité et l’indicateur de réseau masqué sont
+  stockés dans le contenu chiffré de l’élément, jamais dans les métadonnées du
+  fichier ;
+- le QR code `WIFI:` n’est généré qu’après une action explicite, localement,
+  sous forme de data URL SVG ; il n’est ni écrit sur disque ni envoyé sur le
+  réseau ;
+- le QR code et le mot de passe affiché contiennent le secret en clair : ne pas
+  les photographier ni les partager dans un environnement observé ;
+- les exports CSV de connexions n’incluent pas les réseaux Wi-Fi ; le format
+  « Coffre complet » reste un export chiffré par le fichier `.coffre`.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

@@ -22,6 +22,7 @@ export const FILTER_LABELS: Record<ItemFilter, string> = {
   identity: 'Identités',
   passkey: 'Passkeys',
   'ssh-key': 'Clés SSH',
+  wifi: 'Wi-Fi',
 }
 
 export const FILTER_MESSAGE_KEYS: Record<ItemFilter, MessageKey> = {
@@ -36,6 +37,7 @@ export const FILTER_MESSAGE_KEYS: Record<ItemFilter, MessageKey> = {
   identity: 'filter.identity',
   passkey: 'filter.passkey',
   'ssh-key': 'filter.sshKey',
+  wifi: 'filter.wifi',
 }
 
 export function isItemFilter(value: string): value is ItemFilter {

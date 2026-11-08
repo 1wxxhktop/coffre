@@ -575,6 +575,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     identity: activeItems.filter((item) => item.type === 'identity').length,
     passkey: activeItems.filter((item) => item.type === 'passkey').length,
     'ssh-key': activeItems.filter((item) => item.type === 'ssh-key').length,
+    wifi: activeItems.filter((item) => item.type === 'wifi').length,
   }
 
   const goToPage = (next: SettingsPage) => {
@@ -1928,7 +1929,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                   </div>
 
                   <div className="stat-grid">
-                    {(['login', 'card', 'note', 'identity', 'passkey', 'ssh-key'] as const).map(
+                    {(['login', 'card', 'note', 'identity', 'passkey', 'ssh-key', 'wifi'] as const).map(
                       (type) => (
                         <div key={type} className="stat">
                           <strong>{counts[type]}</strong>

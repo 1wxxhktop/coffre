@@ -51,8 +51,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   règle de lint qui refuse les nouvelles chaînes d’interface en dur. Les
   messages Rust restent à traduire.
 - **Coffres multiples** : création, renommage, suppression, filtre par coffre.
-- **Six types d’éléments** : connexion, note sécurisée, carte bancaire,
-  identité, passkey WebAuthn et clé SSH (privée, publique, empreinte).
+- **Sept types d’éléments** : connexion, note sécurisée, carte bancaire,
+  identité, passkey WebAuthn, clé SSH (privée, publique, empreinte) et réseau
+  Wi-Fi avec QR code de connexion généré localement.
 - **Passkeys WebAuthn (ES256)** : création et connexion sans mot de passe dans
   l’extension, confirmation explicite dans une fenêtre Coffre, clé privée
   PKCS#8 conservée dans le contenu chiffré de l’élément, validation stricte du

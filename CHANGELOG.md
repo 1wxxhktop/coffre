@@ -117,6 +117,8 @@
   enveloppe AES-256-GCM liée au fichier. Enrôlement/révocation dans les
   réglages, bouton de déverrouillage et suppression automatique lors d’un
   changement de mot de passe ou d’une récupération.
+- Nouveau type `wifi` : SSID, mot de passe, sécurité WPA/WEP/ouvert et réseau
+  masqué, avec QR code de connexion généré localement à la demande.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation
