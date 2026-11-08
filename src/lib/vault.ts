@@ -3432,6 +3432,68 @@ export async function renameVault(
   }
 }
 
+/** Ajoute un coffre partagé dont la clé a été reçue par paquet. */
+export async function addSharedVault(
+  file: VaultFile,
+  session: VaultSession,
+  input: { vaultId: string; name: string; key: Uint8Array },
+): Promise<{ file: VaultFile; vault: VaultSummary }> {
+  assertUnlocked(session)
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(input.vaultId)) {
+    throw new VaultValidationError('Identifiant de coffre partagé invalide')
+  }
+  if (file.vaults.some((vault) => vault.id === input.vaultId)) {
+    throw new VaultValidationError('Ce coffre partagé est déjà présent')
+  }
+  if (input.key.length !== 32) {
+    throw new VaultValidationError('Clé de coffre partagé invalide')
+  }
+  const name = cleanText(input.name, 80)
+  if (!name) throw new VaultValidationError('Le nom du coffre est obligatoire')
+
+  let recovery = file.recovery
+  if (recovery) {
+    if (!session.hasRecoveryKey) {
+      throw new VaultValidationError(
+        'La clé de récupération n’est pas disponible ; régénérez la phrase avant d’importer un coffre partagé',
+      )
+    }
+    recovery = {
+      ...recovery,
+      wraps: [
+        ...recovery.wraps,
+        {
+          vaultId: input.vaultId,
+          key: await sealBytes(
+            input.key,
+            session.recoveryKey(),
+            recoveryVaultKeyAad(input.vaultId),
+          ),
+        },
+      ],
+    }
+  }
+
+  const now = new Date().toISOString()
+  const record: EncryptedVaultRecord = {
+    id: input.vaultId,
+    key: await sealBytes(input.key, session.masterKey, vaultKeyAad(input.vaultId)),
+    name: await sealJson({ name }, input.key, vaultMetaAad(input.vaultId)),
+    createdAt: now,
+    updatedAt: now,
+  }
+  session.setVaultKey(input.vaultId, input.key)
+  return {
+    file: {
+      ...file,
+      updatedAt: now,
+      vaults: [...file.vaults, record],
+      recovery,
+    },
+    vault: vaultSummary(record, name, []),
+  }
+}
+
 export async function deleteVault(
   file: VaultFile,
   session: VaultSession,

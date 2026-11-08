@@ -102,3 +102,47 @@ describe('paquet de partage', () => {
     await expect(openSharedVaultPackage(altered, bob)).rejects.toThrow()
   })
 })
+
+describe('import d’un coffre partagé', () => {
+  const adminPassword = 'phrase de passe admin solide'
+  const memberPassword = 'phrase de passe membre solide'
+  const fastKdf = { memoryKiB: 8_192, iterations: 1, parallelism: 1 }
+
+  it('ajoute le coffre partagé avec la clé reçue', async () => {
+    const { createVaultFile, signVaultFile, unlockVaultFile, addSharedVault } = await import('./vault')
+    const admin = await createVaultFile(adminPassword, 'Admin', fastKdf)
+    const member = await createVaultFile(memberPassword, 'Membre', fastKdf)
+    const adminIdentity = await generateSharingIdentity()
+    const memberIdentity = await generateSharingIdentity()
+    const vaultId = admin.vaults[0].id
+    const vaultKey = admin.session.vaultKey(vaultId)
+    expect(vaultKey).toBeDefined()
+    const pkg = await createSharedVaultPackage({
+      vaultId,
+      vaultKey: vaultKey as Uint8Array,
+      admin: adminIdentity,
+      members: [{ identity: publicSharingIdentity(memberIdentity), role: 'read' }],
+    })
+    const imported = await openSharedVaultPackage(pkg, memberIdentity)
+    const added = await addSharedVault(member.file, member.session, {
+      vaultId,
+      name: 'Partagé',
+      key: imported.vaultKey,
+    })
+    const signed = await signVaultFile(added.file, member.session, member.file)
+    const opened = await unlockVaultFile(signed, memberPassword)
+    expect(opened.vaults.some((vault) => vault.id === vaultId && vault.name === 'Partagé')).toBe(
+      true,
+    )
+    await expect(
+      addSharedVault(opened.file, opened.session, {
+        vaultId,
+        name: 'Doublon',
+        key: imported.vaultKey,
+      }),
+    ).rejects.toThrow()
+    opened.session.lock()
+    admin.session.lock()
+    member.session.lock()
+  })
+})

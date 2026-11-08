@@ -1029,6 +1029,10 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   coffre et la liste des membres : le transmettre par un canal de confiance ;
 - les identités publiques et les paquets importés sont validés (forme,
   empreinte recalculée, cohérence des rôles et signatures) avant utilisation ;
+- les paquets peuvent être générés et importés depuis **Réglages → Sécurité**.
+  L’import ajoute un coffre local avec la clé partagée et son nom chiffré ; le
+  rôle vérifié est informatif tant que les écritures ne sont pas filtrées par
+  rôle ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;
