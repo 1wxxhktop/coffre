@@ -265,6 +265,9 @@ export function SharingSettings() {
             spellCheck={false}
           />
         </label>
+        <p className="settings-copy">
+          {tt('Les éléments seront ajoutés par la synchronisation du coffre.')}
+        </p>
         <label className="field field--full">
           <span className="field__label">{tt('Nom du coffre importé')}</span>
           <input
