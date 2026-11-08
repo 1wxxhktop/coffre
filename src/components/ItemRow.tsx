@@ -35,6 +35,7 @@ const TYPE_KEYS: Record<VaultItem['type'], MessageKey> = {
   wifi: 'itemType.wifi',
   'api-credential': 'itemType.apiCredential',
   'software-license': 'itemType.softwareLicense',
+  document: 'itemType.document',
 }
 
 interface ItemRowProps {

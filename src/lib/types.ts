@@ -16,6 +16,7 @@ export const ITEM_TYPES = [
   'wifi',
   'api-credential',
   'software-license',
+  'document',
 ] as const
 
 export const WIFI_SECURITY = ['WPA', 'WEP', 'nopass'] as const
@@ -23,6 +24,16 @@ export const WIFI_SECURITY = ['WPA', 'WEP', 'nopass'] as const
 export type WifiSecurity = (typeof WIFI_SECURITY)[number]
 
 export type ItemType = (typeof ITEM_TYPES)[number]
+
+export const DOCUMENT_KINDS = [
+  'identity',
+  'contract',
+  'invoice',
+  'certificate',
+  'other',
+] as const
+
+export type DocumentKind = (typeof DOCUMENT_KINDS)[number]
 
 export const CUSTOM_FIELD_TYPES = ['text', 'hidden', 'url', 'multiline'] as const
 
@@ -185,6 +196,15 @@ export interface SoftwareLicenseItem extends ItemBase {
   purchaseDate: string
 }
 
+/** Document administratif dont la pièce jointe principale est stockée dans le coffre. */
+export interface DocumentItem extends ItemBase {
+  type: 'document'
+  documentKind: DocumentKind
+  issuer: string
+  documentNumber: string
+  issuedAt: string
+}
+
 export type VaultItem =
   | LoginItem
   | NoteItem
@@ -195,6 +215,7 @@ export type VaultItem =
   | WifiItem
   | ApiCredentialItem
   | SoftwareLicenseItem
+  | DocumentItem
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -606,6 +627,15 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         website: '',
         purchaseDate: '',
       }
+    case 'document':
+      return {
+        ...base,
+        type: 'document',
+        documentKind: 'other',
+        issuer: '',
+        documentNumber: '',
+        issuedAt: '',
+      }
   }
 }
 
@@ -631,6 +661,8 @@ export function itemSubtitle(item: VaultItem): string {
       return item.keyId || item.environment || 'Identifiant d’API'
     case 'software-license':
       return item.licensedTo || item.version || 'Licence logicielle'
+    case 'document':
+      return item.issuer || item.documentNumber || 'Document'
   }
 }
 
@@ -654,5 +686,7 @@ export function itemTypeLabel(type: ItemType): string {
       return 'Identifiant d’API'
     case 'software-license':
       return 'Licence logicielle'
+    case 'document':
+      return 'Document'
   }
 }

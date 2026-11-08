@@ -123,6 +123,8 @@
   point de terminaison, avec formulaire, fiche et filtre dédiés.
 - Nouveau type `software-license` : clé de licence, titulaire, version, site
   web et date d’achat, avec formulaire, fiche et filtre dédiés.
+- Nouveau type `document` : type, émetteur, numéro, date d’émission et pièce
+  jointe principale, avec formulaire, fiche et filtre dédiés.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation

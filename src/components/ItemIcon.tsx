@@ -1,4 +1,4 @@
-import { BadgeCheck, Code2, CreditCard, FileText, Fingerprint, KeyRound, Terminal, UserRound, Wifi } from 'lucide-react'
+import { BadgeCheck, Code2, CreditCard, FileCheck2, FileText, Fingerprint, KeyRound, Terminal, UserRound, Wifi } from 'lucide-react'
 import type { ItemType } from '../lib/types'
 
 export function ItemIcon({ type, size = 18 }: { type: ItemType; size?: number }) {
@@ -21,5 +21,7 @@ export function ItemIcon({ type, size = 18 }: { type: ItemType; size?: number })
       return <Code2 size={size} />
     case 'software-license':
       return <BadgeCheck size={size} />
+    case 'document':
+      return <FileCheck2 size={size} />
   }
 }

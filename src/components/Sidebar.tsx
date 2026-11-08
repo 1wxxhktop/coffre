@@ -8,6 +8,7 @@ import {
   Wifi,
   Code2,
   BadgeCheck,
+  FileCheck2,
   History,
   KeyRound,
   LayoutDashboard,
@@ -75,6 +76,7 @@ const FILTER_KEYS: Record<ItemFilter, MessageKey> = {
   wifi: 'filter.wifi',
   'api-credential': 'filter.apiCredential',
   'software-license': 'filter.softwareLicense',
+  document: 'filter.document',
   trash: 'filter.trash',
 }
 
@@ -92,6 +94,7 @@ const FILTERS: Array<{ id: ItemFilter; icon: LucideIcon }> = [
   { id: 'wifi', icon: Wifi },
   { id: 'api-credential', icon: Code2 },
   { id: 'software-license', icon: BadgeCheck },
+  { id: 'document', icon: FileCheck2 },
   { id: 'trash', icon: Trash2 },
 ]
 

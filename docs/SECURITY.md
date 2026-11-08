@@ -973,6 +973,22 @@ Les clés de licence sont chiffrées avec le contenu de l’élément :
 - les exports CSV de connexions ne contiennent pas ces clés ; le format
   « Coffre complet » reste un export chiffré du fichier `.coffre`.
 
+### 2.24 Documents
+
+Les documents administratifs sont des éléments chiffrés dont la pièce jointe
+principale est une pièce jointe Coffre :
+
+- le type, l’émetteur, le numéro et la date d’émission sont chiffrés avec le
+  contenu de l’élément ;
+- la pièce jointe principale est chiffrée séparément, avec sa propre clé
+  protégée par le contenu de l’élément ; elle n’est jamais envoyée sur le
+  réseau par Coffre ;
+- la fiche affiche le nom de la première pièce jointe ; les pièces jointes
+  restent soumises aux mêmes limites de taille et de type que les autres
+  éléments ;
+- les exports CSV de connexions n’incluent pas les documents ; le format
+  « Coffre complet » reste un export chiffré du fichier `.coffre`.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)
