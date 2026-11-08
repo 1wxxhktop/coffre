@@ -50,6 +50,8 @@ import { useAutoLock } from '../hooks/useAutoLock'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { LAYOUT_LIMITS, useLayoutPreferences } from '../hooks/useLayoutPreferences'
 import { loadUsage, recordItemUsage, type UsageMap } from '../lib/usage'
+import { dateGroupInfo, groupItemsByDate, type DateGroup } from '../lib/dateGroups'
+import { formatMonthYear } from '../lib/settings'
 import {
   analyzeSecurity,
   itemSecurityIssue,
@@ -60,7 +62,13 @@ import {
 import { collectExpiries } from '../lib/expiry'
 import { scanBreaches } from '../lib/breach'
 import { notifyExpiringItems } from '../lib/notifications'
-import { itemSubtitle, itemTypeLabel, type ItemType, type VaultSummary } from '../lib/types'
+import {
+  itemSubtitle,
+  itemTypeLabel,
+  type ItemType,
+  type VaultItem,
+  type VaultSummary,
+} from '../lib/types'
 import { isTauriRuntime } from '../lib/external'
 
 function createTypeForFilter(filter: ItemFilter): ItemType {
@@ -78,6 +86,16 @@ function normalize(value: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+}
+
+const GROUP_BY_DATE_KEY = 'coffre:ui:group-by-date'
+
+function loadGroupByDate(): boolean {
+  try {
+    return localStorage.getItem(GROUP_BY_DATE_KEY) !== '0'
+  } catch {
+    return true
+  }
 }
 
 function searchableText(item: ReturnType<typeof useVault>['items'][number]): string {
@@ -161,7 +179,7 @@ export function VaultApp() {
     favoriteItems,
   } = useVault()
   const { settings } = useSettings()
-  const { t } = useI18n()
+  const { t, intl } = useI18n()
   const { toast } = useToast()
   const layout = useLayoutPreferences()
   const desktopLayout = useMediaQuery('(min-width: 1100px)')
@@ -183,6 +201,7 @@ export function VaultApp() {
   const [vaultFilter, setVaultFilter] = useState<'all' | string>('all')
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<ItemSort>('name-asc')
+  const [groupByDate, setGroupByDate] = useState(loadGroupByDate)
   const [usage, setUsage] = useState<UsageMap>(() => loadUsage())
   const [visibleLimit, setVisibleLimit] = useState(200)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -424,9 +443,24 @@ export function VaultApp() {
     [items],
   )
 
+  const groupingActive =
+    groupByDate && !securityCategory && filter !== 'expiring'
+  const groupDateOf = useCallback(
+    (item: VaultItem): string | number | null => {
+      if (filter === 'trash') return item.deletedAt
+      if (filter === 'recent' || sort === 'recent') {
+        return usage[item.id] ?? item.updatedAt
+      }
+      if (sort === 'created') return item.createdAt
+      return item.updatedAt
+    },
+    [filter, sort, usage],
+  )
+
   const filteredItems = useMemo(() => {
     const query = normalize(search.trim())
-    return scopedItems
+    const now = new Date()
+    const entries = scopedItems
       .filter((item) => {
         if (securityCategory) {
           if (item.deletedAt) return false
@@ -453,40 +487,49 @@ export function VaultApp() {
         if (query && !(searchIndex.get(item.id) ?? '').includes(query)) return false
         return true
       })
-      .sort((a, b) => {
-        if (filter === 'trash' && !securityCategory) {
-          return (b.deletedAt ?? '').localeCompare(a.deletedAt ?? '')
+      .map((item) => ({
+        item,
+        rank: groupingActive ? dateGroupInfo(groupDateOf(item), now).rank : 0,
+      }))
+
+    entries.sort((left, right) => {
+      const a = left.item
+      const b = right.item
+      if (groupingActive && left.rank !== right.rank) return left.rank - right.rank
+      if (filter === 'trash' && !securityCategory) {
+        return (b.deletedAt ?? '').localeCompare(a.deletedAt ?? '')
+      }
+      // La vue « Bientôt expirés » suit l’échéance la plus proche.
+      if (filter === 'expiring' && !securityCategory) {
+        const aDate = expiryByItem.get(a.id)?.date ?? '9999-12-31'
+        const bDate = expiryByItem.get(b.id)?.date ?? '9999-12-31'
+        if (aDate !== bDate) return aDate.localeCompare(bDate)
+        return a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
+      }
+      // Les vues « Récents » suivent l’horodatage d’utilisation.
+      if ((filter === 'recent' || sort === 'recent') && !securityCategory) {
+        return (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
+      }
+      // Les favoris restent en tête, puis le tri choisi s’applique.
+      if (a.favorite !== b.favorite) return a.favorite ? -1 : 1
+      switch (sort) {
+        case 'name-desc':
+          return b.title.localeCompare(a.title, 'fr', { sensitivity: 'base' })
+        case 'updated':
+          return b.updatedAt.localeCompare(a.updatedAt)
+        case 'created':
+          return b.createdAt.localeCompare(a.createdAt)
+        case 'type': {
+          const delta = TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)
+          return delta !== 0
+            ? delta
+            : a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
         }
-        // La vue « Bientôt expirés » suit l’échéance la plus proche.
-        if (filter === 'expiring' && !securityCategory) {
-          const aDate = expiryByItem.get(a.id)?.date ?? '9999-12-31'
-          const bDate = expiryByItem.get(b.id)?.date ?? '9999-12-31'
-          if (aDate !== bDate) return aDate.localeCompare(bDate)
+        default:
           return a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
-        }
-        // Les vues « Récents » suivent l’horodatage d’utilisation.
-        if ((filter === 'recent' || sort === 'recent') && !securityCategory) {
-          return (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
-        }
-        // Les favoris restent en tête, puis le tri choisi s’applique.
-        if (a.favorite !== b.favorite) return a.favorite ? -1 : 1
-        switch (sort) {
-          case 'name-desc':
-            return b.title.localeCompare(a.title, 'fr', { sensitivity: 'base' })
-          case 'updated':
-            return b.updatedAt.localeCompare(a.updatedAt)
-          case 'created':
-            return b.createdAt.localeCompare(a.createdAt)
-          case 'type': {
-            const delta = TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)
-            return delta !== 0
-              ? delta
-              : a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
-          }
-          default:
-            return a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
-        }
-      })
+      }
+    })
+    return entries.map((entry) => entry.item)
   }, [
     scopedItems,
     filter,
@@ -496,13 +539,27 @@ export function VaultApp() {
     searchIndex,
     expiryByItem,
     securityCategory,
+    groupingActive,
+    groupDateOf,
   ])
 
   useEffect(() => {
     setVisibleLimit(200)
   }, [filter, search, sort, vaultFilter, securityCategory])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(GROUP_BY_DATE_KEY, groupByDate ? '1' : '0')
+    } catch {
+      // Le stockage local peut être indisponible : la préférence reste en mémoire.
+    }
+  }, [groupByDate])
+
   const visibleItems = filteredItems.slice(0, visibleLimit)
+  const dateGroups = useMemo(
+    () => (groupingActive ? groupItemsByDate(visibleItems, groupDateOf) : null),
+    [groupingActive, visibleItems, groupDateOf],
+  )
 
   const deletedCount = items.filter((item) => item.deletedAt).length
   const selectedItems = items.filter(
@@ -759,6 +816,50 @@ export function VaultApp() {
     }
   }
 
+  const dateGroupLabel = (group: DateGroup<VaultItem>): string => {
+    if (group.kind === 'month-year' && group.date) {
+      return formatMonthYear(group.date.toISOString(), intl)
+    }
+    switch (group.kind) {
+      case 'today':
+        return t('vault.dateGroup.today')
+      case 'yesterday':
+        return t('vault.dateGroup.yesterday')
+      case 'week':
+        return t('vault.dateGroup.week')
+      case 'month':
+        return t('vault.dateGroup.month')
+      default:
+        return t('vault.dateGroup.unknown')
+    }
+  }
+
+  const renderItemRow = (item: VaultItem) => (
+    <ItemRow
+      key={item.id}
+      item={item}
+      vaultName={vaults.find((vault) => vault.id === item.vaultId)?.name ?? 'Coffre'}
+      showVault={vaultFilter === 'all'}
+      selected={selectedId === item.id}
+      selectable={selectionMode}
+      issue={securityIssueById.get(item.id) ?? null}
+      checked={selectedIds.has(item.id)}
+      onSelect={() => {
+        if (selectionMode) {
+          toggleSelected(item.id)
+          return
+        }
+        setCreateType(null)
+        setSelectedId(item.id)
+        markUsed(item.id)
+      }}
+      onLongPress={() => {
+        setSelectionMode(true)
+        toggleSelected(item.id)
+      }}
+    />
+  )
+
   return (
     <div className="app-shell" style={shellStyle}>
       <a className="skip-link" href="#main-content">
@@ -1000,6 +1101,18 @@ export function VaultApp() {
                           {selectionMode && <Check size={14} className="menu__check" />}
                         </button>
                       )}
+                      {!securityCategory && filter !== 'expiring' && (
+                        <button
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={groupByDate}
+                          className="menu__item"
+                          onClick={() => setGroupByDate((value) => !value)}
+                        >
+                          {t('vault.groupByDate')}
+                          {groupByDate && <Check size={14} className="menu__check" />}
+                        </button>
+                      )}
                       <div className="menu__label">{t('vault.sortBy')}</div>
                       {(Object.keys(SORT_MESSAGE_KEYS) as ItemSort[]).map((value) => (
                         <button
@@ -1096,31 +1209,16 @@ export function VaultApp() {
 
               {filteredItems.length > 0 ? (
                 <div className="item-list" ref={listRef} onKeyDown={onListKeyDown}>
-                  {visibleItems.map((item) => (
-                    <ItemRow
-                      key={item.id}
-                      item={item}
-                      vaultName={vaults.find((vault) => vault.id === item.vaultId)?.name ?? 'Coffre'}
-                      showVault={vaultFilter === 'all'}
-                      selected={selectedId === item.id}
-                      selectable={selectionMode}
-                      issue={securityIssueById.get(item.id) ?? null}
-                      checked={selectedIds.has(item.id)}
-                      onSelect={() => {
-                        if (selectionMode) {
-                          toggleSelected(item.id)
-                          return
-                        }
-                        setCreateType(null)
-                        setSelectedId(item.id)
-                        markUsed(item.id)
-                      }}
-                      onLongPress={() => {
-                        setSelectionMode(true)
-                        toggleSelected(item.id)
-                      }}
-                    />
-                  ))}
+                  {dateGroups
+                    ? dateGroups.map((group) => (
+                        <div key={group.key} className="item-group">
+                          <h2 className="item-group__title">
+                            {dateGroupLabel(group)}
+                          </h2>
+                          {group.items.map(renderItemRow)}
+                        </div>
+                      ))
+                    : visibleItems.map(renderItemRow)}
                   {filteredItems.length > visibleItems.length && (
                     <button
                       type="button"
