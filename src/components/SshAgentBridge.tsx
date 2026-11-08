@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import { useI18n } from '../state/I18nProvider'
 import { useVault } from '../state/VaultProvider'
@@ -26,6 +26,8 @@ export function SshAgentBridge() {
   const [requests, setRequests] = useState<SshAgentApproval[]>([])
   const [busy, setBusy] = useState(false)
   const [touchIdReady, setTouchIdReady] = useState(false)
+  const [remember, setRemember] = useState(false)
+  const graceRef = useRef(new Map<string, number>())
 
   useEffect(() => {
     if (!isTauriRuntime() || !settings.biometricUnlock || !biometricSupported()) {
@@ -45,6 +47,10 @@ export function SshAgentBridge() {
     if (!isTauriRuntime()) return
     let unlisten: (() => void) | undefined
     void onSshAgentApproval((payload) => {
+      if ((graceRef.current.get(payload.fingerprint) ?? 0) > Date.now()) {
+        void respondSshAgent(payload.id, true).catch(() => {})
+        return
+      }
       setRequests((previous) => [...previous, payload])
     }).then((cleanup) => {
       unlisten = cleanup
@@ -56,6 +62,8 @@ export function SshAgentBridge() {
     if (!isTauriRuntime()) return
     if (status !== 'unlocked') {
       setRequests([])
+      setRemember(false)
+      graceRef.current.clear()
       void stopSshAgent()
     }
   }, [status])
@@ -80,8 +88,12 @@ export function SshAgentBridge() {
         toast(t('sshAgent.approval.touchIdCancelled'), 'error')
         return
       }
+      if (approved && remember) {
+        graceRef.current.set(request.fingerprint, Date.now() + 15_000)
+      }
       await respondSshAgent(request.id, approved)
       setRequests((previous) => previous.slice(1))
+      setRemember(false)
     } catch (caught) {
       toast(caught instanceof Error ? caught.message : t('sshAgent.error'), 'error')
     } finally {
@@ -163,6 +175,15 @@ export function SshAgentBridge() {
       {touchIdReady && (
         <p className="settings-copy">{t('sshAgent.approval.touchIdHint')}</p>
       )}
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(event) => setRemember(event.target.checked)}
+        />
+        <span>{t('sshAgent.approval.remember')}</span>
+      </label>
+      <p className="settings-copy">{t('sshAgent.approval.rememberHint')}</p>
     </Modal>
   )
 }
