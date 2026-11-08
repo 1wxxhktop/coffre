@@ -90,6 +90,7 @@ interface CommonFields {
   tags: string[]
   favorite: boolean
   customFields: CustomField[]
+  expiresAt?: string
 }
 
 interface ExtraFields {
@@ -112,6 +113,9 @@ interface ExtraFields {
   postalCode?: string
   country?: string
   birthDate?: string
+  passportExpiry?: string
+  idCardExpiry?: string
+  licenseExpiry?: string
 }
 
 /* ------------------------------------------------------------------ */
@@ -466,9 +470,18 @@ function makeDraft(
         postalCode: extras.postalCode ?? '',
         country: extras.country ?? '',
         birthDate: extras.birthDate ?? '',
+        passportExpiry: extras.passportExpiry ?? '',
+        idCardExpiry: extras.idCardExpiry ?? '',
+        licenseExpiry: extras.licenseExpiry ?? '',
       }
     case 'note':
       return { ...draft, type: 'note' }
+    case 'passkey':
+      return {
+        ...emptyDraft('passkey', vaultId),
+        ...common,
+        type: 'passkey',
+      } as ItemDraft
   }
 }
 
@@ -1212,6 +1225,8 @@ function fingerprintKey(item: FingerprintItem): string {
       return `identity|${title}|${normalizeText(item.email)}`
     case 'note':
       return `note|${title}|${normalizeText(item.notes).slice(0, 200)}`
+    case 'passkey':
+      return `passkey|${title}|${normalizeText(item.rpId)}|${normalizeText(item.userName)}`
   }
 }
 
@@ -1503,6 +1518,36 @@ const HEADER_ALIASES: Record<string, string[]> = {
   postalCode: ['postal code', 'postalcode', 'zip', 'zip code', 'zipcode', 'postcode', 'code postal'],
   country: ['country', 'pays'],
   birthDate: ['birthdate', 'birthday', 'date of birth', 'dob', 'date de naissance'],
+  expiresAt: [
+    'expires at',
+    'expiresat',
+    'echeance',
+    'date d echeance',
+    'rappel d echeance',
+    'review at',
+    'review date',
+  ],
+  passportExpiry: [
+    'passport expiry',
+    'passport expiration',
+    'passportexpiry',
+    'expiration passeport',
+    'expiration du passeport',
+  ],
+  idCardExpiry: [
+    'id card expiry',
+    'identity card expiry',
+    'idcardexpiry',
+    'expiration carte identite',
+    'expiration de la carte d identite',
+  ],
+  licenseExpiry: [
+    'license expiry',
+    'licence expiry',
+    'licenseexpiry',
+    'expiration permis',
+    'expiration du permis de conduire',
+  ],
 }
 
 const KNOWN_HEADERS = new Set(
@@ -1738,6 +1783,7 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
         ...customFieldsFromRow(row, headers, originalHeaders),
         ...parseCoffreCustomFields(pick(row, headers, 'customFields')),
       ].slice(0, MAX_CUSTOM_FIELDS),
+      expiresAt: pick(row, headers, 'expiresAt').slice(0, 40),
     }
 
     const expMonth = pick(row, headers, 'expiry')
@@ -1764,6 +1810,9 @@ function parseCsv(text: string, vaultId: string): ParsedImport {
       postalCode: pick(row, headers, 'postalCode').slice(0, 40),
       country: pick(row, headers, 'country').slice(0, 200),
       birthDate: pick(row, headers, 'birthDate').slice(0, 40),
+      passportExpiry: pick(row, headers, 'passportExpiry').slice(0, 40),
+      idCardExpiry: pick(row, headers, 'idCardExpiry').slice(0, 40),
+      licenseExpiry: pick(row, headers, 'licenseExpiry').slice(0, 40),
     }
 
     items.push(makeDraft(type, vaultId, common, extras))

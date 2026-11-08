@@ -1,6 +1,6 @@
 # Niveau de préparation grand public — Coffre 0.8.0
 
-**Date :** 7 novembre 2026  
+**Date :** 8 novembre 2026
 **Conclusion :** le socle de sécurité est solide et aucun défaut critique de
 confidentialité n’a été trouvé lors de la re-vérification. En revanche, Coffre
 n’est **pas encore prêt pour une distribution grand public**. C’est une
@@ -19,8 +19,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 | Plateforme | État | Verdict |
 | --- | --- | --- |
 | Web / PWA | Fonctionnelle, 46/46 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
-| Extension Chromium / Firefox | Fonctionnelle sur Chromium ; variante Firefox lintée, non publiée | **Bêta technique** |
-| Desktop macOS arm64 | Compile, stockage natif, se lance, Touch ID, signé ad hoc | **Bêta technique locale** |
+| Extension Chromium / Firefox | Fonctionnelle sur Chromium (remplissage et passkeys) ; variante Firefox lintée, non publiée ; pont natif macOS/Linux implémenté | **Bêta technique** |
+| Desktop macOS arm64 | Compile, stockage natif, se lance, Touch ID, synchronisation par dossier, signé ad hoc | **Bêta technique locale** |
 | Desktop macOS Intel | Non testé | **Non validé** |
 | Windows | Build CI, pas de test d’exécution | **Non validé** |
 | Linux | Build CI, pas de test d’exécution | **Non validé** |
@@ -33,8 +33,34 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 
 - **Cryptographie** : Argon2id 64 Mio, AES-256-GCM, AAD par usage, hiérarchie
   de clés claire, nonces aléatoires, clés éphémères par élément.
-- **Format** : `.coffre` v3 validé par Zod, compatibilité v1/v2, migrations à
-  l’écriture, plafonds d’import, versions et pièces jointes.
+- **Format** : `.coffre` v4 validé par Zod, MAC global et révisions hors
+  fichier, compatibilité v1 à v3, migrations à l’écriture, pierres tombales
+  plafonnées, historique et pièces jointes.
+- **Intégrité** : HMAC-SHA-256 sur un manifeste canonique, clé scellée par la
+  clé maîtresse et tournée avec l’époque des clés ; un fichier altéré s’ouvre
+  en lecture seule.
+- **Extension** : remplissage depuis l’onglet Coffre déverrouillé, secours
+  conservé ; pont natif desktop appairé (ECDH P-256, HKDF, AES-256-GCM,
+  compteurs anti-rejeu) avec installation automatique des hôtes de messagerie
+  native et contrôle de domaine dans l’application.
+- **Passkeys** : création et assertion ES256 dans l’application, interception
+  WebAuthn dans le monde `MAIN`, confirmation dans une fenêtre d’extension,
+  validation de l’origine et du RP ID, clé privée absente des messages. Les
+  sites exigeant `UV` ou un authentificateur externe utilisent le navigateur ;
+  l’export FIDO CXF reste à faire.
+- **Fuites connues** : vérification optionnelle, désactivée par défaut, en
+  k-anonymat (préfixe SHA-1 de 5 caractères, `Add-Padding`). Résultats en
+  mémoire uniquement, intégrés au score et aux catégories ; desktop via Rust,
+  Web via un hôte CSP dédié.
+- **Cœur Rust partagé** : crate `coffre-core` en lecture seule v1 à v4,
+  crypto identique, manifeste/MAC v4, buffers `Zeroizing`, vecteurs croisés
+  TypeScript ↔ Rust et CI Linux/macOS/Windows. Les mutations et la fusion
+  restent à porter.
+- **Synchronisation** : dossier choisi par l’utilisateur, un fichier par
+  appareil, fusion v4 par horloges et pierres tombales, vérification du MAC
+  distant, adoption d’une nouvelle époque de clés, archivage des conflits et
+  surveillance `notify` sur desktop. Chromium utilise la File System Access API
+  avec handle persistant ; Safari/Firefox restent en export/import manuel.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
@@ -47,9 +73,12 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 167 tests unitaires (16 fichiers), 46 exécutions Playwright,
-  3 tests Rust, smoke extension avec CSP production, Lighthouse accessibilité
-  1,0.
+- **Tests** : 333 tests unitaires (38 fichiers), 120 exécutions Playwright
+  (58 parcours sur Chromium et WebKit), 13 tests Rust desktop + 5 tests
+  `coffre-core`, smoke extension
+  (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
+  verrouillage), vérification HIBP interceptée, relais natif simulé et
+  Lighthouse accessibilité 1,0.
 - **Documentation** : SECURITY, audit, AutoFill, Proton Pass, native, README.
 
 ---
@@ -97,7 +126,9 @@ l’AutoFill, qui devra partager ce fichier via un App Group.
 
 L’extension Chromium fonctionne, mais il n’existe pas de fournisseur AutoFill
 macOS/iOS ni d’extension Safari. Pour un usage grand public, le remplissage doit
-être disponible dans Safari et les apps, comme 1Password. Voir
+être disponible dans Safari et les apps, comme 1Password. Le pont natif
+extension ↔ application desktop est implémenté (messagerie native, appairage
+chiffré), mais il ne remplace pas l’AutoFill système. Voir
 [docs/MACOS-AUTOFILL.md](MACOS-AUTOFILL.md).
 
 ### B-05 — Mobile

@@ -11,7 +11,7 @@ test.describe('phrase de récupération', () => {
     await addLogin(page)
     await closeDialog(page)
 
-    const settings = await openSettings(page)
+    const settings = await openSettings(page, 'Sécurité')
     await settings.getByRole('button', { name: 'Configurer une phrase' }).click()
 
     const recovery = page.getByRole('dialog').filter({

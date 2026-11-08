@@ -68,6 +68,9 @@ Runtime web :
   - idb                               ISC
   - Zod                               MIT
   - Lucide (lucide-react)             ISC
+  - uqr                               MIT
+  - aes-js                            MIT
+  - fast-xml-parser                   MIT
 
 Build et développement :
   - Vite                              MIT

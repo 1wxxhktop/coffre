@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal } from './Modal'
+import { useI18n } from '../state/I18nProvider'
 
 interface ConfirmDialogProps {
   title: string
@@ -18,10 +19,11 @@ export function ConfirmDialog({
   confirmLabel,
   tone = 'danger',
   requireText,
-  busyLabel = 'Traitement…',
+  busyLabel,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
+  const { t } = useI18n()
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +36,7 @@ export function ConfirmDialog({
     try {
       await onConfirm()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Une erreur est survenue')
+      setError(caught instanceof Error ? caught.message : t('common.error'))
       setBusy(false)
     }
   }
@@ -48,7 +50,7 @@ export function ConfirmDialog({
       footer={
         <>
           <button type="button" className="button button--ghost" onClick={onClose} disabled={busy}>
-            Annuler
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -56,7 +58,7 @@ export function ConfirmDialog({
             onClick={() => void submit()}
             disabled={!valid || busy}
           >
-            {busy ? busyLabel : confirmLabel}
+            {busy ? busyLabel ?? t('common.processing') : confirmLabel}
           </button>
         </>
       }
@@ -65,7 +67,7 @@ export function ConfirmDialog({
         {requireText && (
           <label className="field">
             <span className="field__label">
-              Tapez <strong>{requireText}</strong> pour confirmer
+              {t('common.typeToConfirm', { text: requireText })}
             </span>
             <input
               className="input"

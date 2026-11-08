@@ -1,0 +1,164 @@
+{
+  "extName": {
+    "message": "Coffre — autofill"
+  },
+  "extDescription": {
+    "message": "Coffre’s local companion: fills logins from the unlocked app, with no server or telemetry."
+  },
+  "popup_siteUnknown": {
+    "message": "Unknown site"
+  },
+  "popup_settings": {
+    "message": "Settings"
+  },
+  "popup_save": {
+    "message": "Save"
+  },
+  "popup_ignore": {
+    "message": "Ignore"
+  },
+  "popup_searchPlaceholder": {
+    "message": "Search for a login…"
+  },
+  "popup_searchLabel": {
+    "message": "Search for a login"
+  },
+  "popup_showAll": {
+    "message": "Show all my logins"
+  },
+  "popup_activateInline": {
+    "message": "Enable the inline menu"
+  },
+  "popup_pair": {
+    "message": "Pair the extension"
+  },
+  "popup_openApp": {
+    "message": "Open Coffre"
+  },
+  "popup_unlockApp": {
+    "message": "Unlock Coffre"
+  },
+  "popup_footer": {
+    "message": "Local · no server"
+  },
+  "options_title": {
+    "message": "Settings — Coffre"
+  },
+  "options_heading": {
+    "message": "Coffre extension"
+  },
+  "options_subtitle": {
+    "message": "Local autofill, with no server or telemetry."
+  },
+  "options_appAddress": {
+    "message": "Application address"
+  },
+  "options_appAddressCopy": {
+    "message": "The extension queries the unlocked Coffre tab to retrieve the current site’s logins. It stores no secret."
+  },
+  "options_url": {
+    "message": "Coffre URL"
+  },
+  "options_save": {
+    "message": "Save and allow"
+  },
+  "options_test": {
+    "message": "Test connection"
+  },
+  "options_open": {
+    "message": "Open Coffre"
+  },
+  "options_how": {
+    "message": "How it works"
+  },
+  "options_how1": {
+    "message": "Open Coffre and unlock your vault."
+  },
+  "options_how2": {
+    "message": "On a site, click the Coffre icon in the toolbar."
+  },
+  "options_how3": {
+    "message": "Choose “Fill”: the fields are completed in the active page."
+  },
+  "options_privacy": {
+    "message": "The master password and keys never leave the Coffre tab. Logins only travel in memory between that tab and the active page. Close or lock the Coffre tab to cut access."
+  },
+  "options_permissions": {
+    "message": "Permissions"
+  },
+  "options_permissionsCopy": {
+    "message": "The extension requests access to the active tab when filling, and to the Coffre address configured above. It has no access to other tabs outside your action."
+  },
+  "menu_open": {
+    "message": "Open Coffre"
+  },
+  "menu_close": {
+    "message": "Close"
+  },
+  "menu_search": {
+    "message": "Search…"
+  },
+  "menu_searchLabel": {
+    "message": "Search for a login"
+  },
+  "menu_save": {
+    "message": "Save to Coffre"
+  },
+  "menu_ignore": {
+    "message": "Ignore"
+  },
+  "passkey_title": {
+    "message": "Passkey request"
+  },
+  "passkey_warning": {
+    "message": "Only approve if you initiated this request. The private key remains encrypted in your vault."
+  },
+  "passkey_approve": {
+    "message": "Use Coffre"
+  },
+  "passkey_decline": {
+    "message": "Use another device"
+  },
+  "error_appClosed": {
+    "message": "Open Coffre to sign in."
+  },
+  "error_locked": {
+    "message": "Coffre is locked. Unlock it in its tab."
+  },
+  "error_needsPairing": {
+    "message": "Pair this extension with Coffre before continuing."
+  },
+  "error_pairRejected": {
+    "message": "Pairing was rejected in Coffre."
+  },
+  "error_pairProtocol": {
+    "message": "Pairing was interrupted. Try again from Coffre."
+  },
+  "error_domainMismatch": {
+    "message": "This login is not saved for this site."
+  },
+  "error_permission": {
+    "message": "Allow the extension to access the Coffre tab in the settings."
+  },
+  "error_noFields": {
+    "message": "No login field detected on this page."
+  },
+  "error_noTab": {
+    "message": "This page does not allow autofill."
+  },
+  "error_notFound": {
+    "message": "This login no longer exists in the vault."
+  },
+  "error_invalidUrl": {
+    "message": "The Coffre address is invalid."
+  },
+  "error_nativeTimeout": {
+    "message": "Coffre is not responding. Check that the app is open."
+  },
+  "error_nativeUnavailable": {
+    "message": "The Coffre desktop app is unavailable."
+  },
+  "error_generic": {
+    "message": "Operation failed."
+  }
+}

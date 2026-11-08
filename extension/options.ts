@@ -1,10 +1,16 @@
 interface AppStatus {
   appOpen: boolean
   unlocked: boolean
+  paired?: boolean
+  mode?: 'native' | 'tab'
   appUrl: string
 }
 
+import { localizeDocument } from './i18n'
+
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
+
+localizeDocument()
 
 const input = document.getElementById('app-url') as HTMLInputElement
 const saveButton = document.getElementById('save') as HTMLButtonElement
@@ -33,6 +39,21 @@ function normalize(value: string): string | null {
 
 async function describeStatus() {
   const response = await send<AppStatus>({ type: 'GET_STATUS' })
+  if (response.mode === 'native') {
+    if (!response.unlocked) {
+      setStatus('Coffre desktop est ouvert mais verrouillé.', 'error')
+      return
+    }
+    if (response.paired === false) {
+      setStatus(
+        'Coffre desktop est ouvert. Ouvrez le popup de l’extension pour l’associer.',
+        'info',
+      )
+      return
+    }
+    setStatus('Coffre desktop est déverrouillé. Pont natif prêt.', 'ok')
+    return
+  }
   if (!response.appOpen) {
     setStatus('Coffre n’est pas ouvert dans un onglet.', 'error')
     return

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { safeExternalUrl } from './url'
+import { changePasswordUrl, safeExternalUrl } from './url'
 
 describe('adresses externes', () => {
   it('accepte http et https', () => {
@@ -35,5 +35,17 @@ describe('adresses externes', () => {
 
   it('conserve le schéma existant sans le préfixer', () => {
     expect(safeExternalUrl('HTTPS://EXAMPLE.COM')).toBe('https://example.com/')
+  })
+
+  it('dérive l’URL de changement de mot de passe', () => {
+    expect(changePasswordUrl(['https://github.com/login'])).toBe(
+      'https://github.com/.well-known/change-password',
+    )
+    expect(changePasswordUrl(['github.com', 'https://gist.github.com'])).toBe(
+      'https://github.com/.well-known/change-password',
+    )
+    expect(changePasswordUrl(['http://example.com'])).toBeNull()
+    expect(changePasswordUrl(['javascript:alert(1)'])).toBeNull()
+    expect(changePasswordUrl([])).toBeNull()
   })
 })

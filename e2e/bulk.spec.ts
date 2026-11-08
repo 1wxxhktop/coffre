@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, closeDialog, createVault } from './helpers'
+import { addLogin, closeDialog, createVault, enableSelection } from './helpers'
 
 async function createTwoLogins(page: import('@playwright/test').Page): Promise<void> {
   await createVault(page)
@@ -12,7 +12,7 @@ async function createTwoLogins(page: import('@playwright/test').Page): Promise<v
 test('sélectionne plusieurs éléments et les met à la corbeille', async ({ page }) => {
   await createTwoLogins(page)
 
-  await page.getByRole('button', { name: 'Sélectionner' }).click()
+  await enableSelection(page)
   await page.locator('.item-row').filter({ hasText: 'Alpha' }).click()
   await expect(page.locator('.item-row').filter({ hasText: 'Alpha' })).toHaveAttribute(
     'aria-pressed',
@@ -35,10 +35,19 @@ test('sélectionne plusieurs éléments et les met à la corbeille', async ({ pa
 test('ajoute plusieurs éléments aux favoris', async ({ page }) => {
   await createTwoLogins(page)
 
-  await page.getByRole('button', { name: 'Sélectionner' }).click()
+  await enableSelection(page)
   await page.locator('.item-row').filter({ hasText: 'Alpha' }).click()
   await page.locator('.item-row').filter({ hasText: 'Beta' }).click()
   await page.locator('.bulk-bar').getByRole('button', { name: 'Ajouter aux favoris' }).click()
 
   await expect(page.locator('.item-row__favorite')).toHaveCount(2)
+})
+
+test('active la sélection par appui long sur une ligne', async ({ page }) => {
+  await createTwoLogins(page)
+  const row = page.locator('.item-row').filter({ hasText: 'Alpha' })
+  await row.dispatchEvent('pointerdown', { pointerType: 'touch', button: 0 })
+  await page.waitForTimeout(650)
+  await row.dispatchEvent('pointerup', { pointerType: 'touch', button: 0 })
+  await expect(row).toHaveAttribute('aria-pressed', 'true')
 })

@@ -9,6 +9,7 @@ import {
 } from '../lib/totp'
 import { copySensitive } from '../lib/clipboard'
 import { useSettings } from '../state/SettingsProvider'
+import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
 
 interface TotpCodeProps {
@@ -18,6 +19,7 @@ interface TotpCodeProps {
 
 export function TotpCode({ uri, compact = false }: TotpCodeProps) {
   const { settings } = useSettings()
+  const { tt } = useI18n()
   const { toast } = useToast()
   const [code, setCode] = useState('')
   const [remaining, setRemaining] = useState(30)
@@ -73,21 +75,21 @@ export function TotpCode({ uri, compact = false }: TotpCodeProps) {
 
   const progress = Math.max(0, Math.min(1, remaining / parsed.config.period))
   const ringStyle = {
-    background: `conic-gradient(var(--accent) ${progress * 360}deg, rgba(255,255,255,.1) 0deg)`,
+    background: `conic-gradient(var(--accent) ${progress * 360}deg, var(--border-2) 0deg)`,
   }
 
   const copyCode = async () => {
     const success = await copySensitive(
       code,
       settings.clipboardClearSeconds,
-      () => toast('Presse-papiers effacé', 'info'),
+      () => toast(tt('Presse-papiers effacé'), 'info'),
     )
     if (success) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-      toast('Code TOTP copié', 'success')
+      toast(tt('Code TOTP copié'), 'success')
     } else {
-      toast('Impossible de copier le code', 'error')
+      toast(tt('Impossible de copier le code'), 'error')
     }
   }
 
@@ -106,7 +108,7 @@ export function TotpCode({ uri, compact = false }: TotpCodeProps) {
         type="button"
         className="icon-button"
         onClick={() => void copyCode()}
-        aria-label="Copier le code TOTP"
+        aria-label={tt('Copier le code TOTP')}
       >
         {copied ? <Check size={17} /> : <Copy size={17} />}
       </button>

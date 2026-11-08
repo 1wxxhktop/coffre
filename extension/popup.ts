@@ -1,10 +1,16 @@
 import { hostFromUrl, type ExtensionLoginSummary } from '../src/lib/extensionProtocol'
+import { localizeDocument, t } from './i18n'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
+
+localizeDocument()
 
 interface AppStatus {
   appOpen: boolean
   unlocked: boolean
+  paired?: boolean
+  hostAccess?: boolean
+  mode?: 'native' | 'tab'
   tabId?: number
   appUrl: string
 }
@@ -34,6 +40,12 @@ const results = $<HTMLUListElement>('results')
 const empty = $<HTMLParagraphElement>('empty')
 const showAllButton = $<HTMLButtonElement>('show-all')
 const actions = $<HTMLDivElement>('actions')
+const pairButton = $<HTMLButtonElement>('pair')
+const activateInlineButton = $<HTMLButtonElement>('activate-inline')
+const savePrompt = $<HTMLDivElement>('save-prompt')
+const saveText = $<HTMLParagraphElement>('save-text')
+const saveNowButton = $<HTMLButtonElement>('save-now')
+const saveIgnoreButton = $<HTMLButtonElement>('save-ignore')
 const openAppButton = $<HTMLButtonElement>('open-app')
 const focusAppButton = $<HTMLButtonElement>('focus-app')
 const settingsButton = $<HTMLButtonElement>('settings')
@@ -44,16 +56,22 @@ let status: AppStatus = { appOpen: false, unlocked: false, appUrl: '' }
 let entries: ExtensionLoginSummary[] = []
 let busy = false
 let searchTimer: number | undefined
+let searchListenerReady = false
 
 const ERROR_MESSAGES: Record<string, string> = {
-  'app-closed': 'Ouvrez Coffre pour vous connecter.',
-  locked: 'Coffre est verrouillé. Déverrouillez-le dans son onglet.',
-  permission:
-    'Autorisez l’extension à accéder à l’onglet Coffre depuis les réglages.',
-  'no-fields': 'Aucun champ de connexion détecté sur cette page.',
-  'no-tab': 'Cette page ne permet pas le remplissage automatique.',
-  'not-found': 'Cet identifiant n’existe plus dans le coffre.',
-  'invalid-url': 'L’adresse de Coffre est invalide.',
+  'app-closed': 'error_appClosed',
+  locked: 'error_locked',
+  'needs-pairing': 'error_needsPairing',
+  'pair-rejected': 'error_pairRejected',
+  'pair-protocol': 'error_pairProtocol',
+  'domain-mismatch': 'error_domainMismatch',
+  permission: 'error_permission',
+  'no-fields': 'error_noFields',
+  'no-tab': 'error_noTab',
+  'not-found': 'error_notFound',
+  'invalid-url': 'error_invalidUrl',
+  'native-timeout': 'error_nativeTimeout',
+  'native-unavailable': 'error_nativeUnavailable',
 }
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -72,7 +90,7 @@ function hideMessage() {
 }
 
 function errorText(code: string | undefined): string {
-  return (code && ERROR_MESSAGES[code]) || 'Opération impossible.'
+  return (code && ERROR_MESSAGES[code] && t(ERROR_MESSAGES[code])) || t('error_generic')
 }
 
 function setBusy(value: boolean) {
@@ -84,11 +102,33 @@ function setBusy(value: boolean) {
 
 function renderStatus() {
   actions.hidden = true
+  pairButton.hidden = true
+  activateInlineButton.hidden = true
   focusAppButton.hidden = true
   searchWrap.hidden = true
   results.replaceChildren()
   empty.hidden = true
   showAllButton.hidden = true
+
+  if (status.mode === 'native' && !status.unlocked) {
+    showMessage('Coffre est verrouillé. Déverrouillez l’application pour continuer.')
+    actions.hidden = false
+    openAppButton.hidden = true
+    focusAppButton.hidden = false
+    footerStatus.textContent = 'Coffre desktop verrouillé'
+    return
+  }
+
+  if (status.mode === 'native' && status.paired === false) {
+    showMessage(
+      'Associez cette extension à Coffre : le code s’affichera ici et dans l’application.',
+    )
+    actions.hidden = false
+    pairButton.hidden = false
+    openAppButton.hidden = true
+    footerStatus.textContent = 'Coffre desktop · non associé'
+    return
+  }
 
   if (!status.appOpen) {
     showMessage('Ouvrez Coffre pour remplir vos identifiants.')
@@ -103,13 +143,27 @@ function renderStatus() {
     actions.hidden = false
     openAppButton.hidden = true
     focusAppButton.hidden = false
-    footerStatus.textContent = 'Coffre verrouillé'
+    footerStatus.textContent =
+      status.mode === 'native' ? 'Coffre desktop verrouillé' : 'Coffre verrouillé'
     return
   }
 
-  hideMessage()
   searchWrap.hidden = false
-  footerStatus.textContent = 'Coffre déverrouillé · local'
+  if (status.hostAccess === false) {
+    showMessage(
+      'Activez le menu dans les champs pour remplir les formulaires directement.',
+      'info',
+    )
+    actions.hidden = false
+    openAppButton.hidden = true
+    activateInlineButton.hidden = false
+  } else {
+    hideMessage()
+  }
+  footerStatus.textContent =
+    status.mode === 'native'
+      ? 'Coffre desktop · pont natif local'
+      : 'Coffre déverrouillé · local'
 }
 
 function renderResults() {
@@ -150,10 +204,36 @@ function renderResults() {
   }
 }
 
+async function refreshPendingSave(): Promise<void> {
+  if (!currentTab?.id) {
+    savePrompt.hidden = true
+    return
+  }
+  try {
+    const response = await send<{
+      pending?: { username: string; host: string } | null
+    }>({ type: 'GET_PENDING_SAVE', tabId: currentTab.id })
+    if (!response.pending) {
+      savePrompt.hidden = true
+      return
+    }
+    saveText.textContent = `Enregistrer « ${
+      response.pending.username || 'sans identifiant'
+    } » pour ${response.pending.host} ?`
+    savePrompt.hidden = false
+  } catch {
+    savePrompt.hidden = true
+  }
+}
+
 async function refreshStatus(): Promise<boolean> {
   status = await send<AppStatus>({ type: 'GET_STATUS' })
   renderStatus()
-  return status.appOpen && status.unlocked
+  return (
+    status.appOpen &&
+    status.unlocked &&
+    (status.mode !== 'native' || status.paired !== false)
+  )
 }
 
 async function loadResults(query: string) {
@@ -218,18 +298,22 @@ async function init() {
     : 'Rechercher un identifiant…'
 
   const unlocked = await refreshStatus()
+  await refreshPendingSave()
   if (!unlocked) return
 
   const query = host || ''
   await loadResults(query)
   searchInput.value = query
 
-  searchInput.addEventListener('input', () => {
-    window.clearTimeout(searchTimer)
-    searchTimer = window.setTimeout(() => {
-      void loadResults(searchInput.value.trim())
-    }, 150)
-  })
+  if (!searchListenerReady) {
+    searchListenerReady = true
+    searchInput.addEventListener('input', () => {
+      window.clearTimeout(searchTimer)
+      searchTimer = window.setTimeout(() => {
+        void loadResults(searchInput.value.trim())
+      }, 150)
+    })
+  }
 }
 
 openAppButton.addEventListener('click', () => {
@@ -238,6 +322,113 @@ openAppButton.addEventListener('click', () => {
 
 focusAppButton.addEventListener('click', () => {
   void send({ type: 'FOCUS_APP' }).then(() => window.close())
+})
+
+activateInlineButton.addEventListener('click', () => {
+  if (busy) return
+  void (async () => {
+    activateInlineButton.disabled = true
+    try {
+      const granted = await api.permissions.request({
+        origins: ['http://*/*', 'https://*/*'],
+      })
+      if (!granted) {
+        showMessage('Permission refusée pour le menu dans les champs.', 'error')
+        return
+      }
+      await send({ type: 'ENABLE_INLINE' })
+      const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+      if (tab?.id) {
+        const target = { tabId: tab.id, allFrames: true }
+        await api.scripting.executeScript({
+          target,
+          files: ['content.js'],
+        })
+        try {
+          await api.scripting.executeScript({
+            target,
+            files: ['webauthn-main.js'],
+            world: 'MAIN',
+          })
+        } catch {
+          // Le content script injecte le script de repli si `world` manque.
+        }
+      }
+      showMessage('Menu dans les champs activé. Rechargez les autres onglets.', 'success')
+      await init()
+    } catch {
+      showMessage('Activation impossible sur cette page.', 'error')
+    } finally {
+      activateInlineButton.disabled = false
+    }
+  })()
+})
+
+pairButton.addEventListener('click', () => {
+  if (busy) return
+  setBusy(true)
+  pairButton.disabled = true
+  showMessage('Demande envoyée. Confirmez le code affiché dans Coffre.')
+  void send<{ ok?: boolean; error?: string }>({ type: 'PAIR' })
+    .then(async (response) => {
+      pairButton.disabled = false
+      setBusy(false)
+      if (!response.ok) {
+        showMessage(errorText(response.error), 'error')
+        return
+      }
+      showMessage('Extension associée à Coffre.', 'success')
+      await init()
+    })
+    .catch(() => {
+      pairButton.disabled = false
+      setBusy(false)
+      showMessage('Association impossible.', 'error')
+    })
+})
+
+api.runtime.onMessage.addListener((message: unknown) => {
+  if (
+    message &&
+    typeof message === 'object' &&
+    (message as { type?: string }).type === 'PAIRING_CODE' &&
+    typeof (message as { code?: unknown }).code === 'string'
+  ) {
+    showMessage(
+      `Code ${(message as { code: string }).code} — confirmez-le dans Coffre.`,
+      'info',
+    )
+  }
+  return false
+})
+
+saveNowButton.addEventListener('click', () => {
+  if (!currentTab?.id) return
+  saveNowButton.disabled = true
+  void send<{ ok?: boolean; updated?: boolean; error?: string }>({
+    type: 'SAVE_PENDING_NOW',
+    tabId: currentTab.id,
+  })
+    .then((response) => {
+      savePrompt.hidden = true
+      if (response.ok) {
+        showMessage(
+          response.updated ? 'Mot de passe mis à jour.' : 'Identifiant enregistré.',
+          'success',
+        )
+      } else {
+        showMessage(errorText(response.error), 'error')
+      }
+    })
+    .finally(() => {
+      saveNowButton.disabled = false
+    })
+})
+
+saveIgnoreButton.addEventListener('click', () => {
+  if (!currentTab?.id) return
+  void send({ type: 'SAVE_DISMISS_PENDING', tabId: currentTab.id })
+  savePrompt.hidden = true
 })
 
 settingsButton.addEventListener('click', () => {

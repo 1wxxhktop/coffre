@@ -1,30 +1,42 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowLeft,
   Check,
+  Cloud,
   Download,
   FileKey2,
   FileSpreadsheet,
   Fingerprint,
   HardDrive,
   KeyRound,
+  Languages,
   LoaderCircle,
-  LockKeyhole,
+  Share2,
+  ShieldAlert,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
   Upload,
 } from 'lucide-react'
 import { Modal } from './Modal'
+import { SyncSettings } from './SyncSettings'
 import { ConfirmDialog } from './ConfirmDialog'
 import { PasswordStrength } from './PasswordStrength'
 import { RecoveryDialog } from './RecoveryDialog'
+import { EmergencyKitDialog } from './EmergencyKitDialog'
+import { KdbxExportDialog } from './KdbxExportDialog'
+import { readKdbx } from '../lib/kdbx'
 import { useVault } from '../state/VaultProvider'
+import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { estimateEntropy } from '../lib/crypto'
 import { keychainAvailable } from '../lib/keychain'
 import { biometricAvailable } from '../lib/biometrics'
 import { isTauriRuntime } from '../lib/external'
+import { ensureNotificationPermission } from '../lib/notifications'
+import { LOCALES, type Locale } from '../lib/i18n'
 import {
   dedupeImport,
   importSourceLabel,
@@ -34,6 +46,7 @@ import {
 import { parse1pux } from '../lib/onePassword'
 import { downloadFile, formatBytes, formatDateTime, pluralize } from '../lib/settings'
 import { exportCsv, type CsvExportFormat } from '../lib/export'
+import { openOfflineShare } from '../lib/offlineShare'
 import {
   getPersistentStorageStatus,
   getStorageEstimate,
@@ -48,8 +61,24 @@ interface SettingsDialogProps {
   onImported?: () => void
 }
 
+type SettingsPage = 'general' | 'sync' | 'security' | 'backup' | 'storage' | 'danger'
+
+const SETTINGS_PAGES: Array<{
+  id: SettingsPage
+  label: string
+  icon: typeof SlidersHorizontal
+}> = [
+  { id: 'general', label: 'Général', icon: SlidersHorizontal },
+  { id: 'sync', label: 'Synchronisation', icon: Cloud },
+  { id: 'security', label: 'Sécurité', icon: ShieldCheck },
+  { id: 'backup', label: 'Sauvegarde et import', icon: FileKey2 },
+  { id: 'storage', label: 'Stockage', icon: HardDrive },
+  { id: 'danger', label: 'Zone dangereuse', icon: Trash2 },
+]
+
 export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const { settings, updateSettings } = useSettings()
+  const { tt } = useI18n()
   const {
     file,
     vaults,
@@ -61,7 +90,6 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     verify,
     reset,
     resetBiometricKey,
-    lock,
     emptyTrash,
   } = useVault()
   const { toast } = useToast()
@@ -93,10 +121,28 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     warnings: string[]
   } | null>(null)
 
+  const [shareText, setShareText] = useState('')
+  const [shareKey, setShareKey] = useState('')
+  const [shareVaultId, setShareVaultId] = useState(vaults[0]?.id ?? '')
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [shareReport, setShareReport] = useState<string | null>(null)
+
+  const [kdbxFile, setKdbxFile] = useState<File | null>(null)
+  const [kdbxKeyFile, setKdbxKeyFile] = useState<File | null>(null)
+  const [kdbxPassword, setKdbxPassword] = useState('')
+  const [kdbxVaultId, setKdbxVaultId] = useState(vaults[0]?.id ?? '')
+  const [kdbxBusy, setKdbxBusy] = useState(false)
+  const [kdbxError, setKdbxError] = useState<string | null>(null)
+  const [kdbxReport, setKdbxReport] = useState<string | null>(null)
+
   const [showReset, setShowReset] = useState(false)
-  const [showLockConfirm, setShowLockConfirm] = useState(false)
   const [showEmptyTrash, setShowEmptyTrash] = useState(false)
   const [showRecovery, setShowRecovery] = useState(false)
+  const [showEmergencyKit, setShowEmergencyKit] = useState(false)
+  const [showKdbxExport, setShowKdbxExport] = useState(false)
+  const [page, setPage] = useState<SettingsPage>('general')
+  const [mobilePageOpen, setMobilePageOpen] = useState(false)
 
   const [biometricsReady, setBiometricsReady] = useState(false)
   const [biometricBusy, setBiometricBusy] = useState(false)
@@ -123,6 +169,12 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const sourceImportCount = skipDuplicates
     ? sourcePreview.items.length
     : (sourceItems?.items.length ?? 0)
+  const activeShareVaultId = vaults.some((vault) => vault.id === shareVaultId)
+    ? shareVaultId
+    : vaults[0]?.id ?? ''
+  const activeKdbxVaultId = vaults.some((vault) => vault.id === kdbxVaultId)
+    ? kdbxVaultId
+    : vaults[0]?.id ?? ''
 
   useEffect(() => {
     let cancelled = false
@@ -156,13 +208,32 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       const granted = await requestPersistentStorage()
       setPersisted(granted)
       toast(
-        granted
-          ? 'Stockage persistant activé : le navigateur ne doit plus effacer le coffre.'
-          : 'Le navigateur a refusé le stockage persistant.',
+        tt(
+          granted
+            ? 'Stockage persistant activé : le navigateur ne doit plus effacer le coffre.'
+            : 'Le navigateur a refusé le stockage persistant.',
+        ),
         granted ? 'success' : 'error',
       )
     } finally {
       setPersistBusy(false)
+    }
+  }
+
+  const toggleExpiryNotifications = async (enabled: boolean) => {
+    if (!enabled) {
+      updateSettings({ expiryNotifications: false })
+      return
+    }
+    const granted = await ensureNotificationPermission()
+    updateSettings({ expiryNotifications: granted })
+    if (!granted) {
+      toast(
+        tt(
+          'Notifications refusées ou indisponibles dans cet environnement. Le rappel reste visible dans la vue « Bientôt expirés ».',
+        ),
+        'error',
+      )
     }
   }
 
@@ -177,7 +248,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
         result.warnings.length > 0 ? 'info' : 'success',
       )
     } catch (caught) {
-      toast(caught instanceof Error ? caught.message : 'Export CSV impossible', 'error')
+      toast(caught instanceof Error ? caught.message : tt('Export CSV impossible'), 'error')
     }
   }
 
@@ -188,7 +259,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     try {
       const report = await verify()
       setVerifyReport(report)
-      toast('Intégrité du coffre vérifiée', 'success')
+      toast(tt('Intégrité du coffre vérifiée'), 'success')
     } catch (caught) {
       setVerifyError(
         caught instanceof Error ? caught.message : 'Vérification impossible',
@@ -221,7 +292,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       setNewPassword('')
       setConfirmPassword('')
       setPasswordDone(true)
-      toast('Mot de passe maître modifié', 'success')
+      toast(tt('Mot de passe maître modifié'), 'success')
     } catch (caught) {
       setPasswordError(caught instanceof Error ? caught.message : 'Modification impossible')
     } finally {
@@ -240,7 +311,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     try {
       const text = await importFile.text()
       await importVault(text, importPassword)
-      toast('Coffre importé et déverrouillé', 'success')
+      toast(tt('Coffre importé et déverrouillé'), 'success')
       onImported?.()
       onClose()
     } catch (caught) {
@@ -329,7 +400,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
           ? `${report.imported} élément${report.imported > 1 ? 's' : ''} importé${
               report.imported > 1 ? 's' : ''
             }`
-          : 'Aucun élément importé',
+          : tt('Aucun élément importé'),
         report.imported > 0 ? 'success' : 'error',
       )
       if (report.imported > 0) {
@@ -340,9 +411,71 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
         setSkipDuplicates(true)
       }
     } catch (caught) {
-      setSourceError(caught instanceof Error ? caught.message : 'Import impossible')
+      setSourceError(caught instanceof Error ? caught.message : tt('Import impossible'))
     } finally {
       setSourceBusy(false)
+    }
+  }
+
+  const importOfflineShare = async () => {
+    if (!shareText.trim() || !shareKey.trim() || !activeShareVaultId) return
+    setShareBusy(true)
+    setShareError(null)
+    setShareReport(null)
+    try {
+      const opened = await openOfflineShare(shareText, shareKey)
+      const report = await importItems([
+        { ...opened.content, vaultId: activeShareVaultId },
+      ])
+      setShareReport(
+        `${report.imported} élément${report.imported > 1 ? 's' : ''} importé${
+          report.imported > 1 ? 's' : ''
+        }${report.warnings.length > 0 ? ` · ${report.warnings.join(' ')}` : ''}`,
+      )
+      toast(tt('Partage importé'), 'success')
+      setShareText('')
+      setShareKey('')
+      onImported?.()
+    } catch (caught) {
+      setShareError(caught instanceof Error ? caught.message : tt('Import du partage impossible'))
+    } finally {
+      setShareBusy(false)
+    }
+  }
+
+  const importKdbx = async () => {
+    if (!kdbxFile || !kdbxPassword || !activeKdbxVaultId) return
+    setKdbxBusy(true)
+    setKdbxError(null)
+    setKdbxReport(null)
+    try {
+      const bytes = new Uint8Array(await kdbxFile.arrayBuffer())
+      const keyFile = kdbxKeyFile
+        ? new Uint8Array(await kdbxKeyFile.arrayBuffer())
+        : undefined
+      const result = await readKdbx(
+        bytes,
+        kdbxPassword,
+        activeKdbxVaultId,
+        keyFile,
+      )
+      const report = await importItems(result.items)
+      setKdbxReport(
+        `${report.imported} élément${report.imported > 1 ? 's' : ''} importé${
+          report.imported > 1 ? 's' : ''
+        }${result.warnings.length > 0 ? ` · ${result.warnings.join(' ')}` : ''}`,
+      )
+      toast(tt('Base KDBX importée'), 'success')
+      setKdbxFile(null)
+      setKdbxKeyFile(null)
+      setKdbxPassword('')
+      onImported?.()
+    } catch (caught) {
+      setKdbxError(
+        caught instanceof Error ? caught.message : tt('Import KDBX impossible'),
+      )
+    } finally {
+      setKdbxBusy(false)
     }
   }
 
@@ -350,10 +483,12 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     setBiometricBusy(true)
     try {
       await resetBiometricKey()
-      toast('Clé Touch ID réinitialisée', 'success')
+      toast(tt('Clé Touch ID réinitialisée'), 'success')
     } catch (caught) {
       toast(
-        caught instanceof Error ? caught.message : 'Réinitialisation Touch ID impossible',
+        caught instanceof Error
+          ? caught.message
+          : tt('Réinitialisation Touch ID impossible'),
         'error',
       )
     } finally {
@@ -373,831 +508,1351 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     card: activeItems.filter((item) => item.type === 'card').length,
     note: activeItems.filter((item) => item.type === 'note').length,
     identity: activeItems.filter((item) => item.type === 'identity').length,
+    passkey: activeItems.filter((item) => item.type === 'passkey').length,
+  }
+
+  const goToPage = (next: SettingsPage) => {
+    setPage(next)
+    setMobilePageOpen(true)
   }
 
   return (
     <>
       <Modal
-        title="Réglages"
-        description="Préférences locales, sécurité et sauvegardes."
-        size="lg"
+        title={tt('Réglages')}
+        description={tt('Préférences locales, sécurité, sauvegardes et stockage.')}
+        size="xl"
         onClose={onClose}
       >
-        <div className="settings">
-          <section className="settings-section">
-            <div className="settings-section__head">
-              <span className="settings-section__icon">
-                <HardDrive size={18} />
-              </span>
-              <div>
-                <h3>Général</h3>
-                <p>Ces préférences restent dans ce navigateur.</p>
-              </div>
-            </div>
-
-            <div className="form-grid">
-              <label className="field">
-                <span className="field__label">Verrouillage automatique</span>
-                <select
-                  className="input"
-                  value={settings.autoLockMinutes}
-                  onChange={(event) =>
-                    updateSettings({ autoLockMinutes: Number(event.target.value) })
-                  }
+        <div className={`settings ${mobilePageOpen ? 'settings--page-open' : ''}`}>
+          <nav className="settings__nav" aria-label={tt('Sections des réglages')}>
+            {SETTINGS_PAGES.map((entry) => {
+              const Icon = entry.icon
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={`settings__nav-item ${
+                    page === entry.id ? 'is-active' : ''
+                  } ${entry.id === 'danger' ? 'settings__nav-item--danger' : ''}`}
+                  aria-current={page === entry.id ? 'page' : undefined}
+                  onClick={() => goToPage(entry.id)}
                 >
-                  <option value={0}>Jamais</option>
-                  <option value={1}>Après 1 minute</option>
-                  <option value={5}>Après 5 minutes</option>
-                  <option value={15}>Après 15 minutes</option>
-                  <option value={30}>Après 30 minutes</option>
-                  <option value={60}>Après 1 heure</option>
-                </select>
-              </label>
+                  <Icon size={16} />
+                  {entry.label}
+                </button>
+              )
+            })}
+          </nav>
 
-              <label className="field">
-                <span className="field__label">Effacement du presse-papiers</span>
-                <select
-                  className="input"
-                  value={settings.clipboardClearSeconds}
-                  onChange={(event) =>
-                    updateSettings({ clipboardClearSeconds: Number(event.target.value) })
-                  }
-                >
-                  <option value={0}>Jamais</option>
-                  <option value={15}>Après 15 secondes</option>
-                  <option value={30}>Après 30 secondes</option>
-                  <option value={60}>Après 1 minute</option>
-                  <option value={120}>Après 2 minutes</option>
-                </select>
-              </label>
+          <div className="settings__content">
+            <button
+              type="button"
+              className="link-button settings__back"
+              onClick={() => setMobilePageOpen(false)}
+            >
+              <ArrowLeft size={15} />
+              Toutes les sections
+            </button>
 
-              <label className="field field--full">
-                <span className="field__label">Conservation de la corbeille</span>
-                <select
-                  className="input"
-                  value={settings.trashRetentionDays}
-                  onChange={(event) =>
-                    updateSettings({ trashRetentionDays: Number(event.target.value) })
-                  }
-                >
-                  <option value={0}>Jamais purger automatiquement</option>
-                  <option value={7}>Après 7 jours</option>
-                  <option value={30}>Après 30 jours</option>
-                  <option value={90}>Après 90 jours</option>
-                  <option value={365}>Après 1 an</option>
-                </select>
-                <span className="field__hint">
-                  La purge s’applique à l’ouverture du coffre et après un import.
-                </span>
-              </label>
-            </div>
-
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={settings.lockOnHide}
-                onChange={(event) =>
-                  updateSettings({ lockOnHide: event.target.checked })
-                }
-              />
-              <span>Verrouiller lorsque l’onglet passe en arrière-plan</span>
-            </label>
-            <p className="settings-copy">
-              Recommandé : dès que Coffre n’est plus visible, les clés sont effacées de la
-              mémoire. Ce verrouillage s’applique même si le délai d’inactivité est désactivé.
-            </p>
-
-            {isTauriRuntime() && (
-              <>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={settings.lockOnFocusLoss}
-                    onChange={(event) =>
-                      updateSettings({ lockOnFocusLoss: event.target.checked })
-                    }
-                  />
-                  <span>Verrouiller lorsque la fenêtre perd le focus</span>
-                </label>
-                <p className="settings-copy">
-                  Utile sur desktop : cliquer dans une autre application verrouille le coffre.
-                  Laissez désactivé si vous utilisez souvent des dialogues système.
-                </p>
-              </>
-            )}
-
-            <div className="settings-divider" />
-
-            <label className="field field--full">
-              <span className="field__label">Apparence</span>
-              <select
-                className="input"
-                value={settings.theme}
-                onChange={(event) =>
-                  updateSettings({ theme: event.target.value as ThemePreference })
-                }
-              >
-                <option value="dark">Sombre</option>
-                <option value="light">Clair</option>
-                <option value="system">Suivre le système</option>
-              </select>
-            </label>
-
-            <div className="settings-divider" />
-
-            {isTauriRuntime() ? (
-              <>
-                <h4 className="settings-subtitle">Stockage natif</h4>
-                <p className="settings-copy">
-                  Le coffre chiffré est enregistré dans le dossier de données de
-                  l’application, avec trois sauvegardes tournantes, des écritures
-                  atomiques et des permissions réservées à votre compte. Aucune donnée
-                  n’est envoyée sur Internet.
-                </p>
-              </>
-            ) : (
-              <>
-                <h4 className="settings-subtitle">Stockage du navigateur</h4>
-                <p className="settings-copy">
-                  {persisted === true
-                    ? 'Stockage persistant activé : le navigateur s’engage à conserver le coffre.'
-                    : persisted === false
-                      ? 'Stockage non persistant : le navigateur peut effacer le coffre en cas de manque d’espace. Exportez régulièrement une sauvegarde.'
-                      : 'Ce navigateur ne permet pas de connaître le statut du stockage persistant. Exportez régulièrement une sauvegarde.'}
-                  {storageEstimate && storageEstimate.quota > 0
-                    ? ` Espace utilisé : ${formatBytes(storageEstimate.usage)} sur ${formatBytes(storageEstimate.quota)}.`
-                    : ''}
-                </p>
-
-                <div className="settings-actions settings-actions--start">
-                  <button
-                    type="button"
-                    className="button button--secondary"
-                    onClick={() => void enablePersistence()}
-                    disabled={persistBusy || persisted === true}
-                  >
-                    {persistBusy ? (
-                      <LoaderCircle size={16} className="spin" />
-                    ) : (
-                      <HardDrive size={16} />
-                    )}
-                    {persisted === true
-                      ? 'Stockage persistant activé'
-                      : persistBusy
-                        ? 'Demande en cours…'
-                        : 'Rendre le stockage persistant'}
-                  </button>
-                </div>
-              </>
-            )}
-
-            <div className="settings-actions">
-              <button type="button" className="button button--secondary" onClick={() => setShowLockConfirm(true)}>
-                <LockKeyhole size={16} />
-                Verrouiller maintenant
-              </button>
-            </div>
-          </section>
-
-          {keychainAvailable() && (
-            <section className="settings-section">
-              <div className="settings-section__head">
-                <span className="settings-section__icon">
-                  <Fingerprint size={18} />
-                </span>
-                <div>
-                  <h3>Trousseau du système</h3>
-                  <p>Déverrouillage rapide par le trousseau de l’appareil.</p>
-                </div>
-              </div>
-
-              {biometricsReady && (
-                <>
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      checked={settings.biometricUnlock}
-                      onChange={(event) => {
-                        const enabled = event.target.checked
-                        updateSettings({
-                          biometricUnlock: enabled,
-                          ...(enabled ? { keychainUnlock: false } : {}),
-                        })
-                      }}
-                    />
-                    <span>Déverrouiller avec Touch ID (empreinte)</span>
-                  </label>
-                  <p className="settings-copy">
-                    La clé maîtresse est rangée dans un trousseau biométrique séparé et
-                    n’est libérée qu’après une authentification réussie. Le dialogue
-                    Touch ID s’ouvre automatiquement lorsque la fenêtre Coffre est
-                    activée. La clé reste en place pendant le verrouillage pour permettre
-                    le déverrouillage rapide, puis elle est supprimée si l’option est
-                    désactivée ou le coffre réinitialisé.
-                  </p>
-                  {settings.biometricUnlock && (
-                    <div className="settings-actions settings-actions--start">
-                      <button
-                        type="button"
-                        className="button button--secondary"
-                        onClick={() => void resetBiometric()}
-                        disabled={biometricBusy}
-                      >
-                        {biometricBusy ? (
-                          <LoaderCircle size={16} className="spin" />
-                        ) : (
-                          <Fingerprint size={16} />
-                        )}
-                        {biometricBusy ? 'Réinitialisation…' : 'Réinitialiser Touch ID'}
-                      </button>
-                    </div>
-                  )}
-                  <div className="settings-divider" />
-                </>
-              )}
-
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={settings.keychainUnlock}
-                  disabled={settings.biometricUnlock}
-                  onChange={(event) =>
-                    updateSettings({ keychainUnlock: event.target.checked })
-                  }
-                />
-                <span>
-                  Mémoriser la clé maîtresse dans le trousseau du système
-                  {settings.biometricUnlock ? ' (remplacé par Touch ID)' : ''}
-                </span>
-              </label>
-              <p className="settings-copy">
-                La clé est conservée hors du coffre, protégée par votre session
-                système (macOS, Windows ou Linux). Elle est supprimée dès que le
-                coffre est verrouillé : le déverrouillage rapide s’applique donc
-                après un rechargement ou un redémarrage de l’application.
-              </p>
-            </section>
-          )}
-
-          <section className="settings-section">
-            <div className="settings-section__head">
-              <span className="settings-section__icon">
-                <KeyRound size={18} />
-              </span>
-              <div>
-                <h3>Mot de passe maître</h3>
-                <p>
-                  Le changer ré-enveloppe les clés de coffre. Vos éléments ne sont pas
-                  réchiffrés.
-                </p>
-              </div>
-            </div>
-
-            <div className="form-grid">
-              <label className="field field--full">
-                <span className="field__label">Mot de passe actuel</span>
-                <input
-                  className="input"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                  autoComplete="current-password"
-                />
-              </label>
-              <label className="field">
-                <span className="field__label">Nouveau mot de passe</span>
-                <input
-                  className="input"
-                  type="password"
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                  autoComplete="new-password"
-                  placeholder="12 caractères minimum"
-                />
-                {newPassword && (
-                  <PasswordStrength entropy={entropy} showEntropy />
-                )}
-              </label>
-              <label className="field">
-                <span className="field__label">Confirmer</span>
-                <input
-                  className="input"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  autoComplete="new-password"
-                />
-                {confirmPassword && !passwordsMatch && (
-                  <span className="field__hint field__hint--error">
-                    Les mots de passe ne correspondent pas.
-                  </span>
-                )}
-              </label>
-            </div>
-
-            {passwordError && (
-              <p className="form-error" role="alert">
-                <AlertTriangle size={16} />
-                {passwordError}
-              </p>
-            )}
-            {passwordDone && (
-              <p className="form-success" role="status">
-                <Check size={16} />
-                Mot de passe modifié. Il sera demandé au prochain déverrouillage.
-              </p>
-            )}
-
-            <div className="settings-actions">
-              <button
-                type="button"
-                className="button button--primary"
-                onClick={() => void change()}
-                disabled={passwordBusy}
-              >
-                {passwordBusy ? (
-                  <LoaderCircle size={16} className="spin" />
-                ) : (
-                  <KeyRound size={16} />
-                )}
-                {passwordBusy ? 'Modification…' : 'Modifier le mot de passe'}
-              </button>
-            </div>
-
-            {file && (
-              <div className="kdf-info">
-                <span>
-                  <strong>Argon2id</strong> · {Math.round(file.kdf.memoryKiB / 1024)} Mio ·{' '}
-                  {file.kdf.iterations} itérations · {file.kdf.parallelism} threads
-                </span>
-                <small>Sel unique par coffre, clé AES de 256 bits.</small>
-              </div>
-            )}
-          </section>
-
-          <section className="settings-section">
-            <div className="settings-section__head">
-              <span className="settings-section__icon">
-                <FileKey2 size={18} />
-              </span>
-              <div>
-                <h3>Sauvegarde</h3>
-                <p>Le fichier exporté est chiffré avec votre mot de passe maître.</p>
-              </div>
-            </div>
-
-            <div className="settings-actions settings-actions--start">
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => {
-                  try {
-                    exportVault()
-                    toast('Coffre exporté', 'success')
-                  } catch (caught) {
-                    toast(caught instanceof Error ? caught.message : 'Export impossible', 'error')
-                  }
-                }}
-              >
-                <Download size={16} />
-                Exporter le coffre
-              </button>
-            </div>
-
-            <div className="settings-divider" />
-
-            <h4 className="settings-subtitle">Exporter en CSV</h4>
-            <p className="settings-copy">
-              Le CSV est un fichier <strong>en clair</strong> : importez-le immédiatement,
-              puis supprimez-le. Le format Mots de passe ne contient que les connexions
-              actives ; le format complet inclut tous les éléments, sans les pièces
-              jointes.
-            </p>
-
-            <label className="field field--full">
-              <span className="field__label">Format CSV</span>
-              <select
-                className="input"
-                value={csvFormat}
-                onChange={(event) => setCsvFormat(event.target.value as CsvExportFormat)}
-              >
-                <option value="apple">Mots de passe (Apple) — connexions</option>
-                <option value="coffre">Coffre complet — tous les éléments</option>
-              </select>
-            </label>
-
-            <div className="settings-actions settings-actions--start">
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={exportCsvFile}
-              >
-                <Download size={16} />
-                Exporter en CSV
-              </button>
-            </div>
-
-            <div className="settings-divider" />
-
-            <h4 className="settings-subtitle">Vérifier l’intégrité</h4>
-            <p className="settings-copy">
-              Déchiffre chaque coffre, chaque élément, chaque version et chaque pièce jointe
-              pour détecter une altération locale. Aucune donnée ne quitte l’appareil.
-            </p>
-
-            <div className="settings-actions settings-actions--start">
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => void runVerify()}
-                disabled={verifyBusy}
-              >
-                {verifyBusy ? (
-                  <LoaderCircle size={16} className="spin" />
-                ) : (
-                  <ShieldCheck size={16} />
-                )}
-                {verifyBusy ? 'Vérification…' : 'Vérifier le coffre'}
-              </button>
-            </div>
-
-            {verifyError && (
-              <p className="form-error" role="alert">
-                <AlertTriangle size={16} />
-                {verifyError}
-              </p>
-            )}
-            {verifyReport && (
-              <p className="form-success" role="status">
-                <Check size={16} />
-                Intégrité confirmée : {pluralize(verifyReport.vaults, 'coffre')} ·{' '}
-                {pluralize(verifyReport.items, 'élément')} ·{' '}
-                {pluralize(verifyReport.attachments, 'pièce jointe', 'pièces jointes')} ·{' '}
-                {pluralize(verifyReport.versions, 'version')}.
-                {verifyReport.attachments > 0
-                  ? ` ${formatBytes(verifyReport.attachmentBytes)} de pièces jointes déchiffrées.`
-                  : ''}
-              </p>
-            )}
-
-            <div className="settings-divider" />
-
-            <h4 className="settings-subtitle">Importer un coffre</h4>
-            <p className="settings-copy">
-              Le fichier importé remplace le coffre actuellement stocké dans ce navigateur.
-              Exportez d’abord une sauvegarde si nécessaire.
-            </p>
-
-            <div className="form-grid">
-              <label className="file-drop field--full">
-                <input
-                  type="file"
-                  accept=".coffre,.json,application/json"
-                  onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
-                />
-                <Upload size={20} />
-                <span>{importFile ? importFile.name : 'Choisir un fichier .coffre'}</span>
-                <small>
-                  {importFile
-                    ? `${Math.ceil(importFile.size / 1024)} Ko`
-                    : 'Le fichier reste sur cet appareil'}
-                </small>
-              </label>
-
-              <label className="field field--full">
-                <span className="field__label">Mot de passe du fichier</span>
-                <input
-                  className="input"
-                  type="password"
-                  value={importPassword}
-                  onChange={(event) => setImportPassword(event.target.value)}
-                  autoComplete="off"
-                />
-              </label>
-            </div>
-
-            <label className="checkbox checkbox--warning">
-              <input
-                type="checkbox"
-                checked={importAcknowledged}
-                onChange={(event) => setImportAcknowledged(event.target.checked)}
-              />
-              <span>Je comprends que le coffre local actuel sera remplacé.</span>
-            </label>
-
-            {importError && (
-              <p className="form-error" role="alert">
-                <AlertTriangle size={16} />
-                {importError}
-              </p>
-            )}
-
-            <div className="settings-actions">
-              <button
-                type="button"
-                className="button button--primary"
-                onClick={() => void importVaultFile()}
-                disabled={!importFile || !importPassword || !importAcknowledged || importBusy}
-              >
-                {importBusy ? <LoaderCircle size={16} className="spin" /> : <Upload size={16} />}
-                {importBusy ? 'Importation…' : 'Remplacer par ce coffre'}
-              </button>
-            </div>
-          </section>
-
-          <section className="settings-section">
-            <div className="settings-section__head">
-              <span className="settings-section__icon">
-                <KeyRound size={18} />
-              </span>
-              <div>
-                <h3>Phrase de récupération</h3>
-                <p>
-                  Une seconde clé optionnelle pour rouvrir le coffre sans le mot de passe
-                  maître. La phrase n’est stockée nulle part.
-                </p>
-              </div>
-            </div>
-
-            {file?.recovery ? (
-              <p className="settings-copy">
-                <ShieldCheck size={15} /> Phrase configurée le{' '}
-                <strong>{formatDateTime(file.recovery.createdAt)}</strong>. Elle permet de
-                choisir un nouveau mot de passe maître en cas d’oubli.
-              </p>
-            ) : (
-              <p className="settings-copy">
-                Aucune phrase n’est configurée. Sans elle, perdre le mot de passe maître
-                revient à perdre les données.
-              </p>
-            )}
-
-            <div className="settings-actions settings-actions--start">
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => setShowRecovery(true)}
-              >
-                <KeyRound size={16} />
-                {file?.recovery ? 'Gérer la phrase' : 'Configurer une phrase'}
-              </button>
-            </div>
-          </section>
-
-          <section className="settings-section">
-            <div className="settings-section__head">
-              <span className="settings-section__icon">
-                <FileSpreadsheet size={18} />
-              </span>
-              <div>
-                <h3>Importer depuis un autre gestionnaire</h3>
-                <p>
-                  Exports JSON Bitwarden, Proton Pass et Enpass, ou CSV de 1Password,
-                  LastPass, Chrome, Firefox, Safari, Dashlane, KeePass, NordPass,
-                  Keeper, RoboForm et SafeInCloud. Les éléments sont ajoutés au coffre
-                  choisi, puis chiffrés localement. Les doublons peuvent être ignorés.
-                </p>
-              </div>
-            </div>
-
-            <label className="file-drop">
-              <input
-                type="file"
-                accept=".json,.csv,application/json,text/csv"
-                onChange={(event) => {
-                  void selectSourceFile(event.target.files?.[0] ?? null)
-                  event.target.value = ''
-                }}
-                disabled={sourceBusy}
-              />
-              <Upload size={20} />
-              <span>
-                {sourceFile ? sourceFile.name : 'Choisir un fichier JSON, CSV ou 1PUX'}
-              </span>
-              <small>
-                {sourceFile
-                  ? `${Math.ceil(sourceFile.size / 1024)} Ko`
-                  : 'Bitwarden, Proton Pass, Enpass, 1Password (1PUX), LastPass, Chrome, Firefox, Safari, Dashlane, KeePass…'}
-              </small>
-            </label>
-
-            {sourceError && (
-              <p className="form-error" role="alert">
-                <AlertTriangle size={16} />
-                {sourceError}
-              </p>
-            )}
-
-            {sourceItems && (
-              <>
-                <div className="import-summary">
-                  <strong>{sourceItems.items.length}</strong>
-                  <span>
-                    élément{sourceItems.items.length > 1 ? 's' : ''} détecté
-                    {sourceItems.items.length > 1 ? 's' : ''} ·{' '}
-                    {sourceItems.format === 'csv'
-                      ? 'CSV'
-                      : sourceItems.format === '1pux'
-                        ? '1PUX'
-                        : 'JSON'}{' '}
-                    {importSourceLabel(sourceItems.source)}
-                    {sourcePreview.duplicates.length > 0 &&
-                      ` · ${sourcePreview.duplicates.length} doublon${
-                        sourcePreview.duplicates.length > 1 ? 's' : ''
-                      }`}
-                  </span>
+            {page === 'general' && (
+              <section className="settings__page" aria-labelledby="settings-general">
+                <div className="settings__page-head">
+                  <div>
+                    <h3 id="settings-general">{tt("Général")}</h3>
+                    <p>{tt("Ces préférences restent dans ce navigateur.")}</p>
+                  </div>
                 </div>
 
-                <label className="field">
-                  <span className="field__label">Coffre de destination</span>
-                  <select
-                    className="input"
-                    value={sourceVaultId}
-                    onChange={(event) => changeSourceVault(event.target.value)}
-                    disabled={sourceBusy}
-                  >
-                    {vaults.map((vault) => (
-                      <option key={vault.id} value={vault.id}>
-                        {vault.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {sourcePreview.duplicates.length > 0 && (
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      checked={skipDuplicates}
-                      onChange={(event) => setSkipDuplicates(event.target.checked)}
-                      disabled={sourceBusy}
-                    />
-                    <span>
-                      <strong>Ignorer les doublons.</strong> {sourcePreview.duplicates.length}{' '}
-                      élément{sourcePreview.duplicates.length > 1 ? 's' : ''} semble
-                      {sourcePreview.duplicates.length > 1 ? 'nt' : ''} déjà présent
-                      {sourcePreview.duplicates.length > 1 ? 's' : ''} dans le coffre
-                      (même type et mêmes informations d’identification).
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <SlidersHorizontal size={18} />
                     </span>
-                  </label>
-                )}
+                    <div>
+                      <h3>{tt("Verrouillage et presse-papiers")}</h3>
+                      <p>{tt("Quand le coffre se ferme et comment les copies sont effacées.")}</p>
+                    </div>
+                  </div>
 
-                {sourcePreview.duplicates.length > 0 &&
-                  sourceImportCount === 0 &&
-                  skipDuplicates && (
-                    <p className="field__hint">
-                      Tous les éléments de ce fichier sont déjà présents. Décochez
-                      « Ignorer les doublons » pour les importer quand même.
+                  <div className="form-grid">
+                    <label className="field">
+                      <span className="field__label">{tt("Verrouillage automatique")}</span>
+                      <select
+                        className="input"
+                        value={settings.autoLockMinutes}
+                        onChange={(event) =>
+                          updateSettings({ autoLockMinutes: Number(event.target.value) })
+                        }
+                      >
+                        <option value={0}>{tt("Jamais")}</option>
+                        <option value={1}>{tt("Après 1 minute")}</option>
+                        <option value={5}>{tt("Après 5 minutes")}</option>
+                        <option value={15}>{tt("Après 15 minutes")}</option>
+                        <option value={30}>{tt("Après 30 minutes")}</option>
+                        <option value={60}>{tt("Après 1 heure")}</option>
+                      </select>
+                    </label>
+
+                    <label className="field">
+                      <span className="field__label">{tt("Effacement du presse-papiers")}</span>
+                      <select
+                        className="input"
+                        value={settings.clipboardClearSeconds}
+                        onChange={(event) =>
+                          updateSettings({
+                            clipboardClearSeconds: Number(event.target.value),
+                          })
+                        }
+                      >
+                        <option value={0}>{tt("Jamais")}</option>
+                        <option value={15}>{tt("Après 15 secondes")}</option>
+                        <option value={30}>{tt("Après 30 secondes")}</option>
+                        <option value={60}>{tt("Après 1 minute")}</option>
+                        <option value={120}>{tt("Après 2 minutes")}</option>
+                      </select>
+                    </label>
+
+                    <label className="field field--full">
+                      <span className="field__label">{tt("Conservation de la corbeille")}</span>
+                      <select
+                        className="input"
+                        value={settings.trashRetentionDays}
+                        onChange={(event) =>
+                          updateSettings({
+                            trashRetentionDays: Number(event.target.value),
+                          })
+                        }
+                      >
+                        <option value={0}>{tt("Jamais purger automatiquement")}</option>
+                        <option value={7}>{tt("Après 7 jours")}</option>
+                        <option value={30}>{tt("Après 30 jours")}</option>
+                        <option value={90}>{tt("Après 90 jours")}</option>
+                        <option value={365}>{tt("Après 1 an")}</option>
+                      </select>
+                      <span className="field__hint">
+                        La purge s’applique à l’ouverture du coffre et après un import.
+                      </span>
+                    </label>
+                  </div>
+
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={settings.lockOnHide}
+                      onChange={(event) =>
+                        updateSettings({ lockOnHide: event.target.checked })
+                      }
+                    />
+                    <span>{tt("Verrouiller lorsque l’onglet passe en arrière-plan")}</span>
+                  </label>
+                  <details className="settings-help">
+                    <summary>{tt("En savoir plus")}</summary>
+                    <p>
+                      Recommandé : dès que Coffre n’est plus visible, les clés sont effacées
+                      de la mémoire. Ce verrouillage s’applique même si le délai
+                      d’inactivité est désactivé.
+                    </p>
+                  </details>
+
+                  {isTauriRuntime() && (
+                    <>
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={settings.lockOnFocusLoss}
+                          onChange={(event) =>
+                            updateSettings({ lockOnFocusLoss: event.target.checked })
+                          }
+                        />
+                        <span>{tt("Verrouiller lorsque la fenêtre perd le focus")}</span>
+                      </label>
+                      <details className="settings-help">
+                        <summary>{tt("En savoir plus")}</summary>
+                        <p>
+                          Utile sur desktop : cliquer dans une autre application verrouille
+                          le coffre. Laissez désactivé si vous utilisez souvent des dialogues
+                          système.
+                        </p>
+                      </details>
+                    </>
+                  )}
+
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={settings.expiryNotifications}
+                      onChange={(event) =>
+                        void toggleExpiryNotifications(event.target.checked)
+                      }
+                    />
+                    <span>{tt("Recevoir un rappel pour les échéances proches")}</span>
+                  </label>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <Languages size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Langue")}</h3>
+                      <p>{tt("Langue de l’interface et des dates.")}</p>
+                    </div>
+                  </div>
+                  <label className="field field--full">
+                    <span className="field__label">{tt("Langue")}</span>
+                    <select
+                      className="input"
+                      value={settings.language}
+                      onChange={(event) =>
+                        updateSettings({ language: event.target.value as Locale })
+                      }
+                    >
+                      {LOCALES.map((locale) => (
+                        <option key={locale.id} value={locale.id}>
+                          {locale.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <SlidersHorizontal size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Apparence")}</h3>
+                      <p>{tt("Thème sombre, clair ou aligné sur le système.")}</p>
+                    </div>
+                  </div>
+                  <label className="field field--full">
+                    <span className="field__label">{tt("Apparence")}</span>
+                    <select
+                      className="input"
+                      value={settings.theme}
+                      onChange={(event) =>
+                        updateSettings({ theme: event.target.value as ThemePreference })
+                      }
+                    >
+                      <option value="dark">{tt("Sombre")}</option>
+                      <option value="light">{tt("Clair")}</option>
+                      <option value="system">{tt("Suivre le système")}</option>
+                    </select>
+                  </label>
+                </section>
+
+                <p className="settings__about">
+                  Coffre v0.8.0 · GPL-3.0 · format de coffre v{file?.version ?? '—'}.
+                  Aucune donnée n’est transmise. Le modèle de sécurité est décrit dans{' '}
+                  <code>docs/SECURITY.md</code>.
+                </p>
+              </section>
+            )}
+
+            {page === 'sync' && <SyncSettings />}
+
+            {page === 'security' && (
+              <section className="settings__page" aria-labelledby="settings-security">
+                <div className="settings__page-head">
+                  <div>
+                    <h3 id="settings-security">{tt("Sécurité")}</h3>
+                    <p>{tt("Mot de passe maître, récupération et trousseau du système.")}</p>
+                  </div>
+                </div>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <KeyRound size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Mot de passe maître")}</h3>
+                      <p>
+                        Le changer ré-enveloppe les clés de coffre, sans réchiffrer les
+                        éléments.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="form-grid">
+                    <label className="field field--full">
+                      <span className="field__label">{tt("Mot de passe actuel")}</span>
+                      <input
+                        className="input"
+                        type="password"
+                        value={currentPassword}
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                        autoComplete="current-password"
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field__label">{tt("Nouveau mot de passe")}</span>
+                      <input
+                        className="input"
+                        type="password"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        autoComplete="new-password"
+                        placeholder={tt('12 caractères minimum')}
+                      />
+                      {newPassword && <PasswordStrength entropy={entropy} showEntropy />}
+                    </label>
+                    <label className="field">
+                      <span className="field__label">{tt("Confirmer")}</span>
+                      <input
+                        className="input"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        autoComplete="new-password"
+                      />
+                      {confirmPassword && !passwordsMatch && (
+                        <span className="field__hint field__hint--error">
+                          Les mots de passe ne correspondent pas.
+                        </span>
+                      )}
+                    </label>
+                  </div>
+
+                  {passwordError && (
+                    <p className="form-error" role="alert">
+                      <AlertTriangle size={16} />
+                      {passwordError}
+                    </p>
+                  )}
+                  {passwordDone && (
+                    <p className="form-success" role="status">
+                      <Check size={16} />
+                      Mot de passe modifié. Il sera demandé au prochain déverrouillage.
                     </p>
                   )}
 
-                {sourceItems.warnings.length > 0 && (
-                  <ul className="import-warnings">
-                    {sourceItems.warnings.map((warning, index) => (
-                      <li key={index}>{warning}</li>
-                    ))}
-                  </ul>
-                )}
+                  <div className="settings-actions">
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={() => void change()}
+                      disabled={passwordBusy}
+                    >
+                      {passwordBusy ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : (
+                        <KeyRound size={16} />
+                      )}
+                      {passwordBusy ? 'Modification…' : 'Modifier le mot de passe'}
+                    </button>
+                  </div>
 
-                <div className="settings-actions">
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    onClick={() => void runSourceImport()}
-                    disabled={sourceBusy || sourceImportCount === 0}
-                  >
-                    {sourceBusy ? (
-                      <LoaderCircle size={16} className="spin" />
-                    ) : (
-                      <Upload size={16} />
-                    )}
-                    {sourceBusy
-                      ? 'Importation…'
-                      : `Importer ${sourceImportCount} élément${
-                          sourceImportCount > 1 ? 's' : ''
-                        }`}
-                  </button>
-                </div>
-              </>
-            )}
+                  {file && (
+                    <div className="kdf-info">
+                      <span>
+                        <strong>Argon2id</strong> ·{' '}
+                        {Math.round(file.kdf.memoryKiB / 1024)} Mio · {file.kdf.iterations}{' '}
+                        itérations · {file.kdf.parallelism} threads
+                      </span>
+                      <small>{tt("Sel unique par coffre, clé AES de 256 bits.")}</small>
+                    </div>
+                  )}
+                </section>
 
-            {sourceReport && (
-              <div className="import-report" role="status">
-                <p>
-                  <Check size={16} />
-                  {sourceReport.imported} élément
-                  {sourceReport.imported > 1 ? 's' : ''} ajouté
-                  {sourceReport.imported > 1 ? 's' : ''} au coffre.
-                </p>
-                {sourceReport.duplicates > 0 && (
-                  <p>
-                    {sourceReport.duplicates} doublon
-                    {sourceReport.duplicates > 1 ? 's' : ''} ignoré
-                    {sourceReport.duplicates > 1 ? 's' : ''}.
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <KeyRound size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Phrase de récupération")}</h3>
+                      <p>{tt("Une seconde clé optionnelle, jamais stockée en clair.")}</p>
+                    </div>
+                  </div>
+
+                  {file?.recovery ? (
+                    <p className="settings-copy">
+                      <ShieldCheck size={15} /> Phrase configurée le{' '}
+                      <strong>{formatDateTime(file.recovery.createdAt)}</strong>. Elle permet
+                      de choisir un nouveau mot de passe maître en cas d’oubli.
+                    </p>
+                  ) : (
+                    <p className="settings-copy">
+                      Aucune phrase n’est configurée. Sans elle, perdre le mot de passe
+                      maître revient à perdre les données.
+                    </p>
+                  )}
+
+                  <div className="settings-actions settings-actions--start">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => setShowRecovery(true)}
+                    >
+                      <KeyRound size={16} />
+                      {file?.recovery ? 'Gérer la phrase' : 'Configurer une phrase'}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <FileKey2 size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Kit d’urgence")}</h3>
+                      <p>{tt("Parts imprimables de la clé de récupération, avec QR codes.")}</p>
+                    </div>
+                  </div>
+
+                  <p className="settings-copy">
+                    Document papier avec des parts Shamir de la clé de récupération.
                   </p>
-                )}
-                {sourceReport.warnings.length > 0 && (
-                  <details>
-                    <summary>
-                      {sourceReport.warnings.length} ligne
-                      {sourceReport.warnings.length > 1 ? 's' : ''} ignorée
-                      {sourceReport.warnings.length > 1 ? 's' : ''}
-                    </summary>
-                    <ul className="import-warnings">
-                      {sourceReport.warnings.map((warning, index) => (
-                        <li key={index}>{warning}</li>
-                      ))}
-                    </ul>
+                  <details className="settings-help">
+                    <summary>{tt("En savoir plus")}</summary>
+                    <p>
+                      Par exemple, trois parts sur cinq sont nécessaires : confiez-les à des
+                      personnes différentes. Chaque part seule ne révèle rien, et les parts
+                      ne remplacent pas une sauvegarde du fichier <code>.coffre</code>.
+                    </p>
                   </details>
+
+                  <div className="settings-actions settings-actions--start">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => setShowEmergencyKit(true)}
+                      disabled={!file?.recovery}
+                    >
+                      <FileKey2 size={16} />
+                      Créer le kit d’urgence
+                    </button>
+                  </div>
+                  {!file?.recovery && (
+                    <p className="field__hint">
+                      Configurez d’abord une phrase de récupération.
+                    </p>
+                  )}
+                </section>
+
+                {keychainAvailable() && (
+                  <section className="settings-section">
+                    <div className="settings-section__head">
+                      <span className="settings-section__icon">
+                        <Fingerprint size={18} />
+                      </span>
+                      <div>
+                        <h3>{tt("Trousseau du système")}</h3>
+                        <p>{tt("Déverrouillage rapide par le trousseau de l’appareil.")}</p>
+                      </div>
+                    </div>
+
+                    {biometricsReady && (
+                      <>
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={settings.biometricUnlock}
+                            onChange={(event) => {
+                              const enabled = event.target.checked
+                              updateSettings({
+                                biometricUnlock: enabled,
+                                ...(enabled ? { keychainUnlock: false } : {}),
+                              })
+                            }}
+                          />
+                          <span>{tt("Déverrouiller avec Touch ID (empreinte)")}</span>
+                        </label>
+                        <details className="settings-help">
+                          <summary>{tt("En savoir plus")}</summary>
+                          <p>
+                            La clé maîtresse est rangée dans un trousseau biométrique séparé
+                            et n’est libérée qu’après une authentification réussie. La clé
+                            reste en place pendant le verrouillage pour permettre le
+                            déverrouillage rapide, puis elle est supprimée si l’option est
+                            désactivée ou le coffre réinitialisé.
+                          </p>
+                        </details>
+                        {settings.biometricUnlock && (
+                          <div className="settings-actions settings-actions--start">
+                            <button
+                              type="button"
+                              className="button button--secondary"
+                              onClick={() => void resetBiometric()}
+                              disabled={biometricBusy}
+                            >
+                              {biometricBusy ? (
+                                <LoaderCircle size={16} className="spin" />
+                              ) : (
+                                <Fingerprint size={16} />
+                              )}
+                              {biometricBusy
+                                ? 'Réinitialisation…'
+                                : 'Réinitialiser Touch ID'}
+                            </button>
+                          </div>
+                        )}
+                        <div className="settings-divider" />
+                      </>
+                    )}
+
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={settings.keychainUnlock}
+                        disabled={settings.biometricUnlock}
+                        onChange={(event) =>
+                          updateSettings({ keychainUnlock: event.target.checked })
+                        }
+                      />
+                      <span>
+                        Mémoriser la clé maîtresse dans le trousseau du système
+                        {settings.biometricUnlock ? ' (remplacé par Touch ID)' : ''}
+                      </span>
+                    </label>
+                    <details className="settings-help">
+                      <summary>{tt("En savoir plus")}</summary>
+                      <p>
+                        La clé est conservée hors du coffre, protégée par votre session
+                        système, puis supprimée dès que le coffre est verrouillé. Le
+                        déverrouillage rapide s’applique donc après un rechargement ou un
+                        redémarrage de l’application.
+                      </p>
+                    </details>
+                  </section>
                 )}
-              </div>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <ShieldAlert size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Fuites connues")}</h3>
+                      <p>{tt("Surveillance optionnelle en k-anonymat.")}</p>
+                    </div>
+                  </div>
+
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={settings.breachCheck}
+                      onChange={(event) =>
+                        updateSettings({ breachCheck: event.target.checked })
+                      }
+                    />
+                    <span>
+                      {tt(
+                        "Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)",
+                      )}
+                    </span>
+                  </label>
+                  <details className="settings-help">
+                    <summary>{tt("En savoir plus")}</summary>
+                    <p>
+                      Le mot de passe est haché localement en SHA-1 ; seuls les 5
+                      premiers caractères hexadécimaux sont envoyés à
+                      api.pwnedpasswords.com avec l’en-tête <code>Add-Padding</code>.
+                      Le hash complet et le mot de passe ne quittent jamais
+                      l’appareil. Aucun résultat n’est persisté : ils disparaissent au
+                      rechargement.
+                      Sur desktop, la requête passe par une commande Rust ; sur le
+                      Web, cet hôte est le seul ajouté à la CSP.
+                    </p>
+                  </details>
+                  <p className="field__hint">
+                    Désactivé par défaut. La vérification ne démarre que lorsque
+                    vous la lancez depuis le tableau de bord Sécurité.
+                  </p>
+                </section>
+              </section>
             )}
-          </section>
 
-          <section className="settings-section">
-            <div className="settings-section__head">
-              <span className="settings-section__icon">
-                <ShieldCheck size={18} />
-              </span>
-              <div>
-                <h3>Contenu du coffre</h3>
-                <p>
-                  {vaults.length} coffre{vaults.length > 1 ? 's' : ''} · {activeItems.length}{' '}
-                  élément{activeItems.length > 1 ? 's' : ''} actif
-                  {activeItems.length > 1 ? 's' : ''}
-                  {trashedItems.length > 0
-                    ? ` · ${trashedItems.length} dans la corbeille`
-                    : ''}
-                </p>
-              </div>
-            </div>
-
-            <div className="stat-grid">
-              {(['login', 'card', 'note', 'identity'] as const).map((type) => (
-                <div key={type} className="stat">
-                  <strong>{counts[type]}</strong>
-                  <span>{itemTypeLabel(type)}</span>
+            {page === 'backup' && (
+              <section className="settings__page" aria-labelledby="settings-backup">
+                <div className="settings__page-head">
+                  <div>
+                    <h3 id="settings-backup">{tt("Sauvegarde et import")}</h3>
+                    <p>{tt("Exports chiffrés, exports CSV et imports depuis d’autres outils.")}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {trashedItems.length > 0 && (
-              <div className="settings-actions settings-actions--start">
-                <button
-                  type="button"
-                  className="button button--danger"
-                  onClick={() => setShowEmptyTrash(true)}
-                >
-                  <Trash2 size={16} />
-                  Vider la corbeille ({trashedItems.length})
-                </button>
-              </div>
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <FileKey2 size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Exporter le coffre")}</h3>
+                      <p>{tt("Le fichier .coffre est chiffré avec votre mot de passe maître.")}</p>
+                    </div>
+                  </div>
+
+                  <div className="settings-actions settings-actions--start">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => {
+                        try {
+                          exportVault()
+                          toast(tt('Coffre exporté'), 'success')
+                        } catch (caught) {
+                          toast(
+                            caught instanceof Error
+                              ? caught.message
+                              : tt('Export impossible'),
+                            'error',
+                          )
+                        }
+                      }}
+                    >
+                      <Download size={16} />
+                      {tt("Exporter le coffre")}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => setShowKdbxExport(true)}
+                    >
+                      <FileKey2 size={16} />
+                      {tt('Exporter en KDBX')}
+                    </button>
+                  </div>
+
+                  <div className="settings-divider" />
+
+                  <h4 className="settings-subtitle">{tt("Exporter en CSV")}</h4>
+                  <p className="settings-copy">
+                    Le CSV est un fichier <strong>{tt("en clair")}</strong> : importez-le
+                    immédiatement, puis supprimez-le.
+                  </p>
+
+                  <label className="field field--full">
+                    <span className="field__label">{tt("Format CSV")}</span>
+                    <select
+                      className="input"
+                      value={csvFormat}
+                      onChange={(event) =>
+                        setCsvFormat(event.target.value as CsvExportFormat)
+                      }
+                    >
+                      <option value="apple">{tt("Mots de passe (Apple) — connexions")}</option>
+                      <option value="coffre">{tt("Coffre complet — tous les éléments")}</option>
+                    </select>
+                  </label>
+
+                  <div className="settings-actions settings-actions--start">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={exportCsvFile}
+                    >
+                      <Download size={16} />
+                      {tt("Exporter en CSV")}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <Upload size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Importer un coffre")}</h3>
+                      <p>{tt("Le fichier importé remplace le coffre stocké dans ce navigateur.")}</p>
+                    </div>
+                  </div>
+
+                  <div className="form-grid">
+                    <label className="file-drop field--full">
+                      <input
+                        type="file"
+                        accept=".coffre,.json,application/json"
+                        onChange={(event) =>
+                          setImportFile(event.target.files?.[0] ?? null)
+                        }
+                      />
+                      <Upload size={20} />
+                      <span>
+                        {importFile ? importFile.name : 'Choisir un fichier .coffre'}
+                      </span>
+                      <small>
+                        {importFile
+                          ? `${Math.ceil(importFile.size / 1024)} Ko`
+                          : 'Le fichier reste sur cet appareil'}
+                      </small>
+                    </label>
+
+                    <label className="field field--full">
+                      <span className="field__label">{tt("Mot de passe du fichier")}</span>
+                      <input
+                        className="input"
+                        type="password"
+                        value={importPassword}
+                        onChange={(event) => setImportPassword(event.target.value)}
+                        autoComplete="off"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="checkbox checkbox--warning">
+                    <input
+                      type="checkbox"
+                      checked={importAcknowledged}
+                      onChange={(event) => setImportAcknowledged(event.target.checked)}
+                    />
+                    <span>{tt("Je comprends que le coffre local actuel sera remplacé.")}</span>
+                  </label>
+
+                  {importError && (
+                    <p className="form-error" role="alert">
+                      <AlertTriangle size={16} />
+                      {importError}
+                    </p>
+                  )}
+
+                  <div className="settings-actions">
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={() => void importVaultFile()}
+                      disabled={
+                        !importFile || !importPassword || !importAcknowledged || importBusy
+                      }
+                    >
+                      {importBusy ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : (
+                        <Upload size={16} />
+                      )}
+                      {importBusy ? 'Importation…' : 'Remplacer par ce coffre'}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <FileKey2 size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt('Importer une base KeePass (KDBX 4)')}</h3>
+                      <p>{tt('Fichier .kdbx, mot de passe et éventuel fichier de clé.')}</p>
+                    </div>
+                  </div>
+
+                  <div className="form-grid">
+                    <label className="field field--full">
+                      <span className="field__label">{tt('Fichier KDBX')}</span>
+                      <input
+                        className="input"
+                        type="file"
+                        accept=".kdbx,application/octet-stream"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null
+                          if (file && file.size > 100 * 1024 * 1024) {
+                            setKdbxError(
+                              tt('Fichier trop volumineux (100 Mo maximum)'),
+                            )
+                            return
+                          }
+                          setKdbxError(null)
+                          setKdbxFile(file)
+                        }}
+                        disabled={kdbxBusy}
+                      />
+                    </label>
+
+                    <label className="field field--full">
+                      <span className="field__label">{tt('Mot de passe KDBX')}</span>
+                      <input
+                        className="input"
+                        type="password"
+                        value={kdbxPassword}
+                        onChange={(event) => setKdbxPassword(event.target.value)}
+                        autoComplete="off"
+                        disabled={kdbxBusy}
+                      />
+                    </label>
+
+                    <label className="field field--full">
+                      <span className="field__label">{tt('Fichier de clé (optionnel)')}</span>
+                      <input
+                        className="input"
+                        type="file"
+                        accept=".keyx,.key,application/octet-stream"
+                        onChange={(event) =>
+                          setKdbxKeyFile(event.target.files?.[0] ?? null)
+                        }
+                        disabled={kdbxBusy}
+                      />
+                    </label>
+
+                    <label className="field">
+                      <span className="field__label">{tt('Coffre de destination')}</span>
+                      <select
+                        className="input"
+                        value={activeKdbxVaultId}
+                        onChange={(event) => setKdbxVaultId(event.target.value)}
+                        disabled={kdbxBusy}
+                      >
+                        {vaults.map((vault) => (
+                          <option key={vault.id} value={vault.id}>
+                            {vault.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  {kdbxError && (
+                    <p className="form-error" role="alert">
+                      <AlertTriangle size={16} />
+                      {kdbxError}
+                    </p>
+                  )}
+                  {kdbxReport && (
+                    <div className="import-report" role="status">
+                      <p>
+                        <Check size={16} />
+                        {kdbxReport}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="settings-actions">
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={() => void importKdbx()}
+                      disabled={
+                        kdbxBusy ||
+                        !kdbxFile ||
+                        !kdbxPassword ||
+                        !activeKdbxVaultId
+                      }
+                    >
+                      {kdbxBusy ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : (
+                        <Upload size={16} />
+                      )}
+                      {kdbxBusy
+                        ? tt('Import KDBX en cours…')
+                        : tt('Importer la base KDBX')}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <FileSpreadsheet size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Importer depuis un autre gestionnaire")}</h3>
+                      <p>
+                        Bitwarden, Proton Pass, Enpass, 1Password, LastPass, Chrome,
+                        Firefox, Safari, Dashlane, KeePass…
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="file-drop">
+                    <input
+                      type="file"
+                      accept=".json,.csv,application/json,text/csv"
+                      onChange={(event) => {
+                        void selectSourceFile(event.target.files?.[0] ?? null)
+                        event.target.value = ''
+                      }}
+                      disabled={sourceBusy}
+                    />
+                    <Upload size={20} />
+                    <span>
+                      {sourceFile ? sourceFile.name : 'Choisir un fichier JSON, CSV ou 1PUX'}
+                    </span>
+                    <small>{tt("Les éléments sont ajoutés au coffre choisi, puis chiffrés.")}</small>
+                  </label>
+
+                  {sourceError && (
+                    <p className="form-error" role="alert">
+                      <AlertTriangle size={16} />
+                      {sourceError}
+                    </p>
+                  )}
+
+                  {sourceItems && (
+                    <>
+                      <div className="import-summary">
+                        <strong>{sourceItems.items.length}</strong>
+                        <span>
+                          élément{sourceItems.items.length > 1 ? 's' : ''} détecté
+                          {sourceItems.items.length > 1 ? 's' : ''} ·{' '}
+                          {sourceItems.format === 'csv'
+                            ? 'CSV'
+                            : sourceItems.format === '1pux'
+                              ? '1PUX'
+                              : 'JSON'}{' '}
+                          {importSourceLabel(sourceItems.source)}
+                          {sourcePreview.duplicates.length > 0 &&
+                            ` · ${sourcePreview.duplicates.length} doublon${
+                              sourcePreview.duplicates.length > 1 ? 's' : ''
+                            }`}
+                        </span>
+                      </div>
+
+                      <label className="field">
+                        <span className="field__label">{tt("Coffre de destination")}</span>
+                        <select
+                          className="input"
+                          value={sourceVaultId}
+                          onChange={(event) => changeSourceVault(event.target.value)}
+                          disabled={sourceBusy}
+                        >
+                          {vaults.map((vault) => (
+                            <option key={vault.id} value={vault.id}>
+                              {vault.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {sourcePreview.duplicates.length > 0 && (
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={skipDuplicates}
+                            onChange={(event) => setSkipDuplicates(event.target.checked)}
+                            disabled={sourceBusy}
+                          />
+                          <span>
+                            <strong>{tt("Ignorer les doublons.")}</strong>{' '}
+                            {sourcePreview.duplicates.length} élément
+                            {sourcePreview.duplicates.length > 1 ? 's' : ''} semble
+                            {sourcePreview.duplicates.length > 1 ? 'nt' : ''} déjà présent
+                            {sourcePreview.duplicates.length > 1 ? 's' : ''} dans le coffre.
+                          </span>
+                        </label>
+                      )}
+
+                      {sourcePreview.duplicates.length > 0 &&
+                        sourceImportCount === 0 &&
+                        skipDuplicates && (
+                          <p className="field__hint">
+                            Tous les éléments de ce fichier sont déjà présents. Décochez
+                            « Ignorer les doublons » pour les importer quand même.
+                          </p>
+                        )}
+
+                      {sourceItems.warnings.length > 0 && (
+                        <ul className="import-warnings">
+                          {sourceItems.warnings.map((warning, index) => (
+                            <li key={index}>{warning}</li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <div className="settings-actions">
+                        <button
+                          type="button"
+                          className="button button--primary"
+                          onClick={() => void runSourceImport()}
+                          disabled={sourceBusy || sourceImportCount === 0}
+                        >
+                          {sourceBusy ? (
+                            <LoaderCircle size={16} className="spin" />
+                          ) : (
+                            <Upload size={16} />
+                          )}
+                          {sourceBusy
+                            ? 'Importation…'
+                            : `Importer ${sourceImportCount} élément${
+                                sourceImportCount > 1 ? 's' : ''
+                              }`}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {sourceReport && (
+                    <div className="import-report" role="status">
+                      <p>
+                        <Check size={16} />
+                        {sourceReport.imported} élément
+                        {sourceReport.imported > 1 ? 's' : ''} ajouté
+                        {sourceReport.imported > 1 ? 's' : ''} au coffre.
+                      </p>
+                      {sourceReport.duplicates > 0 && (
+                        <p>
+                          {sourceReport.duplicates} doublon
+                          {sourceReport.duplicates > 1 ? 's' : ''} ignoré
+                          {sourceReport.duplicates > 1 ? 's' : ''}.
+                        </p>
+                      )}
+                      {sourceReport.warnings.length > 0 && (
+                        <details>
+                          <summary>
+                            {sourceReport.warnings.length} ligne
+                            {sourceReport.warnings.length > 1 ? 's' : ''} ignorée
+                            {sourceReport.warnings.length > 1 ? 's' : ''}
+                          </summary>
+                          <ul className="import-warnings">
+                            {sourceReport.warnings.map((warning, index) => (
+                              <li key={index}>{warning}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <Share2 size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Importer un partage hors ligne")}</h3>
+                      <p>{tt("Fichier")} <code>.coffre-share</code> {tt("et clé transmis séparément.")}</p>
+                    </div>
+                  </div>
+
+                  <p className="settings-copy">
+                    Le fichier et la clé sont nécessaires ; les pièces jointes ne sont pas
+                    incluses.
+                  </p>
+                  <details className="settings-help">
+                    <summary>{tt("En savoir plus")}</summary>
+                    <p>
+                      Saisissez la clé en mots ou le contenu du QR code fourni par
+                      l’expéditeur. Un partage expiré est refusé.
+                    </p>
+                  </details>
+
+                  <div className="form-grid">
+                    <label className="field field--full">
+                      <span className="field__label">{tt("Fichier de partage")}</span>
+                      <input
+                        className="input"
+                        type="file"
+                        accept=".coffre-share,application/json"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0]
+                          if (!file) return
+                          if (file.size > 10 * 1024 * 1024) {
+                            setShareError('Fichier trop volumineux (10 Mo maximum)')
+                            return
+                          }
+                          setShareError(null)
+                          void file.text().then(setShareText)
+                        }}
+                        disabled={shareBusy}
+                      />
+                    </label>
+
+                    <label className="field field--full">
+                      <span className="field__label">{tt("Clé de partage")}</span>
+                      <textarea
+                        className="input input--mono"
+                        rows={3}
+                        value={shareKey}
+                        onChange={(event) => setShareKey(event.target.value)}
+                        placeholder={tt('Mots de la clé, ou contenu du QR code')}
+                        autoComplete="off"
+                        spellCheck={false}
+                        disabled={shareBusy}
+                      />
+                    </label>
+
+                    <label className="field">
+                      <span className="field__label">{tt("Coffre de destination")}</span>
+                      <select
+                        className="input"
+                        value={activeShareVaultId}
+                        onChange={(event) => setShareVaultId(event.target.value)}
+                        disabled={shareBusy}
+                      >
+                        {vaults.map((vault) => (
+                          <option key={vault.id} value={vault.id}>
+                            {vault.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  {shareError && (
+                    <p className="form-error" role="alert">
+                      <AlertTriangle size={16} />
+                      {shareError}
+                    </p>
+                  )}
+                  {shareReport && (
+                    <div className="import-report" role="status">
+                      <p>
+                        <Check size={16} />
+                        {shareReport}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="settings-actions">
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={() => void importOfflineShare()}
+                      disabled={
+                        shareBusy || !shareText.trim() || !shareKey.trim() || !activeShareVaultId
+                      }
+                    >
+                      {shareBusy ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : (
+                        <Upload size={16} />
+                      )}
+                      Importer le partage
+                    </button>
+                  </div>
+                </section>
+              </section>
             )}
 
-            {file && (
-              <p className="settings-copy">
-                Dernière écriture locale : {formatDateTime(file.updatedAt)} · format v
-                {file.version} · identifiant {file.id.slice(0, 12)}…
-              </p>
+            {page === 'storage' && (
+              <section className="settings__page" aria-labelledby="settings-storage">
+                <div className="settings__page-head">
+                  <div>
+                    <h3 id="settings-storage">{tt("Stockage")}</h3>
+                    <p>{tt("Persistance, intégrité et sauvegardes locales.")}</p>
+                  </div>
+                </div>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <HardDrive size={18} />
+                    </span>
+                    <div>
+                      <h3>
+                        {isTauriRuntime()
+                          ? 'Stockage natif'
+                          : 'Stockage du navigateur'}
+                      </h3>
+                      <p>
+                        {isTauriRuntime()
+                          ? 'Trois sauvegardes tournantes et écritures atomiques.'
+                          : 'Le navigateur peut conserver ou effacer les données locales.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isTauriRuntime() ? (
+                    <>
+                      <p className="settings-copy">
+                        Coffre chiffré dans le dossier de données de l’application.
+                      </p>
+                      <details className="settings-help">
+                        <summary>{tt("En savoir plus")}</summary>
+                        <p>
+                          Trois sauvegardes tournantes, des écritures atomiques et des
+                          permissions réservées à votre compte. Aucune donnée n’est envoyée
+                          sur Internet.
+                        </p>
+                      </details>
+                    </>
+                  ) : (
+                    <>
+                      <p className="settings-copy">
+                        {persisted === true
+                          ? 'Stockage persistant activé : le navigateur s’engage à conserver le coffre.'
+                          : persisted === false
+                            ? 'Stockage non persistant : le navigateur peut effacer le coffre en cas de manque d’espace.'
+                            : 'Ce navigateur ne permet pas de connaître le statut du stockage persistant.'}
+                        {storageEstimate && storageEstimate.quota > 0
+                          ? ` Espace utilisé : ${formatBytes(storageEstimate.usage)} sur ${formatBytes(storageEstimate.quota)}.`
+                          : ''}
+                      </p>
+
+                      <div className="settings-actions settings-actions--start">
+                        <button
+                          type="button"
+                          className="button button--secondary"
+                          onClick={() => void enablePersistence()}
+                          disabled={persistBusy || persisted === true}
+                        >
+                          {persistBusy ? (
+                            <LoaderCircle size={16} className="spin" />
+                          ) : (
+                            <HardDrive size={16} />
+                          )}
+                          {persisted === true
+                            ? 'Stockage persistant activé'
+                            : persistBusy
+                              ? 'Demande en cours…'
+                              : 'Rendre le stockage persistant'}
+                        </button>
+                      </div>
+                      <details className="settings-help">
+                        <summary>{tt("En savoir plus")}</summary>
+                        <p>
+                          Exportez régulièrement une sauvegarde : un nettoyage du
+                          navigateur peut supprimer les données locales, même persistantes.
+                        </p>
+                      </details>
+                    </>
+                  )}
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <ShieldCheck size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Intégrité du coffre")}</h3>
+                      <p>{tt("Déchiffre et vérifie chaque coffre, élément et pièce jointe.")}</p>
+                    </div>
+                  </div>
+
+                  <div className="settings-actions settings-actions--start">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => void runVerify()}
+                      disabled={verifyBusy}
+                    >
+                      {verifyBusy ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : (
+                        <ShieldCheck size={16} />
+                      )}
+                      {verifyBusy ? 'Vérification…' : 'Vérifier le coffre'}
+                    </button>
+                  </div>
+
+                  {verifyError && (
+                    <p className="form-error" role="alert">
+                      <AlertTriangle size={16} />
+                      {verifyError}
+                    </p>
+                  )}
+                  {verifyReport && (
+                    <p className="form-success" role="status">
+                      <Check size={16} />
+                      Intégrité confirmée : {pluralize(verifyReport.vaults, 'coffre')} ·{' '}
+                      {pluralize(verifyReport.items, 'élément')} ·{' '}
+                      {pluralize(verifyReport.attachments, 'pièce jointe', 'pièces jointes')}{' '}
+                      · {pluralize(verifyReport.versions, 'version')}.
+                      {verifyReport.attachments > 0
+                        ? ` ${formatBytes(verifyReport.attachmentBytes)} de pièces jointes déchiffrées.`
+                        : ''}
+                      {verifyReport.signedRecords > 0
+                        ? ' MAC global du format 4 vérifié.'
+                        : ' Fichier antérieur au format 4 : il sera signé à la prochaine écriture.'}
+                    </p>
+                  )}
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <HardDrive size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Contenu du coffre")}</h3>
+                      <p>
+                        {vaults.length} coffre{vaults.length > 1 ? 's' : ''} ·{' '}
+                        {activeItems.length} élément{activeItems.length > 1 ? 's' : ''} actif
+                        {activeItems.length > 1 ? 's' : ''}
+                        {trashedItems.length > 0
+                          ? ` · ${trashedItems.length} dans la corbeille`
+                          : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="stat-grid">
+                    {(['login', 'card', 'note', 'identity', 'passkey'] as const).map(
+                      (type) => (
+                        <div key={type} className="stat">
+                          <strong>{counts[type]}</strong>
+                          <span>{itemTypeLabel(type)}</span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+
+                  {trashedItems.length > 0 && (
+                    <div className="settings-actions settings-actions--start">
+                      <button
+                        type="button"
+                        className="button button--danger"
+                        onClick={() => setShowEmptyTrash(true)}
+                      >
+                        <Trash2 size={16} />
+                        Vider la corbeille ({trashedItems.length})
+                      </button>
+                    </div>
+                  )}
+
+                  {file && (
+                    <p className="settings-copy">
+                      Dernière écriture locale : {formatDateTime(file.updatedAt)}. Trois
+                      sauvegardes locales tournantes sont conservées.
+                    </p>
+                  )}
+                </section>
+              </section>
             )}
-          </section>
 
-          <section className="settings-section settings-section--danger">
-            <div className="settings-section__head">
-              <span className="settings-section__icon">
-                <Trash2 size={18} />
-              </span>
-              <div>
-                <h3>Zone dangereuse</h3>
-                <p>Supprime définitivement le coffre de ce navigateur.</p>
-              </div>
-            </div>
-            <div className="settings-actions settings-actions--start">
-              <button
-                type="button"
-                className="button button--danger"
-                onClick={() => setShowReset(true)}
-              >
-                <Trash2 size={16} />
-                Effacer le coffre local
-              </button>
-            </div>
-          </section>
+            {page === 'danger' && (
+              <section className="settings__page" aria-labelledby="settings-danger">
+                <div className="settings__page-head">
+                  <div>
+                    <h3 id="settings-danger">{tt("Zone dangereuse")}</h3>
+                    <p>{tt("Actions irréversibles sur le coffre local.")}</p>
+                  </div>
+                </div>
 
-          <p className="settings-about">
-            Coffre v0.8.0 · chiffrement local inspiré de Proton Pass · GPL-3.0. Aucune donnée
-            n’est transmise. Le modèle de sécurité complet est décrit dans{' '}
-            <code>docs/SECURITY.md</code>.
-          </p>
+                <section className="settings-section settings-section--danger">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <Trash2 size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Effacer le coffre local")}</h3>
+                      <p>
+                        Supprime définitivement le coffre et sa sauvegarde de ce navigateur.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="settings-actions settings-actions--start">
+                    <button
+                      type="button"
+                      className="button button--danger"
+                      onClick={() => setShowReset(true)}
+                    >
+                      <Trash2 size={16} />
+                      Effacer le coffre local…
+                    </button>
+                  </div>
+                </section>
+              </section>
+            )}
+          </div>
         </div>
       </Modal>
 
       {showReset && (
         <ConfirmDialog
-          title="Effacer tout le coffre ?"
-          description="Tous les coffres et éléments stockés dans ce navigateur seront supprimés. Cette action est définitive."
-          confirmLabel="Effacer définitivement"
-          requireText="SUPPRIMER"
+          title={tt('Effacer tout le coffre ?')}
+          description={tt(
+            'Tous les coffres et éléments stockés dans ce navigateur seront supprimés. Cette action est définitive.',
+          )}
+          confirmLabel={tt('Effacer définitivement')}
+          requireText="EFFACER"
           onClose={() => setShowReset(false)}
           onConfirm={resetVault}
         />
@@ -1205,11 +1860,11 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
 
       {showEmptyTrash && (
         <ConfirmDialog
-          title="Vider la corbeille ?"
+          title={tt('Vider la corbeille ?')}
           description={`${trashedItems.length} élément${
             trashedItems.length > 1 ? 's' : ''
           }, leurs pièces jointes et leur historique seront définitivement supprimés. Cette action est irréversible.`}
-          confirmLabel="Vider définitivement"
+          confirmLabel={tt('Vider définitivement')}
           requireText="SUPPRIMER"
           onClose={() => setShowEmptyTrash(false)}
           onConfirm={async () => {
@@ -1226,18 +1881,14 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       )}
 
       {showRecovery && <RecoveryDialog onClose={() => setShowRecovery(false)} />}
-
-      {showLockConfirm && (
-        <ConfirmDialog
-          title="Verrouiller maintenant ?"
-          description="Vos clés seront effacées de la mémoire. Il faudra ressaisir votre mot de passe maître."
-          confirmLabel="Verrouiller"
-          tone="primary"
-          onClose={() => setShowLockConfirm(false)}
-          onConfirm={() => {
-            setShowLockConfirm(false)
-            lock()
-          }}
+      {showEmergencyKit && (
+        <EmergencyKitDialog onClose={() => setShowEmergencyKit(false)} />
+      )}
+      {showKdbxExport && (
+        <KdbxExportDialog
+          items={items}
+          vaults={vaults}
+          onClose={() => setShowKdbxExport(false)}
         />
       )}
     </>

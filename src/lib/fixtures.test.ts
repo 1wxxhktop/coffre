@@ -98,6 +98,42 @@ describe('compatibilité des fichiers figés', () => {
     recovered.session.lock()
   })
 
+  it('lit un fichier v4 signé et détecte un rejeu d’horloge', async () => {
+    const parsed = parseVaultFile(loadFixture('v4.coffre.json'))
+    expect(parsed.version).toBe(4)
+    expect(parsed.revision).toBe(7)
+    expect(parsed.integrity?.mac).toBeTruthy()
+    expect(parsed.tombstones).toEqual([])
+
+    const unlocked = await unlockVaultFile(parsed, PASSWORD)
+    expect(unlocked.integrity).toBe('valid')
+    expect(unlocked.readOnly).toBe(false)
+    expect(unlocked.items).toHaveLength(2)
+    const active = unlocked.items.find((item) => item.title === 'GitHub') as LoginItem
+    expect(active.password).toBe('s3cret-v2!')
+    expect(active.attachments).toHaveLength(1)
+
+    const versions = await listItemVersions(parsed, unlocked.session, active.id)
+    expect(versions).toHaveLength(1)
+    const report = await verifyVaultFile(parsed, unlocked.session)
+    expect(report).toMatchObject({ vaults: 1, items: 2, versions: 1, attachments: 1 })
+    expect(report.signedRecords).toBeGreaterThan(0)
+    unlocked.session.lock()
+
+    const replayed = {
+      ...parsed,
+      items: parsed.items.map((item, index) =>
+        index === 0
+          ? { ...item, clock: { ...item.clock!, rev: (item.clock?.rev ?? 0) + 1 } }
+          : item,
+      ),
+    }
+    const tampered = await unlockVaultFile(replayed, PASSWORD)
+    expect(tampered.integrity).toBe('invalid')
+    expect(tampered.readOnly).toBe(true)
+    tampered.session.lock()
+  })
+
   it('refuse un fichier figé altéré', async () => {
     const parsed = parseVaultFile(loadFixture('v2.coffre.json'))
     const tampered = {

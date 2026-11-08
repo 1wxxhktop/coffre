@@ -12,7 +12,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { invoke } from '@tauri-apps/api/core'
 import { isTauriRuntime } from './external'
-import type { VaultFile } from './types'
+import type { VaultFile, VaultRevisionState } from './types'
 import { parseVaultFile, parseVaultFileText, serializeVault } from './vault'
 
 const DB_NAME = 'coffre'
@@ -20,6 +20,11 @@ const DB_VERSION = 1
 const STORE = 'vault'
 const CURRENT_KEY = 'current'
 const BACKUP_KEY = 'backup'
+/**
+ * Plus haute révision vue, conservée à côté du coffre. La clé est distincte
+ * des sauvegardes tournantes et n’est jamais exportée avec le fichier.
+ */
+const STATE_KEY = 'state'
 /** Trois générations de sauvegarde locale : `backup`, `backup:2`, `backup:3`. */
 export const MAX_LOCAL_BACKUPS = 3
 
@@ -30,7 +35,7 @@ function backupKey(generation: number): string {
 interface CoffreDb extends DBSchema {
   vault: {
     key: string
-    value: VaultFile
+    value: VaultFile | VaultRevisionState
   }
 }
 
@@ -123,6 +128,71 @@ async function clearIndexedDbStorage(): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
+/* État anti-retour en arrière                                         */
+/* ------------------------------------------------------------------ */
+
+function parseVaultState(raw: unknown): VaultRevisionState | null {
+  if (!raw || typeof raw !== 'object') return null
+  const value = raw as Record<string, unknown>
+  if (
+    typeof value.fileId !== 'string' ||
+    !value.fileId ||
+    typeof value.revision !== 'number' ||
+    !Number.isSafeInteger(value.revision) ||
+    value.revision < 0 ||
+    typeof value.updatedAt !== 'string'
+  ) {
+    return null
+  }
+  return {
+    fileId: value.fileId,
+    revision: value.revision,
+    updatedAt: value.updatedAt,
+  }
+}
+
+/**
+ * Lit la plus haute révision connue pour le coffre local. `null` si aucun état
+ * n’a encore été enregistré (premier lancement, fichier antérieur ou état
+ * illisible : dans ce dernier cas on préfère ne pas bloquer l’ouverture).
+ */
+export async function loadVaultState(): Promise<VaultRevisionState | null> {
+  try {
+    if (isTauriRuntime()) {
+      const raw = await nativeInvoke<string | null>('vault_state_read')
+      if (!raw) return null
+      try {
+        return parseVaultState(JSON.parse(raw))
+      } catch {
+        return null
+      }
+    }
+    const db = await database()
+    return parseVaultState(await db.get(STORE, STATE_KEY))
+  } catch (error) {
+    if (error instanceof StorageError) throw error
+    throw new StorageError('Impossible de lire l’état du coffre', { cause: error })
+  }
+}
+
+/** Enregistre la révision vue après une ouverture ou une écriture réussie. */
+export async function saveVaultState(state: VaultRevisionState): Promise<void> {
+  try {
+    if (isTauriRuntime()) {
+      await nativeInvoke('vault_state_write', {
+        contents: JSON.stringify(state),
+      })
+      return
+    }
+    const db = await database()
+    await db.put(STORE, state, STATE_KEY)
+  } catch (error) {
+    if (error instanceof StorageError) throw error
+    throw new StorageError('Impossible d’enregistrer l’état du coffre', { cause: error })
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Backend natif Tauri                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -203,8 +273,7 @@ export async function hasVaultFile(): Promise<boolean> {
   }
   try {
     const db = await database()
-    const count = await db.count(STORE)
-    return count > 0
+    return (await db.get(STORE, CURRENT_KEY)) !== undefined
   } catch (error) {
     throw new StorageError('Impossible d’accéder au stockage local', { cause: error })
   }
@@ -266,7 +335,7 @@ export async function listLocalBackups(): Promise<LocalBackupInfo[]> {
 
     const db = await database()
     for (let generation = 1; generation <= MAX_LOCAL_BACKUPS; generation++) {
-      const raw = await db.get(STORE, backupKey(generation))
+      const raw = (await db.get(STORE, backupKey(generation))) as VaultFile | undefined
       if (!raw) continue
       backups.push({
         generation,

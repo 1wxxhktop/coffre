@@ -1,0 +1,8 @@
+/* Masque les éléments dynamiques pour les captures de régression. */
+.toast-stack {
+  display: none !important;
+}
+
+.detail-meta {
+  visibility: hidden !important;
+}

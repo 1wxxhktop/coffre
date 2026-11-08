@@ -359,6 +359,60 @@ export function itemAttachmentAad(
   return `coffre:v1:item-attachment:${vaultId}:${itemId}:${attachmentId}`
 }
 
+/** Clé HMAC du MAC global, scellée par la clé maîtresse. */
+export function integrityKeyAad(): string {
+  return 'coffre:v1:integrity-key'
+}
+
+/** Empreinte SHA-256 d’un tampon (utilisée par le manifeste d’intégrité). */
+export async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as BufferSource))
+}
+
+/** Empreinte SHA-1 hexadécimale, utilisée uniquement pour le k-anonymat HIBP. */
+export async function sha1Hex(value: string): Promise<string> {
+  const bytes = utf8(value)
+  try {
+    const digest = new Uint8Array(
+      await crypto.subtle.digest('SHA-1', bytes as BufferSource),
+    )
+    try {
+      return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase()
+    } finally {
+      wipe(digest)
+    }
+  } finally {
+    wipe(bytes)
+  }
+}
+
+/** HMAC-SHA-256 du manifeste canonique du fichier. */
+export async function hmacSha256(
+  key: Uint8Array,
+  message: Uint8Array,
+): Promise<Uint8Array> {
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    key as BufferSource,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  return new Uint8Array(
+    await crypto.subtle.sign('HMAC', cryptoKey, message as BufferSource),
+  )
+}
+
+/** Comparaison à temps constant de deux tampons. */
+export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false
+  let difference = 0
+  for (let index = 0; index < a.length; index++) difference |= a[index] ^ b[index]
+  return difference === 0
+}
+
 /* ------------------------------------------------------------------ */
 /* AAD de l’enveloppe de récupération                                  */
 /* ------------------------------------------------------------------ */

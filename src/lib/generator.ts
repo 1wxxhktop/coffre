@@ -15,7 +15,7 @@ const DIGITS = '0123456789'
 const SYMBOLS = '!@#$%^&*()-_=+[]{};:,.?/'
 const AMBIGUOUS = new Set(['O', '0', 'o', 'I', 'l', '1', '|', '`', "'", '"'])
 
-const EFF_WORDS: string[] = wordlistRaw
+export const EFF_WORDS: string[] = wordlistRaw
   .split('\n')
   .map((line) => line.trim().split(/\s+/)[1])
   .filter((word): word is string => Boolean(word))

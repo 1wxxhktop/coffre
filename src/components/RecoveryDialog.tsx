@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { Modal } from './Modal'
 import { useVault } from '../state/VaultProvider'
+import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { copySensitive } from '../lib/clipboard'
@@ -30,6 +31,7 @@ type Step = 'intro' | 'phrase' | 'remove'
 export function RecoveryDialog({ onClose }: RecoveryDialogProps) {
   const { file, setRecoveryPhrase } = useVault()
   const { settings } = useSettings()
+  const { tt } = useI18n()
   const { toast } = useToast()
 
   const hasRecovery = Boolean(file?.recovery)
@@ -56,7 +58,7 @@ export function RecoveryDialog({ onClose }: RecoveryDialogProps) {
     )
     if (success) {
       setCopied(true)
-      toast('Phrase copiée', 'success')
+      toast(tt('Phrase copiée'), 'success')
     } else {
       setError('La copie automatique a échoué ; notez la phrase manuellement.')
     }
@@ -84,7 +86,7 @@ export function RecoveryDialog({ onClose }: RecoveryDialogProps) {
     setError(null)
     try {
       await setRecoveryPhrase(null)
-      toast('Phrase de récupération supprimée', 'info')
+      toast(tt('Phrase de récupération supprimée'), 'info')
       onClose()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Suppression impossible')
@@ -141,8 +143,10 @@ export function RecoveryDialog({ onClose }: RecoveryDialogProps) {
 
   return (
     <Modal
-      title="Phrase de récupération"
-      description="Une seconde clé, optionnelle, pour retrouver l’accès sans le mot de passe maître."
+      title={tt('Phrase de récupération')}
+      description={tt(
+        'Une seconde clé, optionnelle, pour retrouver l’accès sans le mot de passe maître.',
+      )}
       size="md"
       onClose={onClose}
       footer={footer}
@@ -206,7 +210,7 @@ export function RecoveryDialog({ onClose }: RecoveryDialogProps) {
           <p className="settings-copy">
             Notez ces dix mots dans l’ordre. Ils ne seront plus affichés ensuite.
           </p>
-          <div className="recovery-phrase" aria-label="Phrase de récupération">
+          <div className="recovery-phrase" aria-label={tt('Phrase de récupération')}>
             {phrase.split(' ').map((word, index) => (
               <span key={`${word}-${index}`} className="recovery-phrase__word">
                 <small>{index + 1}</small>
@@ -227,7 +231,7 @@ export function RecoveryDialog({ onClose }: RecoveryDialogProps) {
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
             <span>
-              <strong>J’ai noté la phrase.</strong> Je comprends qu’elle ne peut pas être
+              <strong>{tt('J’ai noté la phrase.')}</strong> Je comprends qu’elle ne peut pas être
               retrouvée et qu’elle donne accès à tout le coffre.
             </span>
           </label>

@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 
 const CURRENT_FILE: &str = "vault.coffre";
 const TEMP_FILE: &str = "vault.coffre.tmp";
+const STATE_FILE: &str = "state.json";
 const MAX_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_STATE_BYTES: usize = 64 * 1024;
 const BACKUP_GENERATIONS: [u32; 3] = [1, 2, 3];
 
 /// Sérialise les écritures : deux sauvegardes simultanées ne doivent pas
@@ -186,6 +188,35 @@ pub fn write_backup(dir: &Path, generation: u32, contents: &str) -> Result<(), S
     write_atomic(&path, contents)
 }
 
+/// Lit l’état anti-retour en arrière (`state.json`), jamais chiffré mais sans
+/// secret : identifiant de fichier et révision maximale vue.
+pub fn read_state(dir: &Path) -> Result<Option<String>, String> {
+    let path = dir.join(STATE_FILE);
+    match fs::metadata(&path) {
+        Ok(metadata) => {
+            if metadata.len() > MAX_STATE_BYTES as u64 {
+                return Err("État du coffre trop volumineux".into());
+            }
+        }
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.to_string()),
+    }
+    match fs::read_to_string(&path) {
+        Ok(contents) => Ok(Some(contents)),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+pub fn write_state(dir: &Path, contents: &str) -> Result<(), String> {
+    if contents.len() > MAX_STATE_BYTES {
+        return Err("État du coffre trop volumineux".into());
+    }
+    let _guard = WRITE_LOCK.lock().map_err(|error| error.to_string())?;
+    ensure_dir(dir)?;
+    write_atomic(&dir.join(STATE_FILE), contents)
+}
+
 pub fn clear(dir: &Path) -> Result<(), String> {
     let _guard = WRITE_LOCK.lock().map_err(|error| error.to_string())?;
     for path in std::iter::once(dir.join(CURRENT_FILE))
@@ -195,6 +226,7 @@ pub fn clear(dir: &Path) -> Result<(), String> {
                 .map(|generation| dir.join(format!("{CURRENT_FILE}.bak{generation}"))),
         )
         .chain(std::iter::once(dir.join(TEMP_FILE)))
+        .chain(std::iter::once(dir.join(STATE_FILE)))
     {
         match fs::remove_file(&path) {
             Ok(()) => {}
@@ -241,6 +273,14 @@ mod tests {
         write_backup(&dir, 2, "X").unwrap();
         assert_eq!(read_backup(&dir, 2).unwrap().as_deref(), Some("X"));
 
+        assert_eq!(read_state(&dir).unwrap(), None);
+        write_state(&dir, r#"{"fileId":"vf_1","revision":4}"#).unwrap();
+        assert_eq!(
+            read_state(&dir).unwrap().as_deref(),
+            Some(r#"{"fileId":"vf_1","revision":4}"#)
+        );
+        assert!(write_state(&dir, &"A".repeat(MAX_STATE_BYTES + 1)).is_err());
+
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -257,6 +297,7 @@ mod tests {
         clear(&dir).unwrap();
         assert_eq!(read_current(&dir).unwrap(), None);
         assert_eq!(read_backup(&dir, 1).unwrap(), None);
+        assert_eq!(read_state(&dir).unwrap(), None);
         let _ = fs::remove_dir_all(&dir);
     }
 }

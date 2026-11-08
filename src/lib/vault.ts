@@ -22,7 +22,10 @@
 import {
   CryptoError,
   deriveMasterKey,
+  equalBytes,
   fromBase64,
+  hmacSha256,
+  integrityKeyAad,
   itemAttachmentAad,
   itemContentAad,
   itemKeyAad,
@@ -39,11 +42,14 @@ import {
   recoveryVaultKeyAad,
   sealBytes,
   sealJson,
+  sha256,
   toBase64,
+  utf8,
   vaultKeyAad,
   vaultMetaAad,
   wipe,
 } from './crypto'
+import { normalizeDateOnly } from './expiry'
 import { normalizeRecoveryPhrase } from './recovery'
 import type {
   AttachmentMeta,
@@ -54,11 +60,15 @@ import type {
   ItemContent,
   ItemDraft,
   KdfParams,
+  RecordClock,
   RecoveryEnvelope,
   RecoveryWrap,
   VaultFile,
+  VaultIntegrity,
   VaultItem,
+  VaultRevisionState,
   VaultSummary,
+  VaultTombstone,
 } from './types'
 import {
   isCustomFieldType,
@@ -101,12 +111,28 @@ export class VaultIntegrityError extends Error {
   }
 }
 
+/** Durée de conservation des pierres tombales pour la synchronisation. */
+export const TOMBSTONE_RETENTION_DAYS = 180
+
+const TOMBSTONE_RETENTION_MS = TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000
+
+/** Plafond du nombre de pierres tombales conservées (aligné sur le schéma). */
+const MAX_TOMBSTONES = 50_000
+
+/**
+ * Identifiant de l’appareil écrivain. Stable pendant la vie du processus ; il
+ * sera persisté avec l’état local lors du lot de synchronisation (L3).
+ */
+const WRITER_ID = randomId('w')
+
 export interface VaultIntegrityReport {
   vaults: number
   items: number
   attachments: number
   attachmentBytes: number
   versions: number
+  /** Nombre d’entrées couvertes par le MAC (0 pour un fichier antérieur). */
+  signedRecords: number
 }
 
 /** Version déchiffrée du contenu d’un élément. */
@@ -124,6 +150,13 @@ export interface OpenedVault {
   vaults: VaultSummary[]
   items: VaultItem[]
   warnings: string[]
+  /**
+   * Vrai lorsque le MAC global est absent ou invalide sur un fichier v4 : le
+   * contenu est lisible, mais aucune écriture ne doit être acceptée.
+   */
+  readOnly: boolean
+  /** État du MAC global : signé valide, fichier antérieur, ou altéré. */
+  integrity: 'valid' | 'unsigned' | 'invalid'
 }
 
 export interface AttachmentInput {
@@ -136,6 +169,7 @@ export class VaultSession {
   #masterKey: Uint8Array
   #vaultKeys = new Map<string, Uint8Array>()
   #recoveryKey: Uint8Array | null = null
+  #integrityKey: Uint8Array | null = null
   #locked = false
 
   constructor(masterKey: Uint8Array) {
@@ -194,6 +228,30 @@ export class VaultSession {
     this.#recoveryKey = null
   }
 
+  get hasIntegrityKey(): boolean {
+    return !this.#locked && this.#integrityKey !== null
+  }
+
+  integrityKey(): Uint8Array {
+    this.#assertUnlocked()
+    if (!this.#integrityKey) throw new VaultLockedError()
+    return this.#integrityKey
+  }
+
+  setIntegrityKey(key: Uint8Array): void {
+    this.#assertUnlocked()
+    if (key.length !== KDF_DEFAULTS.keyLength) {
+      throw new VaultValidationError('Clé d’intégrité invalide')
+    }
+    if (this.#integrityKey) wipe(this.#integrityKey)
+    this.#integrityKey = key
+  }
+
+  clearIntegrityKey(): void {
+    if (this.#integrityKey) wipe(this.#integrityKey)
+    this.#integrityKey = null
+  }
+
   replaceMasterKey(next: Uint8Array): void {
     wipe(this.#masterKey)
     this.#masterKey = next
@@ -205,6 +263,8 @@ export class VaultSession {
     wipe(this.#masterKey)
     if (this.#recoveryKey) wipe(this.#recoveryKey)
     this.#recoveryKey = null
+    if (this.#integrityKey) wipe(this.#integrityKey)
+    this.#integrityKey = null
     for (const key of this.#vaultKeys.values()) wipe(key)
     this.#vaultKeys.clear()
   }
@@ -246,12 +306,18 @@ const kdfSchema = z.object({
   keyLength: z.literal(32),
 })
 
+const clockSchema = z.object({
+  rev: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  writer: idSchema,
+})
+
 const vaultRecordSchema = z.object({
   id: idSchema,
   key: sealedSchema,
   name: sealedSchema,
   createdAt: z.string().min(1).max(40),
   updatedAt: z.string().min(1).max(40),
+  clock: clockSchema.optional(),
 })
 
 const itemRecordSchema = z.object({
@@ -261,6 +327,7 @@ const itemRecordSchema = z.object({
   content: sealedSchema,
   createdAt: z.string().min(1).max(40),
   updatedAt: z.string().min(1).max(40),
+  clock: clockSchema.optional(),
 })
 
 const attachmentRecordSchema = z.object({
@@ -293,9 +360,20 @@ const recoveryEnvelopeSchema = z.object({
   wraps: z.array(recoveryWrapSchema).min(1).max(50),
 })
 
+const tombstoneSchema = z.object({
+  kind: z.enum(['item', 'vault']),
+  id: idSchema,
+  deletedAt: z.string().min(1).max(40),
+})
+
+const integritySchema = z.object({
+  mac: z.string().min(1).max(128),
+  key: sealedSchema,
+})
+
 const vaultFileSchema = z.object({
   format: z.literal('coffre'),
-  version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  version: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   id: idSchema,
   createdAt: z.string().min(1).max(40),
   updatedAt: z.string().min(1).max(40),
@@ -305,6 +383,11 @@ const vaultFileSchema = z.object({
   attachments: z.array(attachmentRecordSchema).max(20_000).default([]),
   versions: z.array(versionRecordSchema).max(20_000).default([]),
   recovery: recoveryEnvelopeSchema.optional(),
+  writer: idSchema.optional(),
+  revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+  keyEpoch: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
+  tombstones: z.array(tombstoneSchema).max(50_000).optional(),
+  integrity: integritySchema.optional(),
 })
 
 const customFieldSchema = z.object({
@@ -330,6 +413,7 @@ const itemBaseSchema = {
   customFields: z.array(customFieldSchema).max(MAX_CUSTOM_FIELDS).default([]),
   attachments: z.array(attachmentMetaSchema).max(MAX_ATTACHMENTS_PER_ITEM).default([]),
   deletedAt: z.string().max(40).nullable().optional(),
+  expiresAt: z.string().max(40).default(''),
 }
 
 const loginContentSchema = z.object({
@@ -369,6 +453,21 @@ const identityContentSchema = z.object({
   postalCode: z.string().max(40),
   country: z.string().max(200),
   birthDate: z.string().max(40),
+  passportExpiry: z.string().max(40).default(''),
+  idCardExpiry: z.string().max(40).default(''),
+  licenseExpiry: z.string().max(40).default(''),
+})
+
+const passkeyContentSchema = z.object({
+  ...itemBaseSchema,
+  type: z.literal('passkey'),
+  rpId: z.string().min(1).max(253),
+  userHandle: z.string().max(500),
+  userName: z.string().max(500),
+  credentialId: z.string().min(1).max(500),
+  privateKey: z.string().min(1).max(8_000),
+  publicKeyCose: z.string().min(1).max(2_000),
+  signCount: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
 })
 
 const itemContentSchema = z.discriminatedUnion('type', [
@@ -376,7 +475,13 @@ const itemContentSchema = z.discriminatedUnion('type', [
   noteContentSchema,
   cardContentSchema,
   identityContentSchema,
+  passkeyContentSchema,
 ])
+
+/** Valide le contenu déchiffré d’un élément (imports, partages hors ligne). */
+export function parseItemContent(raw: unknown): ItemContent {
+  return itemContentSchema.parse(raw) as ItemContent
+}
 
 export function parseVaultFile(raw: unknown): VaultFile {
   let file: VaultFile
@@ -389,11 +494,13 @@ export function parseVaultFile(raw: unknown): VaultFile {
   }
 
   const vaultIds = new Set<string>()
+  const vaultById = new Map<string, EncryptedVaultRecord>()
   for (const vault of file.vaults) {
     if (vaultIds.has(vault.id)) {
       throw new VaultValidationError('Fichier invalide : identifiant de coffre en double')
     }
     vaultIds.add(vault.id)
+    vaultById.set(vault.id, vault)
   }
 
   const itemIds = new Set<string>()
@@ -467,9 +574,90 @@ export function parseVaultFile(raw: unknown): VaultFile {
     }
   }
 
+  // Cohérence des champs du format 4. Un fichier antérieur ne doit pas en
+  // contenir : accepter un v4 « dégradé » en v3 permettrait de contourner le MAC.
+  const hasV4Fields =
+    file.writer !== undefined ||
+    file.revision !== undefined ||
+    file.keyEpoch !== undefined ||
+    file.tombstones !== undefined ||
+    file.integrity !== undefined
+
+  if (file.version === 4) {
+    if (
+      !file.writer ||
+      file.revision === undefined ||
+      file.revision < 1 ||
+      file.keyEpoch === undefined ||
+      !file.tombstones ||
+      !file.integrity
+    ) {
+      throw new VaultValidationError(
+        'Fichier invalide : champs de synchronisation ou d’intégrité manquants pour la version 4',
+      )
+    }
+    for (const vault of file.vaults) {
+      if (!vault.clock) {
+        throw new VaultValidationError(
+          'Fichier invalide : horloge absente sur un coffre de version 4',
+        )
+      }
+    }
+    for (const item of file.items) {
+      if (!item.clock) {
+        throw new VaultValidationError(
+          'Fichier invalide : horloge absente sur un élément de version 4',
+        )
+      }
+    }
+
+    const tombstoneKeys = new Set<string>()
+    for (const tombstone of file.tombstones) {
+      const key = `${tombstone.kind}:${tombstone.id}`
+      if (tombstoneKeys.has(key)) {
+        throw new VaultValidationError(
+          'Fichier invalide : pierre tombale en double',
+        )
+      }
+      tombstoneKeys.add(key)
+      if (Number.isNaN(Date.parse(tombstone.deletedAt))) {
+        throw new VaultValidationError(
+          'Fichier invalide : date de pierre tombale invalide',
+        )
+      }
+      if (tombstone.kind === 'item') {
+        const item = itemById.get(tombstone.id)
+        if (
+          item &&
+          Date.parse(tombstone.deletedAt) >= Date.parse(item.updatedAt)
+        ) {
+          throw new VaultValidationError(
+            'Fichier invalide : un élément supprimé est encore présent',
+          )
+        }
+      }
+      if (tombstone.kind === 'vault') {
+        const vault = vaultById.get(tombstone.id)
+        if (
+          vault &&
+          Date.parse(tombstone.deletedAt) >= Date.parse(vault.updatedAt)
+        ) {
+          throw new VaultValidationError(
+            'Fichier invalide : un coffre supprimé est encore présent',
+          )
+        }
+      }
+    }
+  } else if (hasV4Fields) {
+    throw new VaultValidationError(
+      'Fichier invalide : champs du format 4 présents dans un fichier antérieur',
+    )
+  }
+
   // Les fichiers versions 1 et 2 n’ont ni historique ni enveloppe de
   // récupération : ils sont lus puis migrés en version 3 à l’enregistrement.
-  return { ...file, version: 3 }
+  // La migration en version 4 a lieu à la première écriture signée.
+  return file.version === 4 ? file : { ...file, version: 3 }
 }
 
 export function parseVaultFileText(text: string): VaultFile {
@@ -480,6 +668,385 @@ export function parseVaultFileText(text: string): VaultFile {
     throw new VaultValidationError('Ce fichier n’est pas un coffre Coffre valide (JSON illisible)')
   }
   return parseVaultFile(raw)
+}
+
+/* ------------------------------------------------------------------ */
+/* Manifeste canonique et MAC global (format 4)                        */
+/* ------------------------------------------------------------------ */
+
+interface ManifestRecord {
+  type: 'vault' | 'item' | 'attachment' | 'version'
+  id: string
+  vaultId: string
+  /** Élément parent pour une pièce jointe ou une version. */
+  parentId?: string
+  rev: number
+  writer: string
+  /** SHA-256 du couple nonce + ciphertext, en base64. */
+  ciphertext: string
+}
+
+interface VaultManifest {
+  manifest: 1
+  file: string
+  writer: string
+  revision: number
+  keyEpoch: number
+  records: ManifestRecord[]
+  tombstones: VaultTombstone[]
+}
+
+/**
+ * Sérialisation JSON canonique : clés d’objet triées récursivement, tableaux
+ * dans l’ordre fourni (les appelants trient explicitement). Deux fichiers
+ * équivalents produisent donc exactement les mêmes octets.
+ */
+export function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalJson(entry)).join(',')}]`
+  }
+  const object = value as Record<string, unknown>
+  const keys = Object.keys(object)
+    .filter((key) => object[key] !== undefined)
+    .sort()
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
+    .join(',')}}`
+}
+
+async function sealedDigest(sealed: { n: string; c: string }): Promise<string> {
+  const bytes = new TextEncoder().encode(`${sealed.n}.${sealed.c}`)
+  try {
+    return toBase64(await sha256(bytes))
+  } finally {
+    wipe(bytes)
+  }
+}
+
+const RECORD_TYPE_ORDER: Record<ManifestRecord['type'], number> = {
+  vault: 0,
+  item: 1,
+  attachment: 2,
+  version: 3,
+}
+
+/**
+ * Manifeste couvert par le MAC. Il ne contient aucun contenu déchiffré : seuls
+ * les identifiants, les horloges et l’empreinte des ciphertexts.
+ */
+export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
+  if (
+    file.version !== 4 ||
+    file.revision === undefined ||
+    file.keyEpoch === undefined
+  ) {
+    throw new VaultValidationError(
+      'Le manifeste d’intégrité exige un fichier de version 4',
+    )
+  }
+
+  const records: ManifestRecord[] = []
+
+  for (const vault of file.vaults) {
+    records.push({
+      type: 'vault',
+      id: vault.id,
+      vaultId: vault.id,
+      rev: vault.clock?.rev ?? 0,
+      writer: vault.clock?.writer ?? '',
+      ciphertext: await sealedDigest(vault.key),
+    })
+    records.push({
+      type: 'vault',
+      id: `${vault.id}:name`,
+      vaultId: vault.id,
+      rev: vault.clock?.rev ?? 0,
+      writer: vault.clock?.writer ?? '',
+      ciphertext: await sealedDigest(vault.name),
+    })
+  }
+
+  for (const item of file.items) {
+    records.push({
+      type: 'item',
+      id: item.id,
+      vaultId: item.vaultId,
+      rev: item.clock?.rev ?? 0,
+      writer: item.clock?.writer ?? '',
+      ciphertext: await sealedDigest(item.content),
+    })
+    // La clé d’élément et le contenu sont deux ciphertexts distincts : couvrir
+    // les deux empêche de remplacer l’un sans l’autre.
+    records.push({
+      type: 'item',
+      id: `${item.id}:key`,
+      vaultId: item.vaultId,
+      rev: item.clock?.rev ?? 0,
+      writer: item.clock?.writer ?? '',
+      ciphertext: await sealedDigest(item.key),
+    })
+  }
+
+  const itemClocks = new Map(
+    file.items.map((item) => [item.id, item.clock]),
+  )
+
+  for (const attachment of file.attachments) {
+    records.push({
+      type: 'attachment',
+      id: attachment.id,
+      vaultId: attachment.vaultId,
+      parentId: attachment.itemId,
+      rev: itemClocks.get(attachment.itemId)?.rev ?? 0,
+      writer: itemClocks.get(attachment.itemId)?.writer ?? '',
+      ciphertext: await sealedDigest(attachment.data),
+    })
+  }
+
+  for (const version of file.versions) {
+    records.push({
+      type: 'version',
+      id: version.id,
+      vaultId: version.vaultId,
+      parentId: version.itemId,
+      rev: itemClocks.get(version.itemId)?.rev ?? 0,
+      writer: itemClocks.get(version.itemId)?.writer ?? '',
+      ciphertext: await sealedDigest(version.content),
+    })
+  }
+
+  records.sort(
+    (a, b) =>
+      RECORD_TYPE_ORDER[a.type] - RECORD_TYPE_ORDER[b.type] ||
+      a.id.localeCompare(b.id),
+  )
+
+  const tombstones = [...(file.tombstones ?? [])].sort(
+    (a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id),
+  )
+
+  return {
+    manifest: 1,
+    file: file.id,
+    writer: file.writer ?? '',
+    revision: file.revision,
+    keyEpoch: file.keyEpoch,
+    records,
+    tombstones,
+  }
+}
+
+async function computeMac(file: VaultFile, key: Uint8Array): Promise<Uint8Array> {
+  const manifest = await computeManifest(file)
+  const bytes = new TextEncoder().encode(canonicalJson(manifest))
+  try {
+    return await hmacSha256(key, bytes)
+  } finally {
+    wipe(bytes)
+  }
+}
+
+/** Vérifie le MAC global d’un fichier v4 avec la clé d’intégrité en clair. */
+export async function verifyFileMac(
+  file: VaultFile,
+  integrityKey: Uint8Array,
+): Promise<boolean> {
+  if (file.version !== 4 || !file.integrity) return false
+  try {
+    const expected = fromBase64(file.integrity.mac)
+    const actual = await computeMac(file, integrityKey)
+    return equalBytes(expected, actual)
+  } catch {
+    return false
+  }
+}
+
+function mergeTombstones(
+  previous: VaultFile | undefined,
+  next: VaultFile,
+  now: string,
+): VaultTombstone[] {
+  const merged = new Map<string, VaultTombstone>()
+  const add = (tombstone: VaultTombstone) => {
+    const key = `${tombstone.kind}:${tombstone.id}`
+    const existing = merged.get(key)
+    if (!existing || existing.deletedAt < tombstone.deletedAt) {
+      merged.set(key, tombstone)
+    }
+  }
+
+  for (const tombstone of previous?.tombstones ?? []) add(tombstone)
+  for (const tombstone of next.tombstones ?? []) add(tombstone)
+
+  if (previous) {
+    const nextItemIds = new Set(next.items.map((item) => item.id))
+    const nextVaultIds = new Set(next.vaults.map((vault) => vault.id))
+    for (const item of previous.items) {
+      if (!nextItemIds.has(item.id)) {
+        add({ kind: 'item', id: item.id, deletedAt: now })
+      }
+    }
+    for (const vault of previous.vaults) {
+      if (!nextVaultIds.has(vault.id)) {
+        add({ kind: 'vault', id: vault.id, deletedAt: now })
+      }
+    }
+  }
+
+  // Les pierres tombales sont conservées même si un enregistrement plus récent
+  // a ressuscité le même identifiant : elles servent à écarter l’historique et
+  // les pièces jointes antérieurs lors des fusions suivantes.
+
+  const cutoff = Date.parse(now) - TOMBSTONE_RETENTION_MS
+  return [...merged.values()]
+    .filter((tombstone) => {
+      const deletedAt = Date.parse(tombstone.deletedAt)
+      return Number.isNaN(deletedAt) || deletedAt >= cutoff
+    })
+    .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+    .slice(0, MAX_TOMBSTONES)
+    .sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id))
+}
+
+function changedRecord(
+  previous:
+    | {
+        key: { n: string; c: string }
+        name?: { n: string; c: string }
+        content?: { n: string; c: string }
+      }
+    | undefined,
+  next: {
+    key: { n: string; c: string }
+    name?: { n: string; c: string }
+    content?: { n: string; c: string }
+  },
+): boolean {
+  if (!previous) return true
+  if (
+    previous.key.n !== next.key.n ||
+    previous.key.c !== next.key.c
+  ) {
+    return true
+  }
+  if (previous.name && next.name) {
+    return previous.name.n !== next.name.n || previous.name.c !== next.name.c
+  }
+  if (previous.content && next.content) {
+    return (
+      previous.content.n !== next.content.n ||
+      previous.content.c !== next.content.c
+    )
+  }
+  return false
+}
+
+/**
+ * Prépare la prochaine écriture v4 : révision du fichier, horloges par
+ * enregistrement, pierres tombales, rotation du sel de clé d’intégrité et MAC
+ * global. À appeler **avant** chaque `saveVaultFile`, jamais après.
+ */
+export async function signVaultFile(
+  file: VaultFile,
+  session: VaultSession,
+  previous?: VaultFile,
+  options: { minimumRevision?: number } = {},
+): Promise<VaultFile> {
+  assertUnlocked(session)
+
+  const previousItems = new Map(
+    (previous?.items ?? []).map((item) => [item.id, item]),
+  )
+  const previousVaults = new Map(
+    (previous?.vaults ?? []).map((vault) => [vault.id, vault]),
+  )
+
+  let highestRev = Math.max(
+    file.revision ?? 0,
+    previous?.revision ?? 0,
+    options.minimumRevision ?? 0,
+  )
+  for (const record of [...file.items, ...file.vaults]) {
+    highestRev = Math.max(highestRev, record.clock?.rev ?? 0)
+  }
+  const revision = highestRev + 1
+  const keyEpoch = Math.max(file.keyEpoch ?? 1, previous?.keyEpoch ?? 1)
+  const now = new Date().toISOString()
+  const tombstones = mergeTombstones(previous, file, now)
+
+  const clockFor = (
+    previousRecord: { clock?: RecordClock } | undefined,
+    changed: boolean,
+  ): RecordClock => {
+    if (!changed && previousRecord?.clock) {
+      return { ...previousRecord.clock }
+    }
+    return { rev: revision, writer: WRITER_ID }
+  }
+
+  const vaults: EncryptedVaultRecord[] = file.vaults.map((vault) => ({
+    ...vault,
+    clock: clockFor(
+      previousVaults.get(vault.id),
+      changedRecord(previousVaults.get(vault.id), vault),
+    ),
+  }))
+
+  const items: EncryptedItemRecord[] = file.items.map((item) => ({
+    ...item,
+    clock: clockFor(
+      previousItems.get(item.id),
+      changedRecord(previousItems.get(item.id), item),
+    ),
+  }))
+
+  if (!session.hasIntegrityKey) {
+    session.setIntegrityKey(randomBytes(KDF_DEFAULTS.keyLength))
+  }
+
+  const next: VaultFile = {
+    ...file,
+    version: 4,
+    writer: WRITER_ID,
+    revision,
+    keyEpoch,
+    tombstones,
+    vaults,
+    items,
+    updatedAt: file.version === 4 ? file.updatedAt : now,
+    integrity: {
+      mac: '',
+      key: await sealBytes(session.integrityKey(), session.masterKey, integrityKeyAad()),
+    },
+  }
+
+  const mac = await computeMac(next, session.integrityKey())
+  return {
+    ...next,
+    integrity: { ...(next.integrity as VaultIntegrity), mac: toBase64(mac) },
+  }
+}
+
+/**
+ * Compare la révision du fichier à la plus haute révision déjà vue sur cet
+ * appareil. Renvoie un avertissement explicite si le fichier a reculé.
+ */
+export function checkVaultRollback(
+  file: VaultFile,
+  state: VaultRevisionState | null | undefined,
+): string | null {
+  if (!state || state.fileId !== file.id) return null
+  if (file.version !== 4) {
+    if (state.revision > 0) {
+      return 'La signature de version 4 de ce fichier a disparu : il peut s’agir d’une substitution par un ancien fichier. Vérifiez son origine avant de le modifier.'
+    }
+    return null
+  }
+  if ((file.revision ?? 0) < state.revision) {
+    return `Ce fichier est une version antérieure à celle déjà ouverte sur cet appareil (révision ${file.revision ?? 0} au lieu de ${state.revision}). Vérifiez son origine ; une restauration volontaire depuis l’écran des sauvegardes n’affiche pas cet avertissement.`
+  }
+  return null
 }
 
 /* ------------------------------------------------------------------ */
@@ -533,7 +1100,7 @@ export async function createVaultFile(
     const session = new VaultSession(masterKey)
     session.setVaultKey(record.id, key)
 
-    const file: VaultFile = {
+    const draft: VaultFile = {
       format: 'coffre',
       version: 3,
       id: randomId('vf'),
@@ -546,12 +1113,16 @@ export async function createVaultFile(
       versions: [],
     }
 
+    const file = await signVaultFile(draft, session)
+
     return {
       file,
       session,
       vaults: [vaultSummary(record, name, [])],
       items: [],
       warnings: [],
+      readOnly: false,
+      integrity: 'valid',
     }
   } catch (error) {
     wipe(masterKey)
@@ -646,6 +1217,46 @@ export async function openVaultFileWithMasterKey(
     }
   }
 
+  // Vérification du MAC global. Un fichier v4 sans intégrité, ou dont la clé
+  // d’intégrité ne s’ouvre pas, est considéré comme altéré : l’ouverture reste
+  // possible en lecture seule pour permettre l’export d’une sauvegarde.
+  let integrityState: OpenedVault['integrity'] = 'unsigned'
+  if (file.version === 4) {
+    integrityState = 'invalid'
+    if (!file.integrity) {
+      warnings.push(
+        'La signature du fichier de version 4 est absente. Le coffre est ouvert en lecture seule ; exportez une sauvegarde et vérifiez son origine.',
+      )
+    } else {
+      let integrityKey: Uint8Array | null = null
+      try {
+        integrityKey = await openBytes(
+          file.integrity.key,
+          masterKey,
+          integrityKeyAad(),
+        )
+        if (integrityKey.length !== KDF_DEFAULTS.keyLength) {
+          throw new CryptoError('Clé d’intégrité invalide')
+        }
+        session.setIntegrityKey(integrityKey)
+        integrityKey = null
+        if (await verifyFileMac(file, session.integrityKey())) {
+          integrityState = 'valid'
+        } else {
+          warnings.push(
+            'Le fichier de coffre a été modifié hors de Coffre (MAC global invalide). Il est ouvert en lecture seule ; exportez une sauvegarde et vérifiez son origine.',
+          )
+        }
+      } catch {
+        warnings.push(
+          'Le fichier de coffre a été modifié hors de Coffre (clé d’intégrité illisible). Il est ouvert en lecture seule ; exportez une sauvegarde et vérifiez son origine.',
+        )
+      } finally {
+        if (integrityKey) wipe(integrityKey)
+      }
+    }
+  }
+
   const openVaultMap = new Map(vaults.map((vault) => [vault.id, vault]))
 
   for (const record of file.items) {
@@ -703,7 +1314,15 @@ export async function openVaultFileWithMasterKey(
     }
   }
 
-  return { file, session, vaults, items, warnings }
+  return {
+    file,
+    session,
+    vaults,
+    items,
+    warnings,
+    readOnly: integrityState === 'invalid',
+    integrity: integrityState,
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -781,7 +1400,6 @@ export async function enableRecovery(
 
   return {
     ...file,
-    version: 3,
     updatedAt: new Date().toISOString(),
     recovery: envelope,
   }
@@ -791,7 +1409,7 @@ export async function enableRecovery(
 export function disableRecovery(file: VaultFile, session: VaultSession): VaultFile {
   assertUnlocked(session)
   session.clearRecoveryKey()
-  const next: VaultFile = { ...file, version: 3, updatedAt: new Date().toISOString() }
+  const next: VaultFile = { ...file, updatedAt: new Date().toISOString() }
   delete next.recovery
   return next
 }
@@ -828,6 +1446,39 @@ export async function recoverVaultFile(
     )
   } finally {
     wipe(phraseKey)
+  }
+
+  try {
+    return await recoverVaultFileWithRecoveryKey(
+      file,
+      recoveryKey,
+      newPassword,
+      kdfOverrides,
+    )
+  } finally {
+    wipe(recoveryKey)
+  }
+}
+
+/**
+ * Variante utilisée par les parts de secours Shamir : la clé de récupération
+ * est déjà reconstituée. L’appelant reste propriétaire de `recoveryKey` et doit
+ * l’effacer après l’appel.
+ */
+export async function recoverVaultFileWithRecoveryKey(
+  file: VaultFile,
+  recoveryKey: Uint8Array,
+  newPassword: string,
+  kdfOverrides: Partial<KdfParams> = {},
+): Promise<OpenedVault> {
+  const recovery = file.recovery
+  if (!recovery) {
+    throw new VaultValidationError(
+      'Aucune phrase de récupération n’est configurée pour ce coffre',
+    )
+  }
+  if (recoveryKey.length !== KDF_DEFAULTS.keyLength) {
+    throw new VaultValidationError('Clé de récupération invalide')
   }
 
   const keys = new Map<string, Uint8Array>()
@@ -872,17 +1523,29 @@ export async function recoverVaultFile(
       }
 
       const guard = await sealBytes(recoveryKey, masterKey, recoveryGuardAad())
+      const integrityKey = randomBytes(KDF_DEFAULTS.keyLength)
       const next: VaultFile = {
         ...file,
-        version: 3,
         kdf,
         vaults,
         updatedAt: now,
+        keyEpoch: (file.keyEpoch ?? 1) + 1,
         recovery: { ...recovery, guard },
       }
+      // L’ancien MAC ne couvre plus les clés ré-enveloppées : on le remplace
+      // par une signature calculée sous la nouvelle époque.
+      delete next.integrity
 
       try {
-        return await openVaultFileWithMasterKey(next, masterKey)
+        const signingSession = new VaultSession(masterKey.slice())
+        signingSession.setIntegrityKey(integrityKey)
+        let signed: VaultFile
+        try {
+          signed = await signVaultFile(next, signingSession, file)
+        } finally {
+          signingSession.lock()
+        }
+        return await openVaultFileWithMasterKey(signed, masterKey)
       } finally {
         wipe(masterKey)
       }
@@ -891,7 +1554,6 @@ export async function recoverVaultFile(
       throw error
     }
   } finally {
-    wipe(recoveryKey)
     for (const key of keys.values()) wipe(key)
   }
 }
@@ -951,6 +1613,7 @@ function cleanDraft(draft: ItemDraft): ItemContent {
       .filter((attachment) => attachment.id)
       .slice(0, MAX_ATTACHMENTS_PER_ITEM),
     deletedAt: normalizeDeletedAt(draft.deletedAt),
+    expiresAt: normalizeDateOnly(draft.expiresAt ?? ''),
   }
 
   switch (draft.type) {
@@ -992,6 +1655,21 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         postalCode: cleanText(draft.postalCode, 40),
         country: cleanText(draft.country, 200),
         birthDate: cleanText(draft.birthDate, 40),
+        passportExpiry: normalizeDateOnly(draft.passportExpiry ?? ''),
+        idCardExpiry: normalizeDateOnly(draft.idCardExpiry ?? ''),
+        licenseExpiry: normalizeDateOnly(draft.licenseExpiry ?? ''),
+      }
+    case 'passkey':
+      return {
+        ...common,
+        type: 'passkey',
+        rpId: cleanText(draft.rpId, 255),
+        userHandle: cleanText(draft.userHandle, 2_048),
+        userName: cleanText(draft.userName, 500),
+        credentialId: cleanText(draft.credentialId, 2_048),
+        privateKey: (draft.privateKey ?? '').slice(0, 10_000),
+        publicKeyCose: (draft.publicKeyCose ?? '').slice(0, 10_000),
+        signCount: Math.max(0, Math.floor(draft.signCount || 0)),
       }
   }
 }
@@ -1107,6 +1785,120 @@ async function appendItemVersion(
   return next
 }
 
+/**
+ * Archive dans l’historique le contenu d’un élément perdant une fusion.
+ *
+ * L’identifiant de version est déterministe (dérivé du ciphertext et de
+ * l’horloge perdants) : une nouvelle synchronisation du même conflit ne crée
+ * pas de doublon. La clé de l’élément retenu sert à rechiffrer le contenu avec
+ * l’AAD de version.
+ */
+export async function preserveConflictVersion(
+  file: VaultFile,
+  session: VaultSession,
+  losing: EncryptedItemRecord,
+): Promise<{ file: VaultFile; archived: boolean; warning?: string }> {
+  assertUnlocked(session)
+  const selected = file.items.find((record) => record.id === losing.id)
+  if (!selected) {
+    return { file, archived: false }
+  }
+  if (
+    selected.content.n === losing.content.n &&
+    selected.content.c === losing.content.c
+  ) {
+    return { file, archived: false }
+  }
+  if (
+    !session.hasVaultKey(selected.vaultId) ||
+    !session.hasVaultKey(losing.vaultId)
+  ) {
+    return {
+      file,
+      archived: false,
+      warning:
+        'Un conflit n’a pas pu être archivé : la clé de l’un des coffres est indisponible.',
+    }
+  }
+
+  const versionId = `ivc_${toBase64(
+    await sha256(
+      utf8(
+        [
+          losing.id,
+          losing.vaultId,
+          losing.key.n,
+          losing.key.c,
+          losing.content.n,
+          losing.content.c,
+          losing.updatedAt,
+          losing.clock?.rev ?? 0,
+          losing.clock?.writer ?? '',
+        ].join(':'),
+      ),
+    ),
+  )
+    .replace(/[+/=]/g, '')
+    .slice(0, 32)}`
+  if (file.versions.some((version) => version.id === versionId)) {
+    return { file, archived: false }
+  }
+
+  let losingKey: Uint8Array | null = null
+  let selectedKey: Uint8Array | null = null
+  try {
+    losingKey = await openBytes(
+      losing.key,
+      session.vaultKey(losing.vaultId),
+      itemKeyAad(losing.vaultId, losing.id),
+    )
+    const content = await openJson<ItemContent>(
+      losing.content,
+      losingKey,
+      itemContentAad(losing.vaultId, losing.id),
+    )
+    selectedKey = await openBytes(
+      selected.key,
+      session.vaultKey(selected.vaultId),
+      itemKeyAad(selected.vaultId, selected.id),
+    )
+    const version: EncryptedVersionRecord = {
+      id: versionId,
+      itemId: selected.id,
+      vaultId: selected.vaultId,
+      content: await sealJson(
+        content,
+        selectedKey,
+        itemVersionAad(selected.vaultId, selected.id, versionId),
+      ),
+      createdAt: new Date().toISOString(),
+    }
+
+    let versions = [...file.versions, version]
+    const own = sortNewestFirst(
+      versions.filter((candidate) => candidate.itemId === selected.id),
+    )
+    const keep = new Set(own.slice(0, MAX_ITEM_VERSIONS).map((candidate) => candidate.id))
+    versions = versions.filter(
+      (candidate) => candidate.itemId !== selected.id || keep.has(candidate.id),
+    )
+    if (versions.length > MAX_STORED_VERSIONS) {
+      versions = sortNewestFirst(versions).slice(0, MAX_STORED_VERSIONS)
+    }
+    return { file: { ...file, versions }, archived: true }
+  } catch {
+    return {
+      file,
+      archived: false,
+      warning:
+        'Un conflit n’a pas pu être archivé : son contenu est illisible avec les clés actuelles.',
+    }
+  } finally {
+    if (losingKey) wipe(losingKey)
+    if (selectedKey) wipe(selectedKey)
+  }
+}
+
 /** Empreinte utilisée pour décider si une version doit être créée. */
 function versionFingerprint(content: ItemContent): string {
   // Le favori est un indicateur d’affichage : le modifier ne doit pas créer
@@ -1186,7 +1978,6 @@ export async function updateItem(
     return {
       file: {
         ...file,
-        version: 3,
         updatedAt: now,
         items: file.items.map((candidate) => (candidate.id === record.id ? record : candidate)),
         versions,
@@ -1195,6 +1986,141 @@ export async function updateItem(
     }
   } finally {
     wipe(itemKey)
+  }
+}
+
+/**
+ * Déplace un élément vers un autre coffre.
+ *
+ * La clé d’élément, le contenu, les pièces jointes et les versions sont
+ * réchiffrés avec la clé du coffre cible : aucun secret n’est laissé sous
+ * l’ancienne clé, et les AAD restent liés au couple (coffre, élément).
+ */
+export async function moveItem(
+  file: VaultFile,
+  session: VaultSession,
+  itemId: string,
+  targetVaultId: string,
+): Promise<{ file: VaultFile; item: VaultItem }> {
+  assertUnlocked(session)
+  if (!session.hasVaultKey(targetVaultId)) {
+    throw new VaultValidationError('Coffre de destination introuvable')
+  }
+  const existing = file.items.find((record) => record.id === itemId)
+  if (!existing) throw new VaultValidationError('Élément introuvable')
+
+  const oldItemKey = await openBytes(
+    existing.key,
+    session.vaultKey(existing.vaultId),
+    itemKeyAad(existing.vaultId, existing.id),
+  )
+
+  try {
+    const content = await openJson<ItemContent>(
+      existing.content,
+      oldItemKey,
+      itemContentAad(existing.vaultId, existing.id),
+    )
+    const newItemKey = randomBytes(32)
+
+    try {
+      const now = new Date().toISOString()
+      const attachments = await Promise.all(
+        file.attachments
+          .filter((attachment) => attachment.itemId === existing.id)
+          .map(async (attachment) => {
+            const bytes = await openBytes(
+              attachment.data,
+              oldItemKey,
+              itemAttachmentAad(existing.vaultId, existing.id, attachment.id),
+            )
+            try {
+              return {
+                ...attachment,
+                vaultId: targetVaultId,
+                data: await sealBytes(
+                  bytes,
+                  newItemKey,
+                  itemAttachmentAad(targetVaultId, existing.id, attachment.id),
+                ),
+              }
+            } finally {
+              wipe(bytes)
+            }
+          }),
+      )
+
+      const versions = await Promise.all(
+        file.versions
+          .filter((version) => version.itemId === existing.id)
+          .map(async (version) => {
+            const versionContent = await openJson<ItemContent>(
+              version.content,
+              oldItemKey,
+              itemVersionAad(existing.vaultId, existing.id, version.id),
+            )
+            return {
+              ...version,
+              vaultId: targetVaultId,
+              content: await sealJson(
+                versionContent,
+                newItemKey,
+                itemVersionAad(targetVaultId, existing.id, version.id),
+              ),
+            }
+          }),
+      )
+
+      const attachmentMap = new Map(
+        attachments.map((attachment) => [attachment.id, attachment]),
+      )
+      const versionMap = new Map(versions.map((version) => [version.id, version]))
+
+      const record: EncryptedItemRecord = {
+        ...existing,
+        vaultId: targetVaultId,
+        key: await sealBytes(
+          newItemKey,
+          session.vaultKey(targetVaultId),
+          itemKeyAad(targetVaultId, existing.id),
+        ),
+        content: await sealJson(
+          content,
+          newItemKey,
+          itemContentAad(targetVaultId, existing.id),
+        ),
+        updatedAt: now,
+      }
+
+      const item = {
+        ...content,
+        id: existing.id,
+        vaultId: targetVaultId,
+        createdAt: existing.createdAt,
+        updatedAt: now,
+      } as VaultItem
+
+      return {
+        file: {
+          ...file,
+          updatedAt: now,
+          items: file.items.map((candidate) =>
+            candidate.id === record.id ? record : candidate,
+          ),
+          attachments: file.attachments.map(
+            (attachment) => attachmentMap.get(attachment.id) ?? attachment,
+          ),
+          versions: file.versions.map(
+            (version) => versionMap.get(version.id) ?? version,
+          ),
+        },
+        item,
+      }
+    } finally {
+      wipe(newItemKey)
+    }
+  } finally {
+    wipe(oldItemKey)
   }
 }
 
@@ -1249,7 +2175,6 @@ export async function trashItem(
       item,
       file: {
         ...file,
-        version: 3,
         updatedAt: now,
         items: file.items.map((candidate) =>
           candidate.id === record.id ? record : candidate,
@@ -1306,7 +2231,6 @@ export async function restoreItem(
       item,
       file: {
         ...file,
-        version: 3,
         updatedAt: now,
         items: file.items.map((candidate) =>
           candidate.id === record.id ? record : candidate,
@@ -1454,7 +2378,6 @@ export async function restoreItemVersion(
       item,
       file: {
         ...file,
-        version: 3,
         updatedAt: now,
         items: file.items.map((candidate) =>
           candidate.id === record.id ? record : candidate,
@@ -1474,7 +2397,6 @@ export function deleteItems(file: VaultFile, itemIds: Iterable<string>): VaultFi
 
   return {
     ...file,
-    version: 3,
     updatedAt: new Date().toISOString(),
     items: file.items.filter((item) => !ids.has(item.id)),
     attachments: file.attachments.filter((attachment) => !ids.has(attachment.itemId)),
@@ -1725,6 +2647,62 @@ export async function verifyVaultFile(
   let verifiedAttachments = 0
   let verifiedVersions = 0
   let attachmentBytes = 0
+  let signedRecords = 0
+
+  if (file.version === 4) {
+    if (!file.integrity) {
+      issues.push('signature globale absente')
+    } else if (!session.hasIntegrityKey) {
+      issues.push('clé d’intégrité absente de la session')
+    } else {
+      const valid = await verifyFileMac(file, session.integrityKey())
+      if (!valid) {
+        issues.push('MAC global invalide : un enregistrement a été modifié, supprimé ou rejoué')
+      } else {
+        signedRecords =
+          file.vaults.length * 2 +
+          file.items.length * 2 +
+          file.attachments.length +
+          file.versions.length
+      }
+    }
+
+    const itemRecords = new Map(file.items.map((item) => [item.id, item]))
+    const vaultRecords = new Map(file.vaults.map((vault) => [vault.id, vault]))
+    const seenTombstones = new Set<string>()
+    for (const tombstone of file.tombstones ?? []) {
+      const key = `${tombstone.kind}:${tombstone.id}`
+      if (seenTombstones.has(key)) {
+        issues.push(`pierre tombale en double « ${tombstone.id.slice(0, 8)}… »`)
+      }
+      seenTombstones.add(key)
+      if (Number.isNaN(Date.parse(tombstone.deletedAt))) {
+        issues.push(`pierre tombale « ${tombstone.id.slice(0, 8)}… » : date invalide`)
+      }
+      if (tombstone.kind === 'item') {
+        const item = itemRecords.get(tombstone.id)
+        if (
+          item &&
+          Date.parse(tombstone.deletedAt) >= Date.parse(item.updatedAt)
+        ) {
+          issues.push(
+            `pierre tombale « ${tombstone.id.slice(0, 8)}… » : élément encore présent`,
+          )
+        }
+      }
+      if (tombstone.kind === 'vault') {
+        const vault = vaultRecords.get(tombstone.id)
+        if (
+          vault &&
+          Date.parse(tombstone.deletedAt) >= Date.parse(vault.updatedAt)
+        ) {
+          issues.push(
+            `pierre tombale « ${tombstone.id.slice(0, 8)}… » : coffre encore présent`,
+          )
+        }
+      }
+    }
+  }
 
   for (const record of file.vaults) {
     if (!session.hasVaultKey(record.id)) {
@@ -1897,6 +2875,7 @@ export async function verifyVaultFile(
     attachments: verifiedAttachments,
     attachmentBytes,
     versions: verifiedVersions,
+    signedRecords,
   }
 }
 
@@ -1945,7 +2924,6 @@ export async function addVault(
   return {
     file: {
       ...file,
-      version: 3,
       updatedAt: new Date().toISOString(),
       vaults: [...file.vaults, record],
       recovery,
@@ -2004,7 +2982,6 @@ export async function deleteVault(
     : undefined
   return {
     ...file,
-    version: 3,
     updatedAt: new Date().toISOString(),
     vaults: file.vaults.filter((vault) => vault.id !== vaultId),
     items: file.items.filter((item) => item.vaultId !== vaultId),
@@ -2053,15 +3030,20 @@ export async function changeMasterPassword(
     }
 
     session.replaceMasterKey(nextMasterKey)
+    // Rotation de l’époque : nouvelle clé HMAC, scellée sous la nouvelle clé
+    // maîtresse. Le MAC est recalculé par `signVaultFile` avant l’écriture.
+    session.setIntegrityKey(randomBytes(KDF_DEFAULTS.keyLength))
 
-    return {
+    const next: VaultFile = {
       ...file,
-      version: 3,
       kdf,
       vaults,
       updatedAt: new Date().toISOString(),
+      keyEpoch: (file.keyEpoch ?? 1) + 1,
       recovery,
     }
+    delete next.integrity
+    return next
   } catch (error) {
     wipe(nextMasterKey)
     throw error

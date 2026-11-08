@@ -1,0 +1,89 @@
+{
+  "format": "coffre",
+  "version": 4,
+  "id": "vf_rust_vector",
+  "createdAt": "2026-11-08T20:00:00.000Z",
+  "updatedAt": "2026-11-08T20:00:00.000Z",
+  "kdf": {
+    "algorithm": "argon2id",
+    "salt": "AAECAwQFBgcICQoLDA0ODw==",
+    "memoryKiB": 8192,
+    "iterations": 1,
+    "parallelism": 1,
+    "keyLength": 32
+  },
+  "vaults": [
+    {
+      "id": "v_rust_vector",
+      "key": {
+        "n": "AQEBAQEBAQEBAQEB",
+        "c": "57zI/4qzhuc2xdYTRErpWh09fszeaX9ee7usL9kyJMldxSP4f3MNsekOurZ0Z8m0"
+      },
+      "name": {
+        "n": "AgICAgICAgICAgIC",
+        "c": "ORJgT4skFWCNnSp8v+0yizhBS2CeN+EVDZy8ieVZXU66IcZivrsT"
+      },
+      "createdAt": "2026-11-08T20:00:00.000Z",
+      "updatedAt": "2026-11-08T20:00:00.000Z",
+      "clock": {
+        "rev": 1,
+        "writer": "w_rust_vector"
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "i_rust_vector",
+      "vaultId": "v_rust_vector",
+      "key": {
+        "n": "AwMDAwMDAwMDAwMD",
+        "c": "EFt2XgKqL+Slr+CLU2lIiOB99q7ja/Bj5QVR5TvPu1+ksCYYBYukKzkqgPxGO0+x"
+      },
+      "content": {
+        "n": "BAQEBAQEBAQEBAQE",
+        "c": "me9FgwzulEAKg4j8G97BSn6AcjWx+L4ww+6vmYnhpilP6hHgRMGDINdidXpejRwr3elTIUkYETGEJhYcozEGNKn7wogNIsycR3YMTaQtaa62+tWDS1mRkxsan0zCJKEq6gdG83bml0LFwXlUOKBbh3XMboTGwqDwUw5JQTqFi0VxA0M3IgAt2p7lmefh2aIChtNiuZG5CFHw1C5JROr+V/GYan3oeOMOIdBQGIA9oZIqzrlE6/zQCLSrK0EaUWEyvVuMzEdTVsc6a6vPi+bEBb/6pbUio+Oe2p26SlI6XvVU9UXdOJoTrg8jLH7pgN8XebW6+zFx+Q5ffi3627xxjMtfLdDIHerJEi1fkI8m2jk+dIZFNsrwSOaptbzuEK2LPUQ10GpRXEmOj23muuPo3RChQW6p6hQNgk+dur0vwIvHApNf5OcuMTQOArItiLLWdrfC0dumgsMiMqplafUsHnbuZA=="
+      },
+      "createdAt": "2026-11-08T20:00:00.000Z",
+      "updatedAt": "2026-11-08T20:00:00.000Z",
+      "clock": {
+        "rev": 1,
+        "writer": "w_rust_vector"
+      }
+    }
+  ],
+  "attachments": [
+    {
+      "id": "att_rust_vector",
+      "itemId": "i_rust_vector",
+      "vaultId": "v_rust_vector",
+      "data": {
+        "n": "BgYGBgYGBgYGBgYG",
+        "c": "99yptNP5nMoJM8b9aFFWw6gi1DGyjV2Bm1oZzLaCCg=="
+      },
+      "createdAt": "2026-11-08T20:00:00.000Z"
+    }
+  ],
+  "versions": [
+    {
+      "id": "ver_rust_vector",
+      "itemId": "i_rust_vector",
+      "vaultId": "v_rust_vector",
+      "content": {
+        "n": "BQUFBQUFBQUFBQUF",
+        "c": "yN+8JC2LqhhxBNsBYHl/8CHUep+3nr8AwBM+D4snByoWAbt44G0lZLDcv2FETboJliCdNAcbCHurqtUlxNla8YEuOmJU+BVwjI/x7EnZPINdK5YJ82/VzFPvOTThZxjGvJmpPTBFgnNpsldJCCSloyXCB3ePNWCAae7Me6pKVbppRJxMEQL4d0bT7nYiP/6iYXWsaZpAHJKaWvzL8sdXOuY8DbDE++AV3AkhyNFxr+ormpwf/mhEqwJ13JS74hrpwIyk9CXOxTdDyaM+Cj2DfIl3uqlJahaxxzNQwbOAsdK00jgNcHtiZ6WTHzNY0BxLZlrifFKKfeS7SK+HXlvX6qasHbZ+A07SLnv3nVCY8HrWWESZ6j5m5mXFibMthodDrOJHQQSxjgHh/SPUTtHwQhoAslJ3MmVFIKUvMiQs36Iw3fccpORnTJVlmPmwbjmmwc0riTSqGHD6fcJZQlhC"
+      },
+      "createdAt": "2026-11-08T20:00:00.000Z"
+    }
+  ],
+  "writer": "w_rust_vector",
+  "revision": 1,
+  "keyEpoch": 1,
+  "tombstones": [],
+  "integrity": {
+    "mac": "dpG+S+DdbtqN/wAAxFfcdwdzYtq5Y9Qxl2u/ujW9Pfg=",
+    "key": {
+      "n": "BwcHBwcHBwcHBwcH",
+      "c": "M+Vw9HX10lHIYE3ocGjI74SV6H9iADxyW2Fz7ehAvXN1/kzY5osaj6DwGNuxdMsU"
+    }
+  }
+}

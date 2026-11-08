@@ -13,7 +13,11 @@ use tauri::plugin::Plugin;
 #[cfg(desktop)]
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+mod bridge;
+mod sync_store;
 mod vault_store;
+
+pub use bridge::{is_native_host_invocation, run_native_host};
 
 const KEYCHAIN_SERVICE: &str = "app.coffre.desktop";
 /// Service séparé : une clé biométrique ne peut pas être lue par
@@ -267,10 +271,61 @@ fn vault_backup_write(
     vault_store::write_backup(&vault_dir(&app)?, generation, &contents)
 }
 
+/// Lit l’état anti-retour en arrière (révision maximale vue).
+#[tauri::command(async)]
+fn vault_state_read(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    vault_store::read_state(&vault_dir(&app)?)
+}
+
+/// Enregistre l’état anti-retour en arrière.
+#[tauri::command(async)]
+fn vault_state_write(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    vault_store::write_state(&vault_dir(&app)?, &contents)
+}
+
 /// Supprime le coffre courant et ses sauvegardes natives.
 #[tauri::command(async)]
 fn vault_clear(app: tauri::AppHandle) -> Result<(), String> {
     vault_store::clear(&vault_dir(&app)?)
+}
+
+/// Prépare `Coffre/<idFichier>/` dans un dossier synchronisé choisi.
+#[tauri::command(async)]
+fn sync_prepare(base: String, file_id: String) -> Result<String, String> {
+    sync_store::prepare(&base, &file_id)
+}
+
+/// Liste les fichiers `.coffre` d’un dossier synchronisé.
+#[tauri::command(async)]
+fn sync_list(dir: String) -> Result<Vec<sync_store::SyncFileInfo>, String> {
+    sync_store::list(&dir)
+}
+
+/// Lit un fichier `.coffre` d’un dossier synchronisé.
+#[tauri::command(async)]
+fn sync_read(dir: String, name: String) -> Result<Option<String>, String> {
+    sync_store::read(&dir, &name)
+}
+
+/// Écrit un fichier `.coffre` de façon atomique dans un dossier synchronisé.
+#[tauri::command(async)]
+fn sync_write(dir: String, name: String, contents: String) -> Result<(), String> {
+    sync_store::write(&dir, &name, &contents)
+}
+
+/// Surveille un dossier synchronisé et émet `coffre:sync-changed`.
+#[tauri::command]
+fn sync_watch(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, sync_store::SyncState>,
+    dir: String,
+) -> Result<(), String> {
+    sync_store::watch(app, state, &dir)
+}
+
+#[tauri::command]
+fn sync_unwatch(state: tauri::State<'_, sync_store::SyncState>) -> Result<(), String> {
+    sync_store::unwatch(state)
 }
 
 /// Vrai pour les URL internes de l’application (production et développement).
@@ -336,6 +391,48 @@ fn open_external_url(url: String) -> Result<(), String> {
     launch_external(&url)
 }
 
+const HIBP_PREFIX_LENGTH: usize = 5;
+const HIBP_MAX_RESPONSE_BYTES: usize = 2_000_000;
+
+/// Valide un préfixe HIBP avant toute requête réseau : cinq caractères
+/// hexadécimaux, jamais une URL ou un hash complet.
+fn normalize_hibp_prefix(prefix: &str) -> Result<String, String> {
+    let value = prefix.trim().to_ascii_uppercase();
+    if value.len() != HIBP_PREFIX_LENGTH || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("Préfixe HIBP invalide".into());
+    }
+    Ok(value)
+}
+
+/// Interroge Have I Been Pwned en k-anonymat. La WebView ne fait aucune
+/// requête réseau : la CSP desktop reste sans `connect-src` externe.
+#[tauri::command(async)]
+async fn hibp_range(prefix: String) -> Result<String, String> {
+    let prefix = normalize_hibp_prefix(&prefix)?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|_| "Client HTTP indisponible".to_string())?;
+    let response = client
+        .get(format!("https://api.pwnedpasswords.com/range/{prefix}"))
+        .header("Add-Padding", "true")
+        .header("User-Agent", concat!("Coffre/", env!("CARGO_PKG_VERSION")))
+        .send()
+        .await
+        .map_err(|_| "Requête HIBP impossible".to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("HIBP HTTP {}", response.status().as_u16()));
+    }
+    let body = response
+        .text()
+        .await
+        .map_err(|_| "Réponse HIBP illisible".to_string())?;
+    if body.len() > HIBP_MAX_RESPONSE_BYTES {
+        return Err("Réponse HIBP trop volumineuse".into());
+    }
+    Ok(body)
+}
+
 /// Empêche la WebView de naviguer vers un site distant. Une telle navigation
 /// est redirigée vers le navigateur système, ce qui évite d’exécuter du contenu
 /// distant dans la coque Tauri.
@@ -358,6 +455,9 @@ impl<R: Runtime> Plugin<R> for NavigationGuard {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        .manage(bridge::BridgeState::default())
+        .manage(sync_store::SyncState::default())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(NavigationGuard)
         .invoke_handler(tauri::generate_handler![
             keychain_store,
@@ -368,11 +468,21 @@ pub fn run() {
             biometric_delete,
             biometric_load,
             open_external_url,
+            hibp_range,
+            bridge::bridge_send,
             vault_read,
             vault_write,
             vault_backup_read,
             vault_backup_write,
-            vault_clear
+            vault_state_read,
+            vault_state_write,
+            vault_clear,
+            sync_prepare,
+            sync_list,
+            sync_read,
+            sync_write,
+            sync_watch,
+            sync_unwatch
         ]);
 
     #[cfg(desktop)]
@@ -405,12 +515,33 @@ pub fn run() {
             if let Err(error) = app.global_shortcut().register(quick_search_shortcut()) {
                 eprintln!("Raccourci global de recherche indisponible : {error}");
             }
+            if let Err(error) = bridge::start_server(app.handle().clone()) {
+                eprintln!("Pont natif indisponible : {error}");
+            }
+            if let Err(error) = bridge::install_native_hosts() {
+                #[cfg(debug_assertions)]
+                eprintln!("Hôte de messagerie native non installé : {error}");
+                let _ = error;
+            }
             Ok(())
         });
 
     builder
         .run(tauri::generate_context!())
         .expect("impossible de démarrer Coffre");
+}
+
+#[cfg(test)]
+mod hibp_tests {
+    #[test]
+    fn valide_le_prefixe_hibp() {
+        assert_eq!(super::normalize_hibp_prefix("5baa6").unwrap(), "5BAA6");
+        assert!(super::normalize_hibp_prefix("5BAA6").is_ok());
+        assert!(super::normalize_hibp_prefix("5BAA").is_err());
+        assert!(super::normalize_hibp_prefix("5BAA61").is_err());
+        assert!(super::normalize_hibp_prefix("5BAAZ").is_err());
+        assert!(super::normalize_hibp_prefix("https://example.com").is_err());
+    }
 }
 
 #[cfg(all(test, target_os = "macos"))]

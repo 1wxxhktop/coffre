@@ -7,17 +7,84 @@
  *   un formulaire de connexion sur http://127.0.0.1:8099/
  *
  * Lance un Chromium visible avec l’extension, crée un coffre, puis vérifie la
- * recherche, la récupération et le remplissage.
+ * recherche, la récupération, le remplissage et le cycle passkey complet
+ * (attestation et signature vérifiées avec les primitives Node).
  */
 import { chromium } from '@playwright/test'
 import assert from 'node:assert/strict'
+import {
+  createHash,
+  createPublicKey,
+  verify as verifySignature,
+} from 'node:crypto'
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { decodeCbor } from '../src/lib/cbor.ts'
 
 const APP_URL = process.env.COFFRE_APP_URL ?? 'http://127.0.0.1:1420'
 const TARGET_URL = process.env.COFFRE_TARGET_URL ?? 'http://127.0.0.1:8099'
 const PASSWORD = 'phrase de passe de test solide'
+
+function publicKeyFromCose(value) {
+  const cose = decodeCbor(Buffer.from(value, 'base64url'))
+  assert.ok(cose instanceof Map, 'COSE ES256 attendu')
+  const x = Buffer.from(cose.get(-2)).toString('base64url')
+  const y = Buffer.from(cose.get(-3)).toString('base64url')
+  return createPublicKey({
+    key: { kty: 'EC', crv: 'P-256', x, y },
+    format: 'jwk',
+  })
+}
+
+function authenticatorData(value, host) {
+  const data = Buffer.from(value, 'base64url')
+  const expected = createHash('sha256').update(host).digest()
+  assert.deepEqual(data.subarray(0, 32), expected, 'hash du RP ID')
+  return data
+}
+
+function verifyRegistration(created, host) {
+  const attestation = decodeCbor(
+    Buffer.from(created.attestationObject, 'base64url'),
+  )
+  assert.equal(attestation.get('fmt'), 'none')
+  const data = Buffer.from(attestation.get('authData'))
+  assert.deepEqual(
+    data.subarray(0, 32),
+    createHash('sha256').update(host).digest(),
+    'hash du RP ID dans l’attestation',
+  )
+  assert.equal(data[32] & 0x41, 0x41, 'drapeaux UP et AT')
+  let offset = 37 + 16
+  const length = data.readUInt16BE(offset)
+  const credentialId = data
+    .subarray(offset + 2, offset + 2 + length)
+    .toString('base64url')
+  assert.equal(credentialId, created.id)
+  assert.deepEqual(
+    data.subarray(offset + 2 + length),
+    Buffer.from(created.publicKeyCose, 'base64url'),
+    'clé publique COSE intégrée',
+  )
+}
+
+function verifyAssertion(created, assertion, host) {
+  const data = authenticatorData(assertion.authData, host)
+  const clientHash = createHash('sha256')
+    .update(Buffer.from(assertion.clientDataJSON, 'base64url'))
+    .digest()
+  assert.equal(
+    verifySignature(
+      'sha256',
+      Buffer.concat([data, clientHash]),
+      publicKeyFromCose(created.publicKeyCose),
+      Buffer.from(assertion.signatureData, 'base64url'),
+    ),
+    true,
+    'signature ECDSA vérifiée par un vérificateur serveur',
+  )
+}
 
 const extensionSource = join(process.cwd(), 'dist-extension')
 const workDir = mkdtempSync(join(tmpdir(), 'coffre-ext-'))
@@ -27,10 +94,20 @@ cpSync(extensionSource, extensionPath, { recursive: true })
 const targetOrigin = new URL(TARGET_URL).origin
 const manifestPath = join(extensionPath, 'manifest.json')
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-if (!manifest.host_permissions.includes(`${targetOrigin}/*`)) {
-  manifest.host_permissions.push(`${targetOrigin}/*`)
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+for (const origin of [targetOrigin, 'http://localhost:8099', 'http://127.0.0.1:8099']) {
+  const pattern = `${origin}/*`
+  if (!manifest.host_permissions.includes(pattern)) {
+    manifest.host_permissions.push(pattern)
+  }
 }
+// Le smoke vérifie les scripts dynamiques de bout en bout : on accorde les
+// hôtes comme le ferait le bouton d’activation du popup.
+for (const pattern of ['http://*/*', 'https://*/*']) {
+  if (!manifest.host_permissions.includes(pattern)) {
+    manifest.host_permissions.push(pattern)
+  }
+}
+writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
 
 const context = await chromium.launchPersistentContext(join(workDir, 'profile'), {
   headless: false,
@@ -56,15 +133,19 @@ try {
   await app
     .getByRole('button', { name: 'Nouvel élément' })
     .waitFor({ timeout: 45_000 })
+  await app.getByRole('button', { name: 'Tous les éléments' }).first().click()
 
   await app.getByRole('button', { name: 'Nouvel élément' }).click()
-  const dialog = app.getByRole('dialog')
-  await dialog.getByLabel('Titre', { exact: true }).fill('Example')
-  await dialog.getByLabel('Identifiant', { exact: true }).fill('ada')
-  await dialog.getByLabel('Mot de passe', { exact: true }).fill('s3cret!')
-  await dialog.getByPlaceholder('https://exemple.com').fill(TARGET_URL)
-  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
-  await dialog.getByRole('heading', { name: 'Example' }).waitFor()
+  const form = app.getByRole('dialog')
+  await form.getByLabel('Titre', { exact: true }).fill('Example')
+  await form.getByLabel('Identifiant', { exact: true }).fill('ada')
+  await form.getByLabel('Mot de passe', { exact: true }).fill('s3cret!')
+  await form.getByPlaceholder('https://exemple.com').fill(TARGET_URL)
+  await form.getByRole('button', { name: 'Enregistrer' }).click()
+  await app
+    .locator('.item-panel')
+    .getByRole('heading', { name: 'Example' })
+    .waitFor()
   await app.keyboard.press('Escape')
 
   const target = await context.newPage()
@@ -107,6 +188,79 @@ try {
   }))
   assert.equal(values.username, 'ada')
   assert.equal(values.password, 's3cret!')
+
+  const passkeyURL = new URL('/passkey', TARGET_URL)
+  if (passkeyURL.hostname === '127.0.0.1') passkeyURL.hostname = 'localhost'
+  if (passkeyURL.protocol === 'https:' || passkeyURL.hostname === 'localhost') {
+    const passkeyPage = await context.newPage()
+    await passkeyPage.goto(passkeyURL.toString())
+
+    const runPasskey = async (action, button, kind) => {
+      await passkeyPage.evaluate(() => {
+        const element = document.querySelector('#passkey-result')
+        if (element) {
+          delete element.dataset.kind
+          element.textContent = ''
+        }
+      })
+      const windowPromise = context.waitForEvent('page', { timeout: 30_000 })
+      await passkeyPage.getByRole('button', { name: action }).click()
+      const prompt = await windowPromise
+      await prompt.getByRole('button', { name: button }).click()
+      await passkeyPage.waitForFunction(
+        () => Boolean(document.querySelector('#passkey-result')?.dataset.kind),
+        null,
+        { timeout: 30_000 },
+      )
+      const text = await passkeyPage.locator('#passkey-result').textContent()
+      if (!text || !text.trim().startsWith('{')) {
+        throw new Error(`Passkey ${kind} : ${text}`)
+      }
+      const result = JSON.parse(text)
+      assert.equal(result.kind, kind, text)
+      return result
+    }
+
+    const createdPasskey = await runPasskey(
+      'Créer une passkey',
+      'Créer avec Coffre',
+      'create',
+    )
+    assert.equal(createdPasskey.attachment, 'platform')
+    assert.equal(createdPasskey.attestation, true)
+    assert.equal(createdPasskey.publicKey, true)
+    assert.deepEqual(createdPasskey.client, {
+      typeOk: true,
+      challengeOk: true,
+      originOk: true,
+      rpOk: true,
+    })
+    verifyRegistration(createdPasskey, passkeyURL.hostname)
+
+    const usedPasskey = await runPasskey(
+      'Se connecter',
+      'Se connecter avec Coffre',
+      'get',
+    )
+    assert.equal(usedPasskey.id, createdPasskey.id)
+    assert.equal(usedPasskey.signature, true)
+    assert.deepEqual(usedPasskey.client, {
+      typeOk: true,
+      challengeOk: true,
+      originOk: true,
+      rpOk: true,
+    })
+    verifyAssertion(createdPasskey, usedPasskey, passkeyURL.hostname)
+    await app.getByRole('button', { name: /Passkeys/ }).click()
+    await app
+      .getByText(`Passkey · ${passkeyURL.hostname}`)
+      .first()
+      .waitFor({ timeout: 10_000 })
+
+    console.log(
+      'Extension : passkey créée, attestation vérifiée et assertion signée validée.',
+    )
+  }
 
   await app.getByRole('button', { name: 'Verrouiller' }).first().click()
   const locked = await extensionPage.evaluate(() =>

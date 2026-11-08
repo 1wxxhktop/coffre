@@ -125,13 +125,18 @@ jobs:
           workspaces: src-tauri -> target
 
       - name: Vérifier le formatage
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
       - name: Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets -- -D warnings
 
       - name: Tests Rust
-        run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --lib
+
+      - name: Smoke du relais natif
+        run: |
+          cargo build --manifest-path src-tauri/Cargo.toml --bin coffre
+          node scripts/smoke-bridge.mjs
 
       - name: Installer cargo-audit
         uses: taiki-e/install-action@v2
@@ -141,6 +146,37 @@ jobs:
       - name: Auditer les crates
         working-directory: src-tauri
         run: cargo audit
+
+  core:
+    name: coffre-core (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Mettre en cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Vérifier le formatage
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Clippy du cœur
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -p coffre-core --all-targets -- -D warnings
+
+      - name: Tests et vecteurs croisés
+        run: cargo test --manifest-path src-tauri/Cargo.toml -p coffre-core
 
   smoke-extension:
     name: Extension Chromium (smoke)

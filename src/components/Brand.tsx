@@ -1,35 +1,35 @@
-import { useId } from 'react'
-
 interface BrandProps {
   compact?: boolean
   subtitle?: string
 }
 
+/**
+ * Marque de l’application.
+ *
+ * Le symbole est volontairement plat : un carré plein et un cadenas en
+ * réserve, dont les couleurs suivent les variables du thème clair ou sombre.
+ */
 export function Brand({ compact = false, subtitle }: BrandProps) {
-  const gradientId = useId()
-
   return (
     <div className={`brand ${compact ? 'brand--compact' : ''}`}>
       <span className="brand__mark" aria-hidden="true">
         <svg viewBox="0 0 48 48" width="100%" height="100%" role="presentation">
-          <defs>
-            <linearGradient id={gradientId} x1="4" y1="4" x2="44" y2="44">
-              <stop offset="0%" stopColor="#e4e4e7" />
-              <stop offset="55%" stopColor="#a1a1aa" />
-              <stop offset="100%" stopColor="#52525b" />
-            </linearGradient>
-          </defs>
-          <rect x="2" y="2" width="44" height="44" rx="13" fill={`url(#${gradientId})`} />
+          <rect className="brand__mark-bg" x="2" y="2" width="44" height="44" rx="12" />
           <path
+            className="brand__mark-lock"
             d="M16.5 21.5v-3.2a7.5 7.5 0 0 1 15 0v3.2"
             fill="none"
-            stroke="#0b0d12"
             strokeWidth="3.1"
             strokeLinecap="round"
           />
-          <rect x="13.5" y="21" width="21" height="16" rx="5" fill="#0b0d12" />
-          <circle cx="24" cy="28" r="2.3" fill="#e4e4e7" />
-          <path d="M24 30v4" stroke="#e4e4e7" strokeWidth="2.2" strokeLinecap="round" />
+          <rect className="brand__mark-body" x="13.5" y="21" width="21" height="16" rx="5" />
+          <circle className="brand__mark-keyhole" cx="24" cy="28" r="2.3" />
+          <path
+            className="brand__mark-keyhole"
+            d="M24 30v4"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
         </svg>
       </span>
       {!compact && (

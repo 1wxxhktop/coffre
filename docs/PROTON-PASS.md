@@ -177,15 +177,15 @@ compte et logique de partage.
 | --- | --- | --- |
 | Compte | Compte Proton obligatoire | Aucun compte |
 | Backend | Service Proton | Aucun serveur |
-| Synchronisation | Chiffrée de bout en bout via Proton | Aucune ; export/import manuel `.coffre` |
+| Synchronisation | Chiffrée de bout en bout via Proton | Optionnelle par dossier déjà synchronisé (iCloud Drive, Dropbox, Syncthing), fichier chiffré par appareil ; export/import manuel sinon |
 | Stockage | Serveur + cache local | Fichier natif desktop ou IndexedDB Web, chiffré |
 | Format | Protobuf + enveloppes Proton | JSON versionné + AES-256-GCM |
 | Partage | Coffres partagés, invitations | Absent |
 | Alias e-mail | Intégrés au service | Absents |
-| Passkeys | Pris en charge | Absents |
-| Extension navigateur | Disponible | Absente (feuille de route) |
-| Remplissage automatique | Disponible | Absent |
-| Types d’éléments | 8 types | 4 types et champs personnalisés |
+| Passkeys | Pris en charge | Création et connexion dans l’extension (ES256), clé privée chiffrée dans le coffre ; pas d’AutoFill système ni d’export CXF |
+| Extension navigateur | Disponible | Chromium et Firefox, non publiée |
+| Remplissage automatique | Disponible | Menu dans les champs après autorisation explicite, et popup |
+| Types d’éléments | 8 types | 5 types et champs personnalisés |
 | Import | Depuis Proton Pass et formats propriétaires | JSON Bitwarden, Proton Pass et Enpass non chiffrés, CSV de 13 gestionnaires/navigateurs |
 | Pièces jointes | Chiffrées et synchronisées | Chiffrées localement, sans synchronisation |
 | Historique et corbeille | Historique de versions et corbeille côté service | Historique et corbeille locaux, chiffrés et plafonnés |

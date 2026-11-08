@@ -5,7 +5,7 @@ import { addLogin, closeDialog, createVault, openSettings, PASSWORD } from './he
 test.describe('import et sauvegarde', () => {
   test('importe un CSV générique dans le coffre', async ({ page }) => {
     await createVault(page)
-    const settings = await openSettings(page)
+    const settings = await openSettings(page, 'Sauvegarde et import')
 
     const csv = [
       'name,url,username,password,notes',
@@ -37,7 +37,7 @@ test.describe('import et sauvegarde', () => {
     await addLogin(page)
     await closeDialog(page)
 
-    const settings = await openSettings(page)
+    const settings = await openSettings(page, 'Sauvegarde et import')
     const protonExport = {
       version: '1.0.0',
       userId: 'user-1',
@@ -105,7 +105,7 @@ test.describe('import et sauvegarde', () => {
 
   test('importe un export Enpass avec dossiers et champs', async ({ page }) => {
     await createVault(page)
-    const settings = await openSettings(page)
+    const settings = await openSettings(page, 'Sauvegarde et import')
 
     const enpassExport = {
       folders: [
@@ -168,7 +168,7 @@ test.describe('import et sauvegarde', () => {
     await addLogin(page, 'GitHub', 'studio26', 's3cret!', 'https://github.com')
     await closeDialog(page)
 
-    const settings = await openSettings(page)
+    const settings = await openSettings(page, 'Sauvegarde et import')
     await expect(settings.getByLabel('Format CSV')).toHaveValue('apple')
 
     const downloadPromise = page.waitForEvent('download')
@@ -200,7 +200,7 @@ test.describe('import et sauvegarde', () => {
     await addLogin(page)
     await closeDialog(page)
 
-    const settings = await openSettings(page)
+    const settings = await openSettings(page, 'Sauvegarde et import')
     const downloadPromise = page.waitForEvent('download')
     await settings.getByRole('button', { name: 'Exporter le coffre' }).click()
     const download = await downloadPromise
@@ -208,7 +208,7 @@ test.describe('import et sauvegarde', () => {
     await download.saveAs(exportPath)
 
     await settings
-      .locator('input[type="file"][accept*=".coffre"]')
+      .locator('input[type="file"][accept=".coffre,.json,application/json"]')
       .setInputFiles(exportPath)
     await settings.getByLabel('Mot de passe du fichier').fill(PASSWORD)
     await settings.getByLabel(/Je comprends que le coffre local actuel/).check()

@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addLogin, closeDialog, createVault } from './helpers'
+import { addLogin, clickItemMenu, closeDialog, createVault } from './helpers'
 
 /** Ouvre la fiche d’un élément depuis la liste et renvoie le panneau. */
 async function openItem(page: Page, title: string): Promise<Locator> {
@@ -12,7 +12,7 @@ async function openItem(page: Page, title: string): Promise<Locator> {
 /** Déplace un élément vers la corbeille depuis sa fiche. */
 async function trashItem(page: Page, title: string): Promise<void> {
   const panel = await openItem(page, title)
-  await panel.getByRole('button', { name: 'Supprimer', exact: true }).click()
+  await clickItemMenu(page, panel, 'Supprimer…')
 
   const confirm = page.getByRole('dialog').last()
   await expect(
@@ -68,14 +68,14 @@ test.describe('corbeille et historique', () => {
 
   test('affiche l’historique et restaure une version précédente', async ({ page }) => {
     await createVault(page)
-    const dialog = await addLogin(page)
+    const panel = await addLogin(page)
 
-    await dialog.getByRole('button', { name: 'Modifier' }).click()
-    await dialog.getByLabel('Mot de passe', { exact: true }).fill('nouveau-secret')
-    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
-    await expect(dialog.getByRole('heading', { name: 'GitHub' })).toBeVisible()
+    await panel.getByRole('button', { name: 'Modifier' }).click()
+    await panel.getByLabel('Mot de passe', { exact: true }).fill('nouveau-secret')
+    await panel.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(panel.getByRole('heading', { name: 'GitHub' })).toBeVisible()
 
-    await dialog.getByRole('button', { name: 'Historique' }).click()
+    await clickItemMenu(page, panel, 'Historique')
     const history = page.getByRole('dialog').last()
     await expect(history.getByRole('heading', { name: 'Historique' })).toBeVisible()
 
@@ -89,16 +89,13 @@ test.describe('corbeille et historique', () => {
     ).toBeVisible()
     await confirm.getByRole('button', { name: 'Restaurer' }).click()
 
-    await expect(page.getByRole('dialog')).toHaveCount(1)
-    const itemDialog = page.getByRole('dialog').first()
-    await itemDialog.getByRole('button', { name: 'Modifier' }).click()
-    await expect(itemDialog.getByLabel('Mot de passe', { exact: true })).toHaveValue(
-      's3cret!',
-    )
-    await itemDialog.getByLabel('Mot de passe', { exact: true }).fill('secret-final')
-    await itemDialog.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await panel.getByRole('button', { name: 'Modifier' }).click()
+    await expect(panel.getByLabel('Mot de passe', { exact: true })).toHaveValue('s3cret!')
+    await panel.getByLabel('Mot de passe', { exact: true }).fill('secret-final')
+    await panel.getByRole('button', { name: 'Enregistrer' }).click()
 
-    await itemDialog.getByRole('button', { name: 'Historique' }).click()
+    await clickItemMenu(page, panel, 'Historique')
     const reopened = page.getByRole('dialog').last()
     await expect(reopened.locator('.history-item')).toHaveCount(3)
   })

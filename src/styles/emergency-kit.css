@@ -1,0 +1,251 @@
+/* Document imprimable du kit d’urgence. Les couleurs fixes (noir, blanc et
+   gris de papier) sont volontairement hors jetons : ce fichier décrit une
+   feuille imprimée, pas une surface de l’application. */
+
+.emergency-kit__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.emergency-kit__sheet {
+  margin-top: var(--space-5);
+  padding: 28px;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  color: #111111;
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.emergency-kit__sheet h2,
+.emergency-kit__sheet h3 {
+  color: #111111;
+}
+
+.emergency-kit__sheet h2 {
+  margin: 2px 0 4px;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.emergency-kit__sheet h3 {
+  font-size: 13px;
+}
+
+.emergency-kit__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #111111;
+}
+
+.emergency-kit__header p {
+  max-width: 430px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.emergency-kit__meta {
+  display: grid;
+  flex: none;
+  gap: 2px;
+  max-width: 210px;
+  font-size: 9px;
+  text-align: right;
+}
+
+.emergency-kit__meta code {
+  color: #111111;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.emergency-kit__instructions {
+  margin-top: 14px;
+}
+
+.emergency-kit__instructions ol {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0 18px;
+  padding: 0;
+}
+
+.emergency-kit__fields {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.emergency-kit__fields > div > span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.emergency-kit__warning {
+  display: block;
+  margin-top: 3px;
+  color: #444444;
+  font-size: 8.5px;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.emergency-kit__line {
+  height: 22px;
+  border-bottom: 1px solid #444444;
+}
+
+.emergency-kit__shares {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.emergency-kit__share {
+  padding: 10px;
+  border: 1px solid #222222;
+  border-radius: 8px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.emergency-kit__share header {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 7px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #999999;
+}
+
+.emergency-kit__share header span {
+  font-size: 9px;
+}
+
+.emergency-kit__share-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.emergency-kit__qr {
+  flex: none;
+}
+
+.emergency-kit__qr img {
+  display: block;
+  width: 108px;
+  height: 108px;
+}
+
+.emergency-kit__words {
+  flex: 1;
+  min-width: 0;
+}
+
+.emergency-kit__word-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.emergency-kit__word-groups code {
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: #f1f1f1;
+  color: #111111;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.emergency-kit__share footer {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 9px;
+}
+
+.emergency-kit__share footer .emergency-kit__line {
+  flex: 1;
+  height: 16px;
+}
+
+.emergency-kit__footer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px solid #999999;
+  font-size: 9px;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+
+  body > #root,
+  .toast-stack {
+    display: none !important;
+  }
+
+  .modal-overlay:not(:has(.emergency-kit-modal)) {
+    display: none !important;
+  }
+
+  .modal-overlay:has(.emergency-kit-modal) {
+    position: static;
+    display: block;
+    padding: 0;
+    overflow: visible;
+    background: #ffffff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .modal {
+    width: auto;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    background: #ffffff;
+    box-shadow: none;
+  }
+
+  .modal__header,
+  .modal__footer {
+    display: none !important;
+  }
+
+  .modal__body {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .emergency-kit__intro,
+  .no-print {
+    display: none !important;
+  }
+
+  .emergency-kit__sheet {
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}

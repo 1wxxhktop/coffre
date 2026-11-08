@@ -1,0 +1,164 @@
+{
+  "extName": {
+    "message": "Coffre — remplissage automatique"
+  },
+  "extDescription": {
+    "message": "Complément local de Coffre : remplit les identifiants depuis l’application déverrouillée, sans serveur ni télémétrie."
+  },
+  "popup_siteUnknown": {
+    "message": "Site inconnu"
+  },
+  "popup_settings": {
+    "message": "Réglages"
+  },
+  "popup_save": {
+    "message": "Enregistrer"
+  },
+  "popup_ignore": {
+    "message": "Ignorer"
+  },
+  "popup_searchPlaceholder": {
+    "message": "Rechercher un identifiant…"
+  },
+  "popup_searchLabel": {
+    "message": "Rechercher un identifiant"
+  },
+  "popup_showAll": {
+    "message": "Afficher toutes mes connexions"
+  },
+  "popup_activateInline": {
+    "message": "Activer le menu dans les champs"
+  },
+  "popup_pair": {
+    "message": "Associer l’extension"
+  },
+  "popup_openApp": {
+    "message": "Ouvrir Coffre"
+  },
+  "popup_unlockApp": {
+    "message": "Déverrouiller Coffre"
+  },
+  "popup_footer": {
+    "message": "Local · aucun serveur"
+  },
+  "options_title": {
+    "message": "Réglages — Coffre"
+  },
+  "options_heading": {
+    "message": "Extension Coffre"
+  },
+  "options_subtitle": {
+    "message": "Remplissage automatique local, sans serveur ni télémétrie."
+  },
+  "options_appAddress": {
+    "message": "Adresse de l’application"
+  },
+  "options_appAddressCopy": {
+    "message": "L’extension interroge l’onglet Coffre déverrouillé pour récupérer les identifiants du site courant. Elle ne stocke aucun secret."
+  },
+  "options_url": {
+    "message": "URL de Coffre"
+  },
+  "options_save": {
+    "message": "Enregistrer et autoriser"
+  },
+  "options_test": {
+    "message": "Tester la connexion"
+  },
+  "options_open": {
+    "message": "Ouvrir Coffre"
+  },
+  "options_how": {
+    "message": "Fonctionnement"
+  },
+  "options_how1": {
+    "message": "Ouvrez Coffre et déverrouillez votre coffre."
+  },
+  "options_how2": {
+    "message": "Sur un site, cliquez sur l’icône Coffre dans la barre d’outils."
+  },
+  "options_how3": {
+    "message": "Choisissez « Remplir » : les champs sont complétés dans la page active."
+  },
+  "options_privacy": {
+    "message": "Le mot de passe maître et les clés ne quittent jamais l’onglet Coffre. Les identifiants transitent uniquement en mémoire, entre cet onglet et la page active. Fermez l’onglet Coffre ou verrouillez-le pour couper l’accès."
+  },
+  "options_permissions": {
+    "message": "Permissions"
+  },
+  "options_permissionsCopy": {
+    "message": "L’extension demande l’accès à l’onglet actif au moment du remplissage, et à l’adresse de Coffre configurée ci-dessus. Elle n’a pas accès aux autres onglets en dehors de votre action."
+  },
+  "menu_open": {
+    "message": "Ouvrir Coffre"
+  },
+  "menu_close": {
+    "message": "Fermer"
+  },
+  "menu_search": {
+    "message": "Rechercher…"
+  },
+  "menu_searchLabel": {
+    "message": "Rechercher un identifiant"
+  },
+  "menu_save": {
+    "message": "Enregistrer dans Coffre"
+  },
+  "menu_ignore": {
+    "message": "Ignorer"
+  },
+  "passkey_title": {
+    "message": "Demande de passkey"
+  },
+  "passkey_warning": {
+    "message": "Ne validez que si vous êtes à l’origine de cette demande. La clé privée reste chiffrée dans votre coffre."
+  },
+  "passkey_approve": {
+    "message": "Utiliser Coffre"
+  },
+  "passkey_decline": {
+    "message": "Utiliser un autre appareil"
+  },
+  "error_appClosed": {
+    "message": "Ouvrez Coffre pour vous connecter."
+  },
+  "error_locked": {
+    "message": "Coffre est verrouillé. Déverrouillez-le dans son onglet."
+  },
+  "error_needsPairing": {
+    "message": "Associez cette extension à Coffre avant de continuer."
+  },
+  "error_pairRejected": {
+    "message": "Association refusée dans Coffre."
+  },
+  "error_pairProtocol": {
+    "message": "Association interrompue. Réessayez depuis Coffre."
+  },
+  "error_domainMismatch": {
+    "message": "Cet identifiant n’est pas enregistré pour ce site."
+  },
+  "error_permission": {
+    "message": "Autorisez l’extension à accéder à l’onglet Coffre depuis les réglages."
+  },
+  "error_noFields": {
+    "message": "Aucun champ de connexion détecté sur cette page."
+  },
+  "error_noTab": {
+    "message": "Cette page ne permet pas le remplissage automatique."
+  },
+  "error_notFound": {
+    "message": "Cet identifiant n’existe plus dans le coffre."
+  },
+  "error_invalidUrl": {
+    "message": "L’adresse de Coffre est invalide."
+  },
+  "error_nativeTimeout": {
+    "message": "Coffre ne répond pas. Vérifiez que l’application est ouverte."
+  },
+  "error_nativeUnavailable": {
+    "message": "L’application Coffre desktop n’est pas disponible."
+  },
+  "error_generic": {
+    "message": "Opération impossible."
+  }
+}

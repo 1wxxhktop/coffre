@@ -10,6 +10,7 @@ import {
   parseVaultFile,
   recoverVaultFile,
   serializeVault,
+  signVaultFile,
   unlockVaultFile,
   VaultValidationError,
   WrongPasswordError,
@@ -64,9 +65,10 @@ describe('enveloppe de récupération', () => {
   it('active une enveloppe et la relit après sérialisation', async () => {
     const opened = await freshVault()
     const withItem = await addLogin(opened)
-    const file = await enableRecovery(withItem.file, opened.session, PHRASE, FAST_KDF)
+    const draft = await enableRecovery(withItem.file, opened.session, PHRASE, FAST_KDF)
+    const file = await signVaultFile(draft, opened.session, withItem.file)
 
-    expect(file.version).toBe(3)
+    expect(file.version).toBe(4)
     expect(file.recovery?.wraps).toHaveLength(1)
     expect(opened.session.hasRecoveryKey).toBe(true)
 
@@ -95,7 +97,8 @@ describe('enveloppe de récupération', () => {
   it('récupère le coffre et impose un nouveau mot de passe', async () => {
     const opened = await freshVault()
     const withItem = await addLogin(opened)
-    const file = await enableRecovery(withItem.file, opened.session, PHRASE, FAST_KDF)
+    const draft = await enableRecovery(withItem.file, opened.session, PHRASE, FAST_KDF)
+    const file = await signVaultFile(draft, opened.session, withItem.file)
 
     const recovered = await recoverVaultFile(
       parseVaultFile(JSON.parse(serializeVault(file))),
@@ -105,6 +108,9 @@ describe('enveloppe de récupération', () => {
     )
     expect(recovered.items).toHaveLength(1)
     expect((recovered.items[0] as LoginItem).password).toBe('s3cret!')
+    expect(recovered.file.version).toBe(4)
+    expect(recovered.file.keyEpoch).toBe(2)
+    expect(recovered.integrity).toBe('valid')
 
     await expect(unlockVaultFile(recovered.file, PASSWORD)).rejects.toThrow(
       WrongPasswordError,

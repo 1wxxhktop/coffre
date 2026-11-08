@@ -8,6 +8,7 @@ const native = vi.hoisted(() => ({
   enabled: true,
   current: null as string | null,
   backups: new Map<number, string>(),
+  state: null as string | null,
   calls: [] as Array<{ command: string; args: Record<string, unknown> }>,
 }))
 
@@ -29,9 +30,15 @@ vi.mock('@tauri-apps/api/core', () => ({
       case 'vault_backup_write':
         native.backups.set(Number(args.generation), String(args.contents))
         return null
+      case 'vault_state_read':
+        return native.state
+      case 'vault_state_write':
+        native.state = String(args.contents)
+        return null
       case 'vault_clear':
         native.current = null
         native.backups.clear()
+        native.state = null
         return null
       default:
         throw new Error(`commande inconnue : ${command}`)
@@ -44,8 +51,10 @@ import {
   listLocalBackups,
   loadBackupVaultFile,
   loadVaultFile,
+  loadVaultState,
   restoreBackup,
   saveVaultFile,
+  saveVaultState,
   StorageError,
 } from './storage'
 
@@ -72,6 +81,7 @@ beforeEach(async () => {
   native.enabled = true
   native.current = null
   native.backups.clear()
+  native.state = null
   native.calls = []
   const db = await openDB('coffre', 1, {
     upgrade(database) {
@@ -182,6 +192,28 @@ describe('stockage natif Tauri', () => {
 
     await expect(loadVaultFile()).rejects.toBeInstanceOf(StorageError)
     expect(native.current).toBeNull()
+  })
+
+  it('conserve l’état anti-retour en arrière hors du coffre', async () => {
+    expect(await loadVaultState()).toBeNull()
+    const state = {
+      fileId: 'vf_test',
+      revision: 12,
+      updatedAt: new Date().toISOString(),
+    }
+    await saveVaultState(state)
+    expect(await loadVaultState()).toEqual(state)
+    expect(native.calls.map((call) => call.command)).toContain('vault_state_write')
+
+    await clearVaultStorage()
+    expect(await loadVaultState()).toBeNull()
+  })
+
+  it('ignore un état anti-retour illisible sans bloquer le coffre', async () => {
+    native.state = '{ pas du json'
+    expect(await loadVaultState()).toBeNull()
+    native.state = JSON.stringify({ fileId: 'vf_test', revision: -1 })
+    expect(await loadVaultState()).toBeNull()
   })
 
   it('signale une erreur native explicite', async () => {

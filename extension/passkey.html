@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr" data-page-title="passkey_title">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coffre · Passkey</title>
+    <link rel="stylesheet" href="./passkey.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header class="card__head">
+        <span class="mark" aria-hidden="true">C</span>
+        <div>
+          <strong>Coffre</strong>
+          <small id="host"></small>
+        </div>
+      </header>
+
+      <p id="eyebrow" class="eyebrow"></p>
+      <h1 id="title"><span data-i18n="passkey_title">Demande de passkey</span></h1>
+      <p id="detail" class="detail"></p>
+      <p class="warning" data-i18n="passkey_warning">
+        Ne validez que si vous êtes à l’origine de cette demande. La clé privée
+        reste chiffrée dans votre coffre.
+      </p>
+
+      <p id="error" class="error" hidden></p>
+
+      <div class="actions">
+        <button id="approve" class="button button--primary" type="button">
+          <span data-i18n="passkey_approve">Utiliser Coffre</span>
+        </button>
+        <button id="decline" class="button" type="button">
+          <span data-i18n="passkey_decline">Utiliser un autre appareil</span>
+        </button>
+      </div>
+    </main>
+    <script type="module" src="./passkey.ts"></script>
+  </body>
+</html>

@@ -1,27 +1,39 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowUpDown,
-  ChevronDown,
+  CalendarClock,
+  Check,
   FolderOpen,
+  History,
+  KeyRound,
+  LayoutDashboard,
   LockKeyhole,
-  Menu,
+  Menu as MenuIcon,
   Plus,
   Search,
+  Settings,
+  ShieldAlert,
   ShieldCheck,
+  Star,
   Trash2,
   X,
 } from 'lucide-react'
 import { Sidebar } from './Sidebar'
+import { Dashboard } from './Dashboard'
+import { ColumnResizer } from './ColumnResizer'
+import { Menu } from './Menu'
 import {
-  FILTER_LABELS,
-  SORT_LABELS,
+  FILTER_MESSAGE_KEYS,
+  SORT_MESSAGE_KEYS,
   type ItemFilter,
   type ItemSort,
 } from '../lib/filters'
 import { ItemRow } from './ItemRow'
 import { ItemDialog } from './ItemDialog'
+import { GeneratorDialog } from './GeneratorDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { SecurityDialog } from './SecurityDialog'
 import { VaultFormDialog } from './VaultFormDialog'
@@ -29,12 +41,35 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { ExtensionBridge } from './ExtensionBridge'
 import { useVault } from '../state/VaultProvider'
 import { useSettings } from '../state/SettingsProvider'
+import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
+import { pluralKey, type MessageKey } from '../lib/i18n'
 import { useAutoLock } from '../hooks/useAutoLock'
+import { useMediaQuery } from '../hooks/useMediaQuery'
+import { LAYOUT_LIMITS, useLayoutPreferences } from '../hooks/useLayoutPreferences'
 import { loadUsage, recordItemUsage, type UsageMap } from '../lib/usage'
-import { analyzeSecurity } from '../lib/security'
+import {
+  analyzeSecurity,
+  itemSecurityIssue,
+  securityCategoryItems,
+  SECURITY_CATEGORY_LABELS,
+  type SecurityCategory,
+} from '../lib/security'
+import { collectExpiries } from '../lib/expiry'
+import { scanBreaches } from '../lib/breach'
+import { notifyExpiringItems } from '../lib/notifications'
 import { itemSubtitle, itemTypeLabel, type ItemType, type VaultSummary } from '../lib/types'
 import { isTauriRuntime } from '../lib/external'
+
+function createTypeForFilter(filter: ItemFilter): ItemType {
+  return filter === 'all' ||
+    filter === 'favorites' ||
+    filter === 'recent' ||
+    filter === 'expiring' ||
+    filter === 'trash'
+    ? 'login'
+    : filter
+}
 
 function normalize(value: string): string {
   return value
@@ -72,12 +107,26 @@ function searchableText(item: ReturnType<typeof useVault>['items'][number]): str
       break
     case 'note':
       break
+    case 'passkey':
+      common.push(item.rpId, item.userName)
+      break
   }
 
   return normalize(common.join(' '))
 }
 
-const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity']
+const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'passkey']
+
+const SECURITY_CATEGORY_KEYS: Record<SecurityCategory, MessageKey> = {
+  breached: 'security.category.breached',
+  weak: 'security.category.weak',
+  reused: 'security.category.reused',
+  similar: 'security.category.similar',
+  no2fa: 'security.category.no2fa',
+  old: 'security.category.old',
+  incomplete: 'security.category.incomplete',
+  duplicates: 'security.category.duplicates',
+}
 
 export function VaultApp() {
   const {
@@ -85,6 +134,8 @@ export function VaultApp() {
     items,
     warnings,
     dismissWarnings,
+    readOnly,
+    syncPending,
     lock,
     deleteVault,
     emptyTrash,
@@ -92,8 +143,24 @@ export function VaultApp() {
     favoriteItems,
   } = useVault()
   const { settings } = useSettings()
+  const { t } = useI18n()
   const { toast } = useToast()
+  const layout = useLayoutPreferences()
+  const desktopLayout = useMediaQuery('(min-width: 1100px)')
+  const splitRef = useRef<HTMLElement>(null)
+  const [splitWidth, setSplitWidth] = useState(0)
+  const listMax = desktopLayout
+    ? Math.max(
+        LAYOUT_LIMITS.listMin,
+        Math.min(LAYOUT_LIMITS.listMax, Math.floor(splitWidth - 360)),
+      )
+    : LAYOUT_LIMITS.listMax
+  const shellStyle = {
+    '--sidebar-width': `${layout.sidebarWidth}px`,
+    '--list-width': `${layout.listWidth}px`,
+  } as unknown as CSSProperties
 
+  const [view, setView] = useState<'vault' | 'dashboard'>('vault')
   const [filter, setFilter] = useState<ItemFilter>('all')
   const [vaultFilter, setVaultFilter] = useState<'all' | string>('all')
   const [search, setSearch] = useState('')
@@ -104,22 +171,93 @@ export function VaultApp() {
   const [createType, setCreateType] = useState<ItemType | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [securityOpen, setSecurityOpen] = useState(false)
+  const [securityCategory, setSecurityCategory] = useState<SecurityCategory | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [vaultForm, setVaultForm] = useState<
     { mode: 'create' } | { mode: 'rename'; vault: VaultSummary } | null
   >(null)
   const [vaultToDelete, setVaultToDelete] = useState<VaultSummary | null>(null)
   const [showEmptyTrash, setShowEmptyTrash] = useState(false)
-  const securityReport = useMemo(() => analyzeSecurity(items), [items])
-  const securityIssueIds = useMemo(
-    () => new Set(securityReport.issueIds),
-    [securityReport],
+  const [generatorOpen, setGeneratorOpen] = useState(false)
+  const [breachedIds, setBreachedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
   )
+  const [breachStatus, setBreachStatus] = useState<
+    'idle' | 'checking' | 'done' | 'error'
+  >('idle')
+  const breachRevision = useMemo(
+    () =>
+      items
+        .filter((item) => item.type === 'login' && !item.deletedAt)
+        .map((item) => `${item.id}:${item.updatedAt}`)
+        .join('|'),
+    [items],
+  )
+  const breachRevisionRef = useRef(0)
+
+  useEffect(() => {
+    breachRevisionRef.current += 1
+    setBreachedIds(new Set())
+    setBreachStatus('idle')
+  }, [breachRevision, settings.breachCheck])
+
+  const securityReport = useMemo(
+    () => analyzeSecurity(items, Date.now(), breachedIds),
+    [items, breachedIds],
+  )
+
+  const checkBreaches = useCallback(async () => {
+    if (!settings.breachCheck || breachStatus === 'checking') return
+    const revision = breachRevisionRef.current
+    setBreachStatus('checking')
+    try {
+      const result = await scanBreaches(items)
+      if (revision !== breachRevisionRef.current) return
+      setBreachedIds(new Set(result.breachedItemIds))
+      setBreachStatus('done')
+    } catch {
+      if (revision !== breachRevisionRef.current) return
+      setBreachStatus('error')
+    }
+  }, [breachStatus, items, settings.breachCheck])
+  const securityIssueById = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof itemSecurityIssue>>()
+    for (const item of items) {
+      const issue = itemSecurityIssue(item, securityReport)
+      if (issue) map.set(item.id, issue)
+    }
+    return map
+  }, [items, securityReport])
+  const expiryEvents = useMemo(() => collectExpiries(items), [items])
+  const expiryByItem = useMemo(() => {
+    const map = new Map<string, (typeof expiryEvents)[number]>()
+    for (const event of expiryEvents) {
+      if (!map.has(event.item.id)) map.set(event.item.id, event)
+    }
+    return map
+  }, [expiryEvents])
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
   const [showBulkTrash, setShowBulkTrash] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const element = splitRef.current
+    if (!element || !desktopLayout) return
+    const observer = new ResizeObserver(([entry]) => {
+      setSplitWidth(entry.contentRect.width)
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [desktopLayout])
+
+  useEffect(() => {
+    if (!desktopLayout || splitWidth === 0) return
+    if (layout.listWidth > listMax) layout.setListWidth(listMax)
+  }, [desktopLayout, layout, listMax, splitWidth])
 
   useAutoLock(
     settings.autoLockMinutes,
@@ -127,6 +265,45 @@ export function VaultApp() {
     settings.lockOnFocusLoss,
     lock,
   )
+
+  const expiryEventsRef = useRef(expiryEvents)
+  useEffect(() => {
+    expiryEventsRef.current = expiryEvents
+  }, [expiryEvents])
+
+  // Rappels à l’ouverture ou après une modification : une seule notification
+  // par échéance et par jour, sans requête réseau.
+  useEffect(() => {
+    if (!settings.expiryNotifications || expiryEvents.length === 0) return
+    const due = notifyExpiringItems(expiryEvents)
+    if (due.length > 0) {
+      toast(
+        t(
+          pluralKey(due.length, 'vault.expiryToast.one', 'vault.expiryToast.other'),
+          { count: due.length },
+        ),
+        'info',
+      )
+    }
+  }, [settings.expiryNotifications, expiryEvents, t, toast])
+
+  // Vérification périodique tant que l’application reste ouverte.
+  useEffect(() => {
+    if (!settings.expiryNotifications) return
+    const timer = window.setInterval(() => {
+      const due = notifyExpiringItems(expiryEventsRef.current)
+      if (due.length > 0) {
+        toast(
+          t(
+            pluralKey(due.length, 'vault.expiryToast.one', 'vault.expiryToast.other'),
+            { count: due.length },
+          ),
+          'info',
+        )
+      }
+    }, 60 * 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [settings.expiryNotifications, t, toast])
 
   /** Enregistre l’ouverture ou la copie d’un élément pour la vue « Récents ». */
   const markUsed = useCallback((itemId: string) => {
@@ -154,7 +331,7 @@ export function VaultApp() {
   useEffect(() => {
     setSelectedIds(new Set())
     setSelectionMode(false)
-  }, [filter, vaultFilter, search])
+  }, [filter, vaultFilter, search, securityCategory])
 
   useEffect(() => {
     setSelectedIds((previous) => {
@@ -186,35 +363,41 @@ export function VaultApp() {
       }
 
       if (event.key === 'Escape' && !dialogOpen && !typing) {
+        if (createType) {
+          setCreateType(null)
+          return
+        }
         setSelectedId(null)
         setSidebarOpen(false)
         return
       }
 
       if (!dialogOpen && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
-        if (event.key.toLowerCase() === 'n' && filter !== 'trash') {
+        if (
+          event.key.toLowerCase() === 'n' &&
+          filter !== 'trash' &&
+          filter !== 'passkey'
+        ) {
           event.preventDefault()
-          setCreateType(
-            filter === 'all' || filter === 'favorites' || filter === 'recent'
-              ? 'login'
-              : filter,
-          )
+          setView('vault')
+          setCreateType(createTypeForFilter(filter))
         }
       }
     }
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [filter])
+  }, [createType, filter])
 
   const activeVault = vaults.find((vault) => vault.id === vaultFilter)
-  const scopedItems = useMemo(
-    () =>
-      vaultFilter === 'all'
-        ? items
-        : items.filter((item) => item.vaultId === vaultFilter),
-    [items, vaultFilter],
-  )
+  const scopedItems = useMemo(() => {
+    const base = securityCategory
+      ? securityCategoryItems(securityReport, securityCategory)
+      : items
+    return vaultFilter === 'all'
+      ? base
+      : base.filter((item) => item.vaultId === vaultFilter)
+  }, [items, securityCategory, securityReport, vaultFilter])
 
   /** Index de recherche pré-calculé : évite de reconstruire toutes les chaînes
    * à chaque frappe sur les gros coffres. */
@@ -227,16 +410,23 @@ export function VaultApp() {
     const query = normalize(search.trim())
     return scopedItems
       .filter((item) => {
+        if (securityCategory) {
+          if (item.deletedAt) return false
+          if (query && !(searchIndex.get(item.id) ?? '').includes(query)) return false
+          return true
+        }
         if (filter === 'trash') {
           if (!item.deletedAt) return false
         } else {
           if (item.deletedAt) return false
           if (filter === 'favorites' && !item.favorite) return false
           if (filter === 'recent' && !usage[item.id]) return false
+          if (filter === 'expiring' && !expiryByItem.has(item.id)) return false
           if (
             filter !== 'all' &&
             filter !== 'favorites' &&
             filter !== 'recent' &&
+            filter !== 'expiring' &&
             item.type !== filter
           ) {
             return false
@@ -246,11 +436,18 @@ export function VaultApp() {
         return true
       })
       .sort((a, b) => {
-        if (filter === 'trash') {
+        if (filter === 'trash' && !securityCategory) {
           return (b.deletedAt ?? '').localeCompare(a.deletedAt ?? '')
         }
+        // La vue « Bientôt expirés » suit l’échéance la plus proche.
+        if (filter === 'expiring' && !securityCategory) {
+          const aDate = expiryByItem.get(a.id)?.date ?? '9999-12-31'
+          const bDate = expiryByItem.get(b.id)?.date ?? '9999-12-31'
+          if (aDate !== bDate) return aDate.localeCompare(bDate)
+          return a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
+        }
         // Les vues « Récents » suivent l’horodatage d’utilisation.
-        if (filter === 'recent' || sort === 'recent') {
+        if ((filter === 'recent' || sort === 'recent') && !securityCategory) {
           return (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
         }
         // Les favoris restent en tête, puis le tri choisi s’applique.
@@ -272,11 +469,20 @@ export function VaultApp() {
             return a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
         }
       })
-  }, [scopedItems, filter, search, sort, usage, searchIndex])
+  }, [
+    scopedItems,
+    filter,
+    search,
+    sort,
+    usage,
+    searchIndex,
+    expiryByItem,
+    securityCategory,
+  ])
 
   useEffect(() => {
     setVisibleLimit(200)
-  }, [filter, search, sort, vaultFilter])
+  }, [filter, search, sort, vaultFilter, securityCategory])
 
   const visibleItems = filteredItems.slice(0, visibleLimit)
 
@@ -320,10 +526,19 @@ export function VaultApp() {
       )
       toast(
         count > 0
-          ? `${count} élément${count > 1 ? 's' : ''} ${
-              allSelectedFavorite ? 'retiré' : 'ajouté'
-            }${count > 1 ? 's' : ''} ${allSelectedFavorite ? 'des' : 'aux'} favoris`
-          : 'Aucun favori modifié',
+          ? t(
+              pluralKey(
+                count,
+                allSelectedFavorite
+                  ? 'vault.favorite.removed.one'
+                  : 'vault.favorite.added.one',
+                allSelectedFavorite
+                  ? 'vault.favorite.removed.other'
+                  : 'vault.favorite.added.other',
+              ),
+              { count },
+            )
+          : t('vault.favorite.none'),
         'info',
       )
       setSelectedIds(new Set())
@@ -342,8 +557,11 @@ export function VaultApp() {
       setSelectionMode(false)
       toast(
         count > 0
-          ? `${count} élément${count > 1 ? 's' : ''} déplacé${count > 1 ? 's' : ''} dans la corbeille`
-          : 'Aucun élément déplacé',
+          ? t(
+              pluralKey(count, 'vault.trash.moved.one', 'vault.trash.moved.other'),
+              { count },
+            )
+          : t('vault.trash.none'),
         'info',
       )
     } finally {
@@ -359,42 +577,169 @@ export function VaultApp() {
   }, [filteredItems, selectedId])
 
   const selectedItem = selectedId ? items.find((item) => item.id === selectedId) : undefined
+  const activeItems = items.filter((item) => !item.deletedAt)
+  const singleEmpty =
+    activeItems.length === 0 &&
+    filter === 'all' &&
+    vaultFilter === 'all' &&
+    !search.trim() &&
+    !securityCategory
+  const dashboardActive = view === 'dashboard'
+  const mobileModalActive = securityOpen || settingsOpen
+  const detailActive = !dashboardActive && Boolean(selectedItem)
   const defaultVaultId = activeVault?.id ?? vaults[0]?.id ?? ''
-  const heading = activeVault
-    ? filter === 'all'
-      ? activeVault.name
-      : `${activeVault.name} · ${FILTER_LABELS[filter]}`
-    : FILTER_LABELS[filter]
-  const subheading =
-    filter === 'trash'
-      ? `${filteredItems.length} élément${filteredItems.length > 1 ? 's' : ''} dans la corbeille`
-      : `${filteredItems.length} élément${filteredItems.length > 1 ? 's' : ''}${
-          activeVault ? '' : ` dans ${vaults.length} coffre${vaults.length > 1 ? 's' : ''}`
-        }`
+  const filterLabel = t(FILTER_MESSAGE_KEYS[filter])
+  const securityLabel = securityCategory ? t(SECURITY_CATEGORY_KEYS[securityCategory]) : null
+  const heading = dashboardActive
+    ? t('vault.dashboardTitle')
+    : securityCategory
+      ? securityLabel
+      : activeVault
+        ? filter === 'all'
+          ? activeVault.name
+          : `${activeVault.name} · ${filterLabel}`
+        : filterLabel
+  const countLabel = (count: number) =>
+    count === 0
+      ? t('vault.itemCount.none')
+      : t(pluralKey(count, 'vault.itemCount.one', 'vault.itemCount.other'), { count })
+  const subheading = dashboardActive
+    ? t('vault.dashboardSub')
+    : securityCategory
+      ? t('vault.categoryCount', { count: filteredItems.length })
+    : filter === 'trash'
+      ? `${countLabel(filteredItems.length)} · ${t('filter.trash')}`
+      : filter === 'expiring'
+        ? t('vault.expiringCount', { count: filteredItems.length })
+        : filteredItems.length === 0
+          ? `${countLabel(0)}${
+              activeVault
+                ? ''
+                : ` · ${t(
+                    pluralKey(vaults.length, 'auth.vaultCount.one', 'auth.vaultCount.other'),
+                    { count: vaults.length },
+                  )}`
+            }`
+          : `${countLabel(filteredItems.length)}${
+              activeVault
+                ? ''
+                : ` · ${t(
+                    pluralKey(vaults.length, 'auth.vaultCount.one', 'auth.vaultCount.other'),
+                    { count: vaults.length },
+                  )}`
+            }`
+  const originLabel = securityCategory ? securityLabel ?? '' : filterLabel
 
   const openCreate = () => {
-    if (filter === 'trash') return
-    setCreateType(
-      filter === 'all' || filter === 'favorites' || filter === 'recent' ? 'login' : filter,
-    )
+    if (filter === 'trash' || filter === 'passkey' || readOnly) return
+    setView('vault')
+    setSecurityCategory(null)
+    setCreateType(createTypeForFilter(filter))
+  }
+
+  const openCreateFromDashboard = () => {
+    if (readOnly) return
+    setSecurityCategory(null)
+    setCreateType('login')
+  }
+
+  const openDashboardItem = (itemId: string) => {
+    setView('vault')
+    setSecurityCategory(null)
+    setFilter('all')
+    setVaultFilter('all')
+    setSearch('')
+    setCreateType(null)
+    setSelectedId(itemId)
+    markUsed(itemId)
+  }
+
+  const openDashboardFilter = (next: ItemFilter) => {
+    setView('vault')
+    setSecurityCategory(null)
+    setSearch('')
+    setFilter(next)
+  }
+
+  const openDashboardVault = (vaultId: string) => {
+    setView('vault')
+    setSecurityCategory(null)
+    setSearch('')
+    setFilter('all')
+    setVaultFilter(vaultId)
+  }
+
+  const closeDetail = () => {
+    if (createType) {
+      setCreateType(null)
+      return
+    }
+    setSelectedId(null)
   }
 
   const clearFilters = () => {
     setFilter('all')
     setVaultFilter('all')
     setSearch('')
+    setSecurityCategory(null)
+  }
+
+  const openSecurityCategory = (category: SecurityCategory) => {
+    setSecurityOpen(false)
+    setView('vault')
+    setSecurityCategory(category)
+    setFilter('all')
+    setVaultFilter('all')
+    setSearch('')
+    setSelectedId(null)
+    setCreateType(null)
   }
 
   const removeVault = async () => {
     if (!vaultToDelete) return
     await deleteVault(vaultToDelete.id)
     if (vaultFilter === vaultToDelete.id) setVaultFilter('all')
-    toast('Coffre supprimé', 'info')
+    toast(t('vault.vaultDeleted'), 'info')
     setVaultToDelete(null)
   }
 
+  // Flèches dans la liste : parcours rapide au clavier.
+  const onListKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    const rows = Array.from(
+      listRef.current?.querySelectorAll<HTMLElement>('.item-row') ?? [],
+    )
+    if (rows.length === 0) return
+    const active = document.activeElement as HTMLElement | null
+    const index = active ? rows.indexOf(active) : -1
+    let next = index
+    if (event.key === 'ArrowDown') next = Math.min(rows.length - 1, index + 1)
+    if (event.key === 'ArrowUp') next = Math.max(0, index - 1)
+    if (event.key === 'Home') next = 0
+    if (event.key === 'End') next = rows.length - 1
+    event.preventDefault()
+    rows[next]?.focus()
+  }
+
+  const onListTouchStart = (event: React.TouchEvent) => {
+    const touch = event.touches[0]
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const onListTouchEnd = (event: React.TouchEvent) => {
+    const start = touchStartRef.current
+    touchStartRef.current = null
+    if (!start || !detailActive) return
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (deltaX > 70 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      closeDetail()
+    }
+  }
+
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={shellStyle}>
       <a className="skip-link" href="#main-content">
         Aller au contenu
       </a>
@@ -406,82 +751,154 @@ export function VaultApp() {
         filter={filter}
         vaultFilter={vaultFilter}
         open={sidebarOpen}
-        onFilterChange={setFilter}
-        onVaultChange={setVaultFilter}
+        collapsed={layout.sidebarCollapsed}
+        dashboardActive={dashboardActive}
+        onOpenDashboard={() => {
+          setView('dashboard')
+          setSelectedId(null)
+          setCreateType(null)
+          setSecurityCategory(null)
+          setSidebarOpen(false)
+        }}
+        onToggleCollapsed={layout.toggleSidebar}
+        onFilterChange={(next) => {
+          setView('vault')
+          setSecurityCategory(null)
+          setCreateType(null)
+          setFilter(next)
+        }}
+        onVaultChange={(next) => {
+          setView('vault')
+          setCreateType(null)
+          setVaultFilter(next)
+        }}
         onAddVault={() => setVaultForm({ mode: 'create' })}
         onRenameVault={(vault) => setVaultForm({ mode: 'rename', vault })}
         onDeleteVault={setVaultToDelete}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSecurity={() => setSecurityOpen(true)}
         securityReport={securityReport}
+        syncPending={syncPending}
         onLock={lock}
         onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="app-main">
-        <header className="topbar" data-tauri-drag-region>
+      {!layout.sidebarCollapsed && (
+        <ColumnResizer
+          className="column-resizer--sidebar"
+          label={t('layout.resizeSidebar')}
+          value={layout.sidebarWidth}
+          min={LAYOUT_LIMITS.sidebarMin}
+          max={LAYOUT_LIMITS.sidebarMax}
+          onChange={layout.setSidebarWidth}
+          onReset={layout.resetSidebarWidth}
+          style={{ left: layout.sidebarWidth }}
+        />
+      )}
+
+      <div className={`app-main ${detailActive ? 'app-main--detail' : ''}`}>
+        <header className={`topbar ${detailActive ? 'topbar--detail' : ''}`} data-tauri-drag-region>
           <button
             type="button"
             className="icon-button topbar__menu"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Ouvrir le menu"
+            aria-label={t('vault.openMenu')}
           >
-            <Menu size={20} />
+            <MenuIcon size={20} />
           </button>
 
-          <div className="topbar__heading">
-            <span className="eyebrow">Coffre local</span>
-            <h1>
-              {heading}
-              {filter !== 'all' &&
-                filter !== 'favorites' &&
-                filter !== 'recent' &&
-                filter !== 'trash' && (
-                  <span className="topbar__filter">· {itemTypeLabel(filter)}</span>
-                )}
-            </h1>
-            <span className="topbar__sub">{subheading}</span>
+          <div className="topbar__library">
+            <div className="topbar__heading">
+              <span className="eyebrow">{t('vault.appEyebrow')}</span>
+              <h1>
+                {heading}
+                {!dashboardActive &&
+                  !securityCategory &&
+                  filter !== 'all' &&
+                  filter !== 'favorites' &&
+                  filter !== 'recent' &&
+                  filter !== 'expiring' &&
+                  filter !== 'trash' && (
+                    <span className="topbar__filter">· {itemTypeLabel(filter)}</span>
+                  )}
+              </h1>
+              <span className="topbar__sub">{subheading}</span>
+            </div>
+
+            <div className="topbar__actions">
+              {!dashboardActive && (
+                <label className="search">
+                <Search size={17} />
+                <input
+                  ref={searchRef}
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={t('vault.search')}
+                  aria-label={t('vault.searchLabel')}
+                />
+                  <span className="search__hint" aria-hidden="true">
+                    ⌘K
+                  </span>
+                </label>
+              )}
+              {(dashboardActive || (filter !== 'trash' && filter !== 'passkey')) && (
+                <button
+                  type="button"
+                  className="button button--primary"
+                  onClick={dashboardActive ? openCreateFromDashboard : openCreate}
+                  aria-label={t('vault.newItem')}
+                  disabled={readOnly}
+                  title={readOnly ? t('vault.readOnlyTooltip') : undefined}
+                >
+                  <Plus size={18} />
+                  <span className="button__label">{t('vault.newItem')}</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="topbar__actions">
-            <label className="search">
-              <Search size={17} />
-              <input
-                ref={searchRef}
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Rechercher un élément…"
-                aria-label="Rechercher un élément"
-              />
-              <span className="search__hint" aria-hidden="true">
-                ⌘K
-              </span>
-            </label>
-            {filter !== 'trash' && (
+          {detailActive && (
+            <div className="topbar__detail">
               <button
                 type="button"
-                className="button button--primary"
-                onClick={openCreate}
-                aria-label="Nouvel élément"
+                className="icon-button topbar__back topbar__back--labelled"
+                onClick={closeDetail}
+                aria-label={t('vault.backToList', { list: originLabel })}
               >
-                <Plus size={18} />
-                <span className="button__label">Nouvel élément</span>
+                <ArrowLeft size={19} />
+                <span>{originLabel}</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </header>
+
+        {readOnly && (
+          <div className="banner banner--warning" role="alert">
+            <LockKeyhole size={18} />
+            <div className="banner__body">
+              <strong>{t('vault.readOnlyTitle')}</strong>
+              <span>{t('vault.integrityWarning')}</span>
+            </div>
+          </div>
+        )}
 
         {warnings.length > 0 && (
           <div className="banner banner--warning" role="status">
             <AlertTriangle size={18} />
             <div className="banner__body">
               <strong>
-                {warnings.length} avertissement{warnings.length > 1 ? 's' : ''} pendant le
-                déchiffrement
+                {t(
+                  pluralKey(
+                    warnings.length,
+                    'vault.warnings.one',
+                    'vault.warnings.other',
+                  ),
+                  { count: warnings.length },
+                )}
               </strong>
               <details>
-                <summary>Voir les détails</summary>
+                <summary>{t('vault.warnings.details')}</summary>
                 <ul>
                   {warnings.map((warning, index) => (
                     <li key={index}>{warning}</li>
@@ -493,199 +910,327 @@ export function VaultApp() {
               type="button"
               className="icon-button icon-button--sm"
               onClick={dismissWarnings}
-              aria-label="Ignorer les avertissements"
+              aria-label={t('vault.warnings.dismiss')}
             >
               <X size={15} />
             </button>
           </div>
         )}
 
-        <main id="main-content" tabIndex={-1} className="content content--split">
-          <section className="list-pane">
-            <div className="content__bar">
-              <span className="content__local">
-                <ShieldCheck size={15} />
-                Chiffré localement
-              </span>
-              <div className="content__bar-actions">
-                {filter !== 'trash' && filteredItems.length > 0 && (
+        {dashboardActive ? (
+          <main id="main-content" tabIndex={-1} className="content content--dashboard">
+            <Dashboard
+              vaults={vaults}
+              items={items}
+              usage={usage}
+              securityReport={securityReport}
+              expiryEvents={expiryEvents}
+              readOnly={readOnly}
+              onNewItem={openCreateFromDashboard}
+              onGeneratePassword={() => setGeneratorOpen(true)}
+              onOpenSecurity={() => setSecurityOpen(true)}
+              onOpenItem={openDashboardItem}
+              onOpenCategory={openSecurityCategory}
+              onOpenFilter={openDashboardFilter}
+              onOpenVault={openDashboardVault}
+              onAddVault={() => setVaultForm({ mode: 'create' })}
+            />
+          </main>
+        ) : (
+        <main
+          ref={splitRef}
+          id="main-content"
+          tabIndex={-1}
+          className={`content content--split ${singleEmpty ? 'is-empty' : ''}`}
+        >
+          {!singleEmpty && (
+            <section className="list-pane" aria-label={t('vault.listLabel')}>
+              <div className="content__bar">
+                <span
+                  className="content__local"
+                  title={t('vault.encryptedTooltip')}
+                >
+                  <ShieldCheck size={15} aria-hidden="true" />
+                  <span className="sr-only">{t('vault.encryptedLocally')}</span>
+                </span>
+                <div className="content__bar-actions">
+                  <div className="list-toolbar">
+                    <Menu
+                      label={t('vault.listOptions')}
+                      title={t('vault.listOptions')}
+                      trigger={<ArrowUpDown size={14} />}
+                      triggerClassName="list-toolbar__trigger"
+                    >
+                      {filter !== 'trash' && filteredItems.length > 0 && (
+                        <button
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={selectionMode}
+                          className="menu__item"
+                          onClick={() => {
+                            if (selectionMode) setSelectedIds(new Set())
+                            setSelectionMode((value) => !value)
+                          }}
+                        >
+                          {t('vault.selectionMode')}
+                          {selectionMode && <Check size={14} className="menu__check" />}
+                        </button>
+                      )}
+                      <div className="menu__label">{t('vault.sortBy')}</div>
+                      {(Object.keys(SORT_MESSAGE_KEYS) as ItemSort[]).map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={sort === value}
+                          className="menu__item"
+                          onClick={() => setSort(value)}
+                        >
+                          {t(SORT_MESSAGE_KEYS[value])}
+                          {sort === value && <Check size={14} className="menu__check" />}
+                        </button>
+                      ))}
+                    </Menu>
+                  </div>
+                </div>
+              </div>
+
+              {securityCategory && (
+                <div className="security-filter-bar">
+                  <ShieldAlert size={15} aria-hidden="true" />
+                  <span>
+                    <strong>{SECURITY_CATEGORY_LABELS[securityCategory]}</strong> ·{' '}
+                    {countLabel(filteredItems.length)}
+                  </span>
                   <button
                     type="button"
                     className="button button--ghost button--sm"
-                    onClick={() => {
-                      if (selectionMode) setSelectedIds(new Set())
-                      setSelectionMode((value) => !value)
-                    }}
+                    onClick={() => setSecurityCategory(null)}
                   >
-                    {selectionMode ? 'Annuler' : 'Sélectionner'}
+                    {t('vault.showAll')}
                   </button>
-                )}
-                {filter !== 'trash' && (
-                  <label className="filter-sort">
-                    <ArrowUpDown size={13} />
-                    <select
-                      className="filter-sort__select"
-                      value={sort}
-                      onChange={(event) => setSort(event.target.value as ItemSort)}
-                      aria-label="Trier les éléments"
-                      title={`Trier : ${SORT_LABELS[sort]}`}
-                    >
-                      {(Object.keys(SORT_LABELS) as ItemSort[]).map((value) => (
-                        <option key={value} value={value}>
-                          {SORT_LABELS[value]}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={12} />
-                  </label>
-                )}
-              </div>
-            </div>
-
-          {selectionMode && (
-            <div className="bulk-bar" role="toolbar" aria-label="Actions sur la sélection">
-              <span>
-                {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
-              </span>
-              <button
-                type="button"
-                className="button button--ghost button--sm"
-                onClick={toggleSelectAllVisible}
-              >
-                {allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
-              </button>
-              <button
-                type="button"
-                className="button button--secondary button--sm"
-                onClick={() => void toggleSelectedFavorite()}
-                disabled={bulkBusy || selectedItems.length === 0}
-              >
-                {allSelectedFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-              </button>
-              <button
-                type="button"
-                className="button button--danger button--sm"
-                onClick={() => setShowBulkTrash(true)}
-                disabled={bulkBusy || selectedIds.size === 0}
-              >
-                Corbeille
-              </button>
-            </div>
-          )}
-
-          {filter === 'trash' && filteredItems.length > 0 && (
-            <div className="trash-toolbar">
-              <span>
-                <Trash2 size={16} />
-                Les éléments de la corbeille restent chiffrés et peuvent être restaurés.
-              </span>
-              <button
-                type="button"
-                className="button button--danger button--sm"
-                onClick={() => setShowEmptyTrash(true)}
-              >
-                Vider la corbeille
-              </button>
-            </div>
-          )}
-
-          {filteredItems.length > 0 ? (
-            <div className="item-list">
-              {visibleItems.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  vaultName={vaults.find((vault) => vault.id === item.vaultId)?.name ?? 'Coffre'}
-                  showVault={vaultFilter === 'all'}
-                  selected={selectedId === item.id}
-                  selectable={selectionMode}
-                  hasSecurityIssue={securityIssueIds.has(item.id)}
-                  checked={selectedIds.has(item.id)}
-                  onSelect={() => {
-                    if (selectionMode) {
-                      toggleSelected(item.id)
-                      return
-                    }
-                    setSelectedId(item.id)
-                    markUsed(item.id)
-                  }}
-                />
-              ))}
-              {filteredItems.length > visibleItems.length && (
-                <button
-                  type="button"
-                  className="button button--secondary list-more"
-                  onClick={() => setVisibleLimit((limit) => limit + 200)}
-                >
-                  Afficher les 200 éléments suivants
-                </button>
+                </div>
               )}
-            </div>
-          ) : filter === 'trash' ? (
-            <div className="empty">
-              <span className="empty__icon">
-                <Trash2 size={28} />
-              </span>
-              <h2>La corbeille est vide</h2>
-              <p>
-                Les éléments supprimés apparaîtront ici. Vous pourrez les restaurer ou les
-                supprimer définitivement.
-              </p>
-              <div className="empty__actions">
-                <button type="button" className="button button--secondary" onClick={clearFilters}>
-                  Revenir à la bibliothèque
-                </button>
-              </div>
-            </div>
-          ) : items.filter((item) => !item.deletedAt).length === 0 ? (
-            <div className="empty">
-              <span className="empty__icon">
-                <LockKeyhole size={30} />
-              </span>
-              <h2>Votre coffre est vide</h2>
-              <p>
-                Ajoutez votre première connexion. Tout est chiffré dans le navigateur avant
-                d’être écrit sur le disque.
-              </p>
-              <div className="empty__actions">
-                <button type="button" className="button button--primary" onClick={openCreate}>
-                  <Plus size={17} />
-                  Ajouter un élément
-                </button>
-                <button
-                  type="button"
-                  className="button button--ghost"
-                  onClick={() => setVaultForm({ mode: 'create' })}
-                >
-                  <FolderOpen size={17} />
-                  Créer un coffre
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="empty">
-              <span className="empty__icon">
-                <Search size={28} />
-              </span>
-              <h2>Aucun résultat</h2>
-              <p>
-                Aucun élément ne correspond à ce filtre ou à cette recherche. Essayez un autre
-                mot-clé.
-              </p>
-              <div className="empty__actions">
-                <button type="button" className="button button--secondary" onClick={clearFilters}>
-                  Réinitialiser les filtres
-                </button>
-                <button type="button" className="button button--ghost" onClick={openCreate}>
-                  <Plus size={17} />
-                  Créer un élément
-                </button>
-              </div>
-            </div>
-          )}
-          </section>
 
-          <aside className={`detail-pane ${selectedItem ? 'detail-pane--active' : ''}`}>
+              {selectionMode && (
+                <div
+                  className="bulk-bar"
+                  role="toolbar"
+                  aria-label={t('vault.selectionActions')}
+                >
+                  <span>
+                    {t(
+                      pluralKey(
+                        selectedIds.size,
+                        'vault.selected.one',
+                        'vault.selected.other',
+                      ),
+                      { count: selectedIds.size },
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className="button button--ghost button--sm"
+                    onClick={toggleSelectAllVisible}
+                  >
+                    {allVisibleSelected ? t('vault.deselectAll') : t('vault.selectAll')}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--secondary button--sm"
+                    onClick={() => void toggleSelectedFavorite()}
+                    disabled={bulkBusy || selectedItems.length === 0}
+                  >
+                    {allSelectedFavorite ? t('vault.removeFavorite') : t('vault.addFavorite')}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--danger button--sm"
+                    onClick={() => setShowBulkTrash(true)}
+                    disabled={bulkBusy || selectedIds.size === 0}
+                  >
+                    {t('vault.trash')}
+                  </button>
+                </div>
+              )}
+
+              {filter === 'trash' && !securityCategory && filteredItems.length > 0 && (
+                <div className="trash-toolbar">
+                  <span>
+                    <Trash2 size={16} />
+                    {t('vault.trashNotice')}
+                  </span>
+                  <button
+                    type="button"
+                    className="button button--danger button--sm"
+                    onClick={() => setShowEmptyTrash(true)}
+                  >
+                    {t('vault.emptyTrash')}
+                  </button>
+                </div>
+              )}
+
+              {filteredItems.length > 0 ? (
+                <div className="item-list" ref={listRef} onKeyDown={onListKeyDown}>
+                  {visibleItems.map((item) => (
+                    <ItemRow
+                      key={item.id}
+                      item={item}
+                      vaultName={vaults.find((vault) => vault.id === item.vaultId)?.name ?? 'Coffre'}
+                      showVault={vaultFilter === 'all'}
+                      selected={selectedId === item.id}
+                      selectable={selectionMode}
+                      issue={securityIssueById.get(item.id) ?? null}
+                      checked={selectedIds.has(item.id)}
+                      onSelect={() => {
+                        if (selectionMode) {
+                          toggleSelected(item.id)
+                          return
+                        }
+                        setCreateType(null)
+                        setSelectedId(item.id)
+                        markUsed(item.id)
+                      }}
+                      onLongPress={() => {
+                        setSelectionMode(true)
+                        toggleSelected(item.id)
+                      }}
+                    />
+                  ))}
+                  {filteredItems.length > visibleItems.length && (
+                    <button
+                      type="button"
+                      className="button button--secondary list-more"
+                      onClick={() => setVisibleLimit((limit) => limit + 200)}
+                    >
+                      {t('vault.loadMore')}
+                    </button>
+                  )}
+                </div>
+              ) : securityCategory ? (
+                <div className="empty">
+                  <span className="empty__icon">
+                    <ShieldCheck size={28} />
+                  </span>
+                  <h2>{t('vault.emptyCategory.title')}</h2>
+                  <p>{t('vault.emptyCategory.copy')}</p>
+                  <div className="empty__actions">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => setSecurityCategory(null)}
+                    >
+                      {t('vault.showAll')}
+                    </button>
+                  </div>
+                </div>
+              ) : filter === 'trash' ? (
+                <div className="empty">
+                  <span className="empty__icon">
+                    <Trash2 size={28} />
+                  </span>
+                  <h2>{t('vault.emptyTrash.title')}</h2>
+                  <p>{t('vault.emptyTrash.copy')}</p>
+                  <div className="empty__actions">
+                    <button type="button" className="button button--secondary" onClick={clearFilters}>
+                      {t('vault.backToLibrary')}
+                    </button>
+                  </div>
+                </div>
+              ) : filter === 'expiring' ? (
+                <div className="empty">
+                  <span className="empty__icon">
+                    <CalendarClock size={28} />
+                  </span>
+                  <h2>{t('vault.emptyExpiring.title')}</h2>
+                  <p>{t('vault.emptyExpiring.copy')}</p>
+                  <div className="empty__actions">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => setFilter('all')}
+                    >
+                      {t('vault.viewAll')}
+                    </button>
+                  </div>
+                </div>
+              ) : activeItems.length === 0 ? (
+                <div className="empty">
+                  <span className="empty__icon">
+                    <LockKeyhole size={30} />
+                  </span>
+                  <h2>{t('vault.emptyVault.title')}</h2>
+                  <p>{t('vault.emptyVault.copy')}</p>
+                  <div className="empty__actions">
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={openCreate}
+                      disabled={readOnly}
+                    >
+                      <Plus size={17} />
+                      {t('vault.addItem')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--ghost"
+                      onClick={() => setVaultForm({ mode: 'create' })}
+                      disabled={readOnly}
+                    >
+                      <FolderOpen size={17} />
+                      {t('vault.createVault')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="empty">
+                  <span className="empty__icon">
+                    <Search size={28} />
+                  </span>
+                  <h2>{t('vault.noResult.title')}</h2>
+                  <p>{t('vault.noResult.copy')}</p>
+                  <div className="empty__actions">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={clearFilters}
+                    >
+                      {t('vault.resetFilters')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--ghost"
+                      onClick={openCreate}
+                      disabled={readOnly}
+                    >
+                      <Plus size={17} />
+                      {t('vault.newItem')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {!singleEmpty && (
+            <ColumnResizer
+              className="column-resizer--list"
+              label={t('layout.resizeList')}
+              value={layout.listWidth}
+              min={LAYOUT_LIMITS.listMin}
+              max={listMax}
+              onChange={layout.setListWidth}
+              onReset={layout.resetListWidth}
+              style={{ left: layout.listWidth }}
+            />
+          )}
+
+          <aside
+            className={`detail-pane ${detailActive ? 'detail-pane--active' : ''}`}
+            aria-label={detailActive ? t('vault.detailTitle') : undefined}
+            onTouchStart={onListTouchStart}
+            onTouchEnd={onListTouchEnd}
+          >
             {selectedItem ? (
               <ItemDialog
                 key={selectedItem.id}
@@ -693,65 +1238,168 @@ export function VaultApp() {
                 presentation="panel"
                 vaults={vaults}
                 defaultVaultId={selectedItem.vaultId}
+                securityReport={securityReport}
                 onClose={() => setSelectedId(null)}
+                onSaved={(item) => setSelectedId(item.id)}
                 onUsed={() => markUsed(selectedItem.id)}
               />
+            ) : singleEmpty ? (
+              <div className="empty">
+                <span className="empty__icon">
+                  <LockKeyhole size={30} />
+                </span>
+                <h2>{t('vault.emptyVault.title')}</h2>
+                <p>{t('vault.emptyVault.copy')}</p>
+                <div className="empty__actions">
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    onClick={openCreate}
+                    disabled={readOnly}
+                  >
+                    <Plus size={17} />
+                    {t('vault.addItem')}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => setVaultForm({ mode: 'create' })}
+                    disabled={readOnly}
+                  >
+                    <FolderOpen size={17} />
+                    {t('vault.createVault')}
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="detail-empty">
                 <span className="detail-empty__icon">
                   <ShieldCheck size={26} />
                 </span>
-                <h2>Aucun élément sélectionné</h2>
-                <p>
-                  Choisissez un élément dans la liste pour afficher ses champs, son code 2FA
-                  et ses pièces jointes.
-                </p>
+                <h2>{t('vault.noSelection.title')}</h2>
+                <p>{t('vault.noSelection.copy')}</p>
               </div>
             )}
           </aside>
         </main>
+        )}
+
+        <nav className="mobile-tabs" aria-label={t('vault.mainNavigation')}>
+          <button
+            type="button"
+            className={`mobile-tabs__item ${
+              dashboardActive && !mobileModalActive ? 'is-active' : ''
+            }`}
+            aria-current={dashboardActive && !mobileModalActive ? 'page' : undefined}
+            onClick={() => {
+              setView('dashboard')
+              setSecurityCategory(null)
+              setSelectedId(null)
+              setCreateType(null)
+            }}
+          >
+            <LayoutDashboard size={19} />
+            {t('vault.home')}
+          </button>
+          <button
+            type="button"
+            className={`mobile-tabs__item ${
+              !dashboardActive && !mobileModalActive && filter === 'all' && !securityCategory
+                ? 'is-active'
+                : ''
+            }`}
+            aria-current={
+              !dashboardActive && !mobileModalActive && filter === 'all' && !securityCategory
+                ? 'page'
+                : undefined
+            }
+            onClick={() => {
+              setView('vault')
+              setSecurityCategory(null)
+              setFilter('all')
+              setSelectedId(null)
+            }}
+          >
+            <KeyRound size={19} />
+            {t('vault.all')}
+          </button>
+          <button
+            type="button"
+            className={`mobile-tabs__item ${
+              !dashboardActive && !mobileModalActive && filter === 'favorites' ? 'is-active' : ''
+            }`}
+            aria-current={
+              !dashboardActive && !mobileModalActive && filter === 'favorites'
+                ? 'page'
+                : undefined
+            }
+            onClick={() => {
+              setView('vault')
+              setSecurityCategory(null)
+              setFilter('favorites')
+              setSelectedId(null)
+            }}
+          >
+            <Star size={19} />
+            {t('filter.favorites')}
+          </button>
+          <button
+            type="button"
+            className={`mobile-tabs__item ${
+              !dashboardActive && !mobileModalActive && filter === 'recent' ? 'is-active' : ''
+            }`}
+            aria-current={
+              !dashboardActive && !mobileModalActive && filter === 'recent' ? 'page' : undefined
+            }
+            onClick={() => {
+              setView('vault')
+              setSecurityCategory(null)
+              setFilter('recent')
+              setSelectedId(null)
+            }}
+          >
+            <History size={19} />
+            {t('filter.recent')}
+          </button>
+          <button
+            type="button"
+            className={`mobile-tabs__item ${securityOpen ? 'is-active' : ''}`}
+            onClick={() => setSecurityOpen(true)}
+          >
+            <ShieldCheck size={19} />
+            {t('sidebar.security')}
+          </button>
+          <button
+            type="button"
+            className={`mobile-tabs__item ${settingsOpen ? 'is-active' : ''}`}
+            aria-current={settingsOpen ? 'page' : undefined}
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings size={19} />
+            {t('settings.title')}
+          </button>
+        </nav>
 
         <footer className="app-footer">
-          <span>Stockage local · IndexedDB</span>
+          <span>{t('vault.footer.storage')}</span>
           <span className="app-footer__dot" />
-          <span>Format chiffré v3</span>
+          <span>{t('vault.footer.offline')}</span>
           <span className="app-footer__spacer" />
-          <button type="button" className="link-button" onClick={() => setSettingsOpen(true)}>
-            Réglages
-          </button>
-          <button type="button" className="link-button" onClick={lock}>
-            <LockKeyhole size={14} />
-            Verrouiller
-          </button>
         </footer>
       </div>
-
-      {createType && (
-        <ItemDialog
-          initialType={createType}
-          vaults={vaults}
-          defaultVaultId={defaultVaultId}
-          onClose={() => setCreateType(null)}
-          onSaved={(item) => {
-            setSelectedId(item.id)
-            markUsed(item.id)
-          }}
-        />
-      )}
 
       {securityOpen && (
         <SecurityDialog
           report={securityReport}
-          vaults={vaults}
-          onClose={() => setSecurityOpen(false)}
-          onOpenItem={(itemId) => {
+          breachCheck={settings.breachCheck}
+          breachStatus={breachStatus}
+          onCheckBreaches={() => void checkBreaches()}
+          onOpenSettings={() => {
             setSecurityOpen(false)
-            setFilter('all')
-            setVaultFilter('all')
-            setSearch('')
-            setSelectedId(itemId)
-            markUsed(itemId)
+            setSettingsOpen(true)
           }}
+          onClose={() => setSecurityOpen(false)}
+          onOpenCategory={openSecurityCategory}
         />
       )}
 
@@ -762,6 +1410,7 @@ export function VaultApp() {
             setFilter('all')
             setVaultFilter('all')
             setSearch('')
+            setSecurityCategory(null)
             setSelectedId(null)
           }}
         />
@@ -777,11 +1426,16 @@ export function VaultApp() {
 
       {vaultToDelete && (
         <ConfirmDialog
-          title={`Supprimer « ${vaultToDelete.name} » ?`}
-          description={`Ce coffre contient ${vaultToDelete.itemCount} élément${
-            vaultToDelete.itemCount > 1 ? 's' : ''
-          }. Le coffre et tous ses éléments seront définitivement supprimés.`}
-          confirmLabel="Supprimer le coffre"
+          title={t('vault.deleteVault.title', { name: vaultToDelete.name })}
+          description={t(
+            pluralKey(
+              vaultToDelete.itemCount,
+              'vault.deleteVault.description.one',
+              'vault.deleteVault.description.other',
+            ),
+            { count: vaultToDelete.itemCount },
+          )}
+          confirmLabel={t('vault.deleteVault.confirm')}
           requireText={vaultToDelete.name}
           onClose={() => setVaultToDelete(null)}
           onConfirm={removeVault}
@@ -790,12 +1444,17 @@ export function VaultApp() {
 
       {showEmptyTrash && (
         <ConfirmDialog
-          title="Vider la corbeille ?"
-          description={`${deletedCount} élément${
-            deletedCount > 1 ? 's' : ''
-          } et leurs pièces jointes seront définitivement supprimés. Cette action est irréversible.`}
-          confirmLabel="Vider définitivement"
-          requireText="SUPPRIMER"
+          title={t('vault.emptyTrash.titleConfirm')}
+          description={t(
+            pluralKey(
+              deletedCount,
+              'vault.emptyTrash.description.one',
+              'vault.emptyTrash.description.other',
+            ),
+            { count: deletedCount },
+          )}
+          confirmLabel={t('vault.emptyTrash.confirm')}
+          requireText={t('vault.emptyTrash.require')}
           onClose={() => setShowEmptyTrash(false)}
           onConfirm={async () => {
             const removed = await emptyTrash()
@@ -803,23 +1462,55 @@ export function VaultApp() {
             setSelectedId(null)
             toast(
               removed > 0
-                ? `${removed} élément${removed > 1 ? 's' : ''} supprimé${
-                    removed > 1 ? 's' : ''
-                  } définitivement`
-                : 'La corbeille est déjà vide',
+                ? t(
+                    pluralKey(
+                      removed,
+                      'vault.emptyTrash.done.one',
+                      'vault.emptyTrash.done.other',
+                    ),
+                    { count: removed },
+                  )
+                : t('vault.emptyTrash.alreadyEmpty'),
               'info',
             )
           }}
         />
       )}
 
+      {createType && (
+        <ItemDialog
+          key={`new-${createType}`}
+          initialType={createType}
+          vaults={vaults}
+          defaultVaultId={defaultVaultId}
+          presentation="dialog"
+          securityReport={securityReport}
+          onClose={() => setCreateType(null)}
+          onSaved={(item) => {
+            setCreateType(null)
+            setView('vault')
+            setSelectedId(item.id)
+            markUsed(item.id)
+          }}
+        />
+      )}
+
+      {generatorOpen && (
+        <GeneratorDialog onClose={() => setGeneratorOpen(false)} />
+      )}
+
       {showBulkTrash && (
         <ConfirmDialog
-          title={`Mettre ${selectedIds.size} élément${
-            selectedIds.size > 1 ? 's' : ''
-          } à la corbeille ?`}
-          description="Les éléments resteront chiffrés et pourront être restaurés depuis la corbeille."
-          confirmLabel="Mettre à la corbeille"
+          title={t(
+            pluralKey(
+              selectedIds.size,
+              'vault.trash.bulkTitle.one',
+              'vault.trash.bulkTitle.other',
+            ),
+            { count: selectedIds.size },
+          )}
+          description={t('vault.trash.bulkDescription')}
+          confirmLabel={t('vault.trash.bulkConfirm')}
           onClose={() => setShowBulkTrash(false)}
           onConfirm={trashSelected}
         />

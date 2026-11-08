@@ -1,21 +1,27 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
+  CalendarClock,
   Check,
   Clock,
   Copy,
+  CopyPlus,
   Download,
   ExternalLink,
   Eye,
   EyeOff,
   FileUp,
+  FolderInput,
   Globe,
   History,
   Link2,
   LoaderCircle,
+  MoreHorizontal,
   Paperclip,
   Pencil,
   Plus,
   RotateCcw,
+  Share2,
+  ShieldAlert,
   Star,
   Tag,
   Trash2,
@@ -23,24 +29,41 @@ import {
   X,
 } from 'lucide-react'
 import { Modal } from './Modal'
+import { Menu } from './Menu'
 import { ConfirmDialog } from './ConfirmDialog'
 import { GeneratorDialog } from './GeneratorDialog'
 import { HistoryDialog } from './HistoryDialog'
+import { ShareItemDialog } from './ShareItemDialog'
 import { TotpCode } from './TotpCode'
 import { ItemIcon } from './ItemIcon'
 import { useVault } from '../state/VaultProvider'
+import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { copySensitive } from '../lib/clipboard'
 import { randomId } from '../lib/crypto'
 import { formatDateTime } from '../lib/settings'
-import { safeExternalUrl as safeUrl } from '../lib/url'
-import { handleExternalClick } from '../lib/external'
+import {
+  cardExpiryDate,
+  daysUntil,
+  expiryBadgeLabel,
+  expiryDescription,
+  expiryTone,
+  formatExpiryDate,
+  parseDateOnly,
+} from '../lib/expiry'
+import {
+  analyzeSecurity,
+  itemSecurityIssue,
+  type ItemSecurityIssue,
+  type SecurityReport,
+} from '../lib/security'
+import { changePasswordUrl, safeExternalUrl as safeUrl } from '../lib/url'
+import { handleExternalClick, openExternal } from '../lib/external'
 import { isTotpUri } from '../lib/totp'
 import {
   CUSTOM_FIELD_TYPES,
   emptyDraft,
-  itemSubtitle,
   itemTypeLabel,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS_PER_ITEM,
@@ -72,26 +95,34 @@ interface ItemDialogProps {
   onSaved?: (item: VaultItem) => void
   /** Signale une utilisation réelle (copie d’un champ, par exemple). */
   onUsed?: () => void
+  /** Analyse déjà calculée par la vue principale. */
+  securityReport?: SecurityReport
 }
 
 interface DialogSurfaceProps {
   panel: boolean
   title: string
-  description: string
+  subtitle: string
+  icon?: ReactNode
+  favorite?: ReactNode
   onClose: () => void
-  footer: ReactNode
+  actions: ReactNode
+  footer?: ReactNode
   children: ReactNode
 }
 
 /**
- * Enveloppe commune aux deux présentations : modale classique sur mobile et
- * Web, colonne de détail persistante sur desktop.
+ * Enveloppe commune aux deux présentations : modale (petits écrans hors
+ * panneau) et colonne de détail persistante sur desktop.
  */
 function DialogSurface({
   panel,
   title,
-  description,
+  subtitle,
+  icon,
+  favorite,
   onClose,
+  actions,
   footer,
   children,
 }: DialogSurfaceProps) {
@@ -99,11 +130,17 @@ function DialogSurface({
     return (
       <section className="item-panel" aria-label={title}>
         <header className="item-panel__toolbar">
-          <div className="item-panel__heading">
-            <span className="item-panel__eyebrow">{description}</span>
-            <h2>{title}</h2>
+          <div className="item-panel__identity">
+            {icon}
+            <div className="item-panel__heading">
+              <span className="item-panel__eyebrow">{subtitle}</span>
+              <div className="item-panel__title-row">
+                <h2>{title}</h2>
+                {favorite}
+              </div>
+            </div>
           </div>
-          <div className="item-panel__actions">{footer}</div>
+          <div className="item-panel__actions">{actions}</div>
         </header>
         <div className="item-panel__body">{children}</div>
       </section>
@@ -113,10 +150,10 @@ function DialogSurface({
   return (
     <Modal
       title={title}
-      description={description}
+      description={subtitle}
       size="lg"
       onClose={onClose}
-      footer={footer}
+      footer={footer ?? actions}
     >
       {children}
     </Modal>
@@ -144,6 +181,50 @@ function formatBytes(value: number): string {
   return `${(value / (1024 * 1024)).toFixed(1)} Mo`
 }
 
+function ExpiryBadge({ daysLeft }: { daysLeft: number }) {
+  return (
+    <span
+      className={`expiry-badge expiry-badge--${expiryTone(daysLeft)}`}
+      title={expiryDescription(daysLeft)}
+    >
+      <CalendarClock size={11} aria-hidden="true" />
+      {expiryBadgeLabel(daysLeft)}
+    </span>
+  )
+}
+
+/** Ligne de détail pour une date d’échéance AAAA-MM-JJ. */
+function ExpiryDetail({ label, value }: { label: string; value: string }) {
+  const date = parseDateOnly(value)
+  if (!date) return null
+  const daysLeft = daysUntil(date)
+  return (
+    <div className="detail-row">
+      <span className="detail-row__label">{label}</span>
+      <div className="detail-row__value">
+        {formatExpiryDate(value)}
+        <ExpiryBadge daysLeft={daysLeft} />
+      </div>
+    </div>
+  )
+}
+
+/** Ligne d’expiration d’une carte (MM/AA, valable jusqu’à la fin du mois). */
+function CardExpiryRow({ value }: { value: string }) {
+  const { tt } = useI18n()
+  const date = cardExpiryDate(value)
+  const daysLeft = date ? daysUntil(date) : null
+  return (
+    <div className="detail-row">
+      <span className="detail-row__label">{tt("Expiration")}</span>
+      <div className="detail-row__value mono">
+        {value || '—'}
+        {daysLeft !== null && <ExpiryBadge daysLeft={daysLeft} />}
+      </div>
+    </div>
+  )
+}
+
 export function ItemDialog({
   item,
   initialType = 'login',
@@ -154,10 +235,13 @@ export function ItemDialog({
   presentation = 'dialog',
   onSaved,
   onUsed,
+  securityReport,
 }: ItemDialogProps) {
   const {
+    items,
     addItem,
     updateItem,
+    moveItem,
     trashItem,
     restoreItem,
     deleteItemPermanently,
@@ -166,6 +250,7 @@ export function ItemDialog({
     downloadAttachment,
   } = useVault()
   const { settings } = useSettings()
+  const { tt } = useI18n()
   const { toast } = useToast()
 
   const [current, setCurrent] = useState<VaultItem | undefined>(item)
@@ -180,6 +265,7 @@ export function ItemDialog({
   const [showDelete, setShowDelete] = useState(false)
   const [showPermanentDelete, setShowPermanentDelete] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
@@ -191,6 +277,12 @@ export function ItemDialog({
     () => vaults.find((candidate) => candidate.id === draft.vaultId),
     [vaults, draft.vaultId],
   )
+
+  const report = useMemo(
+    () => securityReport ?? analyzeSecurity(items),
+    [securityReport, items],
+  )
+  const issue = current ? itemSecurityIssue(current, report) : null
 
   const patch = (partial: Record<string, unknown>) => {
     setDraft((previous) => ({ ...previous, ...partial }) as ItemDraft)
@@ -284,7 +376,7 @@ export function ItemDialog({
       setCurrent(updated)
       setDraft((previous) => ({ ...previous, attachments: updated.attachments }))
       setAttachmentToDelete(null)
-      toast('Pièce jointe supprimée', 'info')
+      toast(tt('Pièce jointe supprimée'), 'info')
     } catch (caught) {
       setAttachmentError(
         caught instanceof Error ? caught.message : 'Suppression de la pièce jointe impossible',
@@ -300,7 +392,7 @@ export function ItemDialog({
     setAttachmentError(null)
     try {
       await downloadAttachment(current, attachmentId)
-      toast('Pièce jointe téléchargée', 'success')
+      toast(tt('Pièce jointe téléchargée'), 'success')
     } catch (caught) {
       setAttachmentError(
         caught instanceof Error ? caught.message : 'Téléchargement de la pièce jointe impossible',
@@ -313,10 +405,10 @@ export function ItemDialog({
   const copyValue = async (value: string, label: string) => {
     if (!value) return
     const success = await copySensitive(value, settings.clipboardClearSeconds, () =>
-      toast('Presse-papiers effacé', 'info'),
+      toast(tt('Presse-papiers effacé'), 'info'),
     )
     if (!success) {
-      toast('Impossible de copier', 'error')
+      toast(tt('Impossible de copier'), 'error')
       return
     }
     onUsed?.()
@@ -371,12 +463,12 @@ export function ItemDialog({
         } as VaultItem)
         setCurrent(updated)
         onSaved?.(updated)
-        toast('Élément enregistré', 'success')
+        toast(tt('Élément enregistré'), 'success')
       } else {
         const created = await addItem(nextDraft)
         setCurrent(created)
         onSaved?.(created)
-        toast('Élément créé', 'success')
+        toast(tt('Élément créé'), 'success')
       }
       setEditing(false)
     } catch (caught) {
@@ -392,14 +484,19 @@ export function ItemDialog({
       const updated = await updateItem({ ...current, favorite: !current.favorite })
       setCurrent(updated)
     } catch (caught) {
-      toast(caught instanceof Error ? caught.message : 'Impossible de modifier le favori', 'error')
+      toast(
+        caught instanceof Error
+          ? caught.message
+          : tt('Impossible de modifier le favori'),
+        'error',
+      )
     }
   }
 
   const deleteCurrent = async () => {
     if (!current) return
     await trashItem(current.id)
-    toast('Élément déplacé dans la corbeille', 'info')
+    toast(tt('Élément déplacé dans la corbeille'), 'info')
     onClose()
   }
 
@@ -410,7 +507,7 @@ export function ItemDialog({
       setCurrent(restored)
       setDraft({ ...restored })
       setTagsInput(restored.tags.join(', '))
-      toast('Élément restauré', 'success')
+      toast(tt('Élément restauré'), 'success')
     } catch (caught) {
       toast(
         caught instanceof Error ? caught.message : 'Restauration impossible',
@@ -422,7 +519,7 @@ export function ItemDialog({
   const deleteForever = async () => {
     if (!current) return
     await deleteItemPermanently(current.id)
-    toast('Élément supprimé définitivement', 'info')
+    toast(tt('Élément supprimé définitivement'), 'info')
     onClose()
   }
 
@@ -431,6 +528,74 @@ export function ItemDialog({
     setDraft({ ...current })
     setTagsInput(current.tags.join(', '))
     setEditing(true)
+  }
+
+  const applyGeneratedPassword = async (value: string) => {
+    if (editing || !current) {
+      patch({ password: value })
+      return
+    }
+    if (current.type !== 'login') return
+    try {
+      const updated = await updateItem({ ...current, password: value })
+      setCurrent(updated)
+      setDraft({ ...updated })
+      toast(tt('Mot de passe remplacé'), 'success')
+      onSaved?.(updated)
+    } catch (caught) {
+      toast(
+        caught instanceof Error ? caught.message : 'Remplacement impossible',
+        'error',
+      )
+    }
+  }
+
+  const duplicateCurrent = async () => {
+    if (!current) return
+    try {
+      const {
+        id: _id,
+        vaultId: _vaultId,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        ...content
+      } = current
+      const created = await addItem({
+        ...content,
+        vaultId: current.vaultId,
+        title: `${current.title} (copie)`,
+        favorite: false,
+        attachments: [],
+      } as ItemDraft)
+      toast(
+        current.attachments.length > 0
+          ? 'Élément dupliqué, sans les pièces jointes'
+          : 'Élément dupliqué',
+        'success',
+      )
+      onSaved?.(created)
+    } catch (caught) {
+      toast(caught instanceof Error ? caught.message : tt('Duplication impossible'), 'error')
+    }
+  }
+
+  const moveToVault = async (targetVaultId: string) => {
+    if (!current || targetVaultId === current.vaultId) return
+    try {
+      const moved = await moveItem(current.id, targetVaultId)
+      setCurrent(moved)
+      setDraft({ ...moved })
+      setTagsInput(moved.tags.join(', '))
+      toast(
+        `Élément déplacé vers ${
+          vaults.find((candidate) => candidate.id === targetVaultId)?.name ?? 'le coffre'
+        }`,
+        'success',
+      )
+      onSaved?.(moved)
+    } catch (caught) {
+      toast(caught instanceof Error ? caught.message : tt('Déplacement impossible'), 'error')
+    }
   }
 
   const cancelEditing = () => {
@@ -468,98 +633,190 @@ export function ItemDialog({
   }, [current, editing, onClose, presentation])
 
   const trashed = Boolean(current?.deletedAt)
-  const title = current
-    ? editing
-      ? 'Modifier l’élément'
-      : current.title
-    : 'Nouvel élément'
-  const description = `${current ? itemTypeLabel(current.type) : itemTypeLabel(draft.type)} · ${
-    vault?.name ?? 'Coffre'
-  }${trashed ? ' · Corbeille' : ''}`
+  const itemType = current?.type ?? draft.type
+  const title = current ? current.title : 'Nouvel élément'
+  const subtitle = `${itemTypeLabel(itemType)} · ${vault?.name ?? 'Coffre'}${
+    trashed ? ' · Corbeille' : ''
+  }`
+  const headerIcon = (
+    <span className={`item-icon item-icon--${itemType} item-icon--lg`}>
+      <ItemIcon type={itemType} size={22} />
+    </span>
+  )
+
+  const favoriteButton =
+    current && !editing && !trashed ? (
+      <button
+        type="button"
+        className={`icon-button icon-button--sm ${current.favorite ? 'is-favorite' : ''}`}
+        onClick={() => void toggleFavorite()}
+        aria-label={tt(
+          current.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+        )}
+        title={tt(current.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris')}
+      >
+        <Star size={17} fill={current.favorite ? 'currentColor' : 'none'} />
+      </button>
+    ) : undefined
+
+  const overflowItems = current ? (
+    trashed ? (
+      <button
+        type="button"
+        role="menuitem"
+        className="menu__item menu__item--danger"
+        onClick={() => setShowPermanentDelete(true)}
+      >
+        <Trash2 size={16} />
+        Supprimer définitivement
+      </button>
+    ) : (
+      <>
+        <button
+          type="button"
+          role="menuitem"
+          className="menu__item"
+          onClick={() => setShowHistory(true)}
+        >
+          <History size={16} />
+          Historique
+        </button>
+        {vaults.length > 1 && (
+          <>
+            <div className="menu__label">{tt("Déplacer vers")}</div>
+            {vaults
+              .filter((candidate) => candidate.id !== current.vaultId)
+              .map((candidate) => (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  role="menuitem"
+                  className="menu__item"
+                  onClick={() => void moveToVault(candidate.id)}
+                >
+                  <FolderInput size={16} />
+                  {candidate.name}
+                </button>
+              ))}
+          </>
+        )}
+        {current?.type !== 'passkey' && (
+          <>
+            <button
+              type="button"
+              role="menuitem"
+              className="menu__item"
+              onClick={() => setShowShare(true)}
+            >
+              <Share2 size={16} />
+              Partager hors ligne
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="menu__item"
+              onClick={() => void duplicateCurrent()}
+            >
+              <CopyPlus size={16} />
+              Dupliquer
+            </button>
+          </>
+        )}
+        <div className="menu__separator" />
+        <button
+          type="button"
+          role="menuitem"
+          className="menu__item menu__item--danger"
+          onClick={() => setShowDelete(true)}
+        >
+          <Trash2 size={16} />
+          Supprimer…
+        </button>
+      </>
+    )
+  ) : null
+
+  const moreMenu = (
+    <Menu
+      label="Plus d’actions"
+      title={tt('Plus d’actions')}
+      trigger={<MoreHorizontal size={18} />}
+      triggerClassName="icon-button"
+    >
+      {overflowItems}
+    </Menu>
+  )
+
+  const headerActions = editing ? (
+    <>
+      <button type="button" className="button button--ghost" onClick={cancelEditing}>
+        Annuler
+      </button>
+      <button
+        type="button"
+        className="button button--primary"
+        onClick={() => void save()}
+        disabled={busy || !draft.title.trim()}
+      >
+        {busy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}
+        {busy ? 'Enregistrement…' : 'Enregistrer'}
+      </button>
+    </>
+  ) : trashed ? (
+    <>
+      <button
+        type="button"
+        className="button button--primary"
+        onClick={() => void restoreCurrent()}
+      >
+        <RotateCcw size={16} />
+        Restaurer
+      </button>
+      {moreMenu}
+    </>
+  ) : (
+    <>
+      {current?.type !== 'passkey' && (
+        <button type="button" className="button button--primary" onClick={startEditing}>
+          <Pencil size={16} />
+          Modifier
+        </button>
+      )}
+      {current?.type === 'login' && (
+        <button
+          type="button"
+          className="button button--secondary"
+          onClick={() => void copyValue(current.password, 'Mot de passe')}
+        >
+          <Copy size={16} />
+          Copier le mot de passe
+        </button>
+      )}
+      {moreMenu}
+    </>
+  )
 
   return (
     <>
       <DialogSurface
         panel={presentation === 'panel'}
         title={title}
-        description={description}
+        subtitle={subtitle}
+        icon={headerIcon}
+        favorite={favoriteButton}
         onClose={onClose}
-        footer={
-          editing ? (
-            <>
-              <button type="button" className="button button--ghost" onClick={cancelEditing}>
-                Annuler
-              </button>
-              <button
-                type="button"
-                className="button button--primary"
-                onClick={() => void save()}
-                disabled={busy || !draft.title.trim()}
-              >
-                {busy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}
-                {busy ? 'Enregistrement…' : 'Enregistrer'}
-              </button>
-            </>
-          ) : trashed ? (
-            <>
-              <button
-                type="button"
-                className="button button--ghost button--danger-text"
-                onClick={() => setShowPermanentDelete(true)}
-              >
-                <Trash2 size={16} />
-                Supprimer définitivement
-              </button>
-              <div className="modal__footer-actions">
-                <button type="button" className="button button--ghost" onClick={onClose}>
-                  Fermer
-                </button>
-                <button
-                  type="button"
-                  className="button button--primary"
-                  onClick={() => void restoreCurrent()}
-                >
-                  <RotateCcw size={16} />
-                  Restaurer
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="button button--ghost button--danger-text"
-                onClick={() => setShowDelete(true)}
-              >
-                <Trash2 size={16} />
-                Supprimer
-              </button>
-              <div className="modal__footer-actions">
-                <button
-                  type="button"
-                  className="button button--ghost"
-                  onClick={() => setShowHistory(true)}
-                >
-                  <History size={16} />
-                  Historique
-                </button>
-                <button type="button" className="button button--ghost" onClick={onClose}>
-                  Fermer
-                </button>
-                <button type="button" className="button button--primary" onClick={startEditing}>
-                  <Pencil size={16} />
-                  Modifier
-                </button>
-              </div>
-            </>
-          )
-        }
+        actions={headerActions}
+        footer={headerActions}
       >
         <div className="item-dialog">
           {editing ? (
             <>
               {!current && (
-                <div className="type-picker" role="tablist" aria-label="Type d’élément">
+                <div
+                  className="type-picker"
+                  role="tablist"
+                  aria-label={tt('Type d’élément')}
+                >
                   {(['login', 'note', 'card', 'identity'] as ItemType[]).map((type) => (
                     <button
                       key={type}
@@ -580,7 +837,7 @@ export function ItemDialog({
 
               <div className="form-grid">
                 <label className="field field--full">
-                  <span className="field__label">Titre</span>
+                  <span className="field__label">{tt("Titre")}</span>
                   <input
                     className="input"
                     value={draft.title}
@@ -599,7 +856,7 @@ export function ItemDialog({
                 </label>
 
                 <label className="field">
-                  <span className="field__label">Coffre</span>
+                  <span className="field__label">{tt("Coffre")}</span>
                   <select
                     className="input"
                     value={draft.vaultId}
@@ -615,34 +872,51 @@ export function ItemDialog({
                 </label>
 
                 <label className="field">
-                  <span className="field__label">Étiquettes</span>
+                  <span className="field__label">{tt("Étiquettes")}</span>
                   <input
                     className="input"
                     value={tagsInput}
                     onChange={(event) => setTagsInput(event.target.value)}
-                    placeholder="travail, perso"
+                    placeholder={tt('travail, perso')}
                     maxLength={200}
                   />
-                  <span className="field__hint">Séparées par des virgules.</span>
+                  <span className="field__hint">{tt("Séparées par des virgules.")}</span>
                 </label>
+
+                {draft.type !== 'card' && (
+                  <label className="field field--full">
+                    <span className="field__label">{tt("Rappel d’échéance")}</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={draft.expiresAt}
+                      onChange={(event) => patch({ expiresAt: event.target.value })}
+                    />
+                    <span className="field__hint">
+                      {draft.type === 'login'
+                        ? 'Date à laquelle penser à changer ce mot de passe. Un rappel apparaît soixante jours avant.'
+                        : 'Optionnel. Un rappel apparaît soixante jours avant cette date.'}
+                    </span>
+                  </label>
+                )}
               </div>
 
               {draft.type === 'login' && (
                 <div className="form-grid">
                   <label className="field field--full">
-                    <span className="field__label">Identifiant</span>
+                    <span className="field__label">{tt("Identifiant")}</span>
                     <input
                       className="input"
                       value={draft.username}
                       onChange={(event) => patch({ username: event.target.value })}
                       autoComplete="off"
-                      placeholder="email ou nom d’utilisateur"
+                      placeholder={tt('email ou nom d’utilisateur')}
                       maxLength={500}
                     />
                   </label>
 
                   <label className="field field--full">
-                    <span className="field__label">Mot de passe</span>
+                    <span className="field__label">{tt("Mot de passe")}</span>
                     <span className="input-group">
                       <input
                         className="input input--mono"
@@ -650,7 +924,7 @@ export function ItemDialog({
                         value={draft.password}
                         onChange={(event) => patch({ password: event.target.value })}
                         autoComplete="new-password"
-                        placeholder="••••••••••••"
+                        placeholder={tt('Saisissez votre mot de passe')}
                       />
                       <button
                         type="button"
@@ -666,8 +940,8 @@ export function ItemDialog({
                         type="button"
                         className="input-group__action"
                         onClick={() => setShowGenerator(true)}
-                        aria-label="Générer un mot de passe"
-                        title="Générer un mot de passe"
+                        aria-label={tt('Générer un mot de passe')}
+                        title={tt('Générer un mot de passe')}
                       >
                         <Wand2 size={18} />
                       </button>
@@ -675,7 +949,7 @@ export function ItemDialog({
                   </label>
 
                   <div className="field field--full">
-                    <span className="field__label">Adresses du site</span>
+                    <span className="field__label">{tt("Adresses du site")}</span>
                     <div className="url-list">
                       {draft.urls.map((url, index) => (
                         <div key={index} className="url-row">
@@ -697,7 +971,7 @@ export function ItemDialog({
                             onClick={() =>
                               patch({ urls: draft.urls.filter((_, i) => i !== index) })
                             }
-                            aria-label="Retirer l’adresse"
+                            aria-label={tt('Retirer l’adresse')}
                             disabled={draft.urls.length <= 1}
                           >
                             <X size={16} />
@@ -718,7 +992,7 @@ export function ItemDialog({
                   </div>
 
                   <label className="field field--full">
-                    <span className="field__label">Code TOTP (otpauth://)</span>
+                    <span className="field__label">{tt("Code TOTP (otpauth://)")}</span>
                     <input
                       className="input input--mono"
                       value={draft.totp}
@@ -744,17 +1018,17 @@ export function ItemDialog({
               {draft.type === 'card' && (
                 <div className="form-grid">
                   <label className="field field--full">
-                    <span className="field__label">Titulaire</span>
+                    <span className="field__label">{tt("Titulaire")}</span>
                     <input
                       className="input"
                       value={draft.cardholder}
                       onChange={(event) => patch({ cardholder: event.target.value })}
-                      placeholder="Nom sur la carte"
+                      placeholder={tt('Nom sur la carte')}
                       maxLength={200}
                     />
                   </label>
                   <label className="field field--full">
-                    <span className="field__label">Numéro de carte</span>
+                    <span className="field__label">{tt("Numéro de carte")}</span>
                     <input
                       className="input input--mono"
                       value={draft.number}
@@ -768,7 +1042,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Expiration</span>
+                    <span className="field__label">{tt("Expiration")}</span>
                     <input
                       className="input input--mono"
                       value={draft.expiry}
@@ -787,7 +1061,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">CVC</span>
+                    <span className="field__label">{tt("CVC")}</span>
                     <input
                       className="input input--mono"
                       value={draft.cvc}
@@ -800,20 +1074,20 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Code PIN</span>
+                    <span className="field__label">{tt("Code PIN")}</span>
                     <input
                       className="input input--mono"
                       value={draft.pin}
                       onChange={(event) =>
                         patch({ pin: event.target.value.replace(/\D/g, '').slice(0, 6) })
                       }
-                      placeholder="Optionnel"
+                      placeholder={tt('Optionnel')}
                       inputMode="numeric"
                       maxLength={6}
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Réseau / type</span>
+                    <span className="field__label">{tt("Réseau / type")}</span>
                     <input
                       className="input"
                       value={draft.brand}
@@ -828,7 +1102,7 @@ export function ItemDialog({
               {draft.type === 'identity' && (
                 <div className="form-grid">
                   <label className="field">
-                    <span className="field__label">Prénom</span>
+                    <span className="field__label">{tt("Prénom")}</span>
                     <input
                       className="input"
                       value={draft.firstName}
@@ -837,7 +1111,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Nom</span>
+                    <span className="field__label">{tt("Nom")}</span>
                     <input
                       className="input"
                       value={draft.lastName}
@@ -846,7 +1120,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">E-mail</span>
+                    <span className="field__label">{tt("E-mail")}</span>
                     <input
                       className="input"
                       type="email"
@@ -856,7 +1130,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Téléphone</span>
+                    <span className="field__label">{tt("Téléphone")}</span>
                     <input
                       className="input"
                       value={draft.phone}
@@ -865,7 +1139,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field field--full">
-                    <span className="field__label">Adresse</span>
+                    <span className="field__label">{tt("Adresse")}</span>
                     <input
                       className="input"
                       value={draft.address}
@@ -874,7 +1148,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Ville</span>
+                    <span className="field__label">{tt("Ville")}</span>
                     <input
                       className="input"
                       value={draft.city}
@@ -883,7 +1157,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Code postal</span>
+                    <span className="field__label">{tt("Code postal")}</span>
                     <input
                       className="input"
                       value={draft.postalCode}
@@ -892,7 +1166,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Pays</span>
+                    <span className="field__label">{tt("Pays")}</span>
                     <input
                       className="input"
                       value={draft.country}
@@ -901,7 +1175,7 @@ export function ItemDialog({
                     />
                   </label>
                   <label className="field">
-                    <span className="field__label">Date de naissance</span>
+                    <span className="field__label">{tt("Date de naissance")}</span>
                     <input
                       className="input"
                       type="date"
@@ -909,24 +1183,51 @@ export function ItemDialog({
                       onChange={(event) => patch({ birthDate: event.target.value })}
                     />
                   </label>
+                  <label className="field">
+                    <span className="field__label">{tt("Expiration du passeport")}</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={draft.passportExpiry}
+                      onChange={(event) => patch({ passportExpiry: event.target.value })}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt("Expiration de la carte d’identité")}</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={draft.idCardExpiry}
+                      onChange={(event) => patch({ idCardExpiry: event.target.value })}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt("Expiration du permis de conduire")}</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={draft.licenseExpiry}
+                      onChange={(event) => patch({ licenseExpiry: event.target.value })}
+                    />
+                  </label>
                 </div>
               )}
 
               <label className="field">
-                <span className="field__label">Notes</span>
+                <span className="field__label">{tt("Notes")}</span>
                 <textarea
                   className="input textarea"
                   value={draft.notes}
                   onChange={(event) => patch({ notes: event.target.value })}
                   rows={4}
-                  placeholder="Informations complémentaires…"
+                  placeholder={tt('Informations complémentaires…')}
                   maxLength={100_000}
                 />
               </label>
 
               <div className="custom-fields">
                 <div className="custom-fields__head">
-                  <span className="field__label">Champs personnalisés</span>
+                  <span className="field__label">{tt("Champs personnalisés")}</span>
                   <button
                     type="button"
                     className="link-button"
@@ -952,9 +1253,9 @@ export function ItemDialog({
                           onChange={(event) =>
                             updateCustomField(field.id, { label: event.target.value })
                           }
-                          placeholder="Nom du champ"
+                          placeholder={tt('Nom du champ')}
                           maxLength={80}
-                          aria-label="Nom du champ personnalisé"
+                          aria-label={tt('Nom du champ personnalisé')}
                         />
                         <select
                           className="input"
@@ -964,7 +1265,7 @@ export function ItemDialog({
                               type: event.target.value as CustomFieldType,
                             })
                           }
-                          aria-label="Type du champ personnalisé"
+                          aria-label={tt('Type du champ personnalisé')}
                         >
                           {CUSTOM_FIELD_TYPES.map((type) => (
                             <option key={type} value={type}>
@@ -981,7 +1282,7 @@ export function ItemDialog({
                             }
                             rows={2}
                             maxLength={10_000}
-                            placeholder="Valeur"
+                            placeholder={tt('Valeur')}
                             aria-label={`Valeur de ${field.label || 'champ'}`}
                           />
                         ) : (
@@ -992,7 +1293,7 @@ export function ItemDialog({
                               updateCustomField(field.id, { value: event.target.value })
                             }
                             maxLength={10_000}
-                            placeholder="Valeur"
+                            placeholder={tt('Valeur')}
                             autoComplete="off"
                             aria-label={`Valeur de ${field.label || 'champ'}`}
                           />
@@ -1032,7 +1333,7 @@ export function ItemDialog({
                   checked={draft.favorite}
                   onChange={(event) => patch({ favorite: event.target.checked })}
                 />
-                <span>Marquer comme favori</span>
+                <span>{tt("Marquer comme favori")}</span>
               </label>
 
               {error && (
@@ -1069,6 +1370,9 @@ export function ItemDialog({
                 copied={copied}
                 onToggleFavorite={() => void toggleFavorite()}
                 readOnly={trashed}
+                issue={issue}
+                onGeneratePassword={() => setShowGenerator(true)}
+                onEditItem={startEditing}
                 attachmentBusy={attachmentBusy}
                 attachmentError={attachmentError}
                 onAddAttachment={uploadAttachments}
@@ -1080,22 +1384,104 @@ export function ItemDialog({
         </div>
       </DialogSurface>
 
+      {presentation === 'panel' && (
+        <div
+          className={`detail-actionbar ${
+            editing || !current || trashed || current.type !== 'login'
+              ? 'detail-actionbar--simple'
+              : ''
+          }`}
+          role="toolbar"
+          aria-label={tt('Actions de l’élément')}
+        >
+          {editing ? (
+            <>
+              <button
+                type="button"
+                className="button button--ghost"
+                onClick={cancelEditing}
+              >
+                <X size={18} />
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => void save()}
+                disabled={busy || !draft.title.trim()}
+              >
+                <Check size={18} />
+                Enregistrer
+              </button>
+            </>
+          ) : trashed ? (
+            <>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => void restoreCurrent()}
+              >
+                <RotateCcw size={18} />
+                Restaurer
+              </button>
+              {moreMenu}
+            </>
+          ) : current ? (
+            <>
+              {current.type === 'login' && (
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={() => void copyValue(current.username, 'Identifiant')}
+                  disabled={!current.username}
+                >
+                  <Copy size={18} />
+                  {tt("Identifiant")}
+                </button>
+              )}
+              {current.type === 'login' && (
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={() => void copyValue(current.password, 'Mot de passe')}
+                  disabled={!current.password}
+                >
+                  <Copy size={18} />
+                  {tt("Mot de passe")}
+                </button>
+              )}
+              {current.type !== 'passkey' && (
+                <button
+                  type="button"
+                  className="button button--primary"
+                  onClick={startEditing}
+                >
+                  <Pencil size={18} />
+                  Modifier
+                </button>
+              )}
+              {moreMenu}
+            </>
+          ) : null}
+        </div>
+      )}
+
       {showGenerator && (
         <GeneratorDialog
           onClose={() => setShowGenerator(false)}
-          onUse={(value) => patch({ password: value })}
+          onUse={(value) => void applyGeneratedPassword(value)}
         />
       )}
 
       {showDelete && current && (
         <ConfirmDialog
-          title="Déplacer vers la corbeille ?"
+          title={tt('Déplacer vers la corbeille ?')}
           description={`« ${current.title} » sera déplacé dans la corbeille. Vous pourrez le restaurer à tout moment${
             settings.trashRetentionDays > 0
               ? ` pendant ${settings.trashRetentionDays} jours`
               : ''
           }.`}
-          confirmLabel="Mettre à la corbeille"
+          confirmLabel={tt('Mettre à la corbeille')}
           onClose={() => setShowDelete(false)}
           onConfirm={deleteCurrent}
         />
@@ -1103,9 +1489,9 @@ export function ItemDialog({
 
       {showPermanentDelete && current && (
         <ConfirmDialog
-          title="Supprimer définitivement ?"
+          title={tt('Supprimer définitivement ?')}
           description={`« ${current.title} », ses pièces jointes et son historique seront définitivement effacés. Cette action est irréversible.`}
-          confirmLabel="Supprimer définitivement"
+          confirmLabel={tt('Supprimer définitivement')}
           requireText="SUPPRIMER"
           onClose={() => setShowPermanentDelete(false)}
           onConfirm={deleteForever}
@@ -1124,11 +1510,15 @@ export function ItemDialog({
         />
       )}
 
+      {showShare && current && (
+        <ShareItemDialog item={current} onClose={() => setShowShare(false)} />
+      )}
+
       {attachmentToDelete && (
         <ConfirmDialog
-          title="Supprimer cette pièce jointe ?"
+          title={tt('Supprimer cette pièce jointe ?')}
           description={`« ${attachmentToDelete.name} » sera définitivement supprimée de cet élément.`}
-          confirmLabel="Supprimer"
+          confirmLabel={tt('Supprimer')}
           onClose={() => setAttachmentToDelete(null)}
           onConfirm={deleteAttachment}
         />
@@ -1147,6 +1537,9 @@ interface ItemDetailsProps {
   onToggleFavorite: () => void
   /** Élément en corbeille : lecture seule, ni favori ni pièces jointes modifiables. */
   readOnly?: boolean
+  issue: ItemSecurityIssue | null
+  onGeneratePassword: () => void
+  onEditItem: () => void
   attachmentBusy: boolean
   attachmentError: string | null
   onAddAttachment: (files: FileList | null) => Promise<void>
@@ -1163,12 +1556,18 @@ function ItemDetails({
   copied,
   onToggleFavorite,
   readOnly = false,
+  issue,
+  onGeneratePassword,
+  onEditItem,
   attachmentBusy,
   attachmentError,
   onAddAttachment,
   onDownloadAttachment,
   onDeleteAttachment,
 }: ItemDetailsProps) {
+  const { tt } = useI18n()
+  const changeUrl = item.type === 'login' ? changePasswordUrl(item.urls) : null
+
   return (
     <div className="item-detail">
       <div className="item-detail__toolbar">
@@ -1186,15 +1585,61 @@ function ItemDetails({
             type="button"
             className={`icon-button ${item.favorite ? 'is-favorite' : ''}`}
             onClick={onToggleFavorite}
-            aria-label={item.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            title={item.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            aria-label={tt(
+              item.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+            )}
+            title={tt(item.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris')}
           >
             <Star size={19} fill={item.favorite ? 'currentColor' : 'none'} />
           </button>
         )}
       </div>
 
-      <p className="item-detail__subtitle">{itemSubtitle(item)}</p>
+      {issue && (
+        <div
+          className={`alert-banner ${issue.category === 'weak' ? 'alert-banner--danger' : ''}`}
+          role="status"
+        >
+          <ShieldAlert size={17} />
+          <div className="alert-banner__body">
+            <strong>{issue.label}</strong>
+            <p>{issue.description}</p>
+          </div>
+          <div className="alert-banner__actions">
+            {issue.category === 'weak' ||
+            issue.category === 'reused' ||
+            issue.category === 'similar' ? (
+              <button
+                type="button"
+                className="button button--secondary button--sm"
+                onClick={onGeneratePassword}
+              >
+                <Wand2 size={15} />
+                Générer
+              </button>
+            ) : issue.category === 'no2fa' || issue.category === 'incomplete' ? (
+              <button
+                type="button"
+                className="button button--secondary button--sm"
+                onClick={onEditItem}
+              >
+                <Pencil size={15} />
+                Compléter
+              </button>
+            ) : null}
+            {changeUrl && (
+              <button
+                type="button"
+                className="button button--secondary button--sm"
+                onClick={() => void openExternal(changeUrl)}
+              >
+                <ExternalLink size={15} />
+                Changer sur le site
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {item.type === 'login' && (
         <div className="detail-list">
@@ -1214,7 +1659,7 @@ function ItemDetails({
           />
           {item.urls.filter(Boolean).length > 0 && (
             <div className="detail-row">
-              <span className="detail-row__label">Adresses</span>
+              <span className="detail-row__label">{tt("Adresses")}</span>
               <div className="detail-row__value detail-row__links">
                 {item.urls.filter(Boolean).map((url) => {
                   const target = safeUrl(url)
@@ -1242,7 +1687,7 @@ function ItemDetails({
           )}
           {item.totp.trim() && (
             <div className="detail-row">
-              <span className="detail-row__label">Code 2FA</span>
+              <span className="detail-row__label">{tt("Code 2FA")}</span>
               <div className="detail-row__value">
                 <TotpCode uri={item.totp} />
               </div>
@@ -1263,7 +1708,7 @@ function ItemDetails({
             copied={copied === 'Numéro de carte'}
             mono
           />
-          <DetailRow label="Expiration" value={item.expiry} mono />
+          <CardExpiryRow value={item.expiry} />
           <SecretRow
             label="CVC"
             value={item.cvc}
@@ -1313,6 +1758,37 @@ function ItemDetails({
           />
           <DetailRow label="Pays" value={item.country} />
           <DetailRow label="Naissance" value={item.birthDate} />
+          {item.passportExpiry && (
+            <ExpiryDetail label="Passeport" value={item.passportExpiry} />
+          )}
+          {item.idCardExpiry && (
+            <ExpiryDetail label="Carte d’identité" value={item.idCardExpiry} />
+          )}
+          {item.licenseExpiry && (
+            <ExpiryDetail label="Permis" value={item.licenseExpiry} />
+          )}
+        </div>
+      )}
+
+      {item.type === 'passkey' && (
+        <div className="detail-list">
+          <DetailRow label="Site (RP ID)" value={item.rpId} />
+          <DetailRow label="Compte" value={item.userName} />
+          <div className="detail-row">
+            <span className="detail-row__label">{tt("Type")}</span>
+            <div className="detail-row__value">
+              Passkey WebAuthn · clé privée conservée dans le coffre
+            </div>
+          </div>
+        </div>
+      )}
+
+      {item.expiresAt && (
+        <div className="detail-list detail-list--custom">
+          <ExpiryDetail
+            label={item.type === 'login' ? 'Mot de passe à changer' : 'Échéance'}
+            value={item.expiresAt}
+          />
         </div>
       )}
 
@@ -1398,24 +1874,6 @@ function ItemDetails({
         </div>
       )}
 
-      <AttachmentsSection
-        attachments={item.attachments}
-        busy={attachmentBusy}
-        error={attachmentError}
-        canAdd={!readOnly}
-        canDelete={!readOnly}
-        onAdd={onAddAttachment}
-        onDownload={onDownloadAttachment}
-        onDelete={onDeleteAttachment}
-      />
-
-      {item.notes.trim() && (
-        <div className="detail-section">
-          <span className="detail-row__label">Notes</span>
-          <p className="detail-notes">{item.notes}</p>
-        </div>
-      )}
-
       {item.tags.length > 0 && (
         <div className="tag-list">
           {item.tags.map((tag) => (
@@ -1426,6 +1884,24 @@ function ItemDetails({
           ))}
         </div>
       )}
+
+      {item.notes.trim() && (
+        <div className="detail-section">
+          <span className="detail-row__label">{tt("Notes")}</span>
+          <p className="detail-notes">{item.notes}</p>
+        </div>
+      )}
+
+      <AttachmentsSection
+        attachments={item.attachments}
+        busy={attachmentBusy}
+        error={attachmentError}
+        canAdd={!readOnly}
+        canDelete={!readOnly}
+        onAdd={onAddAttachment}
+        onDownload={onDownloadAttachment}
+        onDelete={onDeleteAttachment}
+      />
 
       <div className="detail-meta">
         <Clock size={14} />
@@ -1542,6 +2018,7 @@ function AttachmentsSection({
   onDownload,
   onDelete,
 }: AttachmentsSectionProps) {
+  const { tt } = useI18n()
   return (
     <div className="attachments">
       <div className="custom-fields__head">
@@ -1594,7 +2071,7 @@ function AttachmentsSection({
                 onClick={() => void onDownload(attachment.id)}
                 disabled={busy}
                 aria-label={`Télécharger ${attachment.name}`}
-                title="Télécharger"
+                title={tt('Télécharger')}
               >
                 <Download size={15} />
               </button>
@@ -1605,7 +2082,7 @@ function AttachmentsSection({
                   onClick={() => onDelete(attachment)}
                   disabled={busy}
                   aria-label={`Supprimer ${attachment.name}`}
-                  title="Supprimer"
+                  title={tt('Supprimer')}
                 >
                   <Trash2 size={15} />
                 </button>

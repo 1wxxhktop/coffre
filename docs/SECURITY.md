@@ -52,6 +52,8 @@ transmet jamais le contenu du coffre.
 | Chiffrement authentifié | AES-256-GCM (WebCrypto) | Clé 32 octets, nonce 12 octets, tag 128 bits |
 | Aléa | `crypto.getRandomValues` | 16 octets pour les identifiants, 32 pour les clés, 12 pour les nonces |
 | TOTP | HMAC SHA-1/256/512 (WebCrypto) | RFC 6238, période et chiffres configurables |
+| Passkeys WebAuthn | ECDSA P-256 (WebCrypto), SHA-256, CBOR | Attestation `none`, clé publique COSE ES256, signature DER |
+| Pont natif | ECDH P-256, HKDF-SHA-256, AES-256-GCM | Compteurs anti-rejeu par session |
 | Générateur | `crypto.getRandomValues` | Mots de passe et phrases de passe |
 
 Chaque chiffrement utilise un nonce aléatoire distinct. Le nonce et le
@@ -166,12 +168,23 @@ Le changement de mot de passe :
 1. génère un nouveau sel et de nouveaux paramètres Argon2id ;
 2. dérive une nouvelle clé maîtresse ;
 3. ré-enveloppe chaque clé de coffre avec la nouvelle clé maîtresse ;
-4. remplace la clé maîtresse en mémoire et efface l’ancienne.
+4. génère une nouvelle clé HMAC (format 4), incrémente `keyEpoch` et recalculera
+   le MAC global à l’écriture ;
+5. remplace la clé maîtresse en mémoire et efface l’ancienne.
 
 Les éléments ne sont pas réchiffrés : leurs clés et leurs contenus restent
 inchangés. Cette opération est atomique du point de vue du fichier produit, mais
 la sauvegarde locale (fichier natif ou IndexedDB) peut encore contenir la
 version précédente. Voir [§ 5.2](#52-sauvegarde-locale).
+
+### 2.5.1 Déplacement d’un élément entre coffres
+
+Déplacer un élément ne recopie aucun ciphertext tel quel : la clé d’élément,
+le contenu, chaque version et chaque pièce jointe sont déchiffrés puis
+réchiffrés avec une nouvelle clé d’élément enveloppée par la clé du coffre de
+destination. Les AAD sont recalculées avec le nouveau `vaultId`, ce qui empêche
+de rejouer un enregistrement déplacé dans son ancien coffre. L’ancienne clé
+d’élément et les anciens tampons sont effacés dès l’opération terminée.
 
 ### 2.6 Ce qui est visible dans un fichier `.coffre`
 
@@ -185,6 +198,9 @@ Le fichier exporté est du JSON. Les champs suivants sont **en clair** :
   pièces jointes ;
 - les dates des coffres, des éléments, des versions et des pièces jointes ;
 - les ciphertexts (noms de coffres, clés, contenus, versions, pièces jointes) ;
+- depuis le format 4 : l’identifiant de l’appareil écrivain, la révision du
+  fichier, l’époque des clés, les pierres tombales (type, identifiant et date de
+  suppression), le MAC global et la clé HMAC scellée ;
 - si elle est configurée, l’enveloppe de récupération : sel et paramètres
   Argon2id, date de création, clé de récupération et clés de coffre scellées.
 
@@ -195,18 +211,86 @@ attaquant peut néanmoins déduire le nombre de coffres, d’éléments, de vers
 de pièces jointes, ainsi que leurs dates — mais pas quels éléments sont dans la
 corbeille.
 
-### 2.7 Validation à l’import
+### 2.7 Intégrité globale et révisions (format 4)
+
+Le format 4 ajoute au fichier :
+
+```text
+writer      identifiant aléatoire de l’appareil qui a écrit en dernier
+revision    compteur monotone, incrémenté à chaque écriture signée
+keyEpoch    époque des clés, incrémentée à chaque rotation
+tombstones  suppressions définitives récentes (type, id, date), purgées à 180 jours
+integrity   { mac: HMAC-SHA-256, key: clé HMAC scellée par la clé maîtresse }
+```
+
+Chaque coffre et chaque élément porte une horloge `{ rev, writer }` ; la
+révision de l’enregistrement est incrémentée lorsqu’un ciphertext change.
+Le MAC couvre un manifeste canonique (JSON à clés triées) contenant
+l’identifiant du fichier, l’appareil écrivain, `revision`, `keyEpoch`,
+l’empreinte SHA-256 des ciphertexts de tous les coffres (clé et nom), éléments
+(clé et contenu), pièces jointes et versions, ainsi que les horloges
+`{ rev, writer }` et les pierres tombales. Il ne contient aucun contenu
+déchiffré.
+
+La clé HMAC est aléatoire, scellée avec l’AAD `coffre:v1:integrity-key` et
+tournée au changement de mot de passe maître ou après une récupération par
+phrase ; `keyEpoch` est alors incrémenté. À l’ouverture :
+
+- MAC valide : le coffre est ouvert normalement ;
+- fichier v1 à v3 : aucun MAC, le fichier est migré et signé à la première
+  écriture ;
+- fichier v4 sans `integrity`, clé illisible ou MAC différent : le coffre est
+  ouvert **en lecture seule** avec un avertissement bloquant, pour permettre
+  l’export d’une sauvegarde. Une version 4 dégradée en v3 est refusée par le
+  validateur.
+
+La plus haute `revision` vue pour un fichier est conservée **hors du fichier**
+(`vault/state.json` sur desktop, clé `state` d’IndexedDB sur le Web). Si un
+fichier de même identifiant présente une révision inférieure, un avertissement
+explicite est ajouté. Une restauration volontaire depuis l’écran des sauvegardes
+ou un import volontaire abaisse la référence sans alerter. Cette protection
+détecte une substitution accidentelle ou un remplacement par une sauvegarde
+ancienne ; elle ne protège pas si l’attaquant contrôle aussi le fichier d’état.
+
+#### Pierres tombales et fusion
+
+Les pierres tombales sont conservées jusqu’à 180 jours, même lorsqu’un
+enregistrement plus récent ressuscite le même identifiant. Le validateur accepte
+cette coexistence uniquement si `deletedAt` est **antérieur** à `updatedAt` de
+l’enregistrement ; une pierre tombale plus récente que l’enregistrement rend le
+fichier invalide. Cette règle permet à une fusion ultérieure de savoir quels
+historiques et pièces jointes précèdent une suppression définitive.
+
+`mergeVaultFiles` (`src/lib/sync.ts`) est la couche de fusion pure :
+
+- elle exige des fichiers v4 de même identifiant, même époque de clés et mêmes
+  paramètres KDF ;
+- elle choisit chaque enregistrement par `{ rev, writer }` et signale les
+  conflits à révision égale sans les archiver elle-même (l’appelant possède la
+  clé de l’élément) ;
+- elle applique les pierres tombales, unit versions et pièces jointes, puis
+  applique les plafonds ;
+- elle ne vérifie ni MAC ni mot de passe et ne signe jamais : le résultat doit
+  passer par `signVaultFile` avant écriture ;
+- les versions et pièces jointes antérieures à une suppression définitive sont
+  écartées, même si l’élément est ressuscité ; seuls les enregistrements créés
+  après la suppression peuvent subsister.
+
+### 2.8 Validation à l’import
 
 Le fichier importé est validé avec Zod :
 
-- format `coffre`, version `1`, `2` ou `3` (les fichiers v1 et v2 sont lus puis
-  migrés en v3 à la première écriture) ;
+- format `coffre`, version `1` à `4` (les fichiers v1 à v3 sont lus puis migrés
+  en v4 à la première écriture) ;
 - paramètres KDF dans des bornes acceptées ;
 - identifiants de coffres, d’éléments, de versions et de pièces jointes uniques ;
 - élément rattaché à un coffre existant ;
 - pièce jointe et version rattachées à un élément existant et au bon coffre ;
 - enveloppe de récupération, si présente : une clé scellée par coffre, sans
   doublon ni coffre inconnu, et couvrant tous les coffres du fichier ;
+- pour la version 4 : `writer`, `revision`, `keyEpoch`, `tombstones` et
+  `integrity` obligatoires, horloge présente sur chaque coffre et chaque
+  élément, pierres tombales sans doublon et sans enregistrement encore présent ;
 - schémas de contenu par type ;
 - champs personnalisés, pièces jointes, versions et enveloppe de récupération
   optionnels (rétrocompatibilité avec les fichiers antérieurs).
@@ -215,7 +299,7 @@ Un fichier peut néanmoins spécifier des paramètres Argon2id plus faibles que 
 valeurs par défaut (le format accepte une mémoire minimale de 8 Mio, notamment
 pour les tests). N’importez que des fichiers dont vous connaissez la provenance.
 
-### 2.8 Import depuis un autre gestionnaire
+### 2.9 Import depuis un autre gestionnaire
 
 L’import externe accepte un export JSON non chiffré de Bitwarden, Proton Pass ou
 Enpass, un fichier CSV (1Password, LastPass, Chrome, Firefox, Safari, Dashlane,
@@ -236,16 +320,73 @@ converti en brouillons, puis chiffré par le coffre de destination.
 - Un fichier `.coffre` doit être importé avec son mot de passe via « Importer un
   coffre », et non via l’import externe.
 
-### 2.9 Extension navigateur
+### 2.10 Extension navigateur
 
-L’extension Manifest V3 (`extension/`) ne stocke ni coffre ni secret. Elle
-interroge l’onglet Coffre déverrouillé via `window.__coffreExtension`, une
-passerelle en mémoire supprimée au verrouillage.
+L’extension Manifest V3 (`extension/`) ne stocke ni coffre ni identifiant. Sur
+le Web, elle interroge l’onglet Coffre déverrouillé via
+`window.__coffreExtension`, une passerelle en mémoire supprimée au
+verrouillage. Sur desktop, le pont natif décrit en 2.11 est utilisé en priorité ;
+l’onglet Web reste le repli. Seule la clé de session du pont natif (après
+appairage) est conservée dans `chrome.storage.local`.
 
 - L’extension ne peut lire que l’onglet Coffre configuré (permission d’hôte) et
-  l’onglet actif au moment du clic (`activeTab`).
+  les pages explicitement autorisées. Le menu dans les champs est **désactivé
+  par défaut** : il faut accorder `optional_host_permissions` (`http://*/*`,
+  `https://*/*`) depuis le popup. Le content script n’est alors enregistré que
+  par `scripting.registerContentScripts`, jamais avant.
+- Détection locale des formulaires (`extension/detect.ts`) : types, attributs
+  `autocomplete`, noms, libellés et position. Les champs masqués par `display`,
+  `visibility`, `opacity`, `hidden` ou `aria-hidden` sont ignorés ; les
+  formulaires à plusieurs mots de passe (inscription, changement) ne proposent
+  pas le menu.
+- Le menu est rendu dans une **iframe d’origine extension** placée dans un
+  shadow root fermé. La page ne peut ni lire son DOM, ni envoyer un message
+  valide : le content script vérifie `event.source` et `event.origin`. Aucun
+  identifiant n’est transmis au content script avant un clic dans ce menu.
+- Le remplissage vérifie l’hôte de la frame dans le content script **et** dans
+  l’application (`loginAllowsHost`) ; les iframes ne sont remplies que si leur
+  origine correspond à l’URL de l’élément.
+- **Passkeys WebAuthn** : après activation des hôtes, un script `webauthn-main.js`
+  est enregistré dans le monde `MAIN` à `document_start` et enveloppe
+  `navigator.credentials.create/get`. Il ne reçoit jamais de clé privée : il
+  transmet au content script les options publiques (challenge, `rpId`, `user`,
+  descripteurs), qui les relaie au service worker. Le service worker déduit
+  l’origine de `sender.url`, jamais d’un champ fourni par la page, et vérifie
+  que le `rpId` est l’hôte ou un parent enregistrable. L’application répète ce
+  contrôle avec `isValidRpId` (origine HTTPS ou `localhost`, refus des IP, des
+  domaines à une étiquette et des suffixes publics courants) avant toute
+  opération.
+- Une **fenêtre de confirmation d’origine extension** affiche le domaine, le
+  compte et le type d’opération ; aucune création ou signature n’a lieu avant un
+  clic. Le refus, la fermeture de la fenêtre ou un délai de deux minutes rend la
+  main au navigateur (« utiliser un autre appareil »). Une demande concurrente
+  dans la même frame est refusée.
+- Les clés sont générées en ECDSA P-256 dans l’application, exportées en PKCS#8
+  et stockées uniquement dans le contenu chiffré de l’élément passkey. Les
+  résultats transmis à l’extension sont une liste blanche de champs publics
+  (`credentialId`, `clientDataJSON`, `attestationObject`, `authenticatorData`,
+  signature) ; `privateKey` ne figure ni dans le protocole d’extension ni dans
+  les messages du pont natif. Les drapeaux d’attestation indiquent UP, AT, BE et
+  BS ; la vérification utilisateur (`UV`) n’est pas revendiquée et les sites qui
+  l’exigent ne sont pas interceptés. Le compteur d’assertion reste à zéro.
+- Le type `passkey` est en lecture seule dans l’interface : la création passe
+  exclusivement par la fenêtre de confirmation de l’extension, ce qui évite de
+  fabriquer un élément incohérent depuis le formulaire générique. Le partage
+  hors ligne et la duplication sont masqués pour ne pas recopier une clé privée
+  par inadvertance ; le déplacement entre coffres et la corbeille restent
+  disponibles.
+- Après soumission d’un formulaire, l’extension propose d’enregistrer ou de
+  mettre à jour la connexion. Le mot de passe reste en mémoire du service
+  worker au plus deux minutes ; il n’est jamais écrit sur disque par
+  l’extension. Si la page navigue, le badge de l’extension et le popup
+  conservent la proposition. La mutation réelle passe par le provider Coffre
+  (desktop) ou par la passerelle de l’onglet déverrouillé.
+- Le dernier identifiant utilisé pour un onglet est mémorisé deux minutes pour
+  les connexions en plusieurs étapes ; ce n’est qu’un identifiant, pas un
+  secret.
 - Les identifiants transitent en mémoire entre l’onglet Coffre, le service
-  worker et la page active ; ils ne sont ni journalisés ni persistés.
+  worker et la page active ; ils ne sont ni journalisés ni persistés. Le pont
+  natif les chiffre en AES-256-GCM sur le socket local.
 - Le remplissage est déclenché par un clic ; aucun formulaire n’est soumis
   automatiquement.
 - Tout code exécuté dans l’onglet Coffre pendant le déverrouillage peut appeler
@@ -257,8 +398,61 @@ passerelle en mémoire supprimée au verrouillage.
 - Le manifeste fournit `background.scripts` pour Firefox et
   `background.service_worker` pour Chromium ; les appels passent par l’API
   `browser` (promesses) sur Firefox et `chrome` sur Chromium.
+- Limites passkeys : la liste de suffixes publics est embarquée et doit être
+  mise à jour à chaque release ; elle ne remplace pas la Public Suffix List
+  complète. L’import/export FIDO CXF n’est pas encore disponible, et
+  l’interception n’est pas revendiquée comme un authentificateur matériel.
+- Limites : le menu dans les champs et l’interception WebAuthn ne sont pas
+  validés en exécution réelle sur Firefox ni empaquetés pour Safari ; la
+  protection contre le clickjacking repose sur le shadow root fermé, le z-index
+  et la validation d’origine, mais une page qui contrôle entièrement son DOM
+  peut toujours gêner l’affichage du menu.
 
-### 2.10 Tableau de bord Sécurité
+### 2.11 Pont natif de l’extension (desktop)
+
+Sur desktop, l’extension peut parler directement à l’application au lieu de
+passer par un onglet Coffre. Le navigateur lance le binaire Coffre en mode
+« hôte de messagerie native » (argument `chrome-extension://…`) ; ce mode ne
+démarre pas l’interface et relaie uniquement des trames préfixées par leur
+longueur entre stdin/stdout et un socket local.
+
+- Le socket est `app_data_dir()/bridge/bridge.sock`, dans un dossier `0700`,
+  avec le socket en `0600` : seul le compte de l’utilisateur peut s’y connecter.
+- Les manifestes d’hôte natif sont installés par l’application pour Chrome,
+  Chromium, Edge, Brave et Firefox. Chromium n’autorise que l’identifiant
+  d’extension épinglé par la clé du manifeste ; Firefox n’autorise que
+  `coffre@1wxxhktop.github.io`.
+- **Appairage** : l’extension génère une paire ECDH P-256 et demande
+  l’association. L’application affiche un code à six chiffres, l’extension
+  affiche le même code, et l’utilisateur confirme explicitement dans
+  l’application. La clé de session est dérivée par ECDH puis HKDF-SHA-256 et
+  liée aux deux clés publiques.
+- La clé de session est conservée dans le trousseau du système côté
+  application et dans `chrome.storage.local` côté extension. Elle n’est jamais
+  écrite dans le fichier `.coffre`.
+- Après appairage, chaque requête et chaque réponse est chiffrée en
+  AES-256-GCM avec un nonce aléatoire de 12 octets et une AAD qui lie
+  l’identifiant de session, la direction et un compteur monotone. Un compteur
+  qui recule est rejeté ; l’identifiant de session change à chaque connexion du
+  pont et à chaque démarrage de l’application, ce qui invalide les anciens
+  messages.
+- L’application ne répond aux recherches et remplissages que lorsqu’elle est
+  déverrouillée. Une demande alors qu’elle est verrouillée ramène la fenêtre au
+  premier plan — et déclenche Touch ID si l’option est active — puis renvoie
+  `locked` sans aucun secret.
+- Le remplissage vérifie **dans l’application** que l’hôte de la page figure
+  parmi les URL de l’élément (`loginAllowsHost`) ; l’extension ne peut pas
+  demander les identifiants d’un autre domaine.
+- Limites : la signature du binaire relais n’est pas vérifiée faute de
+  certificat Developer ID ; le relais Windows (named pipe) n’est pas encore
+  implémenté ; Firefox n’est pas validé en exécution réelle. Un processus du
+  même compte utilisateur peut ouvrir le socket, mais ne peut ni déchiffrer les
+  trames ni obtenir la clé de session sans le trousseau ou le profil du
+  navigateur. L’identifiant Chromium est épinglé par la clé du manifeste ; une
+  publication sur le Chrome Web Store avec un autre identifiant exigera de
+  régénérer le manifeste d’hôte natif.
+
+### 2.12 Tableau de bord Sécurité
 
 L’analyse de sécurité est entièrement locale et ne conserve aucun résultat :
 
@@ -272,9 +466,159 @@ L’analyse de sécurité est entièrement locale et ne conserve aucun résultat
   passe et URL ;
 - le score, la répartition solides/moyens/faibles et les listes ne contiennent
   que des références d’éléments et des compteurs, jamais un mot de passe ;
-- aucune requête réseau ni service de fuite de mots de passe n’est utilisé.
+- l’historique du score conserve au plus une mesure par jour pendant 365 jours
+  dans `localStorage` : date, score et compteurs, jamais un secret ni une URL ;
+- « Changer sur le site » ouvre l’URL standard
+  `https://<hôte>/.well-known/change-password` dans le navigateur système ; la
+  requête est faite par le navigateur, pas par Coffre, et aucune donnée du
+  coffre n’est transmise ;
+- la vérification des fuites est une action explicite, désactivée par défaut
+  (voir 2.12.1).
+
+### 2.12.1 Surveillance optionnelle des fuites (HIBP)
+
+Le réglage `breachCheck` est **désactivé par défaut**. Aucune requête n’est
+émise tant que l’utilisateur n’a pas activé l’option et lancé « Vérifier
+maintenant » depuis le tableau de bord Sécurité.
+
+- Le SHA-1 est calculé localement avec WebCrypto, puis seuls les **5 premiers
+  caractères hexadécimaux** sont envoyés à
+  `https://api.pwnedpasswords.com/range/<préfixe>` avec l’en-tête
+  `Add-Padding: true`. Le mot de passe, le hash complet et les suffixes
+  recherchés ne sont jamais transmis.
+- Sur le Web, `public/_headers` autorise uniquement cet hôte dans `connect-src`.
+  La requête utilise `credentials: 'omit'`, `cache: 'no-store'`,
+  `referrerPolicy: 'no-referrer'` et un délai maximal de 15 secondes.
+- Sur desktop, la CSP Tauri reste sans `connect-src` externe : la commande Rust
+  `hibp_range` valide le préfixe (`^[0-9A-F]{5}$`), impose un délai de
+  10 secondes, refuse les réponses de plus de 2 Mo et ne construit que l’URL
+  HIBP. Elle ne peut pas être détournée vers un autre hôte.
+- La réponse HIBP (suffixes et occurrences) est parsée en mémoire ; seuls les
+  identifiants d’éléments compromis sont conservés dans l’état React. Aucun
+  hash, suffixe, mot de passe ou résultat n’est écrit dans `localStorage`,
+  IndexedDB, le fichier `.coffre` ou les journaux. Désactiver l’option ou
+  recharger l’application efface les résultats.
+- Have I Been Pwned voit un préfixe partagé par de nombreux hashes : il ne peut
+  pas identifier le mot de passe exact. Cela révèle néanmoins qu’une
+  vérification a eu lieu à cet instant, comme toute requête réseau.
+- En cas d’échec réseau, le tableau de bord affiche une erreur générique et
+  aucun résultat n’est appliqué. Le score et les listes ne sont modifiés
+  qu’après une réponse valide.
+- Limites : couverture dépendante du service HIBP, SHA-1 de conception ancienne
+  mais adapté au k-anonymat, et impossibilité de vérifier hors ligne sans base
+  locale.
+
+### 2.13 Rappels d’échéance
+
+Les dates d’échéance (révision d’un mot de passe, expiration d’une carte ou
+d’un document d’identité) font partie du contenu chiffré de l’élément : elles ne
+sont pas visibles dans les métadonnées du fichier `.coffre`.
+
+- Le calcul des échéances et des badges `J-xx` est local, à partir des éléments
+  déjà déchiffrés.
+- Les notifications sont émises par l’API `Notification` du navigateur ou du
+  système, au plus une fois par échéance et par jour. Le réglage est désactivé
+  par défaut ; l’autorisation est demandée uniquement lorsque l’utilisateur
+  l’active.
+- Aucun serveur de notification, aucune télémétrie et aucune requête réseau
+  propre aux rappels ne sont ajoutés. Si l’autorisation est refusée, la vue
+  « Bientôt expirés » reste
+  disponible dans l’application.
+- La trace locale des rappels déjà affichés ne contient que des identifiants
+  d’éléments, un type d’échéance et une date ; elle est conservée quatre-vingt-
+  dix jours dans `localStorage`, puis purgée.
+
+### 2.13 Kit d’urgence et parts Shamir
+
+Le kit d’urgence découpe la **clé de récupération** (et non le mot de passe
+maître) avec un partage de Shamir sur GF(256) :
+
+- chaque part contient un seuil `k`, un index, la valeur évaluée et une somme de
+  contrôle SHA-256 tronquée qui détecte une erreur de recopie sans révéler le
+  secret ;
+- `k` parts reconstituent la clé ; `k - 1` parts n’en révèlent rien. Une part
+  isolée est statistiquement uniforme ;
+- les parts sont encodées en mots de la liste EFF et en un payload compact pour
+  les QR codes. Les deux formats sont relus localement ;
+- la génération et l’impression se font dans le navigateur ; aucune part, aucun
+  QR code et aucune clé ne sont écrits sur le disque ni envoyés sur le réseau.
+  Les parts restent en mémoire tant que la boîte de dialogue est ouverte ;
+- le kit contient aussi l’identifiant du coffre et des champs manuscrits. Il ne
+  remplace ni le mot de passe maître ni une sauvegarde du fichier `.coffre` ;
+- une personne qui réunit `k` parts peut rouvrir le coffre et imposer un nouveau
+  mot de passe maître. Conservez les parts chez des personnes différentes et
+  dans des lieux distincts.
+
+Le découpage est testé par des vecteurs unitaires (reconstitution avec `k`,
+échec avec `k - 1`, détection d’une part altérée, mélange de partages
+incompatible) et par un parcours de bout en bout.
+
+### 2.14 Partage ponctuel hors ligne
+
+Le partage d’un élément produit deux secrets distincts :
+
+- un fichier `.coffre-share` contenant l’élément chiffré en AES-256-GCM avec
+  une clé aléatoire de 32 octets et une AAD liée à l’identifiant du partage ;
+- la clé elle-même, encodée en mots EFF ou en QR code, à transmettre par un
+  autre canal.
+
+Le fichier seul ne permet pas de déchiffrer l’élément ; la clé seule ne contient
+pas le ciphertext. Une clé incorrecte ou un fichier altéré échoue
+l’authentification AES-GCM. La clé est enveloppée avec une somme de contrôle
+pour détecter une recopie partielle.
+
+- L’expiration est inscrite en clair dans le fichier et refusée par
+  l’application Coffre lorsqu’elle est dépassée. Elle ne peut pas être imposée
+  hors ligne : un tiers peut modifier le fichier.
+- Les pièces jointes binaires ne sont pas incluses ; les métadonnées de
+  l’élément et ses champs personnalisés le sont.
+- Le fichier et la clé ne sont jamais envoyés sur le réseau par Coffre.
+- Les dates, l’identifiant du partage et la taille approximative du ciphertext
+  restent visibles dans le fichier.
 
 ---
+
+### 2.15 Cœur Rust partagé (`coffre-core`)
+
+Le crate `src-tauri/crates/coffre-core` porte une première tranche (lecture) du
+format pour les composants qui ne peuvent pas exécuter TypeScript (extensions
+mobiles, CLI, agent SSH à venir). Il n’est pas encore utilisé par l’interface
+desktop, qui reste sur l’implémentation TypeScript.
+
+- crypto identique : Argon2id, AES-256-GCM, AAD par usage, HMAC-SHA-256,
+  SHA-256, base64 standard ; paramètres KDF bornés aux mêmes limites ;
+- clés maîtresses, de coffre, d’élément, de récupération et d’intégrité dans des
+  `Zeroizing` ; `Session::lock` efface les buffers ;
+- ouverture v1 à v4, déchiffrement des noms de coffres, éléments, pièces
+  jointes et versions, vérification du MAC global v4 et manifeste canonique ;
+- aucune dépendance réseau dans ce crate ;
+- vecteurs croisés : les fixtures TypeScript `v1..v4` sont relues par Rust, et
+  `test-vectors/rust-v4.coffre.json` est relu par le test TypeScript de
+  production. Le MAC et les contenus déchiffrés sont vérifiés des deux côtés ;
+- la CI exécute `cargo test -p coffre-core` sur Linux, macOS et Windows. Les
+  mutations, la rotation et la fusion restent à porter dans les tranches
+  suivantes.
+
+### 2.16 Compatibilité KeePass KDBX 4
+
+L’import et l’export KDBX 4 sont traités localement, sans requête réseau :
+
+- lecture des KDF Argon2d, Argon2id et AES-KDF avec des bornes de mémoire,
+  d’itérations et de tours ;
+- vérification de la signature, du hash et du HMAC d’en-tête, puis de chaque
+  bloc HMAC-SHA-256 avant déchiffrement ;
+- AES-256-CBC, ChaCha20, gzip et flux protégés internes ChaCha20/Salsa20 ;
+- fichiers de clé XML v1/v2, binaires et hexadécimaux lus localement ;
+- groupes convertis en étiquettes, champs protégés en champs masqués, TOTP
+  conservé ;
+- pièces jointes et historique KDBX signalés mais pas encore importés ;
+  passkeys KeePassXC non importées ;
+- export KDBX avec Argon2id, ChaCha20 et un mot de passe dédié demandé à
+  l’utilisateur. Le fichier produit doit être traité comme une sauvegarde
+  sensible.
+
+AES-KDF est borné à 10 millions de tours pour éviter qu’un fichier hostile ne
+bloque l’application.
 
 ## 3. Stockage local
 
@@ -289,13 +633,16 @@ l’application :
 | `vault/vault.coffre.bak1` | Version précédente, déjà chiffrée |
 | `vault/vault.coffre.bak2` | Version antérieure à `bak1` |
 | `vault/vault.coffre.bak3` | Version la plus ancienne conservée |
+| `vault/state.json` | Plus haute révision vue (identifiant de fichier et compteur) |
 
 Chaque écriture passe par un fichier temporaire, `fsync`, puis un renommage
 atomique. Trois générations sont conservées. Le dossier est créé en `0700` et
 les fichiers en `0600` sur macOS/Linux ; les écritures sont sérialisées et la
-taille est plafonnée à 100 Mo. Aucune clé, aucun mot de passe et aucun contenu
-en clair ne sont écrits sur disque. Un coffre IndexedDB d’une version antérieure
-est migré automatiquement au premier lancement, sauvegardes comprises.
+taille est plafonnée à 100 Mo (`state.json` à 64 Kio). Aucune clé, aucun mot de
+passe et aucun contenu en clair ne sont écrits sur disque. Le fichier d’état ne
+contient qu’un identifiant de coffre et une révision. Un coffre IndexedDB d’une
+version antérieure est migré automatiquement au premier lancement, sauvegardes
+comprises.
 
 Les sauvegardes partagent le même disque et le même compte que le fichier
 courant : elles protègent d’une corruption logique, pas d’une panne matérielle,
@@ -313,18 +660,22 @@ Sur le Web, les données sont stockées dans la base IndexedDB `coffre`, magasin
 | `backup` | Version précédente du fichier, déjà chiffrée |
 | `backup:2` | Version antérieure à `backup`, déjà chiffrée |
 | `backup:3` | Version la plus ancienne conservée, déjà chiffrée |
+| `state` | Plus haute révision vue (identifiant de fichier et compteur) |
 
 Aucune clé, aucun mot de passe et aucun contenu en clair ne sont écrits dans
 IndexedDB. Le fichier stocké est identique à celui exporté. Il peut contenir une
-enveloppe de récupération optionnelle, elle aussi chiffrée (voir 2.2).
+enveloppe de récupération optionnelle, elle aussi chiffrée (voir 2.2). La clé
+`state` ne contient qu’un identifiant de coffre et une révision, jamais un
+secret.
 
 ### 3.3 Préférences
 
 Les préférences non sensibles sont dans `localStorage` sous
-`coffre:settings:v1` : délai de verrouillage automatique, verrouillage lorsque
-l’onglet passe en arrière-plan, délai d’effacement du presse-papiers, durée de
-conservation de la corbeille et activation du trousseau ou de Touch ID. Elles
-ne contiennent aucun secret.
+`coffre:settings:v1` : langue de l’interface, thème, délai de verrouillage
+automatique, verrouillage lorsque l’onglet passe en arrière-plan, délai
+d’effacement du presse-papiers, durée de conservation de la corbeille et
+activation du trousseau ou de Touch ID. Elles ne contiennent aucun secret. Le
+choix de langue ne déclenche aucune requête réseau.
 
 L’historique « Récents » est stocké séparément sous `coffre:usage:v1` : une
 table d’identifiants aléatoires d’éléments et d’horodatages, plafonnée à 500
@@ -352,7 +703,61 @@ dans un export `.coffre`.
   versions et pièces jointes — et compare la taille des pièces jointes à leurs
   métadonnées ; elle ne modifie pas le fichier.
 
-### 3.5 Limites du stockage local
+### 3.5 Dossier de synchronisation (desktop)
+
+Le choix du dossier est explicite ; Coffre ne synchronise rien tant que
+l’utilisateur n’a pas sélectionné un dossier déjà synchronisé (iCloud Drive,
+Dropbox, Syncthing, clé USB…). Rust crée `Coffre/<idFichier>/` avec un
+`README.txt`, puis chaque appareil n’écrit que son propre fichier `.coffre`.
+
+- `sync_prepare`, `sync_list`, `sync_read` et `sync_write` valident le dossier
+  canonique et n’acceptent qu’un nom `[A-Za-z0-9_-]+\.coffre` : aucun séparateur,
+  aucune remontée `..`, aucun fichier d’un autre type.
+- La lecture refuse les liens symboliques ; l’écriture passe par un fichier
+  temporaire, `fsync`, puis un renommage atomique. Fichiers en `0600`, dossiers
+  en `0700` sur macOS/Linux.
+- La taille d’un fichier synchronisé est plafonnée à 100 Mo.
+- La surveillance utilise `notify` (événements du système de fichiers) avec un
+  anti-rebond de 500 ms. L’événement `coffre:sync-changed` ne contient que le
+  chemin du dossier, jamais un contenu de coffre. Il signale qu’une
+  synchronisation est disponible ; la fusion reste déclenchée par l’utilisateur.
+- À chaque synchronisation, chaque fichier distant est ouvert en mémoire avec la
+  clé maîtresse courante et son MAC global est vérifié. Un fichier invalide est
+  ignoré et signalé.
+- Si un fichier distant utilise une **époque de clés plus récente**, Coffre
+  demande le nouveau mot de passe maître, vérifie que les clés de coffre sont
+  identiques, reconstruit une session à la nouvelle époque puis fusionne. Aucun
+  ciphertext d’époques différentes n’est fusionné sans cette étape.
+- Les conflits à révision égale sont archivés dans l’historique de l’élément
+  avec un identifiant de version déterministe, ce qui évite les doublons lors
+  des synchronisations suivantes.
+- L’enveloppe de récupération d’un autre appareil n’est pas adoptée : celle de
+  l’appareil local est conservée si elle couvre tous les coffres, sinon elle est
+  retirée avec un avertissement. Régénérez la phrase après une fusion si
+  nécessaire.
+- Aucune requête réseau : le service de synchronisation est celui choisi par
+  l’utilisateur, hors de Coffre.
+
+**Sur le Web (Chromium)**, la même fusion utilise la File System Access API :
+
+- le dossier est choisi par `showDirectoryPicker` en lecture/écriture ;
+- seul un `FileSystemDirectoryHandle` est conservé dans IndexedDB
+  (base `coffre-sync`), jamais un contenu de coffre ;
+- la permission est vérifiée par `queryPermission` et redemandée si nécessaire ;
+- les mêmes validations de noms, la même limite de 100 Mo et les mêmes fichiers
+  `.coffre` signés sont utilisés ;
+- Safari, Firefox et les navigateurs sans File System Access API conservent
+  l’export/import manuel ; aucun cookie, compte ou service réseau n’est ajouté.
+- Le watcher système n’existe pas sur le Web : la synchronisation est
+  déclenchée manuellement depuis les réglages.
+
+La fusion des fichiers (`mergeVaultFiles`) est décrite en 2.7. Les limites de
+confiance restent celles du dossier partagé : un tiers qui peut lire les
+fichiers obtient les métadonnées chiffrées, et un tiers qui peut les modifier
+peut provoquer un déni de service ou une tentative de rejeu, détectée par le
+MAC et la révision.
+
+### 3.6 Limites du stockage local
 
 - **Desktop** : un processus du même compte utilisateur peut lire ou modifier le
   fichier s’il contourne les permissions — comme pour tout gestionnaire de mots
@@ -488,37 +893,60 @@ Le bouton « Vérifier le coffre » (section Sauvegarde) déchiffre et authentif
 - chaque pièce jointe référencée, avec comparaison de taille ;
 - l’enveloppe de récupération : `guard` avec la clé maîtresse et chaque `wrap`
   avec la clé de récupération ;
+- le MAC global du format 4 : manifeste canonique, tous les ciphertexts et
+  pierres tombales ;
+- la cohérence des pierres tombales (pas de doublon, pas d’entrée encore
+  présente) ;
 - l’absence de version et de pièce jointe orpheline.
 
-Toute erreur AES-GCM, incohérence de taille ou référence manquante produit un
-rapport d’échec. La vérification est en lecture seule : elle ne répare ni ne
-réécrit le coffre. En cas d’échec, exportez immédiatement une sauvegarde et
-n’effectuez plus de modification avant investigation.
+Toute erreur AES-GCM, incohérence de taille, MAC différent ou référence
+manquante produit un rapport d’échec. La vérification est en lecture seule :
+elle ne répare ni ne réécrit le coffre. En cas d’échec, exportez immédiatement
+une sauvegarde et n’effectuez plus de modification avant investigation.
 
-**Limite d’intégrité globale.** Chaque enregistrement est authentifié, mais le
-fichier complet ne possède ni MAC ni signature ni compteur anti-rétrogradation.
-Un attaquant capable d’écrire le fichier peut supprimer proprement un élément et
-ses dépendances, ou remplacer le fichier par une version antérieure complète.
-La vérification détecte les références orphelines et les altérations, pas une
-suppression cohérente ni un rollback. Conservez un export hors appareil et
-comparez les dates si cette menace fait partie de votre modèle.
+**Limites d’intégrité.** Depuis le format 4, le MAC global et la révision hors
+fichier détectent une suppression cohérente, une substitution d’enregistrement
+ou un remplacement par un fichier antérieur. Un attaquant qui contrôle à la fois
+le fichier de coffre et le fichier d’état local (`state.json` ou clé IndexedDB
+`state`) peut toujours rejouer un fichier complet ancien : cette barrière
+protège contre une substitution accidentelle ou partielle, pas contre un
+attaquant disposant durablement du compte de l’utilisateur. Conservez un export
+hors appareil et comparez les dates si cette menace fait partie de votre
+modèle.
 
 ---
 
 ## 6. Surface d’attaque applicative
 
-### 6.1 Pas de réseau
+### 6.1 Réseau minimal et explicite
 
-Le code de l’application ne contient ni `fetch`, ni `XMLHttpRequest`, ni
-WebSocket vers un service. Les polices sont système, les icônes sont des
-composants SVG locaux, la liste EFF est embarquée. L’import lit un fichier local
-via l’API `File` du navigateur et ne l’envoie nulle part.
+Le coffre n’utilise ni `XMLHttpRequest` ni WebSocket vers un service. Les
+polices sont système, les icônes sont des composants SVG locaux et la liste EFF
+est embarquée. L’import lit un fichier local via l’API `File` du navigateur et
+ne l’envoie nulle part.
+
+Deux fonctions optionnelles peuvent utiliser le réseau, jamais pour le contenu
+du coffre :
+
+- la synchronisation par dossier choisie par l’utilisateur, qui lit et écrit des
+  fichiers `.coffre` chiffrés dans un dossier déjà synchronisé par un autre
+  outil ;
+- la vérification des fuites, désactivée par défaut et déclenchée manuellement,
+  qui n’envoie qu’un préfixe SHA-1 de 5 caractères à Have I Been Pwned
+  (voir 2.12.1). Sur desktop, cette requête passe par Rust ; sur le Web, seul
+  `api.pwnedpasswords.com` est ajouté à `connect-src`.
 
 Le build PWA ajoute un service worker Workbox qui :
 
 - précache les ressources statiques de l’application ;
 - peut contacter le serveur d’origine pour mettre à jour ces ressources ;
 - ne met jamais le contenu du coffre dans le cache HTTP.
+
+Le pont natif desktop n’ouvre aucune connexion réseau : il utilise uniquement
+un socket Unix local dans le dossier de données de l’application. Aucune
+donnée du coffre n’est envoyée à un service, même pendant l’appairage de
+l’extension. La seule requête sortante possible est la plage HIBP optionnelle
+décrite en 2.12.1.
 
 ### 6.2 Rendu
 
@@ -666,7 +1094,7 @@ Windows/Linux restent à valider.
 | Risque | Impact | Atténuation actuelle |
 | --- | --- | --- |
 | Mot de passe maître faible | Déchiffrement hors ligne | Argon2id, minimum 12 caractères, indicateur de robustesse |
-| XSS ou code servi compromis | Vol des secrets pendant le déverrouillage | Pas de réseau, CSP fournie, dépendances verrouillées, Tauri CSP |
+| XSS ou code servi compromis | Vol des secrets pendant le déverrouillage | Réseau minimal (HIBP optionnel), CSP fournie, dépendances verrouillées, Tauri CSP |
 | Extension malveillante | Lecture du DOM, du presse-papiers, des frappes | Navigateur/profil dédié, désactivation des extensions |
 | Extension Coffre compromise | Lecture des identifiants pendant le remplissage | Aucun stockage, accès limité à l’onglet actif, verrouillage après usage |
 | Appareil compromis | Keylogging, mémoire, écran | Hors périmètre ; utiliser un OS à jour |
@@ -677,6 +1105,7 @@ Windows/Linux restent à valider.
 | Fichier d’import malveillant ou volumineux | Déni de service, import partiel | Limite de 20 Mo (50 Mo pour `.1pux`) et 5 000 éléments, validation, aperçu avant import |
 | Pièce jointe malveillante | Exécution à l’ouverture hors de Coffre | Type MIME et extension non fiables ; ouvrir avec prudence, aucune exécution dans l’application |
 | Métadonnées visibles | Fuite d’information limitée | Chiffrement du contenu ; métadonnées assumées |
+| Rejeu d’un fichier complet ancien | Retour à un état antérieur du coffre | MAC global et révision hors fichier (format 4) ; limite si l’attaquant contrôle aussi l’état local |
 | Historique et corbeille conservés | Données supprimées encore présentes dans le fichier | Chiffrés, plafonnés (20 versions/élément), purge configurable |
 | Dépendance compromise | Exécution arbitraire | Versions verrouillées, revue, build reproductible à venir |
 

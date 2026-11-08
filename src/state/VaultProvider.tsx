@@ -11,12 +11,15 @@ import {
   clearVaultStorage,
   loadBackupVaultFile,
   loadVaultFile,
+  loadVaultState,
   saveVaultFile,
+  saveVaultState,
 } from '../lib/storage'
 import {
   addAttachment as addAttachmentToFile,
   addVault as addVaultToFile,
   changeMasterPassword,
+  checkVaultRollback,
   createItem,
   createVaultFile,
   deleteItem,
@@ -25,15 +28,18 @@ import {
   disableRecovery,
   enableRecovery,
   listItemVersions,
+  moveItem as moveItemInFile,
   openAttachment,
   openVaultFileWithMasterKey,
   parseVaultFileText,
   recoverVaultFile,
+  recoverVaultFileWithRecoveryKey,
   removeAttachment as removeAttachmentFromFile,
   renameVault as renameVaultInFile,
   restoreItem as restoreItemFromFile,
   restoreItemVersion as restoreItemVersionInFile,
   serializeVault,
+  signVaultFile,
   trashItem as trashItemInFile,
   unlockVaultFile,
   updateItem as updateItemInFile,
@@ -53,7 +59,46 @@ import {
   storeBiometricKey,
 } from '../lib/biometrics'
 import { clearUsage } from '../lib/usage'
+import {
+  combineShares,
+  encodeShareWords,
+  parseShareInput,
+  shareToPayload,
+  splitSecret,
+  type RecoveryShare,
+} from '../lib/shamir'
 import { clearClipboardIfLastCopied } from '../lib/clipboard'
+import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
+import { isTauriRuntime } from '../lib/external'
+import {
+  getSyncConfig,
+  newSyncDeviceId,
+  removeSyncConfig,
+  saveSyncConfig,
+  syncDeviceFileName,
+  type SyncConfig,
+} from '../lib/syncConfig'
+import {
+  listSyncFiles,
+  onSyncFolderChanged,
+  prepareSyncFolder,
+  readSyncFile,
+  unwatchSyncFolder,
+  watchSyncFolder,
+  writeSyncFile,
+  type SyncFileInfo,
+} from '../lib/syncStorage'
+import {
+  clearWebSyncHandle,
+  ensureWebSyncPermission,
+  listWebSyncFiles,
+  loadWebSyncHandle,
+  prepareWebSyncDirectory,
+  readWebSyncFile,
+  saveWebSyncHandle,
+  writeWebSyncFile,
+} from '../lib/syncWebStorage'
+import { reconcileVaultFiles } from '../lib/syncService'
 import { acquireVaultLock, releaseVaultLock } from '../lib/tabLock'
 import { downloadBytes, downloadFile } from '../lib/settings'
 import {
@@ -71,6 +116,12 @@ export interface ImportResult {
   warnings: string[]
 }
 
+export interface SyncRunResult {
+  conflicts: number
+  warnings: string[]
+  adoptedEpoch: number | null
+}
+
 interface ProviderState {
   status: VaultStatus
   file: VaultFile | null
@@ -79,6 +130,12 @@ interface ProviderState {
   items: VaultItem[]
   warnings: string[]
   error: string | null
+  /** MAC global invalide : toutes les mutations sont refusées. */
+  readOnly: boolean
+  /** Un fichier du dossier synchronisé a changé depuis la dernière fusion. */
+  syncPending: boolean
+  /** Incrémenté après configuration, suppression ou synchronisation. */
+  syncRevision: number
 }
 
 interface VaultContextValue extends ProviderState {
@@ -94,6 +151,7 @@ interface VaultContextValue extends ProviderState {
   deleteVault: (vaultId: string) => Promise<void>
   addItem: (draft: ItemDraft) => Promise<VaultItem>
   updateItem: (item: VaultItem) => Promise<VaultItem>
+  moveItem: (itemId: string, targetVaultId: string) => Promise<VaultItem>
   trashItem: (itemId: string) => Promise<VaultItem>
   trashItems: (itemIds: string[]) => Promise<number>
   favoriteItems: (itemIds: string[], favorite: boolean) => Promise<number>
@@ -109,11 +167,21 @@ interface VaultContextValue extends ProviderState {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   setRecoveryPhrase: (phrase: string | null) => Promise<void>
   recoverWithPhrase: (phrase: string, newPassword: string) => Promise<void>
+  /** Découpe la clé de récupération en parts Shamir, sans exposer la clé. */
+  createRecoveryShares: (threshold: number, total: number) => Promise<RecoveryShare[]>
+  /** Reconstruit la clé depuis des parts et impose un nouveau mot de passe. */
+  recoverWithShares: (shares: string[], newPassword: string) => Promise<void>
   exportVault: () => void
   importVault: (text: string, password: string) => Promise<void>
   verify: () => Promise<VaultIntegrityReport>
   reset: () => Promise<void>
   restoreFromBackup: (password: string, generation?: number) => Promise<void>
+  configureSync: (baseDir: string) => Promise<SyncConfig>
+  configureWebSync: (
+    handle: FileSystemDirectoryHandle,
+  ) => Promise<SyncConfig>
+  disableSync: () => Promise<void>
+  syncNow: (password?: string) => Promise<SyncRunResult>
   dismissWarnings: () => void
 }
 
@@ -125,6 +193,9 @@ const initialState: ProviderState = {
   items: [],
   warnings: [],
   error: null,
+  readOnly: false,
+  syncPending: false,
+  syncRevision: 0,
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -166,6 +237,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef<ProviderState>(initialState)
   const queueRef = useRef<Promise<unknown>>(Promise.resolve())
   const epochRef = useRef(0)
+  /** Révision minimale connue pour le fichier courant (anti-retour). */
+  const revisionFloorRef = useRef(0)
+  /** Ignore les événements de notre propre écriture dans le dossier synchronisé. */
+  const syncIgnoreUntilRef = useRef(0)
   // Identifiant du coffre dont la clé biométrique est déjà rangée. Évite de
   // réécrire l’entrée du trousseau à chaque déverrouillage, ce qui redéclenche
   // l’autorisation d’accès macOS.
@@ -186,17 +261,83 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     return result
   }, [])
 
+  /** Enregistre la plus haute révision vue. Un échec ne bloque pas l’usage. */
+  const acceptRevision = useCallback(
+    async (
+      file: VaultFile,
+      options: { lower?: boolean } = {},
+    ): Promise<void> => {
+      if (file.version !== 4 || file.revision === undefined) return
+      const revision = options.lower
+        ? file.revision
+        : Math.max(file.revision, revisionFloorRef.current)
+      revisionFloorRef.current = revision
+      try {
+        await saveVaultState({
+          fileId: file.id,
+          revision,
+          updatedAt: file.updatedAt,
+        })
+      } catch (error) {
+        console.warn(
+          'Coffre : impossible d’enregistrer l’état anti-retour en arrière.',
+          error,
+        )
+      }
+    },
+    [],
+  )
+
+  const persistWithSession = useCallback(
+    async (
+      session: VaultSession,
+      base: VaultFile,
+      next: VaultFile,
+    ): Promise<VaultFile> => {
+      const signed = await signVaultFile(next, session, base, {
+        minimumRevision: revisionFloorRef.current,
+      })
+      await saveVaultFile(signed)
+      await acceptRevision(signed)
+      return signed
+    },
+    [acceptRevision],
+  )
+
+  /**
+   * Signe et écrit une mutation contrôlée. Toute écriture de l’application
+   * passe par ici : révision, horloges, pierres tombales et MAC sont calculés
+   * sur `next` à partir de `base`, puis l’état local est mis à jour.
+   */
+  const persist = useCallback(
+    async (base: VaultFile, next: VaultFile): Promise<VaultFile> => {
+      const current = stateRef.current
+      if (current.readOnly) {
+        throw new Error(
+          'Le coffre est ouvert en lecture seule : l’intégrité du fichier n’a pas pu être vérifiée.',
+        )
+      }
+      if (!current.session) throw new Error('Coffre verrouillé')
+      return persistWithSession(current.session, base, next)
+    },
+    [persistWithSession],
+  )
+
   /**
    * Purge les éléments dont la date de suppression dépasse la rétention
    * configurée. Si l’écriture échoue, le coffre reste ouvrable : on conserve
    * simplement la corbeille et on ajoute un avertissement.
    */
   const applyTrashRetention = useCallback(async (opened: OpenedVault): Promise<OpenedVault> => {
+    if (opened.readOnly) return opened
     const expired = expiredTrashIds(opened.items, settingsRef.current.trashRetentionDays)
     if (expired.length === 0) return opened
 
     try {
-      const file = deleteItems(opened.file, expired)
+      const next = deleteItems(opened.file, expired)
+      const file = await signVaultFile(next, opened.session, opened.file, {
+        minimumRevision: revisionFloorRef.current,
+      })
       await saveVaultFile(file)
       const removed = new Set(expired)
       return {
@@ -220,6 +361,63 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [])
+
+  /**
+   * Contrôle anti-retour en arrière puis purge de la corbeille. Une
+   * restauration volontaire (`acceptRollback`) ne déclenche pas d’alerte et
+   * abaisse explicitement la révision de référence.
+   */
+  const finalizeOpen = useCallback(
+    async (
+      opened: OpenedVault,
+      options: { acceptRollback?: boolean } = {},
+    ): Promise<OpenedVault> => {
+      const state = await loadVaultState().catch(() => null)
+      revisionFloorRef.current =
+        state && state.fileId === opened.file.id ? state.revision : 0
+      const rollback = options.acceptRollback
+        ? null
+        : checkVaultRollback(opened.file, state)
+      if (options.acceptRollback && opened.file.version === 4) {
+        revisionFloorRef.current = opened.file.revision ?? 0
+      }
+      let next = rollback
+        ? { ...opened, warnings: [rollback, ...opened.warnings] }
+        : opened
+      if (!rollback) next = await applyTrashRetention(next)
+      if (next.integrity !== 'invalid' && (!rollback || options.acceptRollback)) {
+        await acceptRevision(next.file, { lower: options.acceptRollback })
+      }
+      return next
+    },
+    [acceptRevision, applyTrashRetention],
+  )
+
+  /**
+   * Écrit un fichier ouvert hors du flux de mutation (import, récupération,
+   * restauration). Un fichier v4 déjà signé est conservé tel quel pour que la
+   * restauration puisse reculer volontairement de révision ; un fichier
+   * antérieur est migré et signé.
+   */
+  const saveOpenedFile = useCallback(
+    async (opened: OpenedVault): Promise<OpenedVault> => {
+      if (opened.readOnly) {
+        throw new Error(
+          'Le fichier importé n’a pas pu être authentifié : il est refusé.',
+        )
+      }
+      const file =
+        opened.file.version === 4 && opened.file.integrity
+          ? opened.file
+          : await signVaultFile(opened.file, opened.session, opened.file, {
+              minimumRevision: revisionFloorRef.current,
+            })
+      await saveVaultFile(file)
+      await acceptRevision(file, { lower: true })
+      return { ...opened, file }
+    },
+    [acceptRevision],
+  )
 
   const rememberBiometricKey = useCallback(
     (fileId: string, secret: string, force = false) => {
@@ -316,7 +514,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             }
             const masterKey = fromBase64(secret)
             try {
-              const opened = await applyTrashRetention(
+              const opened = await finalizeOpen(
                 await openVaultFileWithMasterKey(file, masterKey),
               )
               if (cancelled) {
@@ -333,6 +531,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
                 items: opened.items,
                 warnings: opened.warnings,
                 error: null,
+                readOnly: opened.readOnly,
+                syncPending: false,
+                syncRevision: 0,
               }))
               return
             } catch {
@@ -358,7 +559,36 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [apply, applyTrashRetention])
+  }, [apply, finalizeOpen])
+
+  const watchedSyncFileId =
+    state.status === 'unlocked' ? state.file?.id ?? null : null
+
+  useEffect(() => {
+    if (!isTauriRuntime() || !watchedSyncFileId) return
+    const config = getSyncConfig(watchedSyncFileId)
+    if (!config || config.platform === 'web') return
+
+    let active = true
+    let unlisten: (() => void) | undefined
+    void watchSyncFolder(config.dir).catch(() => undefined)
+    void onSyncFolderChanged((dir) => {
+      if (!active || dir !== config.dir) return
+      if (Date.now() < syncIgnoreUntilRef.current) return
+      apply((previous) =>
+        previous.syncPending ? previous : { ...previous, syncPending: true },
+      )
+    }).then((cleanup) => {
+      if (active) unlisten = cleanup
+      else cleanup()
+    })
+
+    return () => {
+      active = false
+      unlisten?.()
+      void unwatchSyncFolder().catch(() => undefined)
+    }
+  }, [apply, state.syncRevision, watchedSyncFileId])
 
   useEffect(() => {
     const onBeforeUnload = () => {
@@ -401,7 +631,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           throw error
         }
         try {
-          await saveVaultFile(opened.file)
+          opened = await saveOpenedFile(opened)
         } catch (error) {
           opened.session.lock()
           releaseVaultLock()
@@ -416,10 +646,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           items: opened.items,
           warnings: opened.warnings,
           error: null,
+          readOnly: opened.readOnly,
+          syncPending: false,
+          syncRevision: 0,
         }))
         rememberCurrentKey()
       }),
-    [apply, enqueue, rememberCurrentKey, requireVaultLock],
+    [apply, enqueue, rememberCurrentKey, requireVaultLock, saveOpenedFile],
   )
 
   const unlock = useCallback(
@@ -430,7 +663,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         await requireVaultLock()
         let opened: OpenedVault
         try {
-          opened = await applyTrashRetention(
+          opened = await finalizeOpen(
             await unlockVaultFile(current.file, password),
           )
         } catch (error) {
@@ -446,10 +679,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           items: opened.items,
           warnings: opened.warnings,
           error: null,
+          readOnly: opened.readOnly,
+          syncPending: false,
+          syncRevision: 0,
         }))
         rememberCurrentKey()
       }),
-    [apply, applyTrashRetention, enqueue, rememberCurrentKey, requireVaultLock],
+    [apply, enqueue, finalizeOpen, rememberCurrentKey, requireVaultLock],
   )
 
   const unlockWithBiometrics = useCallback(
@@ -488,7 +724,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         const masterKey = fromBase64(result.secret)
         try {
-          const opened = await applyTrashRetention(
+          const opened = await finalizeOpen(
             await openVaultFileWithMasterKey(current.file, masterKey),
           )
           epochRef.current += 1
@@ -501,6 +737,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             items: opened.items,
             warnings: opened.warnings,
             error: null,
+            readOnly: opened.readOnly,
+            syncPending: false,
+            syncRevision: 0,
           }))
           return true
         } catch {
@@ -515,7 +754,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           wipe(masterKey)
         }
       }),
-    [apply, applyTrashRetention, enqueue, requireVaultLock],
+    [apply, enqueue, finalizeOpen, requireVaultLock],
   )
 
   const resetBiometricKey = useCallback(async () => {
@@ -535,6 +774,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const current = stateRef.current
     if (current.status !== 'unlocked') return
     epochRef.current += 1
+    revisionFloorRef.current = 0
     current.session?.lock()
     releaseVaultLock()
     void clearClipboardIfLastCopied()
@@ -554,6 +794,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       vaults: [],
       items: [],
       warnings: [],
+      readOnly: false,
+      syncPending: false,
     }))
   }, [apply])
 
@@ -564,15 +806,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
         const epoch = epochRef.current
         const result = await addVaultToFile(current.file, current.session, name)
-        await saveVaultFile(result.file)
+        const file = await persist(current.file, result.file)
         if (epochRef.current !== epoch) return
         apply((previous) => ({
           ...previous,
-          file: result.file,
+          file,
           vaults: [...previous.vaults, result.vault],
         }))
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const renameVault = useCallback(
@@ -581,8 +823,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const current = stateRef.current
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
         const epoch = epochRef.current
-        const file = await renameVaultInFile(current.file, current.session, vaultId, name)
-        await saveVaultFile(file)
+        const next = await renameVaultInFile(current.file, current.session, vaultId, name)
+        const file = await persist(current.file, next)
         if (epochRef.current !== epoch) return
         apply((previous) => ({
           ...previous,
@@ -592,7 +834,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           ),
         }))
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const deleteVault = useCallback(
@@ -601,8 +843,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const current = stateRef.current
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
         const epoch = epochRef.current
-        const file = await deleteVaultFromFile(current.file, current.session, vaultId)
-        await saveVaultFile(file)
+        const next = await deleteVaultFromFile(current.file, current.session, vaultId)
+        const file = await persist(current.file, next)
         if (epochRef.current !== epoch) return
         apply((previous) => ({
           ...previous,
@@ -611,7 +853,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           items: previous.items.filter((item) => item.vaultId !== vaultId),
         }))
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const addItem = useCallback(
@@ -621,11 +863,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
         const epoch = epochRef.current
         const result = await createItem(current.file, current.session, draft)
-        await saveVaultFile(result.file)
+        const file = await persist(current.file, result.file)
         if (epochRef.current !== epoch) return result.item
         apply((previous) => ({
           ...previous,
-          file: result.file,
+          file,
           items: [...previous.items, result.item],
           vaults: previous.vaults.map((vault) =>
             vault.id === result.item.vaultId
@@ -635,7 +877,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
         return result.item
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const updateItem = useCallback(
@@ -645,18 +887,56 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
         const epoch = epochRef.current
         const result = await updateItemInFile(current.file, current.session, item)
-        await saveVaultFile(result.file)
+        const file = await persist(current.file, result.file)
         if (epochRef.current !== epoch) return result.item
         apply((previous) => ({
           ...previous,
-          file: result.file,
+          file,
           items: previous.items.map((candidate) =>
             candidate.id === result.item.id ? result.item : candidate,
           ),
         }))
         return result.item
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
+  )
+
+  const moveItem = useCallback(
+    (itemId: string, targetVaultId: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        const existing = current.items.find((item) => item.id === itemId)
+        if (!existing) throw new VaultValidationError('Élément introuvable')
+        if (existing.vaultId === targetVaultId) return existing
+        const epoch = epochRef.current
+        const result = await moveItemInFile(
+          current.file,
+          current.session,
+          itemId,
+          targetVaultId,
+        )
+        const file = await persist(current.file, result.file)
+        if (epochRef.current !== epoch) return result.item
+        apply((previous) => ({
+          ...previous,
+          file,
+          items: previous.items.map((candidate) =>
+            candidate.id === result.item.id ? result.item : candidate,
+          ),
+          vaults: previous.vaults.map((vault) => {
+            if (vault.id === existing.vaultId) {
+              return { ...vault, itemCount: Math.max(0, vault.itemCount - 1) }
+            }
+            if (vault.id === targetVaultId) {
+              return { ...vault, itemCount: vault.itemCount + 1 }
+            }
+            return vault
+          }),
+        }))
+        return result.item
+      }),
+    [apply, enqueue, persist],
   )
 
   const trashItem = useCallback(
@@ -668,11 +948,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!existing) throw new VaultValidationError('Élément introuvable')
         const epoch = epochRef.current
         const result = await trashItemInFile(current.file, current.session, itemId)
-        await saveVaultFile(result.file)
+        const file = await persist(current.file, result.file)
         if (epochRef.current !== epoch) return result.item
         apply((previous) => ({
           ...previous,
-          file: result.file,
+          file,
           items: previous.items.map((item) =>
             item.id === result.item.id ? result.item : item,
           ),
@@ -684,7 +964,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
         return result.item
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const trashItems = useCallback(
@@ -699,14 +979,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (existing.length === 0) return 0
 
         const epoch = epochRef.current
-        let file = current.file
+        let draft = current.file
         const trashed: VaultItem[] = []
         for (const item of existing) {
-          const result = await trashItemInFile(file, current.session, item.id)
-          file = result.file
+          const result = await trashItemInFile(draft, current.session, item.id)
+          draft = result.file
           trashed.push(result.item)
         }
-        await saveVaultFile(file)
+        const file = await persist(current.file, draft)
         if (epochRef.current !== epoch) return trashed.length
 
         const counts = new Map<string, number>()
@@ -726,7 +1006,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
         return trashed.length
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const favoriteItems = useCallback(
@@ -741,17 +1021,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (existing.length === 0) return 0
 
         const epoch = epochRef.current
-        let file = current.file
+        let draft = current.file
         const changed: VaultItem[] = []
         for (const item of existing) {
-          const result = await updateItemInFile(file, current.session, {
+          const result = await updateItemInFile(draft, current.session, {
             ...item,
             favorite,
           })
-          file = result.file
+          draft = result.file
           changed.push(result.item)
         }
-        await saveVaultFile(file)
+        const file = await persist(current.file, draft)
         if (epochRef.current !== epoch) return changed.length
         apply((previous) => ({
           ...previous,
@@ -762,7 +1042,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
         return changed.length
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const restoreItem = useCallback(
@@ -774,11 +1054,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!existing) throw new VaultValidationError('Élément introuvable')
         const epoch = epochRef.current
         const result = await restoreItemFromFile(current.file, current.session, itemId)
-        await saveVaultFile(result.file)
+        const file = await persist(current.file, result.file)
         if (epochRef.current !== epoch) return result.item
         apply((previous) => ({
           ...previous,
-          file: result.file,
+          file,
           items: previous.items.map((item) =>
             item.id === result.item.id ? result.item : item,
           ),
@@ -790,7 +1070,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
         return result.item
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const deleteItemPermanently = useCallback(
@@ -801,8 +1081,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const existing = current.items.find((item) => item.id === itemId)
         if (!existing) return
         const epoch = epochRef.current
-        const file = await deleteItem(current.file, itemId)
-        await saveVaultFile(file)
+        const draft = await deleteItem(current.file, itemId)
+        const file = await persist(current.file, draft)
         if (epochRef.current !== epoch) return
         apply((previous) => ({
           ...previous,
@@ -815,7 +1095,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           ),
         }))
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const emptyTrash = useCallback(
@@ -829,8 +1109,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (ids.length === 0) return 0
 
         const epoch = epochRef.current
-        const file = deleteItems(current.file, ids)
-        await saveVaultFile(file)
+        const draft = deleteItems(current.file, ids)
+        const file = await persist(current.file, draft)
         if (epochRef.current !== epoch) return ids.length
         const removed = new Set(ids)
         apply((previous) => ({
@@ -840,7 +1120,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
         return ids.length
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const getItemVersions = useCallback(
@@ -865,18 +1145,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           itemId,
           versionId,
         )
-        await saveVaultFile(result.file)
+        const file = await persist(current.file, result.file)
         if (epochRef.current !== epoch) return result.item
         apply((previous) => ({
           ...previous,
-          file: result.file,
+          file,
           items: previous.items.map((item) =>
             item.id === result.item.id ? result.item : item,
           ),
         }))
         return result.item
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const addAttachment = useCallback(
@@ -901,11 +1181,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               bytes,
             },
           )
-          await saveVaultFile(result.file)
+          const file = await persist(current.file, result.file)
           if (epochRef.current !== epoch) return result.item
           apply((previous) => ({
             ...previous,
-            file: result.file,
+            file,
             items: previous.items.map((candidate) =>
               candidate.id === result.item.id ? result.item : candidate,
             ),
@@ -915,7 +1195,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           wipe(bytes)
         }
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const removeAttachment = useCallback(
@@ -930,18 +1210,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           item,
           attachmentId,
         )
-        await saveVaultFile(result.file)
+        const file = await persist(current.file, result.file)
         if (epochRef.current !== epoch) return result.item
         apply((previous) => ({
           ...previous,
-          file: result.file,
+          file,
           items: previous.items.map((candidate) =>
             candidate.id === result.item.id ? result.item : candidate,
           ),
         }))
         return result.item
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const downloadAttachment = useCallback(
@@ -974,18 +1254,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           throw new VaultValidationError('Import limité à 5 000 éléments à la fois')
         }
 
-        let file = current.file
+        let draft = current.file
         const created: VaultItem[] = []
         const warnings: string[] = []
 
-        for (const draft of drafts) {
+        for (const itemDraft of drafts) {
           try {
-            const result = await createItem(file, current.session, draft)
-            file = result.file
+            const result = await createItem(draft, current.session, itemDraft)
+            draft = result.file
             created.push(result.item)
           } catch (error) {
             warnings.push(
-              `« ${draft.title || 'Sans titre'} » : ${
+              `« ${itemDraft.title || 'Sans titre'} » : ${
                 error instanceof Error ? error.message : 'import impossible'
               }`,
             )
@@ -995,7 +1275,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (created.length === 0) return { imported: 0, warnings }
 
         const epoch = epochRef.current
-        await saveVaultFile(file)
+        const file = await persist(current.file, draft)
         if (epochRef.current !== epoch) return { imported: created.length, warnings }
 
         apply((previous) => {
@@ -1013,7 +1293,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         return { imported: created.length, warnings }
       }),
-    [apply, enqueue],
+    [apply, enqueue, persist],
   )
 
   const changePassword = useCallback(
@@ -1028,9 +1308,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!matches) throw new Error('Le mot de passe actuel est incorrect')
 
         const epoch = epochRef.current
-        const file = await changeMasterPassword(current.file, current.session, newPassword)
+        const draft = await changeMasterPassword(current.file, current.session, newPassword)
+        let file: VaultFile
         try {
-          await saveVaultFile(file)
+          file = await persist(current.file, draft)
         } catch (error) {
           // Le fichier sur disque utilise encore l’ancienne clé : on verrouille
           // pour éviter de continuer avec une session incohérente.
@@ -1061,7 +1342,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
       }),
-    [apply, enqueue, lock],
+    [apply, enqueue, lock, persist],
   )
 
   const setRecoveryPhrase = useCallback(
@@ -1071,11 +1352,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
 
         const epoch = epochRef.current
-        const file = phrase
+        const draft = phrase
           ? await enableRecovery(current.file, current.session, phrase)
           : disableRecovery(current.file, current.session)
+        let file: VaultFile
         try {
-          await saveVaultFile(file)
+          file = await persist(current.file, draft)
         } catch (error) {
           lock()
           throw error
@@ -1083,7 +1365,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (epochRef.current !== epoch) return
         apply((previous) => ({ ...previous, file }))
       }),
-    [apply, enqueue, lock],
+    [apply, enqueue, lock, persist],
   )
 
   const recoverWithPhrase = useCallback(
@@ -1095,14 +1377,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         let opened: OpenedVault
         try {
-          opened = await applyTrashRetention(
+          opened = await finalizeOpen(
             await recoverVaultFile(current.file, phrase, newPassword),
+            { acceptRollback: true },
           )
+          opened = await saveOpenedFile(opened)
         } catch (error) {
           releaseVaultLock()
           throw error
         }
-        await saveVaultFile(opened.file)
         current.session?.lock()
         epochRef.current += 1
         apply(() => ({
@@ -1113,10 +1396,96 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           items: opened.items,
           warnings: opened.warnings,
           error: null,
+          readOnly: opened.readOnly,
+          syncPending: false,
+          syncRevision: 0,
         }))
         rememberCurrentKey(true)
       }),
-    [apply, applyTrashRetention, enqueue, rememberCurrentKey, requireVaultLock],
+    [apply, enqueue, finalizeOpen, rememberCurrentKey, requireVaultLock, saveOpenedFile],
+  )
+
+  const createRecoveryShares = useCallback(
+    (threshold: number, total: number) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file?.recovery) {
+          throw new VaultValidationError(
+            'Configurez d’abord une phrase de récupération pour créer un kit d’urgence.',
+          )
+        }
+        if (!current.session) throw new Error('Coffre verrouillé')
+
+        let recoveryKey: Uint8Array
+        try {
+          recoveryKey = current.session.recoveryKey().slice()
+        } catch {
+          throw new VaultValidationError(
+            'La clé de récupération n’est pas disponible ; régénérez la phrase de récupération.',
+          )
+        }
+
+        let parts: Uint8Array[] = []
+        try {
+          parts = await splitSecret(recoveryKey, threshold, total)
+          return parts.map((part, index) => ({
+            index: index + 1,
+            threshold,
+            total,
+            words: encodeShareWords(part),
+            payload: shareToPayload(part),
+          }))
+        } finally {
+          wipe(recoveryKey)
+          for (const part of parts) wipe(part)
+        }
+      }),
+    [enqueue],
+  )
+
+  const recoverWithShares = useCallback(
+    (shares: string[], newPassword: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file) throw new Error('Aucun coffre local à récupérer')
+        await requireVaultLock()
+
+        const parts = shares.map(parseShareInput)
+        let recoveryKey: Uint8Array | null = null
+        try {
+          recoveryKey = await combineShares(parts)
+          let opened: OpenedVault
+          try {
+            opened = await finalizeOpen(
+              await recoverVaultFileWithRecoveryKey(current.file, recoveryKey, newPassword),
+              { acceptRollback: true },
+            )
+            opened = await saveOpenedFile(opened)
+          } catch (error) {
+            releaseVaultLock()
+            throw error
+          }
+          current.session?.lock()
+          epochRef.current += 1
+          apply(() => ({
+            status: 'unlocked',
+            file: opened.file,
+            session: opened.session,
+            vaults: opened.vaults,
+            items: opened.items,
+            warnings: opened.warnings,
+            error: null,
+            readOnly: opened.readOnly,
+            syncPending: false,
+            syncRevision: 0,
+          }))
+          rememberCurrentKey(true)
+        } finally {
+          if (recoveryKey) wipe(recoveryKey)
+          for (const part of parts) wipe(part)
+        }
+      }),
+    [apply, enqueue, finalizeOpen, rememberCurrentKey, requireVaultLock, saveOpenedFile],
   )
 
   const exportVault = useCallback(() => {
@@ -1136,14 +1505,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         let opened: OpenedVault
         try {
           file = parseVaultFileText(text)
-          opened = await applyTrashRetention(
-            await unlockVaultFile(file, password),
-          )
+          opened = await finalizeOpen(await unlockVaultFile(file, password), {
+            acceptRollback: true,
+          })
+          opened = await saveOpenedFile(opened)
         } catch (error) {
           releaseVaultLock()
           throw error
         }
-        await saveVaultFile(opened.file)
         const previous = stateRef.current
         previous.session?.lock()
         epochRef.current += 1
@@ -1155,6 +1524,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           items: opened.items,
           warnings: opened.warnings,
           error: null,
+          readOnly: opened.readOnly,
+          syncPending: false,
+          syncRevision: 0,
         }))
         if (previous.file && previous.file.id !== opened.file.id) {
           biometricKeyFileRef.current = null
@@ -1163,7 +1535,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
         rememberCurrentKey(true)
       }),
-    [apply, applyTrashRetention, enqueue, rememberCurrentKey, requireVaultLock],
+    [apply, enqueue, finalizeOpen, rememberCurrentKey, requireVaultLock, saveOpenedFile],
   )
 
   const verify = useCallback(
@@ -1188,6 +1560,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         await clearVaultStorage()
         clearUsage()
         epochRef.current += 1
+        revisionFloorRef.current = 0
         current.session?.lock()
         releaseVaultLock()
         void clearClipboardIfLastCopied()
@@ -1195,7 +1568,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           biometricKeyFileRef.current = null
           await deleteVaultKey(current.file.id)
           await deleteBiometricKey(current.file.id)
+          const syncConfig = getSyncConfig(current.file.id)
+          removeSyncConfig(current.file.id)
+          if (syncConfig?.platform === 'web') {
+            await clearWebSyncHandle(current.file.id).catch(() => undefined)
+          }
+          await unwatchSyncFolder().catch(() => undefined)
         }
+        await deleteVaultKey(BRIDGE_KEYCHAIN_ACCOUNT)
+        window.dispatchEvent(new Event('coffre:bridge-forget'))
         apply(() => ({ ...initialState, status: 'empty' }))
       }),
     [apply, enqueue],
@@ -1209,14 +1590,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         await requireVaultLock()
         let opened: OpenedVault
         try {
-          opened = await applyTrashRetention(
-            await unlockVaultFile(backup, password),
-          )
+          opened = await finalizeOpen(await unlockVaultFile(backup, password), {
+            acceptRollback: true,
+          })
+          opened = await saveOpenedFile(opened)
         } catch (error) {
           releaseVaultLock()
           throw error
         }
-        await saveVaultFile(opened.file)
         const previous = stateRef.current
         previous.session?.lock()
         epochRef.current += 1
@@ -1228,6 +1609,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           items: opened.items,
           warnings: opened.warnings,
           error: null,
+          readOnly: opened.readOnly,
+          syncPending: false,
+          syncRevision: 0,
         }))
         if (previous.file && previous.file.id !== opened.file.id) {
           biometricKeyFileRef.current = null
@@ -1236,7 +1620,270 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
         rememberCurrentKey(true)
       }),
-    [apply, applyTrashRetention, enqueue, rememberCurrentKey, requireVaultLock],
+    [apply, enqueue, finalizeOpen, rememberCurrentKey, requireVaultLock, saveOpenedFile],
+  )
+
+  const configureSync = useCallback(
+    (baseDir: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!isTauriRuntime()) {
+          throw new Error('La synchronisation par dossier est disponible sur desktop.')
+        }
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        const existing = getSyncConfig(current.file.id)
+        const deviceId = existing?.deviceId ?? newSyncDeviceId()
+        const dir = await prepareSyncFolder(baseDir, current.file.id)
+        const config: SyncConfig = {
+          version: 1,
+          platform: 'desktop',
+          fileId: current.file.id,
+          baseDir,
+          dir,
+          deviceId,
+          lastSyncAt: existing?.lastSyncAt,
+          lastConflicts: existing?.lastConflicts,
+        }
+        syncIgnoreUntilRef.current = Date.now() + 4_000
+        try {
+          await writeSyncFile(
+            dir,
+            syncDeviceFileName(config),
+            serializeVault(current.file, false),
+          )
+        } catch (error) {
+          removeSyncConfig(current.file.id)
+          throw error
+        }
+        saveSyncConfig(config)
+        apply((previous) => ({
+          ...previous,
+          syncPending: false,
+          syncRevision: previous.syncRevision + 1,
+        }))
+        return config
+      }),
+    [apply, enqueue],
+  )
+
+  const configureWebSync = useCallback(
+    (handle: FileSystemDirectoryHandle) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        const existing = getSyncConfig(current.file.id)
+        const deviceId = existing?.deviceId ?? newSyncDeviceId()
+        const label = await prepareWebSyncDirectory(handle, current.file.id)
+        const config: SyncConfig = {
+          version: 1,
+          platform: 'web',
+          fileId: current.file.id,
+          baseDir: handle.name,
+          dir: label,
+          deviceId,
+          lastSyncAt: existing?.lastSyncAt,
+          lastConflicts: existing?.lastConflicts,
+        }
+        try {
+          await saveWebSyncHandle(current.file.id, handle)
+          await writeWebSyncFile(
+            handle,
+            current.file.id,
+            syncDeviceFileName(config),
+            serializeVault(current.file, false),
+          )
+        } catch (error) {
+          await clearWebSyncHandle(current.file.id).catch(() => undefined)
+          removeSyncConfig(current.file.id)
+          throw error
+        }
+        saveSyncConfig(config)
+        apply((previous) => ({
+          ...previous,
+          syncPending: false,
+          syncRevision: previous.syncRevision + 1,
+        }))
+        return config
+      }),
+    [apply, enqueue],
+  )
+
+  const disableSync = useCallback(
+    () =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (current.file) {
+          const config = getSyncConfig(current.file.id)
+          removeSyncConfig(current.file.id)
+          if (config?.platform === 'web') {
+            await clearWebSyncHandle(current.file.id).catch(() => undefined)
+          }
+        }
+        await unwatchSyncFolder().catch(() => undefined)
+        apply((previous) => ({
+          ...previous,
+          syncPending: false,
+          syncRevision: previous.syncRevision + 1,
+        }))
+      }),
+    [apply, enqueue],
+  )
+
+  const syncNow = useCallback(
+    (password?: string) =>
+      enqueue(async (): Promise<SyncRunResult> => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        const config = getSyncConfig(current.file.id)
+        if (!config) throw new Error('Aucun dossier de synchronisation configuré.')
+
+        const ownName = syncDeviceFileName(config)
+        const fileId = current.file.id
+        let io: {
+          list: () => Promise<SyncFileInfo[]>
+          read: (name: string) => Promise<string | null>
+          write: (name: string, contents: string) => Promise<void>
+        }
+        if (config.platform === 'web') {
+          const handle = await loadWebSyncHandle(fileId)
+          if (!handle) {
+            throw new Error(
+              'Le dossier Web n’est plus accessible. Choisissez-le à nouveau.',
+            )
+          }
+          if (!(await ensureWebSyncPermission(handle))) {
+            throw new Error('L’accès au dossier de synchronisation a été refusé.')
+          }
+          io = {
+            list: () => listWebSyncFiles(handle, fileId),
+            read: (name) => readWebSyncFile(handle, fileId, name),
+            write: (name, contents) =>
+              writeWebSyncFile(handle, fileId, name, contents),
+          }
+        } else {
+          io = {
+            list: () => listSyncFiles(config.dir),
+            read: (name) => readSyncFile(config.dir, name),
+            write: (name, contents) =>
+              writeSyncFile(config.dir, name, contents),
+          }
+        }
+        syncIgnoreUntilRef.current = Date.now() + 4_000
+
+        // Snapshot local avant lecture : les autres appareils peuvent le voir
+        // même si la fusion échoue ensuite.
+        await io.write(ownName, serializeVault(current.file, false))
+
+        const warnings: string[] = []
+        const remotes: VaultFile[] = []
+        const entries = await io.list()
+        for (const entry of entries) {
+          if (entry.name === ownName) continue
+          try {
+            const text = await io.read(entry.name)
+            if (!text) continue
+            remotes.push(parseVaultFileText(text))
+          } catch {
+            warnings.push(`Le fichier « ${entry.name} » est illisible et a été ignoré.`)
+          }
+        }
+
+        const result = await reconcileVaultFiles({
+          local: current.file,
+          session: current.session,
+          remotes,
+          password,
+        })
+        warnings.push(...result.warnings)
+
+        let signed = current.file
+        let opened: OpenedVault | null = null
+        if (result.session !== current.session || result.file !== current.file) {
+          try {
+            signed = await persistWithSession(
+              result.session,
+              current.file,
+              result.file,
+            )
+          } catch (error) {
+            if (result.session !== current.session) result.session.lock()
+            throw error
+          }
+          try {
+            await io.write(ownName, serializeVault(signed, false))
+          } catch {
+            warnings.push(
+              'Le fichier fusionné n’a pas pu être réécrit dans le dossier synchronisé.',
+            )
+          }
+          try {
+            opened = await openVaultFileWithMasterKey(
+              signed,
+              result.session.masterKey,
+            )
+          } catch {
+            current.session.lock()
+            if (result.session !== current.session) result.session.lock()
+            lock()
+            throw new Error(
+              'Le coffre fusionné n’a pas pu être rouvert. Déverrouillez-le à nouveau.',
+            )
+          }
+        }
+
+        const now = new Date().toISOString()
+        saveSyncConfig({
+          ...config,
+          lastSyncAt: now,
+          lastConflicts: result.conflicts.length,
+          lastWarning:
+            warnings.length > 0
+              ? warnings.slice(0, 3).join(' · ').slice(0, 500)
+              : undefined,
+        })
+        syncIgnoreUntilRef.current = Date.now() + 2_000
+
+        if (opened) {
+          const previousSession = current.session
+          current.session.lock()
+          if (result.session !== previousSession) result.session.lock()
+          epochRef.current += 1
+          apply((previous) => ({
+            ...previous,
+            file: signed,
+            session: opened.session,
+            vaults: opened.vaults,
+            items: opened.items,
+            warnings: opened.warnings,
+            error: null,
+            readOnly: opened.readOnly,
+            syncPending: false,
+            syncRevision: previous.syncRevision + 1,
+          }))
+        } else {
+          apply((previous) => ({
+            ...previous,
+            syncPending: false,
+            syncRevision: previous.syncRevision + 1,
+          }))
+        }
+
+        return {
+          conflicts: result.conflicts.length,
+          warnings,
+          adoptedEpoch: result.adoptedEpoch,
+        }
+      }),
+    [apply, enqueue, lock, persistWithSession],
   )
 
   const dismissWarnings = useCallback(() => {
@@ -1255,6 +1902,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     deleteVault,
     addItem,
     updateItem,
+    moveItem,
     trashItem,
     trashItems,
     favoriteItems,
@@ -1270,11 +1918,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     changePassword,
     setRecoveryPhrase,
     recoverWithPhrase,
+    createRecoveryShares,
+    recoverWithShares,
     exportVault,
     importVault,
     verify,
     reset,
     restoreFromBackup,
+    configureSync,
+    configureWebSync,
+    disableSync,
+    syncNow,
     dismissWarnings,
   }
 
