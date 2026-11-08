@@ -606,6 +606,9 @@ export function VaultApp() {
   const mobileModalActive = securityOpen || settingsOpen
   const detailActive = !dashboardActive && Boolean(selectedItem)
   const defaultVaultId = activeVault?.id ?? vaults[0]?.id ?? ''
+  const canCreateInDefault =
+    Boolean(defaultVaultId) &&
+    vaults.find((vault) => vault.id === defaultVaultId)?.role !== 'read'
   const filterLabel = t(FILTER_MESSAGE_KEYS[filter])
   const securityLabel = securityCategory ? t(SECURITY_CATEGORY_KEYS[securityCategory]) : null
   const heading = dashboardActive
@@ -866,7 +869,7 @@ export function VaultApp() {
                   className="button button--primary"
                   onClick={dashboardActive ? openCreateFromDashboard : openCreate}
                   aria-label={t('vault.newItem')}
-                  disabled={readOnly}
+                  disabled={readOnly || !canCreateInDefault}
                   title={readOnly ? t('vault.readOnlyTooltip') : undefined}
                 >
                   <Plus size={18} />
@@ -1222,7 +1225,7 @@ export function VaultApp() {
                       type="button"
                       className="button button--ghost"
                       onClick={openCreate}
-                      disabled={readOnly}
+                      disabled={readOnly || !canCreateInDefault}
                     >
                       <Plus size={17} />
                       {t('vault.newItem')}

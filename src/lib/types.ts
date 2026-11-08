@@ -485,9 +485,13 @@ export interface VaultFile {
   integrity?: VaultIntegrity
 }
 
+import type { ShareRole } from './sharing'
+
 export interface VaultSummary {
   id: string
   name: string
+  /** Rôle appliqué aux mutations locales. */
+  role: ShareRole
   createdAt: string
   updatedAt: string
   itemCount: number

@@ -134,8 +134,9 @@
   signés. Identité persistée dans le fichier, ré-enveloppée au changement de
   mot de passe et créable depuis les réglages avec export public ; paquets de
   partage signés par membre, validation des identités/paquets importés et
-  interface de génération/import dans les réglages. Les rôles ne restreignent
-  pas encore les écritures.
+  interface de génération/import dans les réglages. Les coffres partagés en
+  lecture seule bloquent les mutations dans l’application ; la limite face à un
+  client modifié est documentée.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation

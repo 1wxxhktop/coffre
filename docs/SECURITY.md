@@ -1030,10 +1030,14 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
 - les identités publiques et les paquets importés sont validés (forme,
   empreinte recalculée, cohérence des rôles et signatures) avant utilisation ;
 - les paquets peuvent être générés et importés depuis **Réglages → Sécurité**.
-  L’import ajoute un coffre local avec la clé partagée et son nom chiffré ; le
-  rôle vérifié est informatif tant que les écritures ne sont pas filtrées par
+  L’import ajoute un coffre local avec la clé partagée, son nom chiffré et son
   rôle. Le contenu du coffre partagé arrive par la synchronisation du fichier,
   pas par le paquet de clé ;
+- les mutations d’éléments vérifient le rôle local : un coffre `read` refuse
+  création, modification, déplacement, corbeille, pièces jointes et suppression.
+  Cette restriction est appliquée par l’application ; un membre qui modifie son
+  client et possède la clé partagée peut toujours écrire. Les rôles ne sont donc
+  pas une barrière cryptographique contre un membre malveillant ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;

@@ -1100,6 +1100,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           vaultId: pkg.vaultId,
           name: vaultName,
           key: imported.vaultKey,
+          role: imported.role,
+          adminFingerprint: imported.admin.fingerprint,
         })
         const signed = await persist(file, added.file)
         apply((previous) => ({
@@ -1689,6 +1691,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!current.file) throw new Error('Coffre verrouillé')
         const existing = current.items.find((item) => item.id === itemId)
         if (!existing) return
+        if (!current.session) throw new Error('Coffre verrouillé')
+        if (current.session.vaultRole(existing.vaultId) === 'read') {
+          throw new Error('Ce coffre partagé est en lecture seule.')
+        }
         const epoch = epochRef.current
         const draft = await deleteItem(current.file, itemId)
         const file = await persist(current.file, draft)
@@ -1711,9 +1717,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     () =>
       enqueue(async () => {
         const current = stateRef.current
-        if (!current.file) throw new Error('Coffre verrouillé')
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
         const ids = current.items
-          .filter((item) => item.deletedAt)
+          .filter(
+            (item) =>
+              item.deletedAt && current.session?.vaultRole(item.vaultId) !== 'read',
+          )
           .map((item) => item.id)
         if (ids.length === 0) return 0
 

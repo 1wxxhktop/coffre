@@ -16,6 +16,7 @@ const VAULT_ID = 'v_personnel'
 const vault: VaultSummary = {
   id: VAULT_ID,
   name: 'Personnel',
+  role: 'write',
   createdAt: NOW,
   updatedAt: NOW,
   itemCount: 1,
