@@ -1004,6 +1004,27 @@ Le générateur peut appliquer les contraintes d’un site :
 - le dataset est distribué sous licence MIT par Apple et son attribution figure
   dans `NOTICE`.
 
+### 2.26 Socle de partage et accès d’urgence (L10)
+
+Le module `src/lib/sharing.ts` prépare le partage de coffres et l’accès
+d’urgence. Il n’est pas encore relié au format `.coffre` ni à l’interface.
+
+- chaque identité contient une paire X25519 pour HPKE et une paire Ed25519 pour
+  signer les rôles ; les clés privées sont destinées à être scellées par la clé
+  du coffre et ne sont jamais persistées par ce module ;
+- les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
+  AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
+  au contact d’urgence ;
+- les rôles `read`/`write` sont signés par Ed25519 sur une chaîne canonique
+  incluant le coffre, le membre, le rôle, la date et l’émetteur ;
+- les empreintes sont des SHA-256 des clés publiques, affichées avec le préfixe
+  `SHA256:` ;
+- aucune requête réseau n’est effectuée ;
+- limites : la distribution des clés, la révocation par rotation, le stockage
+  des identités dans le fichier et l’interface de partage restent à intégrer.
+  L’accès d’urgence immédiat est préparé ; le délai imposé et le partage Shamir
+  2/3 restent à concevoir.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

@@ -128,6 +128,10 @@
 - Règles de génération par site : dataset Apple « Password Manager
   Resources » embarqué, parseur des classes et contraintes, génération de mots
   de passe compatibles dans le générateur.
+- Socle de partage L10 : identités X25519 et Ed25519, empreintes SHA-256,
+  enveloppes HPKE X25519/HKDF-SHA-256/AES-256-GCM pour les clés de coffre et
+  l’accès d’urgence, rôles signés. Intégration au format et à l’interface à
+  venir.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation
