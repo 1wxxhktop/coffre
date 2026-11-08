@@ -78,12 +78,14 @@ import {
   MAX_ATTACHMENTS_TOTAL_BYTES,
   MAX_CUSTOM_FIELDS,
   WIFI_SECURITY,
+  DOCUMENT_KINDS,
   type AttachmentMeta,
   type CustomField,
   type CustomFieldType,
   type ItemDraft,
   type ItemType,
   type WifiSecurity,
+  type DocumentKind,
   type VaultItem,
   type VaultSummary,
 } from '../lib/types'
@@ -957,7 +959,7 @@ export function ItemDialog({
                   role="tablist"
                   aria-label={tt('Type d’élément')}
                 >
-                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential', 'software-license'] as ItemType[]).map((type) => (
+                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document'] as ItemType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -1544,6 +1546,62 @@ export function ItemDialog({
                       type="date"
                       value={draft.purchaseDate}
                       onChange={(event) => patch({ purchaseDate: event.target.value })}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {draft.type === 'document' && (
+                <div className="form-grid">
+                  <label className="field">
+                    <span className="field__label">{tt('Type de document')}</span>
+                    <select
+                      className="input"
+                      value={draft.documentKind}
+                      onChange={(event) =>
+                        patch({ documentKind: event.target.value as DocumentKind })
+                      }
+                    >
+                      {DOCUMENT_KINDS.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {kind === 'identity'
+                            ? tt('Identité')
+                            : kind === 'contract'
+                              ? tt('Contrat')
+                              : kind === 'invoice'
+                                ? tt('Facture')
+                                : kind === 'certificate'
+                                  ? tt('Certificat')
+                                  : tt('Autre')}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Émetteur')}</span>
+                    <input
+                      className="input"
+                      value={draft.issuer}
+                      onChange={(event) => patch({ issuer: event.target.value })}
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Numéro du document')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.documentNumber}
+                      onChange={(event) => patch({ documentNumber: event.target.value })}
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Date d’émission')}</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={draft.issuedAt}
+                      onChange={(event) => patch({ issuedAt: event.target.value })}
                     />
                   </label>
                 </div>
@@ -2270,6 +2328,38 @@ function ItemDetails({
             copied={copied === 'Site web'}
           />
           <DetailRow label="Date d’achat" value={item.purchaseDate} />
+        </div>
+      )}
+
+      {item.type === 'document' && (
+        <div className="detail-list">
+          <DetailRow
+            label="Type de document"
+            value={
+              item.documentKind === 'identity'
+                ? tt('Identité')
+                : item.documentKind === 'contract'
+                  ? tt('Contrat')
+                  : item.documentKind === 'invoice'
+                    ? tt('Facture')
+                    : item.documentKind === 'certificate'
+                      ? tt('Certificat')
+                      : tt('Autre')
+            }
+          />
+          <DetailRow label="Émetteur" value={item.issuer} />
+          <DetailRow
+            label="Numéro du document"
+            value={item.documentNumber}
+            onCopy={() => void copyValue(item.documentNumber, 'Numéro du document')}
+            copied={copied === 'Numéro du document'}
+            mono
+          />
+          <DetailRow label="Date d’émission" value={item.issuedAt} />
+          <DetailRow
+            label="Pièce jointe principale"
+            value={item.attachments[0]?.name ?? ''}
+          />
         </div>
       )}
 

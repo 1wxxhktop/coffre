@@ -585,6 +585,15 @@ const softwareLicenseContentSchema = z.object({
   purchaseDate: z.string().max(40),
 })
 
+const documentContentSchema = z.object({
+  ...itemBaseSchema,
+  type: z.literal('document'),
+  documentKind: z.enum(['identity', 'contract', 'invoice', 'certificate', 'other']),
+  issuer: z.string().max(500),
+  documentNumber: z.string().max(500),
+  issuedAt: z.string().max(40),
+})
+
 const itemContentSchema = z.discriminatedUnion('type', [
   loginContentSchema,
   noteContentSchema,
@@ -595,6 +604,7 @@ const itemContentSchema = z.discriminatedUnion('type', [
   wifiContentSchema,
   apiCredentialContentSchema,
   softwareLicenseContentSchema,
+  documentContentSchema,
 ])
 
 /** Valide le contenu déchiffré d’un élément (imports, partages hors ligne). */
@@ -2066,6 +2076,21 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         version: cleanText(draft.version, 100),
         website: cleanText(draft.website, 2_000),
         purchaseDate: normalizeDateOnly(draft.purchaseDate ?? ''),
+      }
+    case 'document':
+      return {
+        ...common,
+        type: 'document',
+        documentKind:
+          draft.documentKind === 'identity' ||
+          draft.documentKind === 'contract' ||
+          draft.documentKind === 'invoice' ||
+          draft.documentKind === 'certificate'
+            ? draft.documentKind
+            : 'other',
+        issuer: cleanText(draft.issuer, 500),
+        documentNumber: cleanText(draft.documentNumber, 500),
+        issuedAt: normalizeDateOnly(draft.issuedAt ?? ''),
       }
   }
 }

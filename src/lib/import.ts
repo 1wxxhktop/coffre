@@ -569,6 +569,16 @@ function makeDraft(
         website: '',
         purchaseDate: '',
       } as ItemDraft
+    case 'document':
+      return {
+        ...emptyDraft('document', vaultId),
+        ...common,
+        type: 'document',
+        documentKind: 'other',
+        issuer: '',
+        documentNumber: '',
+        issuedAt: '',
+      } as ItemDraft
   }
 }
 
@@ -1428,6 +1438,8 @@ function fingerprintKey(item: FingerprintItem): string {
       return `api-credential|${title}|${normalizeText(item.keyId)}`
     case 'software-license':
       return `software-license|${title}|${normalizeText(item.licensedTo)}`
+    case 'document':
+      return `document|${title}|${normalizeText(item.documentNumber)}`
   }
 }
 

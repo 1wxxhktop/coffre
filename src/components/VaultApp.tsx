@@ -124,12 +124,15 @@ function searchableText(item: ReturnType<typeof useVault>['items'][number]): str
     case 'software-license':
       common.push(item.licensedTo, item.version, item.website)
       break
+    case 'document':
+      common.push(item.issuer, item.documentNumber, item.documentKind)
+      break
   }
 
   return normalize(common.join(' '))
 }
 
-const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'passkey', 'ssh-key', 'wifi', 'api-credential', 'software-license']
+const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'passkey', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document']
 
 const SECURITY_CATEGORY_KEYS: Record<SecurityCategory, MessageKey> = {
   breached: 'security.category.breached',
