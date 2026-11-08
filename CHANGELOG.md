@@ -2,6 +2,17 @@
 
 ## Non publié
 
+- Extension : remplissage des cartes bancaires et des identités/adresses depuis
+  le menu à trois onglets, détection `autocomplete` et libellés français, CVC et
+  PIN uniquement sur action explicite, refus des cartes hors HTTPS ou dans une
+  iframe tierce non prestataire, et enregistrement d’une carte ou d’une identité
+  saisie dans un formulaire.
+- Imports étendus : Dashlane JSON, export XML KeePass 2.x, Dashlane et Keeper
+  CSV sans ligne d’en-tête, champs Bitwarden `fields`, et rapport des colonnes
+  de métadonnées ignorées.
+- Portabilité CXF 1.0 : import et export des connexions, notes, cartes,
+  identités et passkeys (clé publique COSE recalculée à l’import), avec
+  confirmation explicite avant l’export en clair.
 - Format de fichier v4 : identifiant d’appareil, révision monotone, époque des
   clés, horloges par enregistrement et pierres tombales conservées 180 jours.
 - MAC global HMAC-SHA-256 sur un manifeste canonique : détection des
@@ -66,8 +77,9 @@
   de RP ID et la vérification de la signature ECDSA avec les primitives Node.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
-  suppression d’éléments, signature v4 (horloges, tombstones, MAC) et rotation
-  du mot de passe maître. Buffers `Zeroizing`, aucune dépendance réseau,
+  suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation
+  du mot de passe maître, fusion L3 et façade UniFFI JSON. Commande Tauri de
+  fusion sans déchiffrement. Buffers `Zeroizing`, aucune dépendance réseau,
   vecteurs croisés TypeScript ↔ Rust et CI dédiée Linux/macOS/Windows.
 - Surveillance des fuites optionnelle et désactivée par défaut : calcul SHA-1
   local, envoi des 5 premiers caractères seulement à Have I Been Pwned avec
@@ -138,6 +150,8 @@
   sur mobile.
 - Tableau de bord complet : score de santé, statistiques, points d’attention,
   éléments prioritaires, récents, coffres, échéances et actions rapides.
+  Affiché par défaut après le déverrouillage, avec l’état du stockage local
+  (dernière écriture, synchronisation en attente, sauvegardes tournantes).
   Accessible depuis la barre latérale et l’onglet « Accueil » sur mobile.
 - Corrections d’interface : libellé « Retour à … » sur mobile, en-tête de
   détail ramené à une ligne, bandeau d’alerte qui passe sous le texte, libellé
@@ -170,6 +184,8 @@
 - Thèmes sombre/clair neutres (noir et blanc) et mode système.
 - Import 1Password `.1pux`.
 - Variante Firefox de l’extension, avec manifeste compatible Chromium.
+- Popup d’extension : recherche permanente, générateur de mot de passe local,
+  correction des débordements et copie sécurisée.
 - Verrouillage à la perte de focus sur desktop et raccourci global de recherche.
 - Trousseau natif macOS/Windows/Linux et déverrouillage rapide optionnel.
 - Déverrouillage Touch ID sur macOS, avec service de trousseau séparé.

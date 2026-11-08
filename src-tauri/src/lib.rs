@@ -173,6 +173,22 @@ async fn biometric_load(account: String, reason: String) -> Result<BiometricResu
     }
 }
 
+/// Demande une authentification biométrique sans lire de secret.
+#[tauri::command]
+async fn biometric_confirm(reason: String) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        tauri::async_runtime::spawn_blocking(move || biometric::authenticate(&reason))
+            .await
+            .map_err(|error| error.to_string())?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = reason;
+        Ok(false)
+    }
+}
+
 #[cfg(target_os = "macos")]
 mod biometric {
     use std::sync::mpsc;
@@ -385,6 +401,25 @@ fn launch_external(url: &str) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+/// Fusionne des fichiers `.coffre` déjà authentifiés sans les déchiffrer.
+/// La WebView fournit uniquement les JSON chiffrés ; aucun mot de passe ni
+/// contenu clair ne traverse cette commande.
+#[tauri::command]
+fn core_merge_files(local_json: String, remotes_json: Vec<String>) -> Result<String, String> {
+    let local = coffre_core::VaultFile::parse(&local_json).map_err(|error| error.to_string())?;
+    let mut remotes = Vec::with_capacity(remotes_json.len());
+    for remote in remotes_json {
+        remotes.push(coffre_core::VaultFile::parse(&remote).map_err(|error| error.to_string())?);
+    }
+    let result = coffre_core::merge(&local, &remotes).map_err(|error| error.to_string())?;
+    serde_json::to_string(&serde_json::json!({
+        "file": result.file,
+        "conflicts": result.conflicts,
+        "warnings": result.warnings,
+    }))
+    .map_err(|error| error.to_string())
+}
+
 /// Ouvre un lien externe validé dans le navigateur système.
 #[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
@@ -464,11 +499,13 @@ pub fn run() {
             keychain_load,
             keychain_delete,
             biometric_available,
+            biometric_confirm,
             biometric_store,
             biometric_delete,
             biometric_load,
             open_external_url,
             hibp_range,
+            core_merge_files,
             bridge::bridge_send,
             vault_read,
             vault_write,

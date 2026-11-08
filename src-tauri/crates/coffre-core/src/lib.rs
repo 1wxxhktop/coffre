@@ -6,6 +6,7 @@
 
 mod crypto;
 mod format;
+mod merge;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -21,6 +22,7 @@ pub use format::{
     AttachmentRecord, Clock, Integrity, ItemRecord, KdfParams, Manifest, RecoveryEnvelope,
     RecoveryWrap, Tombstone, VaultFile, VaultRecord, VersionRecord, canonical_json,
 };
+pub use merge::{MergeConflict, MergeError, MergeErrorCode, MergeResult, merge};
 
 #[derive(Debug)]
 pub enum CoreError {

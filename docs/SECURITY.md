@@ -594,13 +594,18 @@ reste sur l’implémentation TypeScript.
 - écriture v4 : création/modification/suppression d’éléments, horloges par
   enregistrement, tombstones, nouveau MAC et rotation du mot de passe maître
   avec re-enveloppe des clés et incrément de `keyEpoch` ;
+- fusion L3 pure et déterministe : horloges, empreintes de ciphertexts,
+  tombstones, unions de versions/pièces jointes et conflits signalés ;
+- façade `coffre-core-ffi` pour UniFFI, en JSON sans état (le mot de passe est
+  fourni à chaque appel, aucune session Rust n’est conservée), et commande
+  Tauri `core_merge_files` qui fusionne des fichiers chiffrés sans mot de passe ;
 - aucune dépendance réseau dans ce crate ;
 - vecteurs croisés : les fixtures TypeScript `v1..v4` sont relues par Rust, et
   `test-vectors/rust-v4.coffre.json` est relu par le test TypeScript de
   production. Le MAC et les contenus déchiffrés sont vérifiés des deux côtés ;
-- la CI exécute `cargo test -p coffre-core` sur Linux, macOS et Windows. La
-  fusion L3 et les liaisons `uniffi` restent à porter dans les tranches
-  suivantes.
+- la CI exécute `cargo test -p coffre-core -p coffre-core-ffi` sur Linux,
+  macOS et Windows. Les bindings Swift/Kotlin sont générés avec
+  `uniffi-bindgen` ; leur intégration dans les extensions mobiles relève de L8.
 
 ### 2.16 Compatibilité KeePass KDBX 4
 
@@ -622,6 +627,48 @@ L’import et l’export KDBX 4 sont traités localement, sans requête réseau 
 
 AES-KDF est borné à 10 millions de tours pour éviter qu’un fichier hostile ne
 bloque l’application.
+
+### 2.17 Portabilité CXF 1.0
+
+L’import et l’export CXF sont traités localement, sans requête réseau :
+
+- lecture des documents CXF 1.x (version majeure 1) ; les versions majeures
+  inconnues sont refusées et les justificatifs de type inconnu sont signalés ;
+- les mots de passe, notes, cartes et identités sont convertis dans les deux
+  sens ; les champs personnalisés deviennent un justificatif `custom-fields` ;
+- les passkeys sont exportées en PKCS#8 et leur clé publique COSE est recalculée
+  localement à l’import par WebCrypto, sans sortir de l’appareil ;
+- les passkeys dont le compteur de signature n’est pas nul sont exclues de
+  l’export, conformément à CXF 1.0 ;
+- les pièces jointes et l’historique ne sont pas inclus ;
+- le document CXF **n’est pas chiffré** : il contient des secrets en clair. Une
+  confirmation explicite est demandée avant l’export ; le fichier doit être
+  transféré uniquement vers un gestionnaire de confiance puis supprimé ;
+- le protocole de transport CXP et son chiffrement ne sont pas implémentés ;
+- les fichiers importés sont limités à 20 Mo et 5 000 éléments.
+
+### 2.18 Remplissage des cartes et des identités
+
+Le remplissage étendu de l’extension applique les règles suivantes :
+
+- la détection est locale (attributs `autocomplete`, types et libellés) ; aucun
+  sélecteur propre à un site n’est embarqué ;
+- le CVC et le PIN ne sont jamais renvoyés par le pont si l’utilisateur n’a pas
+  coché explicitement « Inclure le CVC et le PIN » pour ce remplissage ; le
+  pont natif et la passerelle de l’onglet appliquent tous deux ce filtrage ;
+- sur macOS, une confirmation Touch ID est demandée avant de livrer un CVC ou
+  un PIN lorsque la biométrie est configurée ; sans biométrie, l’action
+  explicite de l’utilisateur reste requise ;
+- une carte n’est remplie que sur une page HTTPS ; dans une iframe d’origine
+  différente, seuls les prestataires de paiement connus (Stripe, Adyen, PayPal,
+  etc.) sont autorisés ; l’origine de l’iframe et celle de la page sont
+  affichées dans le menu ;
+- l’enregistrement d’une carte ou d’une identité après soumission demande une
+  confirmation dans le menu ; les valeurs restent en mémoire au plus deux
+  minutes et ne sont jamais envoyées sur le réseau ;
+- les résumés de recherche ne contiennent que des métadonnées non sensibles
+  (quatre derniers chiffres, titulaire, e-mail) ; le numéro complet, le CVC et
+  le PIN ne sont transmis qu’après le clic de remplissage.
 
 ## 3. Stockage local
 

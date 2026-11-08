@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 338 tests unitaires et
-> 60 parcours Playwright exécutés sur Chromium et WebKit (120 exécutions, 5 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 367 tests unitaires et
+> 61 parcours Playwright exécutés sur Chromium et WebKit (122 exécutions, 5 ignorées). Une
 > intégration continue vérifie lint, types, tests, build et bundles desktop. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
 > rapide optionnel par le trousseau du système et une disposition en colonnes
@@ -63,22 +63,30 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   jusqu’à 30 champs par élément.
 - **Pièces jointes chiffrées** : ajout, téléchargement et suppression de
   fichiers, avec chiffrement séparé par la clé de l’élément.
-- **Import** : exports JSON non chiffrés de Bitwarden, Proton Pass et Enpass,
-  archives 1Password `.1pux`, et CSV de Bitwarden, 1Password, LastPass,
-  Chrome/Edge/Brave, Firefox, Safari, Dashlane, KeePass/KeePassXC, NordPass,
-  Keeper, RoboForm, SafeInCloud et Enpass, avec détection des colonnes, aperçu
-  et déduplication avant import.
+- **Import** : exports JSON non chiffrés de Bitwarden, Proton Pass, Enpass et
+  Dashlane, archives 1Password `.1pux`, exports XML KeePass 2.x, documents CXF
+  1.0 (mots de passe et passkeys), et CSV de Bitwarden, 1Password, LastPass,
+  Chrome/Edge/Brave, Firefox, Safari, Dashlane (avec ou sans en-tête),
+  KeePass/KeePassXC, NordPass, Keeper, RoboForm, SafeInCloud et Enpass, avec
+  détection des colonnes, aperçu, rapport des colonnes ignorées et
+  déduplication avant import.
+- **Export CXF 1.0** : document JSON de portabilité FIDO pour les connexions,
+  notes, cartes, identités et passkeys, avec avertissement explicite sur les
+  secrets en clair.
 - **Extension navigateur** (Manifest V3, Chromium et Firefox) : remplissage
-  automatique des connexions et des codes TOTP depuis l’onglet Coffre
-  déverrouillé, ou directement depuis l’application desktop grâce au **pont
-  natif** appairé et chiffré (ECDH P-256, HKDF, AES-256-GCM). Menu dans les
-  champs (iframe d’extension, détection locale), iframes, connexions en
-  plusieurs étapes, proposition d’enregistrer ou de mettre à jour après
-  soumission, et **passkeys WebAuthn** (création et connexion) avec confirmation
-  dans une fenêtre d’extension. Les pages sont autorisées explicitement via les
-  permissions optionnelles. L’extension ne stocke aucun identifiant et ne copie
-  rien dans le presse-papiers ; seule la clé de session du pont natif est
-  conservée dans son stockage local.
+  automatique des connexions, codes TOTP, **cartes bancaires** et **identités /
+  adresses** depuis l’onglet Coffre déverrouillé, ou directement depuis
+  l’application desktop grâce au **pont natif** appairé et chiffré (ECDH P-256,
+  HKDF, AES-256-GCM). Menu dans les champs (iframe d’extension, détection
+  locale), iframes, connexions en plusieurs étapes, proposition d’enregistrer
+  ou de mettre à jour après soumission, et **passkeys WebAuthn** (création et
+  connexion) avec confirmation dans une fenêtre d’extension. Le CVC et le PIN
+  ne sont remplis qu’après une action explicite ; une carte est refusée hors
+  HTTPS et dans une iframe tierce qui n’est pas un prestataire de paiement
+  connu. Les pages sont autorisées explicitement via les permissions
+  optionnelles. L’extension ne stocke aucun identifiant et ne copie rien dans le
+  presse-papiers ; seule la clé de session du pont natif est conservée dans son
+  stockage local.
 - **Recherche** insensible aux accents, filtres par type et favoris, étiquettes ;
   elle inclut les champs personnalisés et les noms de pièces jointes.
 - **Tri de la liste** : utilisation récente, nom, date de création, date de
@@ -336,16 +344,20 @@ envoyé sur le réseau.
 | Chrome / Edge / Brave | CSV | `name`, `url`, `username`, `password`, `note` ; titre déduit du domaine s’il manque |
 | Firefox | CSV | `url`, `username`, `password`, `httpRealm`, `formActionOrigin`, `guid`, `timeCreated`, `timeLastUsed`, `timePasswordChanged` |
 | Safari | CSV | `Title`, `URL`, `Username`, `Password`, `Notes`, `OTPAuth` |
-| Dashlane | CSV | `username`, `username2`, `username3`, `title`, `password`, `note`, `url`, `category`, `otpSecret` |
+| Dashlane | CSV | `username`, `username2`, `username3`, `title`, `password`, `note`, `url`, `category`, `otpSecret` ; les exports sans ligne d’en-tête à cinq colonnes sont aussi reconnus |
+| Dashlane | JSON non chiffré | Liste `AUTHENTIFIANT` ; identifiant secondaire conservé en champ personnalisé |
 | KeePass / KeePassXC | CSV | `Account`, `Login Name`, `Password`, `Web Site`, `Comments` ou `Group`, `Title`, `Username`, `Password`, `URL`, `Notes`, `TOTP` |
+| KeePass / KeePassXC | XML non chiffré | Export XML KeePass 2.x, groupes convertis en étiquettes, champs protégés signalés |
 | NordPass | CSV | `name`, `url`, `username`, `password`, `note`, `cardholdername`, `cardnumber`, `cvc`, `expirydate`, `folder`, `type` |
-| Keeper | CSV | `Folder`, `Title`, `Login`, `Password`, `Website`, `Notes` |
+| Keeper | CSV | `Folder`, `Title`, `Login`, `Password`, `Website`, `Notes` ; les exports sans en-tête à sept colonnes sont aussi reconnus |
 | RoboForm | CSV | `name`, `url`, `username`, `password`, `note` |
 | SafeInCloud | CSV | `Title`, `Login`, `Password`, `URL`, `Notes` |
 | Enpass | CSV | `Title`, `Username`, `Password`, `URL`, `Notes`, `Folder` |
 | 1Password 1PUX | ZIP + JSON | `export.data`, connexions, cartes, notes, identités et champs personnalisés |
+| CXF 1.0 | JSON | Connexions, notes, cartes, identités et **passkeys** ; la clé publique COSE est recalculée localement |
 
-Les colonnes inconnues deviennent des champs personnalisés. Avant l’import,
+Les colonnes inconnues deviennent des champs personnalisés ; les colonnes de
+métadonnées non utilisées sont listées dans le rapport d’import. Avant l’import,
 Coffre compare les éléments au contenu actuel du coffre (même type et mêmes
 informations d’identification : nom d’utilisateur et site pour une connexion,
 quatre derniers chiffres pour une carte, adresse e-mail pour une identité,
@@ -354,8 +366,8 @@ non chiffrée de 1Password est lue directement (pièces jointes exclues). Les
 exports chiffrés (Bitwarden chiffré, Proton Pass chiffré, sauvegarde
 `.enpassbackup`) ne sont pas pris en charge : exportez d’abord en clair, puis
 supprimez le fichier intermédiaire. Un fichier `.coffre` doit passer par
-« Importer un coffre » avec son mot de passe. Les passkeys ne sont pas
-importées depuis ces formats ; l’export/import FIDO CXF reste à implémenter.
+« Importer un coffre » avec son mot de passe. Les passkeys sont importées
+depuis CXF 1.0 ; les passkeys KeePassXC ne sont pas encore converties.
 
 ---
 
@@ -372,6 +384,25 @@ Coffre lit et écrit les bases **KDBX 4** de KeePassXC et KeePass 2.x :
 L’export produit une base KDBX 4 avec Argon2id et ChaCha20, lisible par
 KeePassXC. Les pièces jointes et l’historique KDBX sont signalés à l’import mais
 ne sont pas encore convertis ; les passkeys KeePassXC ne sont pas importées.
+
+### Portabilité CXF 1.0
+
+Coffre importe et exporte le **Credential Exchange Format 1.0** de la FIDO
+Alliance sous forme de document JSON (`coffre.cxf.json`) :
+
+- connexions (`basic-auth`, `totp`), notes, cartes, identités (`address`,
+  `person-name`) et passkeys ;
+- les passkeys sont converties dans les deux sens ; la clé publique COSE est
+  recalculée localement depuis la clé privée PKCS#8 à l’import ;
+- les passkeys dont le compteur de signature n’est pas nul sont exclues de
+  l’export, conformément à la spécification ;
+- les pièces jointes et l’historique ne sont pas inclus.
+
+Le document CXF **n’est pas chiffré** : il contient les mots de passe et les
+clés privées des passkeys en clair. L’interface demande une confirmation
+explicite avant l’export ; le fichier doit être transféré uniquement vers un
+gestionnaire de confiance, puis supprimé. Le chiffrement du transport CXP n’est
+pas implémenté.
 
 ## Démarrage rapide
 
@@ -453,9 +484,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (338 tests) |
+| `bun run test` | Tests Vitest (367 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (120 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (122 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
@@ -493,6 +524,8 @@ coffre : sur desktop, elle passe par le **pont natif** appairé (aucun onglet
 Coffre requis) ; sinon elle interroge l’onglet Coffre déverrouillé via une
 passerelle en mémoire, puis remplit la page active. Le même manifeste contient
 `background.scripts` pour Firefox et `background.service_worker` pour Chromium.
+Le popup inclut une **barre de recherche** permanente et un **générateur de mot
+de passe local** avec copie en un clic.
 
 ```bash
 bun run extension:build
@@ -505,15 +538,30 @@ Puis, dans Chrome ou un navigateur Chromium :
    `dist-extension/` ;
 3. ouvrir Coffre et déverrouiller le coffre ;
 4. sur un site, cliquer sur l’icône Coffre, puis « Remplir » ;
-5. pour le menu directement dans les champs, cliquer sur « Activer le menu
-   dans les champs » et autoriser l’accès aux sites. Un badge Coffre apparaît
-   près des champs de connexion ; rechargez les onglets déjà ouverts.
+5. pour le remplissage directement dans les champs, cliquer sur « Activer le
+   remplissage dans les champs » et autoriser l’accès aux sites. Un badge
+   Coffre apparaît près des champs de connexion ; rechargez les onglets déjà
+   ouverts si nécessaire.
 
 Le menu s’affiche dans une iframe d’extension : la page ne peut pas lire son
-contenu. Une fois un identifiant choisi, l’extension propose aussi d’enregistrer
-ou de mettre à jour la connexion après la soumission du formulaire. Les
-connexions en plusieurs étapes réutilisent le dernier identifiant choisi pendant
-deux minutes.
+contenu. Il propose trois onglets — **Connexions**, **Cartes** et **Identités** —
+selon les champs détectés. Une fois un élément choisi, l’extension propose aussi
+d’enregistrer ou de mettre à jour la connexion, la carte ou l’identité après la
+soumission du formulaire. Les connexions en plusieurs étapes réutilisent le
+dernier identifiant choisi pendant deux minutes.
+
+**Cartes et identités.** La détection repose sur les attributs `autocomplete`
+(`cc-number`, `cc-exp`, `cc-csc`, `given-name`, `postal-code`…), les types de
+champs et des libellés français (« Numéro de carte », « Titulaire », « Code
+postal »…). Le CVC et le PIN ne sont jamais remplis par défaut : une case
+« Inclure le CVC et le PIN » doit être cochée pour chaque remplissage, et
+Touch ID est demandé sur macOS lorsque la biométrie est configurée. Une carte
+est refusée sur une page non HTTPS ou dans une iframe d’origine différente,
+sauf pour une liste embarquée de prestataires de paiement (Stripe, Adyen,
+PayPal, Braintree, Checkout.com, Worldpay, Klarna, Mollie, Square, PayPlug…).
+L’origine de l’iframe et celle de la page sont affichées dans le menu. Les
+formulaires de carte et d’adresse soumis peuvent être enregistrés dans le coffre
+après confirmation.
 
 **Passkeys.** Après avoir activé l’accès aux sites, l’extension intercepte
 `navigator.credentials.create` et `get` dans un script de monde `MAIN`. Une
@@ -524,8 +572,8 @@ appareil ». La clé privée ne quitte jamais l’application : seuls
 d’assertion transitent. Un `rpId` qui n’est pas le domaine de la page (ou un de
 ses parents enregistrables) est refusé, de même qu’une origine HTTP autre que
 `localhost`. Les passkeys créées apparaissent dans le filtre « Passkeys » du
-coffre et restent lisibles, sans édition manuelle. L’export FIDO CXF n’est pas
-encore implémenté.
+coffre et restent lisibles, sans édition manuelle. L’import et l’export CXF 1.0
+sont disponibles dans les réglages.
 
 Dans Firefox :
 
@@ -592,16 +640,30 @@ trousseau et de la nouvelle interface) :
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB et reste stable ; hors vérification optionnelle des fuites, elle
   n’ouvre aucune connexion réseau ;
-- les 120 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
+- les 122 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
 - `cargo test --lib` exécute 13 tests : stockage natif (rotation, permissions,
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
-- `cargo test -p coffre-core` (7 tests) ouvre les fixtures TypeScript v1 à v4,
-  crée/modifie/supprime un élément, signe en v4, tourne le mot de passe et
-  relit les vecteurs Rust par le test TypeScript
-  (`src/lib/coffreCoreVector.test.ts`).
+- `cargo test -p coffre-core -p coffre-core-ffi` (11 + 1 tests) ouvre les
+  fixtures TypeScript v1 à v4, crée/modifie/supprime, signe en v4, tourne le
+  mot de passe, fusionne deux fichiers, exerce la façade UniFFI et relit les
+  vecteurs Rust par le test TypeScript (`src/lib/coffreCoreVector.test.ts`).
+
+Le crate `coffre-core-ffi` expose les opérations en JSON via UniFFI. Après
+`cargo build -p coffre-core-ffi`, les bindings se génèrent depuis `src-tauri` :
+
+```bash
+# macOS : target/debug/libcoffre_core_ffi.dylib
+# Linux : libcoffre_core_ffi.so — Windows : coffre_core_ffi.dll
+cargo run -p coffre-core-ffi --bin uniffi-bindgen -- generate \
+  --library target/debug/libcoffre_core_ffi.dylib \
+  --language swift --out-dir ../bindings/swift
+```
+
+La commande Tauri `core_merge_files` fusionne des fichiers chiffrés sans
+recevoir de mot de passe ni exposer de contenu clair.
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
 système). La clé maîtresse encodée en base64 est rangée sous le service
@@ -705,7 +767,8 @@ src/
   styles/         CSS par domaine, jetons dans tokens.css
   assets/         Liste EFF des 7 776 mots
 src-tauri/        Socle desktop/mobile Tauri v2
-  crates/coffre-core/  Format/crypto partagés, mutations, signature et vecteurs
+  crates/coffre-core/  Format/crypto, mutations, fusion et vecteurs
+  crates/coffre-core-ffi/  Façade UniFFI JSON pour mobile/CLI
 extension/        Extension navigateur Manifest V3 (Chromium + Firefox)
 docs/             Sécurité, audit, préparation grand public, release, AutoFill macOS
 scripts/          Génération des icônes PWA, test manuel de l’extension
