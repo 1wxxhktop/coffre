@@ -650,7 +650,7 @@ trousseau et de la nouvelle interface) :
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
 - `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent`
-  (11 + 1 + 9 + 15 tests) ouvre les
+  (11 + 1 + 9 + 17 tests) ouvre les
   fixtures TypeScript v1 à v4, crée/modifie/supprime, signe en v4, tourne le
   mot de passe, fusionne deux fichiers, exerce la façade UniFFI et relit les
   vecteurs Rust par le test TypeScript (`src/lib/coffreCoreVector.test.ts`).
@@ -743,6 +743,19 @@ ssh-add -l
 Chaque signature affiche la clé, son empreinte et le nombre d’octets, puis
 demande une confirmation explicite. Sans terminal interactif, la signature est
 refusée. Sous Windows, le named pipe reste à implémenter.
+
+**Git.** Git peut aussi signer avec l’agent via `ssh-keygen -Y sign` :
+
+```bash
+export SSH_AUTH_SOCK=/chemin/indiqué/par/l-agent
+git config --global gpg.format ssh
+git config --global user.signingkey /chemin/vers/la/clé.pub
+git config --global commit.gpgsign true
+git commit -S -m "commit signé"
+```
+
+La clé privée reste dans le coffre ; chaque signature passe par la modale
+d’approbation (et Touch ID si activé).
 
 Le déverrouillage rapide par le trousseau est optionnel (Réglages → Trousseau du
 système). La clé maîtresse encodée en base64 est rangée sous le service

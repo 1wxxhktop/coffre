@@ -88,8 +88,8 @@
 - Agent SSH `coffre-ssh-agent` : protocole `SSH_AUTH_SOCK`, liste d’identités,
   signatures ed25519 et RSA, socket Unix `0600`, approbation obligatoire dans le
   terminal et binaire `--list`. Intégration desktop avec démarrage depuis les
-  réglages, modale d’approbation par signature, Touch ID optionnel et arrêt
-  automatique au verrouillage.
+  réglages, modale d’approbation par signature, Touch ID optionnel, signature
+  de commits Git via `ssh-keygen -Y sign` et arrêt automatique au verrouillage.
 - Surveillance des fuites optionnelle et désactivée par défaut : calcul SHA-1
   local, envoi des 5 premiers caractères seulement à Have I Been Pwned avec
   `Add-Padding`, réponse parsée en mémoire et résultats intégrés au tableau de

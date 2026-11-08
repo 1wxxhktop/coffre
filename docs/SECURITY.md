@@ -702,6 +702,9 @@ aucun socket n’est créé par défaut.
 - si le déverrouillage par Touch ID est activé, une authentification
   biométrique réussie est exigée après le clic sur **Signer**. Une annulation
   laisse la demande ouverte ; elle expire normalement après 60 secondes ;
+- Git peut signer via `ssh-keygen -Y sign` et l’agent : la clé privée reste
+  dans le coffre et chaque signature passe par la même approbation. Un test
+  crée un commit Git réellement signé avec l’agent ;
 
 - le socket est créé à la demande avec des permissions `0600` dans un dossier
   `0700` ; un chemin existant qui n’est pas un socket est refusé et un ancien
