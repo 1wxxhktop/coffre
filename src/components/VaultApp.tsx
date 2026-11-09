@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import {
   AlertTriangle,
@@ -32,14 +32,11 @@ import {
   type ItemSort,
 } from '../lib/filters'
 import { ItemRow } from './ItemRow'
-import { ItemDialog } from './ItemDialog'
 import { AutoTypePicker } from './AutoTypePicker'
-import { GeneratorDialog } from './GeneratorDialog'
-import { SettingsDialog } from './SettingsDialog'
 import { SshAgentBridge } from './SshAgentBridge'
-import { SecurityDialog } from './SecurityDialog'
 import { VaultFormDialog } from './VaultFormDialog'
 import { ConfirmDialog } from './ConfirmDialog'
+import { DialogLoading, PanelLoading } from './DialogFallback'
 import { ExtensionBridge } from './ExtensionBridge'
 import { useVault } from '../state/VaultProvider'
 import { useSettings } from '../state/SettingsProvider'
@@ -71,6 +68,21 @@ import {
 } from '../lib/types'
 import { isTauriRuntime } from '../lib/external'
 import type { StateUpdate } from '../lib/stateUpdate'
+
+// Les dialogues lourds sont chargés à l’ouverture : le premier écran ne paie
+// ni les importeurs de coffres tiers, ni l’éditeur d’élément complet.
+const ItemDialog = lazy(() =>
+  import('./ItemDialog').then((module) => ({ default: module.ItemDialog })),
+)
+const SettingsDialog = lazy(() =>
+  import('./SettingsDialog').then((module) => ({ default: module.SettingsDialog })),
+)
+const SecurityDialog = lazy(() =>
+  import('./SecurityDialog').then((module) => ({ default: module.SecurityDialog })),
+)
+const GeneratorDialog = lazy(() =>
+  import('./GeneratorDialog').then((module) => ({ default: module.GeneratorDialog })),
+)
 
 function createTypeForFilter(filter: ItemFilter): ItemType {
   return filter === 'all' ||
@@ -1381,17 +1393,19 @@ export function VaultApp() {
             onTouchEnd={onListTouchEnd}
           >
             {selectedItem ? (
-              <ItemDialog
-                key={selectedItem.id}
-                item={selectedItem}
-                presentation="panel"
-                vaults={vaults}
-                defaultVaultId={selectedItem.vaultId}
-                securityReport={securityReport}
-                onClose={() => setSelectedId(null)}
-                onSaved={(item) => setSelectedId(item.id)}
-                onUsed={() => markUsed(selectedItem.id)}
-              />
+              <Suspense fallback={<PanelLoading />}>
+                <ItemDialog
+                  key={selectedItem.id}
+                  item={selectedItem}
+                  presentation="panel"
+                  vaults={vaults}
+                  defaultVaultId={selectedItem.vaultId}
+                  securityReport={securityReport}
+                  onClose={() => setSelectedId(null)}
+                  onSaved={(item) => setSelectedId(item.id)}
+                  onUsed={() => markUsed(selectedItem.id)}
+                />
+              </Suspense>
             ) : singleEmpty ? (
               <div className="empty">
                 <span className="empty__icon">
@@ -1538,34 +1552,38 @@ export function VaultApp() {
       </div>
 
       {securityOpen && (
-        <SecurityDialog
-          report={securityReport}
-          breachCheck={settings.breachCheck}
-          breachStatus={breachStatus}
-          onCheckBreaches={() => void checkBreaches()}
-          onOpenSettings={() => {
-            setSecurityOpen(false)
-            setSettingsOpen(true)
-          }}
-          onClose={() => setSecurityOpen(false)}
-          onOpenCategory={openSecurityCategory}
-        />
+        <Suspense fallback={<DialogLoading onClose={() => setSecurityOpen(false)} />}>
+          <SecurityDialog
+            report={securityReport}
+            breachCheck={settings.breachCheck}
+            breachStatus={breachStatus}
+            onCheckBreaches={() => void checkBreaches()}
+            onOpenSettings={() => {
+              setSecurityOpen(false)
+              setSettingsOpen(true)
+            }}
+            onClose={() => setSecurityOpen(false)}
+            onOpenCategory={openSecurityCategory}
+          />
+        </Suspense>
       )}
 
       <AutoTypePicker />
 
       {settingsOpen && (
-        <SettingsDialog
-          onClose={() => setSettingsOpen(false)}
-          onImported={() => {
-            setView('vault')
-            setFilter('all')
-            setVaultFilter('all')
-            setSearch('')
-            setSecurityCategory(null)
-            setSelectedId(null)
-          }}
-        />
+        <Suspense fallback={<DialogLoading onClose={() => setSettingsOpen(false)} />}>
+          <SettingsDialog
+            onClose={() => setSettingsOpen(false)}
+            onImported={() => {
+              setView('vault')
+              setFilter('all')
+              setVaultFilter('all')
+              setSearch('')
+              setSecurityCategory(null)
+              setSelectedId(null)
+            }}
+          />
+        </Suspense>
       )}
 
       {vaultForm && (
@@ -1630,25 +1648,29 @@ export function VaultApp() {
       )}
 
       {createType && (
-        <ItemDialog
-          key={`new-${createType}`}
-          initialType={createType}
-          vaults={vaults}
-          defaultVaultId={defaultVaultId}
-          presentation="dialog"
-          securityReport={securityReport}
-          onClose={() => setCreateType(null)}
-          onSaved={(item) => {
-            setCreateType(null)
-            setView('vault')
-            setSelectedId(item.id)
-            markUsed(item.id)
-          }}
-        />
+        <Suspense fallback={<DialogLoading onClose={() => setCreateType(null)} />}>
+          <ItemDialog
+            key={`new-${createType}`}
+            initialType={createType}
+            vaults={vaults}
+            defaultVaultId={defaultVaultId}
+            presentation="dialog"
+            securityReport={securityReport}
+            onClose={() => setCreateType(null)}
+            onSaved={(item) => {
+              setCreateType(null)
+              setView('vault')
+              setSelectedId(item.id)
+              markUsed(item.id)
+            }}
+          />
+        </Suspense>
       )}
 
       {generatorOpen && (
-        <GeneratorDialog onClose={() => setGeneratorOpen(false)} />
+        <Suspense fallback={<DialogLoading onClose={() => setGeneratorOpen(false)} />}>
+          <GeneratorDialog onClose={() => setGeneratorOpen(false)} />
+        </Suspense>
       )}
 
       {showBulkTrash && (

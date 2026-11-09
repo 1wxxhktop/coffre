@@ -55,6 +55,39 @@ export default defineConfig({
   ],
   build: {
     target: 'es2022',
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react',
+              test: /[\\/]node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: 'zod',
+              test: /[\\/]node_modules[\\/]zod[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'hash-wasm',
+              test: /[\\/]node_modules[\\/]hash-wasm[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'hpke',
+              test: /[\\/]node_modules[\\/](?:@hpke|@noble)[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'tauri',
+              test: /[\\/]node_modules[\\/]@tauri-apps[\\/]/,
+              priority: 20,
+            },
+          ],
+        },
+      },
+    },
   },
   server: {
     port: 1420,
