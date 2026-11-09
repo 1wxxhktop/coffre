@@ -189,6 +189,8 @@ const fr = {
   'security.category.reused': 'Réutilisés',
   'security.category.similar': 'Variantes proches',
   'security.category.no2fa': 'Sans 2FA',
+  'security.category.passkey': 'Passkey disponible',
+  'security.category.noHttps': 'Sans HTTPS',
   'security.category.old': 'Anciens',
   'security.category.incomplete': 'Incomplètes',
   'security.category.duplicates': 'Doublons',
@@ -197,6 +199,8 @@ const fr = {
   'security.issue.reused': 'Mot de passe réutilisé',
   'security.issue.similar': 'Variante proche',
   'security.issue.no2fa': 'Sans 2FA',
+  'security.issue.passkey': 'Passkey disponible',
+  'security.issue.noHttps': 'Site sans HTTPS',
   'security.issue.old': 'Mot de passe ancien',
   'security.issue.incomplete': 'Connexion incomplète',
   'security.issue.duplicates': 'Site en doublon',
@@ -239,6 +243,14 @@ const fr = {
   'security.reused.hint': 'Un même mot de passe pour plusieurs comptes',
   'security.no2fa': 'Sans 2FA',
   'security.no2fa.hint': 'Aucune double authentification',
+  'security.passkey': 'Passkeys disponibles',
+  'security.passkey.hint': 'Connexion sans mot de passe possible',
+  'security.noHttps': 'Sites sans HTTPS',
+  'security.noHttps.hint': 'URL servie en clair sur le réseau',
+  'security.passkey.available.one':
+    '{count} connexion peut utiliser une passkey à la place du mot de passe.',
+  'security.passkey.available.other':
+    '{count} connexions peuvent utiliser une passkey à la place du mot de passe.',
   'security.points': 'Autres points',
   'security.similar': 'Variantes proches',
   'security.similar.hint': 'Des mots de passe qui se ressemblent se devinent ensemble.',
@@ -279,6 +291,8 @@ const fr = {
   'security.history.min': 'Min.',
   'security.history.max': 'Max.',
   'security.history.current': 'Actuel',
+  'security.history.scoringChanged':
+    'Le calcul du score a changé : la rupture de la courbe est normale.',
 
   'vault.appEyebrow': 'Coffre local',
   'vault.openMenu': 'Ouvrir le menu',
@@ -639,6 +653,8 @@ const en: Record<MessageKey, string> = {
   'security.category.reused': 'Reused',
   'security.category.similar': 'Similar',
   'security.category.no2fa': 'No 2FA',
+  'security.category.passkey': 'Passkey available',
+  'security.category.noHttps': 'No HTTPS',
   'security.category.old': 'Old',
   'security.category.incomplete': 'Incomplete',
   'security.category.duplicates': 'Duplicates',
@@ -647,6 +663,8 @@ const en: Record<MessageKey, string> = {
   'security.issue.reused': 'Reused password',
   'security.issue.similar': 'Similar password',
   'security.issue.no2fa': 'No 2FA',
+  'security.issue.passkey': 'Passkey available',
+  'security.issue.noHttps': 'Site without HTTPS',
   'security.issue.old': 'Old password',
   'security.issue.incomplete': 'Incomplete login',
   'security.issue.duplicates': 'Duplicate site',
@@ -687,6 +705,14 @@ const en: Record<MessageKey, string> = {
   'security.reused.hint': 'The same password for several accounts',
   'security.no2fa': 'No 2FA',
   'security.no2fa.hint': 'No two-factor authentication',
+  'security.passkey': 'Passkeys available',
+  'security.passkey.hint': 'Passwordless sign-in is possible',
+  'security.noHttps': 'Sites without HTTPS',
+  'security.noHttps.hint': 'URL sent in clear text over the network',
+  'security.passkey.available.one':
+    '{count} login can use a passkey instead of its password.',
+  'security.passkey.available.other':
+    '{count} logins can use a passkey instead of their password.',
   'security.points': 'Other points',
   'security.similar': 'Similar variants',
   'security.similar.hint': 'Passwords that look alike are guessed together.',
@@ -725,6 +751,8 @@ const en: Record<MessageKey, string> = {
   'security.history.min': 'Min.',
   'security.history.max': 'Max.',
   'security.history.current': 'Current',
+  'security.history.scoringChanged':
+    'The scoring method changed: the break in the curve is expected.',
 
   'vault.appEyebrow': 'Local vault',
   'vault.openMenu': 'Open menu',
