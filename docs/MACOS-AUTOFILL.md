@@ -132,7 +132,7 @@ expose désormais `core_open_vault_with_key` (clé maîtresse déjà libérée),
 passe et code TOTP du seul élément demandé), `core_credential_identities`,
 `core_passkey_assert` et `core_passkey_create`. Les bindings Swift sont générés
 par `scripts/build-coffre-core-apple.sh`, qui produit localement
-`CoffreCore.xcframework` (Xcode requis, hors CI).
+`CoffreCore.xcframework` sans exiger Xcode complet (hors CI).
 
 ### 3.4 Clé biométrique partagée
 

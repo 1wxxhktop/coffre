@@ -788,9 +788,9 @@ reste sur l’implémentation TypeScript.
   conservée), et commande Tauri `core_merge_files` qui fusionne des fichiers
   chiffrés sans mot de passe ;
 - bindings Apple : `scripts/build-coffre-core-apple.sh` construit localement
-  `CoffreCore.xcframework` (arm64 + x86_64) et les bindings Swift ; le script
-  exige Xcode, n’est pas exécuté par la CI et les artefacts restent hors du
-  dépôt ;
+  `CoffreCore.xcframework` (arm64 + x86_64) et les bindings Swift sans exiger
+  Xcode complet ; le script n’est pas exécuté par la CI et les artefacts restent
+  hors du dépôt ;
 - limites : un identifiant d’app sans domaine associé ne correspond à aucun
   élément tant qu’un champ dédié n’existe pas ; la liste de suffixes publics
   embarquée est volontairement partielle ; les buffers JSON déchiffrés vivent
