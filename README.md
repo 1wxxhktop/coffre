@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 490 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 548 tests unitaires et
 > 72 parcours Playwright exécutés sur Chromium et WebKit (144 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
@@ -61,6 +61,12 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   RP ID et repli « utiliser un autre appareil ». Le compteur d’assertion reste
   volontairement à zéro, comme pour de nombreux authentificateurs de
   plateforme.
+- **Cœur natif pour extensions (S2)** : `coffre-core` expose l’ouverture par clé
+  maîtresse (sans Argon2id), la recherche de connexions par service avec la
+  même règle de domaines que `loginAllowsHost`, la révélation du seul élément
+  demandé (mot de passe et code TOTP), les identités AutoFill sans secret, et
+  les assertions/créations de passkeys ES256. La façade UniFFI est commune à
+  l’application, aux extensions natives et aux tests croisés TypeScript ↔ Rust.
 - **Champs personnalisés** : texte, texte masqué, adresse web et texte long,
   jusqu’à 30 champs par élément.
 - **Pièces jointes chiffrées** : ajout, téléchargement et suppression de
@@ -698,7 +704,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (490 tests) |
+| `bun run test` | Tests Vitest (548 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (144 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
@@ -899,7 +905,7 @@ trousseau et de la nouvelle interface) :
   traduction des événements de session macOS/Windows/Linux et détection de
   LocalAuthentication/Touch ID sur la machine de build ;
 - `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent`
-  (11 + 1 + 9 + 17 tests) ouvre les fixtures TypeScript v1 à v4, crée/modifie/supprime, signe
+  (22 + 3 + 13 + 17 tests) ouvre les fixtures TypeScript v1 à v4, crée/modifie/supprime, signe
   en v4, tourne le mot de passe, fusionne deux fichiers, exerce la façade
   UniFFI et relit les vecteurs Rust par le test TypeScript
   (`src/lib/coffreCoreVector.test.ts`).
@@ -914,6 +920,22 @@ cargo run -p coffre-core-ffi --bin uniffi-bindgen -- generate \
   --library target/debug/libcoffre_core_ffi.dylib \
   --language swift --out-dir ../bindings/swift
 ```
+
+La façade S2 ajoute, en plus des mutations existantes :
+
+- `core_open_vault_with_key` : ouverture par clé maîtresse déjà libérée par
+  Touch ID ou Windows Hello, sans Argon2id ;
+- `core_logins_for_service` : connexions candidates pour un domaine, avec la
+  même règle de domaines que TypeScript, sans aucun secret ;
+- `core_reveal_login` : mot de passe et code TOTP du seul élément demandé ;
+- `core_credential_identities` : identités `(élément, utilisateur, domaine)`
+  pour le magasin d’identités du système, sans secret ;
+- `core_passkey_assert` et `core_passkey_create` : assertions et créations de
+  passkeys ES256, avec les mêmes validations de RP ID que `src/lib/passkeys.ts`.
+
+Pour les extensions macOS, `scripts/build-coffre-core-apple.sh` construit
+localement `CoffreCore.xcframework` (arm64 + x86_64) et les bindings Swift. Le
+script exige Xcode et n’est jamais exécuté par la CI.
 
 La commande Tauri `core_merge_files` fusionne des fichiers chiffrés sans
 recevoir de mot de passe ni exposer de contenu clair.

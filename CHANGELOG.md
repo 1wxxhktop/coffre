@@ -2,6 +2,13 @@
 
 ## Non publié
 
+- Cœur natif pour extensions (S2) : ouverture par clé maîtresse sans Argon2id,
+  recherche de connexions par service avec la même règle de domaines que
+  `loginAllowsHost` (suffixes publics, IDN, ports, HTTP/HTTPS, IP, localhost),
+  révélation du seul élément demandé avec mot de passe et code TOTP, identités
+  AutoFill sans secret, et assertions/créations de passkeys ES256 en Rust.
+  Vecteurs croisés TypeScript ↔ Rust pour les domaines et les signatures de
+  passkeys ; script local de génération de `CoffreCore.xcframework`.
 - Intégration au système (S1) : verrouillage avec la session et à la mise en
   veille sur macOS, Windows et Linux, icône de barre de menus (ouvrir, recherche
   rapide, générateur, verrouiller) sans contenu du coffre, démarrage optionnel à
