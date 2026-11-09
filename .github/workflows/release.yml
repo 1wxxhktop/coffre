@@ -65,6 +65,14 @@ jobs:
           bun run test
           cargo test --manifest-path src-tauri/Cargo.toml --lib
 
+      - name: Installer cargo-cyclonedx
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-cyclonedx@0.5.10
+
+      - name: Générer les SBOM
+        run: ./scripts/generate-sbom.sh
+
       - name: Importer le certificat Developer ID
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -112,6 +120,7 @@ jobs:
             "src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.dmg \
             "src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.sha256 \
             "Coffre_${version}_universal.app.zip" \
+            sbom/*.cdx.json \
             --title "Coffre $version" \
             --generate-notes \
             --draft \

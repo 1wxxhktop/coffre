@@ -178,7 +178,7 @@
   un contact, ré-enveloppée lors des rotations ; délai et Shamir 2/3 à venir.
 - Chaîne d’approvisionnement : toolchain Rust épinglée, builds Web/extension
   comparés deux fois avec `SOURCE_DATE_EPOCH=0`, SBOM CycloneDX Rust et web
-  générés en CI et conservés comme artefact.
+  générés en CI et joints aux releases macOS.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation
