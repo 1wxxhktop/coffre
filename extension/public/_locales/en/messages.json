@@ -430,5 +430,35 @@
   },
   "popup_filledSubmitted": {
     "message": "Credentials filled. Sign-in submitted."
+  },
+  "phishing_title": {
+    "message": "Warning"
+  },
+  "phishing_generic": {
+    "message": "This site may be a phishing attempt."
+  },
+  "phishing_imitates": {
+    "message": "This site imitates $1."
+  },
+  "phishing_unknownUsername": {
+    "message": "This username is already saved for another site."
+  },
+  "phishing_ip": {
+    "message": "The site uses a raw IP address."
+  },
+  "phishing_http": {
+    "message": "The page is not encrypted (HTTP)."
+  },
+  "phishing_port": {
+    "message": "The site uses an unusual port."
+  },
+  "phishing_cancel": {
+    "message": "Cancel"
+  },
+  "phishing_continue": {
+    "message": "Continue anyway"
+  },
+  "phishing_cancelled": {
+    "message": "Fill cancelled."
   }
 }

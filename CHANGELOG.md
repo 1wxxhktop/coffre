@@ -16,6 +16,16 @@
   Windows Hello en plus de Touch ID. Le verrouillage système emprunte le même
   chemin que le verrouillage manuel et laisse les écritures déjà en file se
   terminer avant l’effacement des clés.
+- Protection anti-hameçonnage au remplissage forcé et à l’enregistrement :
+  analyse locale des domaines du coffre et de deux listes populaires embarquées
+  (Apple MIT et Chrome UX Report CC BY 4.0, 1 000 origines), avec confusables
+  Unicode TR39, distance de Damerau-Levenshtein, marque en sous-domaine, IP
+  brute, HTTP, port inhabituel et identifiant déjà vu ailleurs. Bandeau
+  Annuler / Continuer quand même dans l’extension et journalisation chiffrée du
+  choix. Jeux de données datés (`popular-domains.json`,
+  `popular-domains-crux.json`, `confusables.json`,
+  `domain-equivalences.json`), scripts de mise à jour et aucune requête réseau
+  à l’exécution.
 - Modèles intégrés pour tous les types d’éléments (connexion, note, carte,
   identité, passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle,
   document), avec la liste complète de leurs champs, création directe depuis
