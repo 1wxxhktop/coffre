@@ -73,6 +73,13 @@ import { isTotpUri } from '../lib/totp'
 import { qrDataUrl } from '../lib/qr'
 import { wifiQrPayload } from '../lib/wifi'
 import {
+  createRecoveryCodeEntries,
+  MAX_RECOVERY_CODES,
+  parseRecoveryCodes,
+  remainingRecoveryCodes,
+  setRecoveryCodeUsed,
+} from '../lib/recoveryCodes'
+import {
   CUSTOM_FIELD_TYPES,
   emptyDraft,
   itemTypeLabel,
@@ -87,6 +94,7 @@ import {
   type CustomFieldType,
   type ItemDraft,
   type ItemType,
+  type RecoveryCode,
   type WifiSecurity,
   type DocumentKind,
   type VaultItem,
@@ -301,6 +309,8 @@ export function ItemDialog({
   const [attachmentBusy, setAttachmentBusy] = useState(false)
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [attachmentToDelete, setAttachmentToDelete] = useState<AttachmentMeta | null>(null)
+  const [recoveryImport, setRecoveryImport] = useState('')
+  const [pendingRecoveryCode, setPendingRecoveryCode] = useState<RecoveryCode | null>(null)
 
   const vault = useMemo(
     () => vaults.find((candidate) => candidate.id === draft.vaultId),
@@ -573,6 +583,67 @@ export function ItemDialog({
     toast(`${label} copié${suffix}`, 'success')
   }
 
+  const importRecoveryCodes = (replace: boolean) => {
+    if (draft.type !== 'recovery-codes') return
+    const parsed = parseRecoveryCodes(recoveryImport)
+    if (parsed.length === 0) {
+      toast(tt('Aucun code détecté dans le texte.'), 'error')
+      return
+    }
+    const existing = replace ? [] : draft.codes
+    const known = new Set(existing.map((entry) => entry.code.toLowerCase()))
+    const additions = parsed.filter((code) => !known.has(code.toLowerCase()))
+    const codes = [
+      ...existing,
+      ...createRecoveryCodeEntries(additions, () => randomId('rc')),
+    ].slice(0, MAX_RECOVERY_CODES)
+    patch({ codes })
+    setRecoveryImport('')
+    toast(
+      additions.length > 0
+        ? `${additions.length} code${additions.length > 1 ? 's' : ''} importé${
+            additions.length > 1 ? 's' : ''
+          }`
+        : tt('Ces codes sont déjà présents.'),
+      additions.length > 0 ? 'success' : 'info',
+    )
+  }
+
+  const updateRecoveryCodes = async (codes: RecoveryCode[]) => {
+    if (!current || current.type !== 'recovery-codes') return
+    try {
+      const updated = await updateItem({
+        ...current,
+        codes,
+      } as VaultItem)
+      setCurrent(updated)
+      setDraft({ ...updated })
+    } catch (caught) {
+      toast(
+        caught instanceof Error ? caught.message : tt('Mise à jour impossible'),
+        'error',
+      )
+    }
+  }
+
+  const toggleRecoveryCode = async (code: RecoveryCode) => {
+    if (!current || current.type !== 'recovery-codes') return
+    await updateRecoveryCodes(
+      setRecoveryCodeUsed(
+        current,
+        code.id,
+        code.usedAt ? null : new Date().toISOString(),
+      ).codes,
+    )
+  }
+
+  const copyRecoveryCode = async (code: RecoveryCode) => {
+    await copyValue(code.code, 'Code de secours')
+    if (!code.usedAt && !trashed && vault?.role !== 'read') {
+      setPendingRecoveryCode(code)
+    }
+  }
+
   const switchType = (type: ItemType) => {
     if (current) return
     setDraft((previous) => ({
@@ -599,7 +670,17 @@ export function ItemDialog({
       .map((tag) => tag.trim())
       .filter(Boolean)
 
-    const nextDraft = { ...draft, tags }
+    const nextDraft: ItemDraft = { ...draft, tags }
+    if (nextDraft.type === 'recovery-codes') {
+      nextDraft.codes = nextDraft.codes
+        .map((entry) => ({
+          ...entry,
+          code: entry.code.trim(),
+          usedAt: entry.usedAt || null,
+        }))
+        .filter((entry) => entry.code)
+        .slice(0, MAX_RECOVERY_CODES)
+    }
     setBusy(true)
     setError(null)
 
@@ -989,7 +1070,7 @@ export function ItemDialog({
                   role="tablist"
                   aria-label={tt('Type d’élément')}
                 >
-                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document'] as ItemType[]).map((type) => (
+                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document', 'recovery-codes'] as ItemType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -1581,6 +1662,133 @@ export function ItemDialog({
                 </div>
               )}
 
+              {draft.type === 'recovery-codes' && (
+                <>
+                  <div className="form-grid">
+                    <label className="field field--full">
+                      <span className="field__label">
+                        {tt('Coller des codes de secours')}
+                      </span>
+                      <textarea
+                        className="input textarea input--mono"
+                        value={recoveryImport}
+                        onChange={(event) => setRecoveryImport(event.target.value)}
+                        rows={4}
+                        placeholder={tt('Un code par ligne ou séparés par des espaces')}
+                        maxLength={20_000}
+                      />
+                      <span className="field__hint">
+                        {tt(
+                          'Les puces, numéros de liste et doublons sont ignorés. Les codes restent chiffrés dans le coffre.',
+                        )}
+                      </span>
+                    </label>
+                  </div>
+                  <div className="settings-actions settings-actions--start">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => importRecoveryCodes(false)}
+                      disabled={!recoveryImport.trim()}
+                    >
+                      <Download size={16} />
+                      {tt('Ajouter les codes')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => importRecoveryCodes(true)}
+                      disabled={!recoveryImport.trim()}
+                    >
+                      <RotateCcw size={16} />
+                      {tt('Remplacer la liste')}
+                    </button>
+                  </div>
+
+                  <div className="recovery-code-list">
+                    {draft.codes.length === 0 ? (
+                      <p className="settings-copy">
+                        {tt('Aucun code pour le moment.')}
+                      </p>
+                    ) : (
+                      draft.codes.map((entry) => (
+                        <div key={entry.id} className="recovery-code-row">
+                          <input
+                            className="input input--mono"
+                            value={entry.code}
+                            onChange={(event) =>
+                              patch({
+                                codes: draft.codes.map((candidate) =>
+                                  candidate.id === entry.id
+                                    ? { ...candidate, code: event.target.value }
+                                    : candidate,
+                                ),
+                              })
+                            }
+                            maxLength={200}
+                            aria-label={tt('Code de secours')}
+                          />
+                          <label className="checkbox">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(entry.usedAt)}
+                              onChange={(event) =>
+                                patch({
+                                  codes: draft.codes.map((candidate) =>
+                                    candidate.id === entry.id
+                                      ? {
+                                          ...candidate,
+                                          usedAt: event.target.checked
+                                            ? new Date().toISOString()
+                                            : null,
+                                        }
+                                      : candidate,
+                                  ),
+                                })
+                              }
+                            />
+                            <span>{tt('Utilisé')}</span>
+                          </label>
+                          <button
+                            type="button"
+                            className="icon-button icon-button--sm"
+                            aria-label={tt('Supprimer ce code')}
+                            onClick={() =>
+                              patch({
+                                codes: draft.codes.filter(
+                                  (candidate) => candidate.id !== entry.id,
+                                ),
+                              })
+                            }
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {draft.codes.length < MAX_RECOVERY_CODES && (
+                    <div className="settings-actions settings-actions--start">
+                      <button
+                        type="button"
+                        className="button button--ghost"
+                        onClick={() =>
+                          patch({
+                            codes: [
+                              ...draft.codes,
+                              { id: randomId('rc'), code: '', usedAt: null },
+                            ],
+                          })
+                        }
+                      >
+                        <Plus size={16} />
+                        {tt('Ajouter un code')}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
               {draft.type === 'document' && (
                 <div className="form-grid">
                   <label className="field">
@@ -1806,6 +2014,8 @@ export function ItemDialog({
                 onAddAttachment={uploadAttachments}
                 onDownloadAttachment={saveAttachment}
                 onDeleteAttachment={setAttachmentToDelete}
+                onCopyRecoveryCode={copyRecoveryCode}
+                onToggleRecoveryCode={toggleRecoveryCode}
               />
             </>
           ) : null}
@@ -1985,6 +2195,28 @@ export function ItemDialog({
           onConfirm={deleteAttachment}
         />
       )}
+
+      {pendingRecoveryCode && current?.type === 'recovery-codes' && (
+        <ConfirmDialog
+          title={tt('Marquer ce code comme utilisé ?')}
+          description={tt(
+            'Le code copié sera daté et ne sera plus proposé. Vous pourrez le rétablir depuis la fiche.',
+          )}
+          confirmLabel={tt('Marquer utilisé')}
+          tone="primary"
+          onClose={() => setPendingRecoveryCode(null)}
+          onConfirm={async () => {
+            await updateRecoveryCodes(
+              setRecoveryCodeUsed(
+                current,
+                pendingRecoveryCode.id,
+                new Date().toISOString(),
+              ).codes,
+            )
+            setPendingRecoveryCode(null)
+          }}
+        />
+      )}
     </>
   )
 }
@@ -2009,6 +2241,8 @@ interface ItemDetailsProps {
   onAddAttachment: (files: FileList | null) => Promise<void>
   onDownloadAttachment: (attachmentId: string) => Promise<void>
   onDeleteAttachment: (attachment: AttachmentMeta) => void
+  onCopyRecoveryCode: (code: RecoveryCode) => Promise<void>
+  onToggleRecoveryCode: (code: RecoveryCode) => Promise<void>
 }
 
 function ItemDetails({
@@ -2030,6 +2264,8 @@ function ItemDetails({
   onAddAttachment,
   onDownloadAttachment,
   onDeleteAttachment,
+  onCopyRecoveryCode,
+  onToggleRecoveryCode,
 }: ItemDetailsProps) {
   const { tt } = useI18n()
   const [showWifiQr, setShowWifiQr] = useState(false)
@@ -2422,6 +2658,51 @@ function ItemDetails({
             copied={copied === 'Site web'}
           />
           <DetailRow label="Date d’achat" value={item.purchaseDate} />
+        </div>
+      )}
+
+      {item.type === 'recovery-codes' && (
+        <div className="detail-list">
+          <DetailRow
+            label="Codes restants"
+            value={`${remainingRecoveryCodes(item)} / ${item.codes.length}`}
+          />
+          {item.codes.length === 0 ? (
+            <p className="settings-copy">{tt('Aucun code enregistré.')}</p>
+          ) : (
+            <div className="recovery-code-list">
+              {item.codes.map((entry) => (
+                <div
+                  key={entry.id}
+                  className={`recovery-code-row ${entry.usedAt ? 'is-used' : ''}`}
+                >
+                  <code className="recovery-code-row__value">{entry.code}</code>
+                  <span className="recovery-code-row__status">
+                    {entry.usedAt
+                      ? `${tt('Utilisé le')} ${formatDateTime(entry.usedAt)}`
+                      : tt('Disponible')}
+                  </span>
+                  <button
+                    type="button"
+                    className="icon-button icon-button--sm"
+                    aria-label={tt('Copier ce code')}
+                    title={tt('Copier ce code')}
+                    onClick={() => void onCopyRecoveryCode(entry)}
+                  >
+                    <Copy size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--ghost button--sm"
+                    onClick={() => void onToggleRecoveryCode(entry)}
+                    disabled={readOnly}
+                  >
+                    {entry.usedAt ? tt('Rétablir') : tt('Marquer utilisé')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
