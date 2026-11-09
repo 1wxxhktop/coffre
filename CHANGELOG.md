@@ -214,7 +214,9 @@
   de partage sont conservés chiffrés dans les métadonnées pour permettre les
   exports suivants. Une rotation de clé signée par le même administrateur est
   adoptée automatiquement : ré-enveloppe des clés d’éléments locales,
-  métadonnées et récupération. Les coffres partagés en
+  métadonnées et récupération. Sur desktop, les pièces jointes binaires
+  chiffrées sont exportées et importées via le même dossier de partage. Les
+  coffres partagés en
   lecture seule bloquent les mutations dans l’application ; la limite face à un
   client modifié est documentée. Révocation d’un membre par rotation de la clé
   du coffre, re-enveloppe des clés d’éléments et nouveau paquet pour les

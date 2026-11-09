@@ -8,6 +8,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { isTauriRuntime } from './external'
+import type { VaultItem } from './types'
 
 export interface BlobInfo {
   size: number
@@ -23,6 +24,19 @@ function requireTauri(): void {
   if (!isTauriRuntime()) {
     throw new Error('Le coffre de fichiers en flux est réservé au desktop.')
   }
+}
+
+/** Identifiants de blobs référencés par des pièces jointes déchiffrées. */
+export function referencedBlobIds(items: VaultItem[]): string[] {
+  const ids = new Set<string>()
+  for (const item of items) {
+    for (const attachment of item.attachments) {
+      if (attachment.storage === 'blob' && attachment.blobId) {
+        ids.add(attachment.blobId)
+      }
+    }
+  }
+  return [...ids]
 }
 
 export function newBlobKey(): string {

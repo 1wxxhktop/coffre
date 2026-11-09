@@ -82,6 +82,7 @@ import { clearClipboardIfLastCopied } from '../lib/clipboard'
 import {
   exportBlobsToDirectory,
   importBlobsFromDirectory,
+  referencedBlobIds,
 } from '../lib/blobStore'
 import {
   clearTravelMode,
@@ -370,18 +371,6 @@ const VaultContext = createContext<VaultContextValue | null>(null)
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   return 'Une erreur inattendue est survenue'
-}
-
-function referencedBlobIds(items: VaultItem[]): string[] {
-  const ids = new Set<string>()
-  for (const item of items) {
-    for (const attachment of item.attachments) {
-      if (attachment.storage === 'blob' && attachment.blobId) {
-        ids.add(attachment.blobId)
-      }
-    }
-  }
-  return [...ids]
 }
 
 function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
@@ -1638,9 +1627,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             io,
             lastImports: config.lastImports,
           })
+          const warnings = [...result.warnings]
+          let opened: OpenedVault | null = null
           if (result.changed) {
             const next = await persist(current.file, result.file)
-            let opened
             try {
               opened = await openVaultFileWithMasterKey(
                 next,
@@ -1653,21 +1643,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
                 'Le coffre partagé synchronisé n’a pas pu être rouvert. Déverrouillez-le à nouveau.',
               )
             }
+            if (!opened) {
+              throw new Error(
+                'Le coffre partagé synchronisé n’a pas pu être rouvert.',
+              )
+            }
+            const open = opened
             current.session.lock()
             epochRef.current += 1
             apply((previous) => ({
               ...previous,
               status: 'unlocked',
-              file: opened.file,
-              session: opened.session,
-              vaults: opened.vaults,
-              templates: opened.templates,
-              activity: opened.activity,
-              aliasKeys: opened.aliasKeys,
-              items: opened.items,
-              warnings: opened.warnings,
+              file: open.file,
+              session: open.session,
+              vaults: open.vaults,
+              templates: open.templates,
+              activity: open.activity,
+              aliasKeys: open.aliasKeys,
+              items: open.items,
+              warnings: open.warnings,
               error: null,
-              readOnly: opened.readOnly,
+              readOnly: open.readOnly,
               syncPending: false,
               syncRevision: previous.syncRevision + 1,
             }))
@@ -1677,13 +1673,29 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               syncRevision: previous.syncRevision + 1,
             }))
           }
+          if (isTauriRuntime() && (result.changed || result.written)) {
+            const itemsForVault = (opened?.items ?? current.items).filter(
+              (item) => item.vaultId === vaultId,
+            )
+            try {
+              await exportBlobsToDirectory(
+                config.dir,
+                referencedBlobIds(itemsForVault),
+              )
+              await importBlobsFromDirectory(config.dir)
+            } catch {
+              warnings.push(
+                'Les documents chiffrés du coffre partagé n’ont pas pu être synchronisés.',
+              )
+            }
+          }
           saveSharedSyncConfig({
             ...config,
             lastImports: result.lastImports,
             lastSyncAt: new Date().toISOString(),
             lastWarning:
-              result.warnings.length > 0
-                ? result.warnings.slice(0, 3).join(' · ').slice(0, 500)
+              warnings.length > 0
+                ? warnings.slice(0, 3).join(' · ').slice(0, 500)
                 : undefined,
           })
           return {
@@ -1691,7 +1703,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             updated: result.updated,
             deleted: result.deleted,
             conflicts: result.conflicts,
-            warnings: result.warnings,
+            warnings,
             written: result.written,
             changed: result.changed,
           }
