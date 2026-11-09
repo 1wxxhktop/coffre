@@ -104,6 +104,7 @@ import {
   type ShareMember,
   type SharingIdentity,
 } from '../lib/sharing'
+import { createEmergencyRecord } from '../lib/emergencyVault'
 import {
   createSharedVaultPackage,
   openSharedVaultPackage,
@@ -148,6 +149,7 @@ import {
   type ItemDraft,
   type VaultFile,
   type ActivityEvent,
+  type EmergencyAccessRecord,
   type ActivityKind,
   type AliasKeyService,
   type ItemTemplate,
@@ -219,6 +221,12 @@ interface VaultContextValue extends ProviderState {
     vaultId: string,
     memberFingerprint: string,
   ) => Promise<SharedVaultPackage>
+  /** Lit l’enveloppe d’accès d’urgence du fichier. */
+  getEmergencyAccess: () => EmergencyAccessRecord | null
+  /** Crée ou remplace l’enveloppe d’accès d’urgence. */
+  createEmergencyAccess: (contactText: string) => Promise<void>
+  /** Supprime l’enveloppe d’accès d’urgence. */
+  removeEmergencyAccess: () => Promise<void>
   /** Supprime puis réenregistre la clé biométrique du coffre courant. */
   resetBiometricKey: () => Promise<void>
   lock: () => void
@@ -1231,6 +1239,42 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const signed = await persist(current.file, file)
         apply((previous) => ({ ...previous, file: signed }))
         return pkg
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const getEmergencyAccess = useCallback(
+    () => stateRef.current.file?.emergency ?? null,
+    [],
+  )
+
+  const createEmergencyAccess = useCallback(
+    (contactText: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) throw new Error('Le coffre est en lecture seule.')
+        const contact = await parsePublicSharingIdentity(contactText)
+        const emergency = await createEmergencyRecord(
+          current.session.masterKey,
+          contact,
+        )
+        const file = await persist(current.file, { ...current.file, emergency })
+        apply((previous) => ({ ...previous, file }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const removeEmergencyAccess = useCallback(
+    () =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (!current.file.emergency) return
+        const next = { ...current.file }
+        delete next.emergency
+        const file = await persist(current.file, next)
+        apply((previous) => ({ ...previous, file }))
       }),
     [apply, enqueue, persist],
   )
@@ -2898,6 +2942,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     importSharingPackage,
     getVaultSharing,
     revokeSharingMember,
+    getEmergencyAccess,
+    createEmergencyAccess,
+    removeEmergencyAccess,
     resetBiometricKey,
     lock,
     addVault,

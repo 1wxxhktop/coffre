@@ -641,6 +641,20 @@ export const EN_TEXT: Record<string, string> = {
   'Un membre révoqué conserve l’ancienne clé pour les contenus déjà reçus.':
     'A revoked member keeps the old key for content already received.',
   'Révocation impossible.': 'Revocation failed.',
+  'Accès d’urgence': 'Emergency access',
+  'Enveloppe la clé maîtresse pour un contact de confiance.':
+    'Wrap the master key for a trusted contact.',
+  'Contact configuré le': 'Contact configured on',
+  'Supprimer l’accès d’urgence': 'Remove emergency access',
+  'Identité du contact': 'Contact identity',
+  'Collez l’identité publique JSON du contact': 'Paste the contact’s public JSON identity',
+  'Configurer l’accès d’urgence': 'Configure emergency access',
+  'Accès d’urgence configuré': 'Emergency access configured',
+  'Accès d’urgence supprimé': 'Emergency access removed',
+  'Configuration impossible': 'Configuration failed',
+  'Suppression impossible': 'Deletion failed',
+  'Sans serveur, aucun délai ne peut être imposé : le contact qui possède le fichier et sa clé privée peut ouvrir l’enveloppe immédiatement. Le partage Shamir 2/3 reste à venir.':
+    'Without a server, no delay can be enforced: the contact who holds the file and their private key can open the envelope immediately. Shamir 2/3 sharing remains to come.',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

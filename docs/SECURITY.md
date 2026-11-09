@@ -1056,6 +1056,13 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   produit un nouveau paquet pour les membres restants. La révocation est
   **forward-only** : l’ancien membre conserve l’ancienne clé pour les contenus
   déjà reçus, mais ne peut plus lire les nouvelles écritures ;
+- l’accès d’urgence enveloppe la **clé maîtresse** avec HPKE pour l’identité
+  publique d’un contact. L’enveloppe est stockée dans le fichier et couverte
+  par le MAC. Elle est ré-enveloppée au changement de mot de passe et après une
+  récupération, car la clé maîtresse change ;
+- le contact doit posséder le fichier `.coffre` et sa clé privée d’identité pour
+  ouvrir l’enveloppe. Sans serveur, aucun délai ne peut être imposé : l’accès
+  est immédiat. Le partage Shamir 2/3 reste à concevoir ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;

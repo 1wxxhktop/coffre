@@ -388,6 +388,14 @@ export interface RecoveryEnvelope {
   templateWraps?: Array<{ templateId: string; key: Sealed }>
 }
 
+/** Enveloppe d’accès d’urgence pour un contact. */
+export interface EmergencyAccessRecord {
+  version: 1
+  contact: PublicSharingIdentity
+  sealed: SealedShareKey
+  createdAt: string
+}
+
 /** Membre associé à un coffre partagé, sans clé privée. */
 export interface VaultSharingMember {
   encryptionPublicKey: string
@@ -481,6 +489,8 @@ export interface VaultFile {
   prf?: PrfEnvelope
   /** Identité de partage du fichier. */
   sharing?: SealedSharingIdentity
+  /** Accès d’urgence optionnel pour un contact. */
+  emergency?: EmergencyAccessRecord
   /** Identifiant aléatoire de l’appareil qui a écrit en dernier (v4). */
   writer?: string
   /** Compteur monotone du fichier, incrémenté à chaque écriture (v4). */
@@ -493,7 +503,11 @@ export interface VaultFile {
   integrity?: VaultIntegrity
 }
 
-import type { ShareRole } from './sharing'
+import type {
+  PublicSharingIdentity,
+  SealedShareKey,
+  ShareRole,
+} from './sharing'
 
 export interface VaultSummary {
   id: string
