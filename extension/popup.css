@@ -176,13 +176,13 @@ body {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: 12px 16px calc(var(--dock-height, 90px) + 8px);
+  padding: 0 16px calc(var(--dock-height, 90px) + 8px);
   overflow-x: hidden;
   overflow-y: auto;
 }
 
 .message {
-  margin: 0 0 10px;
+  margin: 12px 0 10px;
   padding: 9px 11px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -210,8 +210,9 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 10px;
-  padding: 4px 0;
+  margin: 0 -16px 10px;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
 
