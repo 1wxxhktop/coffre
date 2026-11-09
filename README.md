@@ -684,6 +684,8 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run core:test` | Tests de `coffre-core`, de la façade FFI, du CLI et du noyau SSH |
 | `bun run core:clippy` | Clippy strict de `coffre-core`, `coffre-core-ffi`, `coffre-cli` et `coffre-ssh-agent` |
 | `bun run deny` | Vérifie licences, avis de sécurité et sources Cargo |
+| `cargo +nightly fuzz run vault_parse` | Fuzz local du parseur (depuis `src-tauri/crates/coffre-core`) |
+| `cargo +nightly fuzz run merge` | Fuzz local de la fusion |
 | `bun run cli:build` | Compile `coffre-cli` en release |
 | `bun run ssh:build` | Compile le binaire `coffre-ssh-agent` en release |
 | `bun run typecheck` | Vérification TypeScript |
