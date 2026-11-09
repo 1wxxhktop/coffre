@@ -27,6 +27,7 @@ describe('modèles d’éléments', () => {
     const created = await createTemplate(opened.file, opened.session, {
       name: 'Serveur',
       icon: '🖥️',
+      type: 'ssh-key',
       fields: fields(),
     })
     const signed = await signVaultFile(created.file, opened.session, opened.file)
@@ -37,6 +38,7 @@ describe('modèles d’éléments', () => {
       id: created.template.id,
       name: 'Serveur',
       icon: '🖥️',
+      type: 'ssh-key',
       fields: [
         expect.objectContaining({ label: 'Compte', type: 'text', fillable: true }),
         expect.objectContaining({ label: 'Clé', type: 'secret' }),
@@ -50,7 +52,7 @@ describe('modèles d’éléments', () => {
       signed,
       opened.session,
       created.template.id,
-      { name: 'Serveur SSH', icon: '🔐', fields: fields().slice(0, 2) },
+      { name: 'Serveur SSH', icon: '🔐', type: 'login', fields: fields().slice(0, 2) },
     )
     const signedUpdate = await signVaultFile(updated.file, opened.session, signed)
     const reopenedUpdate = await openVaultFileWithMasterKey(
@@ -58,6 +60,7 @@ describe('modèles d’éléments', () => {
       opened.session.masterKey,
     )
     expect(reopenedUpdate.templates[0].name).toBe('Serveur SSH')
+    expect(reopenedUpdate.templates[0].type).toBe('login')
     expect(reopenedUpdate.templates[0].fields).toHaveLength(2)
     reopenedUpdate.session.lock()
 

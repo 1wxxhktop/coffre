@@ -773,6 +773,14 @@ select.input option {
   color: var(--text-2);
 }
 
+.item-icon__monogram {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
 .item-icon--login,
 .item-icon--card,
 .item-icon--note {

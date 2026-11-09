@@ -76,6 +76,11 @@ async function run(width, height, theme) {
   }
   await page.waitForTimeout(250)
   await shot(page, `settings-${suffix}`)
+  if (width >= 640) {
+    await settings.getByRole('button', { name: 'Modèles', exact: true }).click()
+    await page.waitForTimeout(250)
+    await shot(page, `models-${suffix}`)
+  }
   await page.keyboard.press('Escape')
   await page.waitForTimeout(200)
 

@@ -10,8 +10,8 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | TypeScript | `bun run typecheck` | OK |
 | Lint + jetons | `bun run lint` | OK, 0 erreur et 0 avertissement |
 | Jetons seuls | `bun run lint:design` | OK, aucune valeur littérale hors jetons |
-| Tests unitaires | `bun run test` | 67 fichiers, 472 tests |
-| E2E Chromium + WebKit | `bun run test:e2e` | 124 tests passés, 6 ignorés (130 exécutions) |
+| Tests unitaires | `bun run test` | 69 fichiers, 482 tests |
+| E2E Chromium + WebKit | `bun run test:e2e` | 138 tests passés, 6 ignorés (144 exécutions) |
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |
 | Build extension | `bun run extension:build` | OK |
@@ -47,6 +47,10 @@ ainsi que son comportement mobile sans débordement. `e2e/date-groups.spec.ts`
 vérifie le regroupement automatique par date, le tri à l’intérieur des groupes
 et le retour à une liste plate.
 
+`e2e/item-models.spec.ts` vérifie les icônes de service, le monogramme de
+repli, les dix modèles intégrés, la création depuis un modèle et le choix du
+type dans un modèle personnalisé.
+
 `e2e/accessibility.spec.ts` vérifie en plus les noms accessibles, le piège à
 focus des modales, `prefers-reduced-motion` et l’audit axe sur
 l’authentification, la liste, le détail, les réglages et le tableau de bord
@@ -56,7 +60,7 @@ Sécurité, en sombre et clair, à 1280 et 375 px.
 
 - `docs/design-captures/before/` : `main` à `10de4a9`.
 - `docs/design-captures/after/` : branche `design/d1-d9`.
-- 5 écrans × 2 thèmes × 2 tailles = 20 images avant ; 24 images après avec le tableau de bord.
+- 5 écrans × 2 thèmes × 2 tailles = 20 images avant ; 26 images après avec le tableau de bord et les modèles (desktop).
 
 Les captures ont été relues manuellement. Elles ne constituent pas une
 baseline de régression : les rendus de police varient entre macOS et Linux.
