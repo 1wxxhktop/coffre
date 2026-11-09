@@ -705,6 +705,10 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `./scripts/release-macos.sh` | Build macOS universel signé et notarié (certificat requis) |
 | `bun run tauri:icons` | Régénère les icônes Tauri depuis `public/icon.svg` |
 
+Chaque modification livrée incrémente la version dans `package.json`,
+`src-tauri/tauri.conf.json`, `extension/public/manifest.json` et les crates
+Cargo. `bun run version:check` vérifie leur cohérence avant chaque commit.
+
 ---
 
 ## Plateformes
