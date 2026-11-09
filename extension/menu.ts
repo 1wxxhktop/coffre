@@ -2,6 +2,7 @@ import type {
   ExtensionAutofillKind,
   ExtensionAutofillSummary,
 } from '../src/lib/extensionProtocol'
+import type { PhishingAssessment } from '../src/lib/phishing'
 import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
 import { mountLogos } from './logo'
@@ -17,6 +18,7 @@ interface MenuQuery {
   frameId: number
   host: string
   topHost: string
+  url: string
   kind: ExtensionAutofillKind
   mode: 'badge' | 'save'
 }
@@ -30,6 +32,7 @@ interface SearchResponse {
 interface FillResponse {
   ok?: boolean
   error?: string
+  phishing?: PhishingAssessment
 }
 
 interface DetailsResponse {
@@ -43,6 +46,7 @@ interface SaveStatus {
     host: string
     kind?: ExtensionAutofillKind
     detail?: string
+    phishing?: PhishingAssessment
   }
   error?: string
 }
@@ -59,6 +63,10 @@ const panel = $<HTMLDivElement>('panel')
 const closeButton = $<HTMLButtonElement>('close')
 const hostLabel = $<HTMLElement>('host')
 const message = $<HTMLParagraphElement>('message')
+const phishing = $<HTMLDivElement>('phishing')
+const phishingText = $<HTMLParagraphElement>('phishing-text')
+const phishingCancel = $<HTMLButtonElement>('phishing-cancel')
+const phishingContinue = $<HTMLButtonElement>('phishing-continue')
 const tabs = $<HTMLDivElement>('tabs')
 const tabLogin = $<HTMLButtonElement>('tab-login')
 const tabCard = $<HTMLButtonElement>('tab-card')
@@ -78,6 +86,9 @@ const ignoreButton = $<HTMLButtonElement>('ignore')
 
 const params = new URLSearchParams(window.location.search)
 let searchTimer: number | undefined
+let pendingPhishing:
+  | { assessment: PhishingAssessment; action: 'fill' | 'save'; itemId?: string }
+  | null = null
 let kind: ExtensionAutofillKind =
   params.get('kind') === 'card' ||
   params.get('kind') === 'identity' ||
@@ -89,6 +100,7 @@ const query: MenuQuery = {
   frameId: Number(params.get('frame') ?? ''),
   host: params.get('host') ?? '',
   topHost: params.get('top') ?? '',
+  url: (params.get('url') ?? '').slice(0, 2048),
   kind,
   mode: params.get('mode') === 'save' ? 'save' : 'badge',
 }
@@ -119,6 +131,65 @@ function showMessage(text: string, tone: 'info' | 'error' | 'success' = 'info') 
   message.hidden = false
   message.textContent = text
   message.className = tone === 'info' ? 'message' : `message message--${tone}`
+}
+
+function phishingTextFor(assessment: PhishingAssessment): string {
+  const signal = assessment.signals[0]
+  if (!signal) return t('phishing_generic')
+  if (signal.knownDomain) return t('phishing_imitates', signal.knownDomain)
+  if (signal.code === 'unknown-domain') return t('phishing_unknownUsername')
+  if (signal.code === 'ip') return t('phishing_ip')
+  if (signal.code === 'http') return t('phishing_http')
+  if (signal.code === 'port') return t('phishing_port')
+  return t('phishing_generic')
+}
+
+function showPhishing(
+  assessment: PhishingAssessment,
+  action: 'fill' | 'save',
+  itemId?: string,
+) {
+  pendingPhishing = { assessment, action, itemId }
+  phishingText.textContent = phishingTextFor(assessment)
+  phishing.hidden = false
+  actions.hidden = true
+  if (action === 'save') results.hidden = true
+}
+
+function hidePhishing() {
+  phishing.hidden = true
+  pendingPhishing = null
+  if (query.mode !== 'save') results.hidden = false
+}
+
+async function cancelPhishing() {
+  const pending = pendingPhishing
+  hidePhishing()
+  if (pending) {
+    await send({
+      type: 'PHISHING_CHOICE',
+      host: query.host,
+      signals: pending.assessment.signals.map((signal) => signal.code),
+      choice: 'cancel',
+    }).catch(() => undefined)
+  }
+  if (pending?.action === 'save') {
+    close()
+  } else if (pending?.action === 'fill') {
+    showMessage(t('phishing_cancelled'), 'info')
+  }
+}
+
+function continuePhishing() {
+  const pending = pendingPhishing
+  if (!pending) return
+  const { action, itemId } = pending
+  hidePhishing()
+  if (action === 'fill' && itemId) {
+    void fill(itemId, true)
+  } else if (action === 'save') {
+    void save(true)
+  }
 }
 
 function resize(width: number, height: number) {
@@ -321,17 +392,23 @@ async function load(queryText: string): Promise<void> {
   renderResults(response.items ?? [], response.recentId)
 }
 
-async function fill(itemId: string) {
+async function fill(itemId: string, overridePhishing = false) {
   try {
     const response = await send<FillResponse>({
       type: 'MENU_FILL',
       tabId: query.tabId,
       frameId: query.frameId,
       host: query.host,
+      url: query.url,
       itemId,
       kind,
       includeSensitive: kind === 'card' && includeSensitive.checked,
+      overridePhishing,
     })
+    if (response.error === 'phishing-warning' && response.phishing) {
+      showPhishing(response.phishing, 'fill', itemId)
+      return
+    }
     if (!response.ok) {
       showMessage(errorText(response.error), 'error')
       return
@@ -371,17 +448,31 @@ async function loadSaveStatus() {
     `${t('menu_savePrompt')} « ${label} »${detail} ${t('menu_saveFor')} ${response.pending.host} ?`,
     'info',
   )
-  actions.hidden = false
+  if (response.pending.phishing) {
+    showPhishing(response.pending.phishing, 'save')
+  } else {
+    actions.hidden = false
+  }
 }
 
-async function save() {
+async function save(overridePhishing = false) {
   saveButton.disabled = true
   try {
-    const response = await send<{ ok?: boolean; updated?: boolean; error?: string }>({
+    const response = await send<{
+      ok?: boolean
+      updated?: boolean
+      error?: string
+      phishing?: PhishingAssessment
+    }>({
       type: 'SAVE_NOW',
       tabId: query.tabId,
       frameId: query.frameId,
+      overridePhishing,
     })
+    if (response.error === 'phishing-warning' && response.phishing) {
+      showPhishing(response.phishing, 'save')
+      return
+    }
     if (!response.ok) {
       showMessage(errorText(response.error), 'error')
       return
@@ -397,6 +488,16 @@ async function save() {
 }
 
 async function ignore() {
+  const assessment = pendingPhishing?.assessment
+  if (assessment) {
+    await send({
+      type: 'PHISHING_CHOICE',
+      host: query.host,
+      signals: assessment.signals.map((signal) => signal.code),
+      choice: 'cancel',
+    }).catch(() => undefined)
+  }
+  hidePhishing()
   await send({
     type: 'SAVE_DISMISS',
     tabId: query.tabId,
@@ -450,6 +551,8 @@ function init() {
   closeButton.addEventListener('click', close)
   saveButton.addEventListener('click', () => void save())
   ignoreButton.addEventListener('click', () => void ignore())
+  phishingCancel.addEventListener('click', () => void cancelPhishing())
+  phishingContinue.addEventListener('click', continuePhishing)
 }
 
 void loadTheme()
