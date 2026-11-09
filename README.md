@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 436 tests unitaires et
-> 62 parcours Playwright exécutés sur Chromium et WebKit (124 exécutions, 6 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 451 tests unitaires et
+> 65 parcours Playwright exécutés sur Chromium et WebKit (130 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -207,6 +207,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   score de santé, statistiques, points d’attention, éléments prioritaires,
   récents, coffres, échéances et état du stockage local (dernière écriture,
   synchronisation en attente, sauvegardes tournantes).
+- **Liste groupée par date** : sections « Aujourd’hui », « Hier », « 7 derniers
+  jours », « Ce mois-ci » puis par mois, avec en-têtes sticky et tri appliqué à
+  l’intérieur de chaque groupe. L’option « Grouper par date » permet de revenir
+  à une liste plate.
 - **Design system** : jetons centralisés (`src/styles/tokens.css`), thème clair
   par variables, échelle typographique avec plancher à 12 px, rayons,
   espacements et profondeur cohérents. Réglages en pages (Général, Sécurité,

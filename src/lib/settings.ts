@@ -92,6 +92,17 @@ export function formatDateTime(iso: string, locale = 'fr-FR'): string {
   }).format(date)
 }
 
+/** Libellé de mois pour les groupes de dates anciennes. */
+export function formatMonthYear(iso: string, locale = 'fr-FR'): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '—'
+  const label = new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
 export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`
 }
