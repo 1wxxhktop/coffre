@@ -119,9 +119,7 @@ body {
   height: 36px;
   flex: none;
   overflow: hidden;
-  border: 1px solid var(--line);
   border-radius: 9px;
-  background: var(--panel);
 }
 
 .theme-icon {

@@ -89,9 +89,7 @@ body {
   height: 34px;
   flex: none;
   overflow: hidden;
-  border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--surface);
 }
 
 .eyebrow {

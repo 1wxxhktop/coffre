@@ -97,9 +97,7 @@ body {
   height: 48px;
   flex: none;
   overflow: hidden;
-  border: 1px solid var(--line);
   border-radius: 14px;
-  background: var(--panel);
 }
 
 .hero h1 {
