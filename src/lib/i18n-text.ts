@@ -300,6 +300,7 @@ export const EN_TEXT: Record<string, string> = {
   Appairage: 'Pairing',
   Partage: 'Share',
   'Remplissage par l’extension': 'Extension fill',
+  'Avertissement anti-hameçonnage': 'Phishing warning',
   'Agent SSH': 'SSH agent',
   Aperçu: 'Preview',
   'Aperçu impossible': 'Preview failed',
