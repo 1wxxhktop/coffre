@@ -21,7 +21,9 @@ jobs:
   macos:
     name: Bundle signé et notarié
     runs-on: macos-latest
-    timeout-minutes: 90
+    # Minute macOS ≈ 10 minutes Linux sur le quota : un build bloqué ne doit
+    # pas consommer 90 minutes.
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:

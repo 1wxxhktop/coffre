@@ -1,9 +1,25 @@
 name: CI
 
+# Budget : le compte dispose d’un quota mensuel de minutes Actions, sans
+# dépassement payant. Une minute macOS coûte environ 10 fois une minute Linux,
+# une minute Windows environ 2 fois. Les PR et les push ne lancent donc que des
+# jobs Linux ; macOS, Windows, WebKit et les builds desktop ne tournent qu’à la
+# demande (« Run workflow »). Un commit qui ne touche que la documentation ne
+# lance rien ; `[skip ci]` dans le message saute aussi la CI.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'NOTICE'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'NOTICE'
   workflow_dispatch:
 
 permissions:
@@ -20,7 +36,7 @@ jobs:
   quality:
     name: Qualité
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -68,7 +84,11 @@ jobs:
   e2e:
     name: Parcours Playwright
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    env:
+      # Chromium seul par défaut ; WebKit s’ajoute lors d’un lancement manuel.
+      E2E_BROWSERS: ${{ github.event_name == 'workflow_dispatch' && 'chromium webkit' || 'chromium' }}
+      E2E_PROJECTS: ${{ github.event_name == 'workflow_dispatch' && '--project=chromium --project=webkit' || '--project=chromium' }}
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -83,11 +103,11 @@ jobs:
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
 
-      - name: Installer Chromium et WebKit
-        run: bunx playwright install --with-deps chromium webkit
+      - name: Installer les navigateurs
+        run: bunx playwright install --with-deps $E2E_BROWSERS
 
       - name: Exécuter les parcours
-        run: bun run test:e2e
+        run: bunx playwright test $E2E_PROJECTS
 
       - name: Conserver les traces en cas d’échec
         if: failure()
@@ -102,7 +122,7 @@ jobs:
   rust:
     name: Rust (fmt, clippy, tests, audit)
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -139,8 +159,10 @@ jobs:
       - name: Tests Rust
         run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --lib
 
-      - name: Tests du CLI
-        run: cargo test --manifest-path src-tauri/Cargo.toml -p coffre-cli
+      # Couvre aussi la partie Linux de `coffre-core` : tests d’intégration et
+      # vecteurs croisés du cœur, du FFI, du CLI et de l’agent SSH.
+      - name: Tests du cœur, du CLI et de l’agent SSH
+        run: cargo test --manifest-path src-tauri/Cargo.toml -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent
 
       - name: Smoke du relais natif
         run: |
@@ -158,12 +180,15 @@ jobs:
 
   core:
     name: coffre-core (${{ matrix.os }})
+    # Linux est couvert par le job Rust. macOS et Windows, coûteux, ne
+    # tournent qu’à la demande.
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -192,7 +217,7 @@ jobs:
   smoke-extension:
     name: Extension Chromium (smoke)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -234,14 +259,14 @@ jobs:
 
   desktop:
     name: Desktop (${{ matrix.os }})
-    # macOS et Windows sont coûteux : build uniquement sur main ou à la demande.
-    if: github.event_name != 'pull_request'
+    # Builds complets sur les trois systèmes : à la demande uniquement.
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-22.04, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 40
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
