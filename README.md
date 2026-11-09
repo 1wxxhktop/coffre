@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 561 tests unitaires et
-> 73 parcours Playwright exécutés sur Chromium et WebKit (146 exécutions, 7 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 666 tests unitaires et
+> 78 parcours Playwright exécutés sur Chromium et WebKit (156 exécutions, 8 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -746,9 +746,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (647 tests) |
+| `bun run test` | Tests Vitest (666 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (146 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (156 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
@@ -942,13 +942,13 @@ trousseau et de la nouvelle interface) :
   n’ouvre aucune connexion réseau ;
 - les 144 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
-- `cargo test --lib` exécute 34 tests (1 ignoré) : stockage natif (rotation, permissions,
+- `cargo test --lib` exécute 36 tests (1 ignoré) : stockage natif (rotation, permissions,
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP,
   traduction des événements de session macOS/Windows/Linux et détection de
   LocalAuthentication/Touch ID sur la machine de build ;
 - `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent`
-  (22 + 3 + 13 + 17 tests) ouvre les fixtures TypeScript v1 à v4, crée/modifie/supprime, signe
+  (26 + 3 + 13 + 17 tests) ouvre les fixtures TypeScript v1 à v4, crée/modifie/supprime, signe
   en v4, tourne le mot de passe, fusionne deux fichiers, exerce la façade
   UniFFI et relit les vecteurs Rust par le test TypeScript
   (`src/lib/coffreCoreVector.test.ts`).
