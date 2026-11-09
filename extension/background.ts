@@ -26,6 +26,7 @@ import {
   type ContextMenuEntry,
 } from './contextMenuModel'
 import { t } from './i18n'
+import { loadSettings, usesNativeBridge } from './settings'
 import { submitLoginForm } from './loginSubmit'
 import { saveBannerView } from './saveBannerState'
 import {
@@ -152,6 +153,7 @@ interface AppStatus {
   unlocked: boolean
   paired?: boolean
   hostAccess?: boolean
+  siteAccess?: boolean
   mode?: 'native' | 'tab'
   tabId?: number
   appUrl: string
@@ -203,11 +205,34 @@ async function readTabStatus(): Promise<AppStatus> {
  * Le pont natif est prioritaire : il ne dépend pas d’un onglet Coffre ouvert.
  * L’onglet Web reste le repli lorsque l’application desktop ne répond pas.
  */
-async function hasHostAccess(): Promise<boolean> {
+async function grantedHostOrigins(): Promise<string[]> {
   try {
-    return await api.permissions.contains({
-      origins: ['http://*/*', 'https://*/*'],
-    })
+    const appUrl = await getAppUrl()
+    const appPatterns = new Set([
+      `${appUrl}/*`,
+      'http://localhost:4173/*',
+      'http://127.0.0.1:4173/*',
+    ])
+    const all = await api.permissions.getAll()
+    return (all.origins ?? []).filter(
+      (origin) => /^https?:\/\//i.test(origin) && !appPatterns.has(origin),
+    )
+  } catch {
+    return []
+  }
+}
+
+async function hasHostAccess(): Promise<boolean> {
+  return (await grantedHostOrigins()).length > 0
+}
+
+async function hasSiteAccess(): Promise<boolean> {
+  try {
+    const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+    const url = tab?.url ?? ''
+    if (!/^https?:/i.test(url)) return false
+    const origin = new URL(url).origin
+    return await api.permissions.contains({ origins: [`${origin}/*`] })
   } catch {
     return false
   }
@@ -217,10 +242,10 @@ const CONTENT_SCRIPT_ID = 'coffre-inline'
 const WEBAUTHN_SCRIPT_ID = 'coffre-webauthn-main'
 
 /**
- * Le content script n’est enregistré qu’après autorisation explicite des hôtes.
- * Il est ainsi absent des pages tant que l’utilisateur n’a pas activé le menu
- * dans les champs. L’interception WebAuthn suit la même permission et tourne
- * dans le monde de la page, à `document_start`, sans accès aux clés.
+ * Le content script n’est enregistré que sur les hôtes explicitement
+ * autorisés. Site par site ou tous les sites, la liste vient de
+ * `permissions.getAll` : aucune permission d’hôte globale n’est supposée.
+ * L’interception WebAuthn suit exactement les mêmes hôtes.
  */
 async function syncContentScriptRegistration(): Promise<void> {
   let registered: Array<{ id: string }> = []
@@ -230,60 +255,51 @@ async function syncContentScriptRegistration(): Promise<void> {
     // Firefox ou un navigateur sans scripting dynamique.
     return
   }
-  const allowed = await hasHostAccess()
-  const hasContent = registered.some((script) => script.id === CONTENT_SCRIPT_ID)
-  const hasWebauthn = registered.some(
-    (script) => script.id === WEBAUTHN_SCRIPT_ID,
-  )
-
-  if (!allowed) {
-    const ids = [
-      ...(hasContent ? [CONTENT_SCRIPT_ID] : []),
-      ...(hasWebauthn ? [WEBAUTHN_SCRIPT_ID] : []),
-    ]
-    if (ids.length > 0) {
-      try {
-        await api.scripting.unregisterContentScripts({ ids })
-      } catch {
-        // Déjà retiré par le navigateur.
-      }
-    }
-    return
-  }
-
-  if (!hasContent) {
+  const origins = await grantedHostOrigins()
+  const existing = registered
+    .filter(
+      (script) =>
+        script.id === CONTENT_SCRIPT_ID || script.id === WEBAUTHN_SCRIPT_ID,
+    )
+    .map((script) => script.id)
+  if (existing.length > 0) {
     try {
-      await api.scripting.registerContentScripts([
-        {
-          id: CONTENT_SCRIPT_ID,
-          matches: ['http://*/*', 'https://*/*'],
-          js: ['content.js'],
-          runAt: 'document_idle',
-          allFrames: true,
-          persistAcrossSessions: true,
-        },
-      ])
+      await api.scripting.unregisterContentScripts({ ids: existing })
     } catch {
-      // Le remplissage au clic reste disponible depuis le popup.
+      // Déjà retiré par le navigateur.
     }
   }
+  if (origins.length === 0) return
 
-  if (!hasWebauthn) {
-    try {
-      await api.scripting.registerContentScripts([
-        {
-          id: WEBAUTHN_SCRIPT_ID,
-          matches: ['http://*/*', 'https://*/*'],
-          js: ['webauthn-main.js'],
-          runAt: 'document_start',
-          allFrames: true,
-          persistAcrossSessions: true,
-          world: 'MAIN',
-        },
-      ])
-    } catch {
-      // Pas de monde MAIN : le content script injecte le script en repli.
-    }
+  try {
+    await api.scripting.registerContentScripts([
+      {
+        id: CONTENT_SCRIPT_ID,
+        matches: origins,
+        js: ['content.js'],
+        runAt: 'document_idle',
+        allFrames: true,
+        persistAcrossSessions: true,
+      },
+    ])
+  } catch {
+    // Le remplissage au clic reste disponible depuis le popup.
+  }
+
+  try {
+    await api.scripting.registerContentScripts([
+      {
+        id: WEBAUTHN_SCRIPT_ID,
+        matches: origins,
+        js: ['webauthn-main.js'],
+        runAt: 'document_start',
+        allFrames: true,
+        persistAcrossSessions: true,
+        world: 'MAIN',
+      },
+    ])
+  } catch {
+    // Pas de monde MAIN : le content script injecte le script en repli.
   }
 }
 
@@ -294,8 +310,12 @@ void updateActionBadge()
 // l’initialisation du service worker.
 
 async function readStatus(): Promise<AppStatus> {
+  const settings = await loadSettings()
   const hostAccess = await hasHostAccess()
-  const native = await nativeStatus()
+  const siteAccess = await hasSiteAccess()
+  const native = usesNativeBridge(settings.appMode)
+    ? await nativeStatus()
+    : null
   let status: AppStatus
   if (native) {
     status = {
@@ -303,11 +323,12 @@ async function readStatus(): Promise<AppStatus> {
       unlocked: native.unlocked,
       paired: native.paired,
       hostAccess,
+      siteAccess,
       mode: 'native',
       appUrl: '',
     }
   } else {
-    status = { ...(await readTabStatus()), hostAccess }
+    status = { ...(await readTabStatus()), hostAccess, siteAccess }
   }
   // Une proposition d’enregistrement ne survit pas au verrouillage du coffre :
   // le secret en transit n’a plus de raison d’être conservé.
@@ -1786,6 +1807,18 @@ async function requestUnlock(): Promise<{
   return { ok: true, pending: true, mode: 'tab' }
 }
 
+const WELCOME_NOTICE_VERSION = '0.9.0'
+
+async function openWelcome(mode: 'install' | 'update'): Promise<void> {
+  try {
+    await api.tabs.create({
+      url: api.runtime.getURL(`welcome.html?mode=${mode}`),
+    })
+  } catch {
+    // L’accueil reste accessible depuis les réglages.
+  }
+}
+
 async function openApp(): Promise<{ ok: boolean }> {
   const native = await nativeStatus()
   if (native) {
@@ -2298,7 +2331,22 @@ api.contextMenus?.onClicked.addListener((info, tab) => {
   void onContextMenuClicked(info, tab).catch(() => flashActionBadge())
 })
 
-api.runtime.onInstalled.addListener(() => scheduleContextMenus())
+api.runtime.onInstalled.addListener((details) => {
+  scheduleContextMenus()
+  const version = api.runtime.getManifest().version
+  if (details.reason === 'install') {
+    void openWelcome('install')
+    return
+  }
+  if (
+    details.reason === 'update' &&
+    details.previousVersion &&
+    details.previousVersion !== version &&
+    version === WELCOME_NOTICE_VERSION
+  ) {
+    void openWelcome('update')
+  }
+})
 api.runtime.onStartup.addListener(() => scheduleContextMenus())
 api.tabs.onActivated.addListener(() => scheduleContextMenus())
 api.windows.onFocusChanged.addListener(() => scheduleContextMenus())

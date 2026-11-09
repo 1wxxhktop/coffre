@@ -8,6 +8,10 @@ import {
 import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
 import { mountLogos } from './logo'
+import {
+  loadSettings as loadExtensionSettings,
+  type ActivationMode,
+} from './settings'
 import { loadTheme, nextTheme, saveTheme, type ThemePreference } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
@@ -20,6 +24,7 @@ interface AppStatus {
   unlocked: boolean
   paired?: boolean
   hostAccess?: boolean
+  siteAccess?: boolean
   mode?: 'native' | 'tab'
   tabId?: number
   appUrl: string
@@ -85,6 +90,7 @@ const settingsSaveButton = $<HTMLButtonElement>('settings-save')
 const settingsTestButton = $<HTMLButtonElement>('settings-test')
 const settingsStatus = $<HTMLParagraphElement>('settings-status')
 const settingsOpenAppButton = $<HTMLButtonElement>('settings-open-app')
+const settingsOpenOptionsButton = $<HTMLButtonElement>('settings-open-options')
 const shortcutsList = $<HTMLUListElement>('shortcuts-list')
 const settingsShortcutsButton = $<HTMLButtonElement>('settings-shortcuts')
 const themeChoices = Array.from(
@@ -121,6 +127,7 @@ let inlineReady = false
 let unlocking = false
 let unlockPoll: number | undefined
 let unlockHintTimer: number | undefined
+let activationMode: ActivationMode = 'site'
 
 const THEME_ICONS: Record<ThemePreference, string> = {
   system:
@@ -477,17 +484,23 @@ function renderStatus() {
 
   searchWrap.hidden = false
   searchInput.disabled = false
-  if (status.hostAccess === false && !inlineReady) {
-    showMessage(
-      'Activez le remplissage dans les champs pour remplir les formulaires directement.',
-      'info',
-    )
+  const siteAllowed = status.siteAccess !== false
+  if (!siteAllowed && !inlineReady) {
+    showMessage(t('popup_activateHint'), 'info')
   } else {
     hideMessage()
   }
   actions.hidden = inlineReady
   openAppButton.hidden = true
   activateInlineButton.hidden = inlineReady
+  const activateLabel = activateInlineButton.querySelector('span')
+  if (activateLabel) {
+    activateLabel.textContent = t(
+      activationMode === 'all'
+        ? 'popup_activateInline'
+        : 'popup_activateSite',
+    )
+  }
   inlineStatusDot.hidden = !inlineReady
   footerStatus.textContent =
     status.mode === 'native'
@@ -854,6 +867,11 @@ async function copyGeneratedPassword(): Promise<void> {
 
 async function init() {
   await initTheme()
+  try {
+    activationMode = (await loadExtensionSettings()).activationMode
+  } catch {
+    activationMode = 'site'
+  }
   const [tab] = await api.tabs.query({ active: true, currentWindow: true })
   currentTab = tab ?? null
   const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
@@ -983,24 +1001,39 @@ activateInlineButton.addEventListener('click', () => {
     activateInlineButton.disabled = true
     let granted: boolean | null = null
     try {
-      granted = await requestHostPermission(['http://*/*', 'https://*/*'])
+      const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+      if (!tab?.id || !tab.url || !/^https?:/i.test(tab.url)) {
+        throw new Error('onglet actif sans site HTTP')
+      }
+      const origins =
+        activationMode === 'all'
+          ? ['http://*/*', 'https://*/*']
+          : [`${new URL(tab.url).origin}/*`]
+      granted = await requestHostPermission(origins)
+      if (granted === false) {
+        showMessage(t('popup_activateDenied'), 'error')
+        return
+      }
       try {
         await send({ type: 'ENABLE_INLINE' })
       } catch {
         // Orion/WebKit : l’enregistrement dynamique peut échouer ; l’injection
         // manuelle dans l’onglet courant reste tentée ci-dessous.
       }
-      const [tab] = await api.tabs.query({ active: true, currentWindow: true })
-      if (!tab?.id) throw new Error('onglet actif introuvable')
       await injectInlineScripts(tab.id)
       await init()
-      showMessage('Remplissage dans les champs activé. Rechargez les autres onglets.', 'success')
+      showMessage(
+        activationMode === 'all'
+          ? t('popup_activatedAll')
+          : t('popup_activatedSite'),
+        'success',
+      )
     } catch (error) {
       console.error('Activation du remplissage impossible', error)
       showMessage(
         granted === false
-          ? 'Permission refusée pour le remplissage dans les champs.'
-          : 'Activation impossible sur cette page.',
+          ? t('popup_activateDenied')
+          : t('popup_activateFailed'),
         'error',
       )
     } finally {
@@ -1095,6 +1128,10 @@ settingsTestButton.addEventListener('click', () => {
 
 settingsOpenAppButton.addEventListener('click', () => {
   void send({ type: 'OPEN_APP' }).then(() => window.close())
+})
+
+settingsOpenOptionsButton.addEventListener('click', () => {
+  void api.runtime.openOptionsPage()
 })
 
 settingsShortcutsButton.addEventListener('click', () => {

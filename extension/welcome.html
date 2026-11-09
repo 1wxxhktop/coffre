@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="fr" data-page-title="welcome_title">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coffre — Bienvenue</title>
+    <link rel="stylesheet" href="./welcome.css" />
+    <link rel="stylesheet" href="./logo.css" />
+  </head>
+  <body>
+    <main class="welcome">
+      <header class="hero">
+        <span class="hero__logo" data-coffre-logo aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow" data-i18n="welcome_eyebrow">Extension navigateur</p>
+          <h1 data-i18n="welcome_heading">Bienvenue dans Coffre</h1>
+          <p class="hero__subtitle" data-i18n="welcome_subtitle">
+            Remplissez vos connexions sans quitter le navigateur, sans serveur ni télémétrie.
+          </p>
+        </div>
+      </header>
+
+      <section id="update-note" class="card update-note" hidden>
+        <h2 data-i18n="welcome_updateHeading">Quoi de neuf dans cette version</h2>
+        <ul>
+          <li data-i18n="welcome_updateShortcuts">Raccourcis clavier et menu contextuel.</li>
+          <li data-i18n="welcome_updateUnlock">Déverrouillage depuis la popup et bandeau d’enregistrement.</li>
+          <li data-i18n="welcome_updateSettings">Réglages complets et activation site par site.</li>
+        </ul>
+      </section>
+
+      <div id="install-flow">
+        <section class="card step">
+          <div class="step__head">
+            <span class="step__number">1</span>
+            <div>
+              <h2 data-i18n="welcome_connectHeading">Choisissez votre application</h2>
+              <p data-i18n="welcome_connectCopy">
+                L’application desktop est recommandée : elle reste disponible sans onglet Coffre ouvert.
+              </p>
+            </div>
+          </div>
+
+          <div class="mode-grid" role="radiogroup" aria-label="Mode de connexion" data-i18n-aria-label="welcome_modeLabel">
+            <label class="mode-card">
+              <input type="radio" name="app-mode" value="desktop" checked />
+              <span class="mode-card__body">
+                <strong data-i18n="welcome_desktop">Application desktop</strong>
+                <small data-i18n="welcome_desktopCopy">Recommandé · Touch ID ou mot de passe dans Coffre</small>
+              </span>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="app-mode" value="web" />
+              <span class="mode-card__body">
+                <strong data-i18n="welcome_web">Application Web</strong>
+                <small data-i18n="welcome_webCopy">Un onglet Coffre déverrouillé suffit</small>
+              </span>
+            </label>
+          </div>
+
+          <div id="desktop-panel" class="panel">
+            <p class="muted" data-i18n="welcome_pairCopy">
+              Ouvrez Coffre, déverrouillez votre coffre, puis cliquez sur le bouton ci-dessous.
+            </p>
+            <div class="inline-actions">
+              <button id="pair" class="button button--primary" type="button">
+                <span data-i18n="welcome_pair">Associer l’extension</span>
+              </button>
+              <button id="open-app" class="button" type="button">
+                <span data-i18n="welcome_openApp">Ouvrir Coffre</span>
+              </button>
+            </div>
+            <p id="pair-code" class="code" aria-live="polite" hidden></p>
+            <p id="pair-status" class="status" role="status"></p>
+          </div>
+
+          <div id="web-panel" class="panel" hidden>
+            <label class="field">
+              <span data-i18n="welcome_webUrl">Adresse de l’application Web</span>
+              <input id="web-url" type="url" spellcheck="false" placeholder="http://localhost:1420" />
+            </label>
+            <div class="inline-actions">
+              <button id="web-save" class="button button--primary" type="button">
+                <span data-i18n="welcome_saveUrl">Enregistrer et autoriser</span>
+              </button>
+              <button id="web-test" class="button" type="button">
+                <span data-i18n="welcome_test">Tester</span>
+              </button>
+            </div>
+            <p id="web-status" class="status" role="status"></p>
+          </div>
+        </section>
+
+        <section class="card step">
+          <div class="step__head">
+            <span class="step__number">2</span>
+            <div>
+              <h2 data-i18n="welcome_activationHeading">Activez le remplissage</h2>
+              <p data-i18n="welcome_activationCopy">
+                Vous pouvez limiter l’extension aux sites que vous choisissez.
+              </p>
+            </div>
+          </div>
+          <div class="activation">
+            <label class="choice">
+              <input type="radio" name="activation" value="site" checked />
+              <span>
+                <strong data-i18n="welcome_siteBySite">Site par site</strong>
+                <small data-i18n="welcome_siteBySiteCopy">Recommandé · activez chaque site depuis la popup</small>
+              </span>
+            </label>
+            <label class="choice">
+              <input type="radio" name="activation" value="all" />
+              <span>
+                <strong data-i18n="welcome_allSites">Tous les sites</strong>
+                <small data-i18n="welcome_allSitesCopy">Une seule autorisation pour les sites HTTP et HTTPS</small>
+              </span>
+            </label>
+          </div>
+          <button id="request-all" class="button" type="button" hidden>
+            <span data-i18n="welcome_requestAll">Autoriser tous les sites maintenant</span>
+          </button>
+          <p id="activation-status" class="status" role="status"></p>
+        </section>
+
+        <section class="card step">
+          <div class="step__head">
+            <span class="step__number">3</span>
+            <div>
+              <h2 data-i18n="welcome_shortcutsHeading">Raccourcis et épinglage</h2>
+              <p data-i18n="welcome_shortcutsCopy">
+                Épinglez l’icône Coffre pour l’avoir sous la main. Les raccourcis restent modifiables.
+              </p>
+            </div>
+          </div>
+          <ul id="welcome-shortcuts" class="shortcuts"></ul>
+          <button id="shortcuts" class="button" type="button">
+            <span data-i18n="welcome_editShortcuts">Modifier les raccourcis</span>
+          </button>
+        </section>
+      </div>
+
+      <div class="footer-actions">
+        <button id="finish" class="button button--primary" type="button">
+          <span data-i18n="welcome_finish">Terminer</span>
+        </button>
+        <button id="advanced" class="button" type="button">
+          <span data-i18n="welcome_advanced">Réglages avancés</span>
+        </button>
+      </div>
+      <p class="privacy" data-i18n="welcome_privacy">
+        Local · aucun serveur · aucune télémétrie. Le mot de passe maître ne quitte jamais Coffre.
+      </p>
+    </main>
+    <script type="module" src="./welcome.ts"></script>
+  </body>
+</html>

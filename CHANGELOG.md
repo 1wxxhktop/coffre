@@ -70,6 +70,15 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : accueil à l’installation (`welcome.html`) pour choisir
+  l’application desktop ou Web, associer ou configurer l’adresse, activer site
+  par site (défaut) ou tous les sites, puis afficher les raccourcis. Note de
+  mise à jour courte limitée aux changements de version concernés. Page
+  d’options complète (connexion, remplissage, enregistrement, raccourcis,
+  thème, permissions) avec réglages locaux sans secret.
+- Extension : activation site par site par défaut ; les content scripts sont
+  enregistrés dynamiquement sur les seules origines autorisées, et le menu dans
+  les champs peut être désactivé dans les réglages.
 - Extension : menu contextuel dans les champs (remplir une connexion du site,
   générer un mot de passe, insérer un alias, remplir une carte ou une
   identité) et sur la page (ouvrir Coffre, ajouter le site). Les connexions

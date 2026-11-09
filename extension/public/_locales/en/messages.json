@@ -2,6 +2,162 @@
   "extName": {
     "message": "Coffre — autofill"
   },
+  "welcome_title": {
+    "message": "Welcome to Coffre"
+  },
+  "welcome_eyebrow": {
+    "message": "Browser extension"
+  },
+  "welcome_heading": {
+    "message": "Welcome to Coffre"
+  },
+  "welcome_subtitle": {
+    "message": "Fill your logins without leaving the browser, with no server or telemetry."
+  },
+  "welcome_updateHeading": {
+    "message": "What’s new in this version"
+  },
+  "welcome_updateShortcuts": {
+    "message": "Keyboard shortcuts and context menu."
+  },
+  "welcome_updateUnlock": {
+    "message": "Unlock from the popup and the save banner."
+  },
+  "welcome_updateSettings": {
+    "message": "Full settings and per-site activation."
+  },
+  "welcome_connectHeading": {
+    "message": "Choose your app"
+  },
+  "welcome_connectCopy": {
+    "message": "The desktop app is recommended: it stays available without an open Coffre tab."
+  },
+  "welcome_modeLabel": {
+    "message": "Connection mode"
+  },
+  "welcome_desktop": {
+    "message": "Desktop app"
+  },
+  "welcome_desktopCopy": {
+    "message": "Recommended · Touch ID or password in Coffre"
+  },
+  "welcome_web": {
+    "message": "Web app"
+  },
+  "welcome_webCopy": {
+    "message": "An unlocked Coffre tab is enough"
+  },
+  "welcome_pairCopy": {
+    "message": "Open Coffre, unlock your vault, then click the button below."
+  },
+  "welcome_pair": {
+    "message": "Pair the extension"
+  },
+  "welcome_openApp": {
+    "message": "Open Coffre"
+  },
+  "welcome_pairCode": {
+    "message": "Code $1 — confirm it in Coffre."
+  },
+  "welcome_pairing": {
+    "message": "Request sent. Confirm the code shown in Coffre."
+  },
+  "welcome_pairConfirm": {
+    "message": "Confirm the code in Coffre to finish pairing."
+  },
+  "welcome_paired": {
+    "message": "Extension paired with Coffre."
+  },
+  "welcome_pairedNoCode": {
+    "message": "Pairing confirmed."
+  },
+  "welcome_pairFailed": {
+    "message": "Pairing failed. Check that Coffre is open and unlocked."
+  },
+  "welcome_webUrl": {
+    "message": "Web app address"
+  },
+  "welcome_saveUrl": {
+    "message": "Save and allow"
+  },
+  "welcome_test": {
+    "message": "Test"
+  },
+  "welcome_invalidUrl": {
+    "message": "Invalid http:// or https:// address."
+  },
+  "welcome_saved": {
+    "message": "Address saved."
+  },
+  "welcome_savedNoPermission": {
+    "message": "Address saved. Allow access to this site if needed."
+  },
+  "welcome_saveFailed": {
+    "message": "Could not save."
+  },
+  "welcome_testOk": {
+    "message": "Coffre is open and unlocked."
+  },
+  "welcome_testLocked": {
+    "message": "Coffre is locked."
+  },
+  "welcome_testClosed": {
+    "message": "Coffre is not open in a tab."
+  },
+  "welcome_testFailed": {
+    "message": "Connection failed."
+  },
+  "welcome_activationHeading": {
+    "message": "Enable filling"
+  },
+  "welcome_activationCopy": {
+    "message": "You can limit the extension to the sites you choose."
+  },
+  "welcome_siteBySite": {
+    "message": "Site by site"
+  },
+  "welcome_siteBySiteCopy": {
+    "message": "Recommended · enable each site from the popup"
+  },
+  "welcome_allSites": {
+    "message": "All sites"
+  },
+  "welcome_allSitesCopy": {
+    "message": "One permission for HTTP and HTTPS sites"
+  },
+  "welcome_requestAll": {
+    "message": "Allow all sites now"
+  },
+  "welcome_allDenied": {
+    "message": "Permission denied: the extension stays limited to allowed sites."
+  },
+  "welcome_allEnabled": {
+    "message": "All sites allowed. Reload already open tabs."
+  },
+  "welcome_allFailed": {
+    "message": "Could not enable all sites."
+  },
+  "welcome_shortcutsHeading": {
+    "message": "Shortcuts and pinning"
+  },
+  "welcome_shortcutsCopy": {
+    "message": "Pin the Coffre icon to keep it handy. Shortcuts remain editable."
+  },
+  "welcome_editShortcuts": {
+    "message": "Change shortcuts"
+  },
+  "welcome_finish": {
+    "message": "Finish"
+  },
+  "welcome_close": {
+    "message": "Close"
+  },
+  "welcome_advanced": {
+    "message": "Advanced settings"
+  },
+  "welcome_privacy": {
+    "message": "Local · no server · no telemetry. The master password never leaves Coffre."
+  },
   "extDescription": {
     "message": "Coffre’s local companion: fills logins from the unlocked app, with no server or telemetry."
   },
@@ -74,6 +230,24 @@
   "popup_activateInline": {
     "message": "Enable in-page filling"
   },
+  "popup_activateSite": {
+    "message": "Enable on this site"
+  },
+  "popup_activateHint": {
+    "message": "Enable filling for this site to complete forms directly."
+  },
+  "popup_activateDenied": {
+    "message": "Permission denied for in-page filling."
+  },
+  "popup_activateFailed": {
+    "message": "Could not enable filling on this page."
+  },
+  "popup_activatedSite": {
+    "message": "Filling enabled on this site."
+  },
+  "popup_activatedAll": {
+    "message": "Filling enabled on all sites. Reload already open tabs."
+  },
   "popup_pair": {
     "message": "Pair the extension"
   },
@@ -119,6 +293,54 @@
   "options_subtitle": {
     "message": "Local autofill, with no server or telemetry."
   },
+  "options_connection": {
+    "message": "Coffre connection"
+  },
+  "options_connectionCopy": {
+    "message": "Choose the desktop app (recommended) or the Web app. No secret is stored in the extension."
+  },
+  "options_filling": {
+    "message": "Filling"
+  },
+  "options_inlineMenu": {
+    "message": "Show the field menu"
+  },
+  "options_inlineMenuCopy": {
+    "message": "Coffre badge near forms on allowed sites."
+  },
+  "options_copyTotp": {
+    "message": "Copy the TOTP code after filling"
+  },
+  "options_autofillOnLoad": {
+    "message": "Fill on page load"
+  },
+  "options_soon": {
+    "message": "Available in a later batch (E10/E11)."
+  },
+  "options_activation": {
+    "message": "Activation"
+  },
+  "options_saving": {
+    "message": "Saving"
+  },
+  "options_saveBanner": {
+    "message": "Show the banner after a submission"
+  },
+  "options_saveBannerCopy": {
+    "message": "The suggestion remains available in the popup when the banner is hidden."
+  },
+  "options_exclusions": {
+    "message": "Per-site exclusions"
+  },
+  "options_exclusionsSoon": {
+    "message": "“Never offer to save” and “Never fill” arrive with E7. No exclusion is stored yet."
+  },
+  "options_appearance": {
+    "message": "Appearance"
+  },
+  "options_shortcutsEdit": {
+    "message": "Change shortcuts"
+  },
   "options_appAddress": {
     "message": "Application address"
   },
@@ -156,7 +378,7 @@
     "message": "Permissions"
   },
   "options_permissionsCopy": {
-    "message": "The extension requests access to the active tab when filling, and to the Coffre address configured above. It has no access to other tabs outside your action."
+    "message": "The extension requests access to the active tab when filling, to the sites you allow, and to the Coffre address. It has no access to other tabs outside your actions. The contextMenus permission only displays the right-click menu; no data is transmitted."
   },
   "saveBanner_pageTitle": {
     "message": "Save to Coffre"
@@ -460,6 +682,9 @@
   },
   "settings_shortcutsEdit": {
     "message": "Change shortcuts"
+  },
+  "settings_openOptions": {
+    "message": "All settings"
   },
   "shortcut_openPopup": {
     "message": "Open the popup"

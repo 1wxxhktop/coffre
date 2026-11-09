@@ -401,6 +401,19 @@ appairage) est conservée dans `chrome.storage.local`.
 - Le canal interne `RUN_CONTEXT_MENU` / `CONTEXT_MENU_SNAPSHOT` sert aux tests
   Playwright (les menus natifs ne sont pas cliquables depuis le navigateur) ;
   il est réservé aux pages d’extension et appelle le gestionnaire réel.
+- **Réglages et activation** : `welcome.html` s’ouvre à l’installation et une
+  note de mise à jour n’apparaît que lors d’un changement de version prévu.
+  Les réglages vivent dans `storage.local` : adresse de l’application, mode
+  (`desktop` ou `web`), activation (`site` ou `all`), menu dans les champs,
+  bandeau d’enregistrement, options futures (TOTP, remplissage au chargement)
+  et liste d’exclusions E7. Aucun secret, aucun mot de passe maître, aucun nom
+  d’élément n’y figure ; la liste d’exclusions est vide tant que E7 n’est pas
+  livré. Le mode Web ignore volontairement le pont natif.
+- L’activation site par site ne demande que l’origine du site courant ; « tous
+  les sites » demande `http://*/*` et `https://*/*`. Les content scripts sont
+  enregistrés dynamiquement sur la liste exacte des origines accordées ; les
+  permissions d’hôte restent optionnelles et révocables par l’utilisateur.
+  Aucune permission n’est ajoutée par l’accueil ou la page d’options.
 - Le remplissage vérifie l’hôte de la frame dans le content script **et** dans
   l’application (`loginAllowsHost`) ; les iframes ne sont remplies que si leur
   origine correspond à l’URL de l’élément.

@@ -15,6 +15,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: resolve(root, 'popup.html'),
+        welcome: resolve(root, 'welcome.html'),
         options: resolve(root, 'options.html'),
         menu: resolve(root, 'menu.html'),
         'save-banner': resolve(root, 'save-banner.html'),

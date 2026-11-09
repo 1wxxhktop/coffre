@@ -98,7 +98,33 @@ try {
     })
   }
   await popup.close()
-  console.log(`Captures du bandeau et des raccourcis écrites dans ${output}`)
+
+  for (const pageName of ['welcome', 'options']) {
+    for (const theme of ['dark', 'light']) {
+      const shot = await context.newPage()
+      await shot.setViewportSize({ width: 900, height: 1000 })
+      await shot.goto(
+        `chrome-extension://${extensionId}/${pageName}.html${
+          pageName === 'welcome' ? '?mode=install' : ''
+        }`,
+      )
+      await shot.evaluate(
+        (value) => chrome.storage.local.set({ theme: value }),
+        theme,
+      )
+      await shot.reload()
+      await shot.locator('h1').waitFor()
+      if (pageName === 'welcome') {
+        await shot.locator('#welcome-shortcuts li').first().waitFor()
+      }
+      await shot.screenshot({
+        path: join(output, `${pageName}-${theme}.png`),
+        fullPage: true,
+      })
+      await shot.close()
+    }
+  }
+  console.log(`Captures du bandeau, des raccourcis et des pages écrites dans ${output}`)
 } finally {
   await context.close()
   rmSync(profile, { recursive: true, force: true })
