@@ -32,7 +32,16 @@ import {
  * déverrouillé. Elle disparaît au verrouillage et ne persiste rien.
  */
 export function ExtensionBridge() {
-  const { status, items, templates, vaults, addItem, updateItem, recordActivity } = useVault()
+  const {
+    status,
+    items,
+    templates,
+    vaults,
+    addItem,
+    updateItem,
+    recordActivity,
+    recordGeneratedPassword,
+  } = useVault()
 
   useEffect(() => {
     if (status !== 'unlocked') {
@@ -196,6 +205,9 @@ export function ExtensionBridge() {
           password: item.password,
           totp,
         }
+      },
+      async recordGeneratedPassword(input: { password: string; host?: string }) {
+        await recordGeneratedPassword(input)
       },
       async saveLogin(input) {
         const host = hostFromUrl(input.host) || input.host.trim().toLowerCase()
@@ -379,7 +391,16 @@ export function ExtensionBridge() {
         delete window.__coffreExtension
       }
     }
-  }, [status, items, templates, vaults, addItem, updateItem, recordActivity])
+  }, [
+    status,
+    items,
+    templates,
+    vaults,
+    addItem,
+    updateItem,
+    recordActivity,
+    recordGeneratedPassword,
+  ])
 
   return null
 }

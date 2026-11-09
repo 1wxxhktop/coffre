@@ -173,6 +173,11 @@ export interface CoffreExtensionBridge {
   searchIdentities?: (query: string) => Promise<ExtensionIdentitySummary[]>
   searchCustom?: (query: string) => Promise<ExtensionCustomSummary[]>
   generateAlias?: (site: string) => Promise<string | null>
+  /** Ajoute un mot de passe généré à l’historique chiffré du coffre. */
+  recordGeneratedPassword?: (input: {
+    password: string
+    host?: string
+  }) => Promise<void>
   fillItem?: (
     itemId: string,
     options?: { host?: string; includeSensitive?: boolean },
