@@ -54,6 +54,17 @@ const results = $<HTMLUListElement>('results')
 const empty = $<HTMLParagraphElement>('empty')
 const showAllButton = $<HTMLButtonElement>('show-all')
 const actions = $<HTMLDivElement>('actions')
+const mainView = $<HTMLDivElement>('main-view')
+const settingsView = $<HTMLElement>('settings-view')
+const settingsBackButton = $<HTMLButtonElement>('settings-back')
+const settingsAppUrl = $<HTMLInputElement>('settings-app-url')
+const settingsSaveButton = $<HTMLButtonElement>('settings-save')
+const settingsTestButton = $<HTMLButtonElement>('settings-test')
+const settingsStatus = $<HTMLParagraphElement>('settings-status')
+const settingsOpenAppButton = $<HTMLButtonElement>('settings-open-app')
+const themeChoices = Array.from(
+  document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]'),
+)
 const pairButton = $<HTMLButtonElement>('pair')
 const activateInlineButton = $<HTMLButtonElement>('activate-inline')
 const savePrompt = $<HTMLDivElement>('save-prompt')
@@ -76,6 +87,7 @@ let searchTimer: number | undefined
 let searchListenerReady = false
 let themePreference: ThemePreference = 'system'
 let themeInitialized = false
+let settingsOpen = false
 
 const THEME_ICONS: Record<ThemePreference, string> = {
   system:
@@ -131,11 +143,20 @@ function setBusy(value: boolean) {
   }
 }
 
+function renderThemeChoices(): void {
+  for (const button of themeChoices) {
+    const active = button.dataset.themeChoice === themePreference
+    button.classList.toggle('theme-choice--active', active)
+    button.setAttribute('aria-pressed', String(active))
+  }
+}
+
 function renderTheme(): void {
   const label = t(`theme_${themePreference}`)
   themeButton.title = `${t('theme_toggle')} — ${label}`
   themeButton.setAttribute('aria-label', themeButton.title)
   themeIcon.innerHTML = THEME_ICONS[themePreference]
+  renderThemeChoices()
 }
 
 async function initTheme(): Promise<void> {
@@ -143,6 +164,109 @@ async function initTheme(): Promise<void> {
   themeInitialized = true
   themePreference = await loadTheme()
   renderTheme()
+}
+
+function normalizeAppUrl(value: string): string | null {
+  try {
+    const url = new URL(value.trim())
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+function setSettingsStatus(text: string, tone: 'info' | 'ok' | 'error' = 'info'): void {
+  settingsStatus.textContent = text
+  settingsStatus.className =
+    tone === 'info' ? 'settings-status' : `settings-status settings-status--${tone}`
+}
+
+async function loadSettings(): Promise<void> {
+  try {
+    const response = await send<{ appUrl: string }>({ type: 'GET_APP_URL' })
+    settingsAppUrl.value = response.appUrl
+  } catch {
+    settingsAppUrl.value = status.appUrl || ''
+  }
+}
+
+function openSettings(): void {
+  settingsOpen = true
+  mainView.hidden = true
+  settingsView.hidden = false
+  setSettingsStatus('')
+  renderThemeChoices()
+  void loadSettings()
+}
+
+function closeSettings(): void {
+  settingsOpen = false
+  settingsView.hidden = true
+  mainView.hidden = false
+  void init()
+}
+
+async function saveSettings(): Promise<void> {
+  const value = normalizeAppUrl(settingsAppUrl.value)
+  if (!value) {
+    setSettingsStatus(t('settings_invalid'), 'error')
+    return
+  }
+
+  settingsSaveButton.disabled = true
+  try {
+    // Enregistrer l’adresse immédiatement : si le navigateur ferme le popup
+    // pendant la demande de permission, le réglage est déjà persisté.
+    const savePromise = send<{ ok?: boolean; appUrl?: string; error?: string }>({
+      type: 'SET_APP_URL',
+      appUrl: value,
+    })
+    const permissionGranted = await requestHostPermission([`${value}/*`])
+    const saved = await savePromise
+    if (!saved.ok) {
+      setSettingsStatus(t('settings_saveError'), 'error')
+      return
+    }
+    settingsAppUrl.value = saved.appUrl ?? value
+    setSettingsStatus(
+      permissionGranted === false
+        ? t('settings_savedNoPermission')
+        : t('settings_saved'),
+      permissionGranted === false ? 'info' : 'ok',
+    )
+    await refreshStatus()
+  } catch {
+    setSettingsStatus(t('settings_saveError'), 'error')
+  } finally {
+    settingsSaveButton.disabled = false
+  }
+}
+
+async function testSettings(): Promise<void> {
+  settingsTestButton.disabled = true
+  try {
+    const response = await send<AppStatus>({ type: 'GET_STATUS' })
+    if (response.mode === 'native') {
+      if (!response.unlocked) setSettingsStatus(t('settings_status_locked'), 'error')
+      else if (response.paired === false) {
+        setSettingsStatus(t('settings_status_pair'), 'error')
+      } else {
+        setSettingsStatus(t('settings_status_native'), 'ok')
+      }
+    } else if (!response.appOpen) {
+      setSettingsStatus(t('settings_status_closed'), 'error')
+    } else if (!response.unlocked) {
+      setSettingsStatus(t('settings_status_locked'), 'error')
+    } else {
+      setSettingsStatus(t('settings_status_ready'), 'ok')
+    }
+    await refreshStatus()
+  } catch {
+    setSettingsStatus(t('error_generic'), 'error')
+  } finally {
+    settingsTestButton.disabled = false
+  }
 }
 
 function renderStatus() {
@@ -488,40 +612,90 @@ focusAppButton.addEventListener('click', () => {
   void send({ type: 'FOCUS_APP' }).then(() => window.close())
 })
 
+async function requestHostPermission(
+  origins: string[],
+): Promise<boolean | null> {
+  try {
+    if (typeof api.permissions?.request !== 'function') return null
+    return await api.permissions.request({ origins })
+  } catch {
+    return null
+  }
+}
+
+async function injectInlineScripts(tabId: number): Promise<void> {
+  let lastError: unknown = null
+
+  try {
+    await api.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      files: ['content.js'],
+    })
+  } catch (error) {
+    lastError = error
+    try {
+      await api.scripting.executeScript({
+        target: { tabId },
+        files: ['content.js'],
+      })
+    } catch (secondError) {
+      lastError = secondError
+      const tabsApi = api.tabs as unknown as {
+        executeScript?: (
+          tabId: number,
+          details: { file: string; allFrames?: boolean },
+        ) => Promise<unknown> | void
+      }
+      if (typeof tabsApi.executeScript !== 'function') throw lastError
+      await tabsApi.executeScript(tabId, {
+        file: 'content.js',
+        allFrames: true,
+      })
+    }
+  }
+
+  try {
+    await api.scripting.executeScript({
+      target: { tabId },
+      files: ['webauthn-main.js'],
+      world: 'MAIN',
+    })
+  } catch {
+    // Le content script injecte le script de repli si `world` manque.
+  }
+
+  const ready = (await api.tabs
+    .sendMessage(tabId, { type: 'COFFRE_PING' })
+    .catch(() => null)) as { ok?: boolean } | null
+  if (!ready?.ok) throw lastError ?? new Error('content script indisponible')
+}
+
 activateInlineButton.addEventListener('click', () => {
   if (busy) return
   void (async () => {
     activateInlineButton.disabled = true
+    let granted: boolean | null = null
     try {
-      const granted = await api.permissions.request({
-        origins: ['http://*/*', 'https://*/*'],
-      })
-      if (!granted) {
-        showMessage('Permission refusée pour le remplissage dans les champs.', 'error')
-        return
+      granted = await requestHostPermission(['http://*/*', 'https://*/*'])
+      try {
+        await send({ type: 'ENABLE_INLINE' })
+      } catch {
+        // Orion/WebKit : l’enregistrement dynamique peut échouer ; l’injection
+        // manuelle dans l’onglet courant reste tentée ci-dessous.
       }
-      await send({ type: 'ENABLE_INLINE' })
       const [tab] = await api.tabs.query({ active: true, currentWindow: true })
-      if (tab?.id) {
-        const target = { tabId: tab.id, allFrames: true }
-        await api.scripting.executeScript({
-          target,
-          files: ['content.js'],
-        })
-        try {
-          await api.scripting.executeScript({
-            target,
-            files: ['webauthn-main.js'],
-            world: 'MAIN',
-          })
-        } catch {
-          // Le content script injecte le script de repli si `world` manque.
-        }
-      }
-      showMessage('Remplissage dans les champs activé. Rechargez les autres onglets.', 'success')
+      if (!tab?.id) throw new Error('onglet actif introuvable')
+      await injectInlineScripts(tab.id)
       await init()
-    } catch {
-      showMessage('Activation impossible sur cette page.', 'error')
+      showMessage('Remplissage dans les champs activé. Rechargez les autres onglets.', 'success')
+    } catch (error) {
+      console.error('Activation du remplissage impossible', error)
+      showMessage(
+        granted === false
+          ? 'Permission refusée pour le remplissage dans les champs.'
+          : 'Activation impossible sur cette page.',
+        'error',
+      )
     } finally {
       activateInlineButton.disabled = false
     }
@@ -596,8 +770,35 @@ saveIgnoreButton.addEventListener('click', () => {
 })
 
 settingsButton.addEventListener('click', () => {
-  void api.runtime.openOptionsPage()
+  if (settingsOpen) closeSettings()
+  else openSettings()
 })
+
+settingsBackButton.addEventListener('click', () => {
+  closeSettings()
+})
+
+settingsSaveButton.addEventListener('click', () => {
+  void saveSettings()
+})
+
+settingsTestButton.addEventListener('click', () => {
+  void testSettings()
+})
+
+settingsOpenAppButton.addEventListener('click', () => {
+  void send({ type: 'OPEN_APP' }).then(() => window.close())
+})
+
+for (const button of themeChoices) {
+  button.addEventListener('click', () => {
+    const value = button.dataset.themeChoice
+    if (value !== 'dark' && value !== 'light' && value !== 'system') return
+    themePreference = value
+    void saveTheme(value)
+    renderTheme()
+  })
+}
 
 themeButton.addEventListener('click', () => {
   themePreference = nextTheme(themePreference)

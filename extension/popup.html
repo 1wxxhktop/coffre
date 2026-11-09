@@ -23,6 +23,7 @@
       </header>
 
       <main id="main" class="main">
+        <div id="main-view">
         <p id="message" class="message" hidden></p>
 
         <div id="save-prompt" class="save-prompt" hidden>
@@ -98,6 +99,56 @@
             <span data-i18n="popup_unlockApp">Déverrouiller Coffre</span>
           </button>
         </div>
+        </div>
+
+        <section id="settings-view" class="settings-view" hidden>
+          <div class="settings-view__head">
+            <button id="settings-back" class="button button--small" type="button">
+              <span data-i18n="settings_back">Retour</span>
+            </button>
+            <h2 data-i18n="settings_title">Réglages</h2>
+          </div>
+
+          <section class="settings-group">
+            <h3 data-i18n="settings_appearance">Apparence</h3>
+            <div id="theme-choices" class="theme-choices" role="group" aria-label="Thème" data-i18n-aria-label="settings_appearance">
+              <button type="button" class="theme-choice" data-theme-choice="dark" aria-pressed="false">
+                <span data-i18n="theme_choice_dark">Sombre</span>
+              </button>
+              <button type="button" class="theme-choice" data-theme-choice="light" aria-pressed="false">
+                <span data-i18n="theme_choice_light">Clair</span>
+              </button>
+              <button type="button" class="theme-choice" data-theme-choice="system" aria-pressed="false">
+                <span data-i18n="theme_choice_system">Système</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3 data-i18n="settings_appAddress">Adresse de l’application</h3>
+            <label class="settings-field">
+              <span data-i18n="options_url">URL de Coffre</span>
+              <input id="settings-app-url" type="url" spellcheck="false" placeholder="http://localhost:1420" />
+            </label>
+            <div class="settings-actions">
+              <button id="settings-save" class="button button--primary" type="button">
+                <span data-i18n="settings_save">Enregistrer</span>
+              </button>
+              <button id="settings-test" class="button" type="button">
+                <span data-i18n="settings_test">Tester</span>
+              </button>
+            </div>
+            <p id="settings-status" class="settings-status" role="status"></p>
+          </section>
+
+          <section class="settings-group">
+            <button id="settings-open-app" class="button" type="button">
+              <span data-i18n="popup_openApp">Ouvrir Coffre</span>
+            </button>
+          </section>
+
+          <p class="settings-note" data-i18n="settings_note">Local · aucun serveur · aucune télémétrie.</p>
+        </section>
       </main>
 
       <footer class="footer">

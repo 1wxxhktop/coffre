@@ -331,5 +331,65 @@
   },
   "theme_dark": {
     "message": "Thème : sombre"
+  },
+  "settings_title": {
+    "message": "Réglages"
+  },
+  "settings_back": {
+    "message": "Retour"
+  },
+  "settings_appearance": {
+    "message": "Apparence"
+  },
+  "settings_appAddress": {
+    "message": "Adresse de l’application"
+  },
+  "settings_save": {
+    "message": "Enregistrer"
+  },
+  "settings_test": {
+    "message": "Tester"
+  },
+  "settings_invalid": {
+    "message": "Adresse http:// ou https:// invalide."
+  },
+  "settings_permission": {
+    "message": "Permission refusée pour cette adresse."
+  },
+  "settings_saved": {
+    "message": "Adresse enregistrée."
+  },
+  "settings_saveError": {
+    "message": "Enregistrement impossible."
+  },
+  "settings_status_native": {
+    "message": "Coffre desktop déverrouillé. Pont natif prêt."
+  },
+  "settings_status_locked": {
+    "message": "Coffre est verrouillé."
+  },
+  "settings_status_pair": {
+    "message": "Ouvrez le popup pour associer l’extension."
+  },
+  "settings_status_closed": {
+    "message": "Coffre n’est pas ouvert."
+  },
+  "settings_status_ready": {
+    "message": "Coffre est ouvert et déverrouillé."
+  },
+  "settings_note": {
+    "message": "Local · aucun serveur · aucune télémétrie."
+  },
+  "theme_choice_dark": {
+    "message": "Sombre"
+  },
+  "theme_choice_light": {
+    "message": "Clair"
+  },
+  "theme_choice_system": {
+    "message": "Système"
+  },
+  "settings_savedNoPermission": {
+    "message": "Adresse enregistrée. Autorisez l’accès à ce site si nécessaire."
   }
 }
