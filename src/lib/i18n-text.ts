@@ -627,8 +627,10 @@ export const EN_TEXT: Record<string, string> = {
   'Importer le coffre': 'Import vault',
   'Coffre partagé importé': 'Shared vault imported',
   'Import du coffre impossible': 'Could not import the vault',
-  'L’import ajoute la clé du coffre ; l’échange de contenu entre fichiers n’est pas encore implémenté.':
-    'The import adds the vault key; content exchange between files is not yet implemented.',
+  'Le paquet complet contient les éléments chiffrés du coffre. Le paquet de clé seule n’ajoute que le coffre vide.':
+    'The full package contains the vault’s encrypted items. The key-only package adds an empty vault.',
+  'Générer le paquet complet': 'Generate full package',
+  'Paquet complet généré': 'Full package generated',
   'Lecture seule': 'Read-only',
   'Membres du coffre': 'Vault members',
   'Aucun membre enregistré.': 'No members saved.',

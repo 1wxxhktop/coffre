@@ -1044,8 +1044,11 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   empreinte recalculée, cohérence des rôles et signatures) avant utilisation ;
 - les paquets peuvent être générés et importés depuis **Réglages → Sécurité**.
   L’import ajoute un coffre local avec la clé partagée, son nom chiffré et son
-  rôle. Le paquet ne contient que la clé et les rôles : l’échange de contenu
-  entre les fichiers personnels des membres n’est pas encore implémenté ;
+  rôle. Le paquet complet contient en plus les enregistrements déjà chiffrés
+  (éléments, pièces jointes, versions) ; l’échange reste manuel, sans
+  synchronisation automatique. L’import fusionne par identifiant et date de
+  mise à jour, avec un plafond de 20 000 éléments. Les suppressions ne sont pas
+  encore propagées par le paquet ;
 - les mutations d’éléments vérifient le rôle local : un coffre `read` refuse
   création, modification, déplacement, corbeille, pièces jointes et suppression.
   Cette restriction est appliquée par l’application ; un membre qui modifie son

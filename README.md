@@ -186,8 +186,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
 - **Partage de coffres (préparation L10)** : identité depuis les réglages,
   paquets signés avec la clé du coffre enveloppée pour chaque membre, import
-  d’un coffre partagé ; l’échange de contenu entre fichiers n’est pas encore
-  implémenté. Les rôles sont vérifiés et les mutations sont bloquées
+  d’un coffre partagé, avec paquet complet des éléments chiffrés. Les rôles
+  sont vérifiés et les mutations sont bloquées
   en lecture seule dans l’application ; un client modifié resterait toutefois
   capable d’écrire avec la clé partagée. La révocation d’un membre tourne la
   clé du coffre, re-enveloppe les clés d’éléments et génère un nouveau paquet
@@ -673,7 +673,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (459 tests) |
+| `bun run test` | Tests Vitest (461 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (124 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
