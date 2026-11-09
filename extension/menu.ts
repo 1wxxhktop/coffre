@@ -4,11 +4,13 @@ import type {
 } from '../src/lib/extensionProtocol'
 import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
+import { mountLogos } from './logo'
 import { loadTheme } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
 localizeDocument()
+mountLogos()
 
 interface MenuQuery {
   tabId: number

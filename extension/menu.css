@@ -90,16 +90,13 @@ body {
 
 .badge__mark,
 .panel__mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 26px;
   height: 26px;
+  flex: none;
   margin: 6px;
+  overflow: hidden;
   border-radius: 7px;
-  background: var(--text);
-  color: var(--panel);
-  font-weight: 700;
-  font-size: 15px;
 }
 
 .badge button {

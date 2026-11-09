@@ -1,0 +1,22 @@
+.logo-mark {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.logo-mark__bg {
+  fill: var(--text);
+}
+
+.logo-mark__stroke {
+  stroke: var(--panel, var(--surface));
+}
+
+.logo-mark__fg {
+  fill: var(--panel, var(--surface));
+}
+
+.logo-mark__key {
+  fill: var(--text);
+  stroke: var(--text);
+}

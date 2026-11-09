@@ -92,7 +92,11 @@ body {
   margin-bottom: 24px;
 }
 
-.hero img {
+.hero .logo {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  overflow: hidden;
   border-radius: 14px;
 }
 
