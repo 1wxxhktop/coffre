@@ -2,12 +2,14 @@
  * Protection anti-hameçonnage au remplissage et à l’enregistrement.
  *
  * Le module ne fait aucune requête réseau : il compare l’hôte de la page aux
- * domaines déjà présents dans le coffre et à une liste embarquée de sites
- * populaires. Les signaux sont des codes stables ; l’interface les traduit et
- * ne reçoit jamais l’URL complète.
+ * domaines déjà présents dans le coffre et à deux listes embarquées de sites
+ * populaires (Apple Password Manager Resources et Chrome UX Report). Les
+ * signaux sont des codes stables ; l’interface les traduit et ne reçoit jamais
+ * l’URL complète.
  */
 
 import popularRaw from '../assets/popular-domains.json?raw'
+import cruxRaw from '../assets/popular-domains-crux.json?raw'
 import confusablesRaw from '../assets/confusables.json?raw'
 import equivalencesRaw from '../assets/domain-equivalences.json?raw'
 import {
@@ -98,8 +100,10 @@ interface EquivalencesDataset {
 }
 
 const POPULAR = JSON.parse(popularRaw) as PopularDataset
+const CRUX = JSON.parse(cruxRaw) as PopularDataset
 const CONFUSABLES = JSON.parse(confusablesRaw) as ConfusablesDataset
 const EQUIVALENCES = JSON.parse(equivalencesRaw) as EquivalencesDataset
+const POPULAR_DOMAINS = [...new Set([...POPULAR.domains, ...CRUX.domains])]
 
 const indexCache = new WeakMap<VaultItem[], PhishingIndex>()
 let popularIndex: PhishingIndex | null = null
@@ -350,7 +354,7 @@ export function buildPhishingIndex(items: VaultItem[]): PhishingIndex {
   const byHost = new Map<string, DomainEntry>()
   const usernames = new Map<string, Set<string>>()
 
-  for (const domain of POPULAR.domains) addDomain(byHost, domain)
+  for (const domain of POPULAR_DOMAINS) addDomain(byHost, domain)
 
   for (const item of items) {
     if (item.deletedAt) continue
@@ -385,7 +389,7 @@ export function buildPhishingIndex(items: VaultItem[]): PhishingIndex {
 export function popularPhishingIndex(): PhishingIndex {
   if (popularIndex) return popularIndex
   const byHost = new Map<string, DomainEntry>()
-  for (const domain of POPULAR.domains) addDomain(byHost, domain)
+  for (const domain of POPULAR_DOMAINS) addDomain(byHost, domain)
   popularIndex = finalizeIndex(byHost, new Map())
   return popularIndex
 }
@@ -549,6 +553,10 @@ export function assessPhishing(
         if (known.host === host || known.registrable === registrable) continue
         if (equivalent(index, known.registrable, registrable)) continue
         if (Math.abs(label.length - known.brandLabel.length) > 2) continue
+        // Une faute de frappe conserve presque toujours la première lettre.
+        // Cette garde évite les collisions entre marques courtes (`icloud` et
+        // `cloud`) introduites par une liste populaire plus large.
+        if (label[0] !== known.brandLabel[0]) continue
         const distance = damerauLevenshtein(label, known.brandLabel, 2)
         if (distance === 0) {
           // Même marque : seule une faute sur le TLD (github.co / github.com)
