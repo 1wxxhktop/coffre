@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import {
   AlertTriangle,
@@ -53,25 +53,30 @@ export function LanSyncSettings() {
   const [password, setPassword] = useState('')
   const [pendingRemote, setPendingRemote] = useState<string | null>(null)
 
-  const reload = useCallback(async () => {
+  useEffect(() => {
     if (!lanSyncAvailable()) return
-    try {
-      const [nextIdentity, nextPeers] = await Promise.all([lanIdentity(), lanPeers()])
-      setIdentity(nextIdentity)
-      setPeers(nextPeers)
-      setDeviceName((current) =>
-        current === 'Coffre'
-          ? `Coffre ${nextIdentity.fingerprint.slice(0, 4)}`
-          : current,
-      )
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : tt('Réseau local indisponible.'))
+    let cancelled = false
+    void Promise.all([lanIdentity(), lanPeers()])
+      .then(([nextIdentity, nextPeers]) => {
+        if (cancelled) return
+        setIdentity(nextIdentity)
+        setPeers(nextPeers)
+        setDeviceName((current) =>
+          current === 'Coffre'
+            ? `Coffre ${nextIdentity.fingerprint.slice(0, 4)}`
+            : current,
+        )
+      })
+      .catch((caught) => {
+        if (cancelled) return
+        setError(
+          caught instanceof Error ? caught.message : tt('Réseau local indisponible.'),
+        )
+      })
+    return () => {
+      cancelled = true
     }
   }, [tt])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
 
   useEffect(() => {
     if (!lanSyncAvailable()) return

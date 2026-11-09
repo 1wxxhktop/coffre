@@ -3,6 +3,7 @@ import {
   MAX_SECURITY_HISTORY_DAYS,
   clearSecurityHistory,
   loadSecurityHistory,
+  mergeSecuritySnapshot,
   recordSecuritySnapshot,
   summarizeSecurityHistory,
 } from './securityHistory'
@@ -112,6 +113,29 @@ describe('historique du score de sécurité', () => {
 
     const nextDay = recordSecuritySnapshot(report(80, 0), new Date(2026, 10, 9, 8))
     expect(nextDay.map((entry) => entry.date)).toEqual(['2026-11-08', '2026-11-09'])
+  })
+
+  it('fusionne une mesure sans écrire avant l’enregistrement', () => {
+    const history = [
+      {
+        date: '2026-11-07',
+        score: 30,
+        total: 10,
+        weak: 5,
+        reused: 0,
+        no2fa: 0,
+        affected: 5,
+      },
+    ]
+    const merged = mergeSecuritySnapshot(
+      history,
+      report(72, 2),
+      new Date(2026, 10, 8, 9),
+    )
+    expect(merged).toHaveLength(2)
+    expect(merged[1]).toMatchObject({ date: '2026-11-08', score: 72, weak: 2 })
+    // La fusion est pure : l’écriture reste du ressort de recordSecuritySnapshot.
+    expect(loadSecurityHistory()).toEqual([])
   })
 
   it('ignore un coffre sans connexion', () => {

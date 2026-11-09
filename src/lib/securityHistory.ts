@@ -91,14 +91,14 @@ function saveSecurityHistory(history: SecuritySnapshot[]): void {
 }
 
 /**
- * Enregistre la mesure du jour. Si une mesure existe déjà pour aujourd’hui,
- * elle est remplacée : le graphique garde le dernier score de la journée.
+ * Fusionne la mesure du jour dans un historique existant, sans écriture.
+ * Utilisé pour dériver l’affichage avant l’enregistrement.
  */
-export function recordSecuritySnapshot(
+export function mergeSecuritySnapshot(
+  history: SecuritySnapshot[],
   report: SecurityReport,
   now: Date = new Date(),
 ): SecuritySnapshot[] {
-  const history = loadSecurityHistory()
   if (report.total === 0) return history
 
   const snapshot: SecuritySnapshot = {
@@ -112,11 +112,22 @@ export function recordSecuritySnapshot(
   }
 
   const last = history[history.length - 1]
-  const next =
-    last?.date === snapshot.date
-      ? [...history.slice(0, -1), snapshot]
-      : [...history, snapshot]
-  saveSecurityHistory(next)
+  return last?.date === snapshot.date
+    ? [...history.slice(0, -1), snapshot]
+    : [...history, snapshot]
+}
+
+/**
+ * Enregistre la mesure du jour. Si une mesure existe déjà pour aujourd’hui,
+ * elle est remplacée : le graphique garde le dernier score de la journée.
+ */
+export function recordSecuritySnapshot(
+  report: SecurityReport,
+  now: Date = new Date(),
+): SecuritySnapshot[] {
+  const history = loadSecurityHistory()
+  const next = mergeSecuritySnapshot(history, report, now)
+  if (next !== history) saveSecurityHistory(next)
   return next
 }
 

@@ -36,7 +36,6 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
   const [passwordOptions, setPasswordOptions] = useState<PasswordOptions>(DEFAULT_PASSWORD_OPTIONS)
   const [passphraseOptions, setPassphraseOptions] =
     useState<PassphraseOptions>(DEFAULT_PASSPHRASE_OPTIONS)
-  const [revision, setRevision] = useState(0)
   const [copied, setCopied] = useState(false)
 
   const siteRules = useMemo(() => passwordRulesForUrl(url ?? ''), [url])
@@ -45,11 +44,11 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
       siteRules
         ? generatePasswordForRules(siteRules.rules, passwordOptions.length)
         : generatePassword(passwordOptions),
-    [passwordOptions, revision, siteRules],
+    [passwordOptions, siteRules],
   )
   const passphrase = useMemo(
     () => generatePassphrase(passphraseOptions),
-    [passphraseOptions, revision],
+    [passphraseOptions],
   )
 
   const value = mode === 'password' ? password : passphrase
@@ -71,7 +70,9 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
   }
 
   const regenerate = () => {
-    setRevision((previous) => previous + 1)
+    // De nouveaux objets d’options forcent la régénération des deux modes.
+    setPasswordOptions((previous) => ({ ...previous }))
+    setPassphraseOptions((previous) => ({ ...previous }))
     setCopied(false)
   }
 

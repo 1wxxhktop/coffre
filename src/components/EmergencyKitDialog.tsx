@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { qrDataUrl } from '../lib/qr'
 import {
   AlertTriangle,
@@ -36,7 +36,6 @@ export function EmergencyKitDialog({ onClose }: EmergencyKitDialogProps) {
   const [threshold, setThreshold] = useState(3)
   const [total, setTotal] = useState(5)
   const [shares, setShares] = useState<RecoveryShare[]>([])
-  const [qrCodes, setQrCodes] = useState<Record<number, string>>({})
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,13 +43,8 @@ export function EmergencyKitDialog({ onClose }: EmergencyKitDialogProps) {
 
   const hasRecovery = Boolean(file?.recovery)
   const ready = shares.length > 0
-  const printReady = ready && shares.every((share) => Boolean(qrCodes[share.index]))
-
-  useEffect(() => {
-    if (shares.length === 0) {
-      setQrCodes({})
-      return
-    }
+  // Les QR codes sont dérivés des parts : aucun état à synchroniser.
+  const qrCodes = useMemo(() => {
     const next: Record<number, string> = {}
     for (const share of shares) {
       try {
@@ -59,12 +53,12 @@ export function EmergencyKitDialog({ onClose }: EmergencyKitDialogProps) {
         // La part reste imprimable sous forme de mots.
       }
     }
-    setQrCodes(next)
+    return next
   }, [shares])
+  const printReady = ready && shares.every((share) => Boolean(qrCodes[share.index]))
 
   const reset = () => {
     setShares([])
-    setQrCodes({})
     setGeneratedAt(null)
     setError(null)
     setCopied(null)
@@ -87,7 +81,6 @@ export function EmergencyKitDialog({ onClose }: EmergencyKitDialogProps) {
     setCopied(null)
     try {
       const next = await createRecoveryShares(threshold, total)
-      setQrCodes({})
       setShares(next)
       setGeneratedAt(new Date())
     } catch (caught) {

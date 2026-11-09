@@ -70,6 +70,7 @@ import {
   type VaultSummary,
 } from '../lib/types'
 import { isTauriRuntime } from '../lib/external'
+import type { StateUpdate } from '../lib/stateUpdate'
 
 function createTypeForFilter(filter: ItemFilter): ItemType {
   return filter === 'all' ||
@@ -89,6 +90,8 @@ function normalize(value: string): string {
 }
 
 const GROUP_BY_DATE_KEY = 'coffre:ui:group-by-date'
+const EMPTY_BREACHES: ReadonlySet<string> = new Set()
+const EMPTY_SELECTION: Set<string> = new Set()
 
 function loadGroupByDate(): boolean {
   try {
@@ -203,12 +206,40 @@ export function VaultApp() {
   const [sort, setSort] = useState<ItemSort>('name-asc')
   const [groupByDate, setGroupByDate] = useState(loadGroupByDate)
   const [usage, setUsage] = useState<UsageMap>(() => loadUsage())
-  const [visibleLimit, setVisibleLimit] = useState(200)
+  const [selectionState, setSelectionState] = useState<{
+    scope: string
+    mode: boolean
+    ids: Set<string>
+  }>({ scope: '', mode: false, ids: EMPTY_SELECTION })
+  const [limitState, setLimitState] = useState({ scope: '', value: 200 })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createType, setCreateType] = useState<ItemType | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [securityOpen, setSecurityOpen] = useState(false)
   const [securityCategory, setSecurityCategory] = useState<SecurityCategory | null>(null)
+  // Un filtre de coffre supprimé retombe sur « tous les coffres » sans effet
+  // de synchronisation.
+  const activeVaultFilter =
+    vaultFilter === 'all' || vaults.some((vault) => vault.id === vaultFilter)
+      ? vaultFilter
+      : 'all'
+  const selectionScope = `${filter}\u0000${activeVaultFilter}\u0000${search}\u0000${securityCategory ?? ''}`
+  const listScope = `${selectionScope}\u0000${sort}`
+  const activeSelection =
+    selectionState.scope === selectionScope ? selectionState : null
+  const selectionMode = activeSelection?.mode ?? false
+  const rawSelectedIds = activeSelection?.ids ?? EMPTY_SELECTION
+  const selectedIds = useMemo(() => {
+    if (rawSelectedIds.size === 0) return rawSelectedIds
+    const next = new Set(
+      [...rawSelectedIds].filter((id) =>
+        items.some((item) => item.id === id && !item.deletedAt),
+      ),
+    )
+    return next.size === rawSelectedIds.size ? rawSelectedIds : next
+  }, [items, rawSelectedIds])
+  // Changer de filtre ou de recherche repart d’une liste complète.
+  const visibleLimit = limitState.scope === listScope ? limitState.value : 200
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [vaultForm, setVaultForm] = useState<
     { mode: 'create' } | { mode: 'rename'; vault: VaultSummary } | null
@@ -216,12 +247,6 @@ export function VaultApp() {
   const [vaultToDelete, setVaultToDelete] = useState<VaultSummary | null>(null)
   const [showEmptyTrash, setShowEmptyTrash] = useState(false)
   const [generatorOpen, setGeneratorOpen] = useState(false)
-  const [breachedIds, setBreachedIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  )
-  const [breachStatus, setBreachStatus] = useState<
-    'idle' | 'checking' | 'done' | 'error'
-  >('idle')
   const breachRevision = useMemo(
     () =>
       items
@@ -230,33 +255,39 @@ export function VaultApp() {
         .join('|'),
     [items],
   )
-  const breachRevisionRef = useRef(0)
-
+  // L’état de vérification est lié à la révision des éléments : un changement
+  // de coffre ou de réglage invalide implicitement les résultats précédents.
+  const [breachState, setBreachState] = useState<{
+    scope: string
+    ids: ReadonlySet<string>
+    status: 'idle' | 'checking' | 'done' | 'error'
+  }>({ scope: '', ids: EMPTY_BREACHES, status: 'idle' })
+  const breachScope = settings.breachCheck ? breachRevision : ''
+  const breachedIds = breachState.scope === breachScope ? breachState.ids : EMPTY_BREACHES
+  const breachStatus = breachState.scope === breachScope ? breachState.status : 'idle'
+  const breachScopeRef = useRef(breachScope)
   useEffect(() => {
-    breachRevisionRef.current += 1
-    setBreachedIds(new Set())
-    setBreachStatus('idle')
-  }, [breachRevision, settings.breachCheck])
+    breachScopeRef.current = breachScope
+  }, [breachScope])
 
   const securityReport = useMemo(
-    () => analyzeSecurity(items, Date.now(), breachedIds),
+    () => analyzeSecurity(items, undefined, breachedIds),
     [items, breachedIds],
   )
 
   const checkBreaches = useCallback(async () => {
     if (!settings.breachCheck || breachStatus === 'checking') return
-    const revision = breachRevisionRef.current
-    setBreachStatus('checking')
+    const scope = breachScope
+    setBreachState({ scope, ids: breachedIds, status: 'checking' })
     try {
       const result = await scanBreaches(items)
-      if (revision !== breachRevisionRef.current) return
-      setBreachedIds(new Set(result.breachedItemIds))
-      setBreachStatus('done')
+      if (scope !== breachScopeRef.current) return
+      setBreachState({ scope, ids: new Set(result.breachedItemIds), status: 'done' })
     } catch {
-      if (revision !== breachRevisionRef.current) return
-      setBreachStatus('error')
+      if (scope !== breachScopeRef.current) return
+      setBreachState({ scope, ids: breachedIds, status: 'error' })
     }
-  }, [breachStatus, items, settings.breachCheck])
+  }, [breachScope, breachStatus, breachedIds, items, settings.breachCheck])
   const securityIssueById = useMemo(() => {
     const map = new Map<string, ReturnType<typeof itemSecurityIssue>>()
     for (const item of items) {
@@ -273,8 +304,36 @@ export function VaultApp() {
     }
     return map
   }, [expiryEvents])
-  const [selectionMode, setSelectionMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const setSelectedIds = useCallback(
+    (update: StateUpdate<Set<string>>) => {
+      setSelectionState((previous) => {
+        const base =
+          previous.scope === selectionScope
+            ? previous
+            : { scope: selectionScope, mode: false, ids: EMPTY_SELECTION }
+        return {
+          ...base,
+          ids: typeof update === 'function' ? update(base.ids) : update,
+        }
+      })
+    },
+    [selectionScope],
+  )
+  const setSelectionMode = useCallback(
+    (update: StateUpdate<boolean>) => {
+      setSelectionState((previous) => {
+        const base =
+          previous.scope === selectionScope
+            ? previous
+            : { scope: selectionScope, mode: false, ids: EMPTY_SELECTION }
+        return {
+          ...base,
+          mode: typeof update === 'function' ? update(base.mode) : update,
+        }
+      })
+    },
+    [selectionScope],
+  )
   const [bulkBusy, setBulkBusy] = useState(false)
   const [showBulkTrash, setShowBulkTrash] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -360,32 +419,6 @@ export function VaultApp() {
   }, [])
 
   useEffect(() => {
-    if (vaultFilter !== 'all' && !vaults.some((vault) => vault.id === vaultFilter)) {
-      setVaultFilter('all')
-    }
-  }, [vaults, vaultFilter])
-
-  useEffect(() => {
-    setSelectedIds(new Set())
-    setSelectionMode(false)
-  }, [filter, vaultFilter, search, securityCategory])
-
-  useEffect(() => {
-    setSelectedIds((previous) => {
-      const next = new Set(
-        [...previous].filter((id) => items.some((item) => item.id === id && !item.deletedAt)),
-      )
-      return next.size === previous.size ? previous : next
-    })
-  }, [items])
-
-  useEffect(() => {
-    if (selectedId && !items.some((item) => item.id === selectedId)) {
-      setSelectedId(null)
-    }
-  }, [items, selectedId])
-
-  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const dialogOpen = Boolean(document.querySelector('.modal-overlay'))
       const target = event.target as HTMLElement | null
@@ -426,15 +459,15 @@ export function VaultApp() {
     return () => window.removeEventListener('keydown', handler)
   }, [createType, filter])
 
-  const activeVault = vaults.find((vault) => vault.id === vaultFilter)
+  const activeVault = vaults.find((vault) => vault.id === activeVaultFilter)
   const scopedItems = useMemo(() => {
     const base = securityCategory
       ? securityCategoryItems(securityReport, securityCategory)
       : items
-    return vaultFilter === 'all'
+    return activeVaultFilter === 'all'
       ? base
-      : base.filter((item) => item.vaultId === vaultFilter)
-  }, [items, securityCategory, securityReport, vaultFilter])
+      : base.filter((item) => item.vaultId === activeVaultFilter)
+  }, [items, securityCategory, securityReport, activeVaultFilter])
 
   /** Index de recherche pré-calculé : évite de reconstruire toutes les chaînes
    * à chaque frappe sur les gros coffres. */
@@ -459,7 +492,6 @@ export function VaultApp() {
 
   const filteredItems = useMemo(() => {
     const query = normalize(search.trim())
-    const now = new Date()
     const entries = scopedItems
       .filter((item) => {
         if (securityCategory) {
@@ -489,7 +521,7 @@ export function VaultApp() {
       })
       .map((item) => ({
         item,
-        rank: groupingActive ? dateGroupInfo(groupDateOf(item), now).rank : 0,
+        rank: groupingActive ? dateGroupInfo(groupDateOf(item)).rank : 0,
       }))
 
     entries.sort((left, right) => {
@@ -542,10 +574,6 @@ export function VaultApp() {
     groupingActive,
     groupDateOf,
   ])
-
-  useEffect(() => {
-    setVisibleLimit(200)
-  }, [filter, search, sort, vaultFilter, securityCategory])
 
   useEffect(() => {
     try {
@@ -644,19 +672,16 @@ export function VaultApp() {
     }
   }
 
-  // La sélection suit la liste : un élément filtré hors de la vue est désélectionné.
-  useEffect(() => {
-    if (selectedId && !filteredItems.some((item) => item.id === selectedId)) {
-      setSelectedId(null)
-    }
-  }, [filteredItems, selectedId])
-
-  const selectedItem = selectedId ? items.find((item) => item.id === selectedId) : undefined
+  // Un élément retiré de la liste filtrée n’est plus affiché comme sélectionné.
+  const selectedItem =
+    selectedId && filteredItems.some((entry) => entry.id === selectedId)
+      ? items.find((item) => item.id === selectedId)
+      : undefined
   const activeItems = items.filter((item) => !item.deletedAt)
   const singleEmpty =
     activeItems.length === 0 &&
     filter === 'all' &&
-    vaultFilter === 'all' &&
+    activeVaultFilter === 'all' &&
     !search.trim() &&
     !securityCategory
   const dashboardActive = view === 'dashboard'
@@ -839,7 +864,7 @@ export function VaultApp() {
       key={item.id}
       item={item}
       vaultName={vaults.find((vault) => vault.id === item.vaultId)?.name ?? 'Coffre'}
-      showVault={vaultFilter === 'all' && vaults.length > 1}
+      showVault={activeVaultFilter === 'all' && vaults.length > 1}
       selected={selectedId === item.id}
       selectable={selectionMode}
       issue={securityIssueById.get(item.id) ?? null}
@@ -871,7 +896,7 @@ export function VaultApp() {
         items={items}
         usage={usage}
         filter={filter}
-        vaultFilter={vaultFilter}
+        vaultFilter={activeVaultFilter}
         open={sidebarOpen}
         collapsed={layout.sidebarCollapsed}
         dashboardActive={dashboardActive}
@@ -1223,7 +1248,9 @@ export function VaultApp() {
                     <button
                       type="button"
                       className="button button--secondary list-more"
-                      onClick={() => setVisibleLimit((limit) => limit + 200)}
+                      onClick={() =>
+                        setLimitState({ scope: listScope, value: visibleLimit + 200 })
+                      }
                     >
                       {t('vault.loadMore')}
                     </button>

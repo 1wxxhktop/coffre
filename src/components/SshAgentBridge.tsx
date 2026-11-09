@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import { useI18n } from '../state/I18nProvider'
-import { useVault } from '../state/VaultProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { isTauriRuntime } from '../lib/external'
@@ -19,29 +18,30 @@ import {
  * L’agent est arrêté dès que le coffre n’est plus déverrouillé.
  */
 export function SshAgentBridge() {
-  const { status } = useVault()
   const { settings } = useSettings()
   const { t } = useI18n()
   const { toast } = useToast()
   const [requests, setRequests] = useState<SshAgentApproval[]>([])
   const [busy, setBusy] = useState(false)
-  const [touchIdReady, setTouchIdReady] = useState(false)
+  const [touchIdAvailable, setTouchIdAvailable] = useState(false)
   const [remember, setRemember] = useState(false)
   const graceRef = useRef(new Map<string, number>())
+  const touchIdEnabled =
+    isTauriRuntime() && settings.biometricUnlock && biometricSupported()
+  // La disponibilité est dérivée des réglages et de la sonde asynchrone : pas
+  // de setState synchrone quand les réglages changent.
+  const touchIdReady = touchIdEnabled && touchIdAvailable
 
   useEffect(() => {
-    if (!isTauriRuntime() || !settings.biometricUnlock || !biometricSupported()) {
-      setTouchIdReady(false)
-      return
-    }
+    if (!touchIdEnabled) return
     let cancelled = false
     void biometricAvailable().then((available) => {
-      if (!cancelled) setTouchIdReady(available)
+      if (!cancelled) setTouchIdAvailable(available)
     })
     return () => {
       cancelled = true
     }
-  }, [settings.biometricUnlock])
+  }, [touchIdEnabled])
 
   useEffect(() => {
     if (!isTauriRuntime()) return
@@ -58,18 +58,11 @@ export function SshAgentBridge() {
     return () => unlisten?.()
   }, [])
 
-  useEffect(() => {
-    if (!isTauriRuntime()) return
-    if (status !== 'unlocked') {
-      setRequests([])
-      setRemember(false)
-      graceRef.current.clear()
-      void stopSshAgent()
-    }
-  }, [status])
-
+  // `VaultApp` n’est monté que lorsque le coffre est déverrouillé : le
+  // démontage arrête l’agent et efface les demandes en attente.
   useEffect(
     () => () => {
+      graceRef.current.clear()
       void stopSshAgent()
     },
     [],
