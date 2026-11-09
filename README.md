@@ -733,22 +733,30 @@ Le popup inclut une **barre de recherche** permanente, un **générateur de mot
 de passe local** avec copie en un clic et un **thème système/clair/sombre**.
 Le générateur permet de régler la longueur, les classes de caractères et
 l’exclusion des caractères ambigus ; les options sont mémorisées localement.
-Un clic sur une connexion déploie ses détails (identifiant, mot de passe masqué,
-code TOTP) avec copie champ par champ, y compris lorsque le remplissage
-automatique échoue. Les réglages (thème, adresse de Coffre, test de connexion)
-s’ouvrent directement dans le popup, sans nouvel onglet. La barre d’action et le
-statut restent ancrés en bas de la fenêtre, même lorsque celle-ci ne s’ajuste
-pas automatiquement à son contenu. La liste des connexions occupe toute la
-hauteur disponible et défile avec le reste du panneau. Une fois le remplissage
-actif dans l’onglet, le bouton d’activation laisse place à une pastille verte
-dans le pied de page. Le logo Coffre est un SVG inline qui s’inverse selon le
-thème clair ou sombre, dans le popup comme dans le menu des champs, et les
-icônes d’action 16/32/48/128 px disposent de variantes clair/sombre.
-La barre de recherche et le bouton du générateur restent ancrés en haut pendant
-le défilement ; la recherche est focalisée à l’ouverture et une touche
-imprimable lance immédiatement une recherche. Le bouton « Remplir » remplit la
-connexion puis valide automatiquement le formulaire de connexion ; les cartes
-et identités ne sont jamais soumises automatiquement.
+La vue d’accueil est découpée en **« Pour ce site », « Favoris » et
+« Récents »** ; taper dans la recherche bascule sur l’ensemble du coffre. Les
+icônes de type et les pastilles d’initiale sont des SVG locaux, alignés sur
+`ItemIcon` : aucune favicon n’est téléchargée. Un clic sur une connexion
+déploie ses détails (identifiant, mot de passe masqué, code TOTP) avec copie
+champ par champ, y compris lorsque le remplissage automatique échoue.
+Au clavier, `↑`/`↓` parcourent les résultats, `Entrée` remplit, `/` ramène à la
+recherche et `Échap` referme les détails ou revient à la vue du site. `⌘C`
+copie le mot de passe, `⌘⇧C` l’identifiant et `⌘⌥C` le code TOTP (`Ctrl` sur
+Windows/Linux, `Ctrl+Alt` pour le TOTP). Chaque état (application fermée, non
+appairée, coffre verrouillé, site non autorisé, aucun résultat) affiche un
+message et une action principale. Les réglages (thème, adresse de Coffre, test
+de connexion) s’ouvrent directement dans le popup, sans nouvel onglet. Le
+statut reste ancré en bas de la fenêtre, même lorsque celle-ci ne s’ajuste pas
+automatiquement à son contenu. La liste des connexions occupe toute la hauteur
+disponible et défile avec le reste du panneau. Une fois le remplissage actif
+dans l’onglet, le bouton d’activation laisse place à une pastille verte dans le
+pied de page. Le logo Coffre est un SVG inline qui s’inverse selon le thème
+clair ou sombre, dans le popup comme dans le menu des champs, et les icônes
+d’action 16/32/48/128 px disposent de variantes clair/sombre. La barre de
+recherche et le bouton du générateur restent ancrés en haut pendant le
+défilement ; la recherche est focalisée à l’ouverture. Le bouton « Remplir »
+remplit la connexion puis valide automatiquement le formulaire de connexion ;
+les cartes et identités ne sont jamais soumises automatiquement.
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
 propose une mise à jour. La proposition survit à l’arrêt du service worker :
