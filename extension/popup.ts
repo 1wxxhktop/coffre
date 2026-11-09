@@ -76,6 +76,7 @@ const results = $<HTMLUListElement>('results')
 const empty = $<HTMLParagraphElement>('empty')
 const showAllButton = $<HTMLButtonElement>('show-all')
 const actions = $<HTMLDivElement>('actions')
+const mainElement = $<HTMLElement>('main')
 const mainView = $<HTMLDivElement>('main-view')
 const settingsView = $<HTMLElement>('settings-view')
 const settingsBackButton = $<HTMLButtonElement>('settings-back')
@@ -552,6 +553,7 @@ async function loadResults(query: string) {
   }
   entries = response.items ?? []
   renderResults()
+  mainElement.scrollTop = 0
   showAllButton.hidden = true
 
   if (entries.length === 0 && query) {
@@ -568,6 +570,7 @@ async function loadAll() {
   const response = await send<SearchResponse>({ type: 'SEARCH', query: '' })
   entries = response.items ?? []
   renderResults()
+  mainElement.scrollTop = 0
   showAllButton.hidden = true
   empty.textContent =
     entries.length > 0 ? 'Toutes vos connexions :' : 'Aucune connexion dans le coffre.'
@@ -716,6 +719,7 @@ function updateGeneratorOptions(save: boolean): void {
 async function openGenerator(): Promise<void> {
   await loadGeneratorOptions()
   generatorPanel.hidden = false
+  mainElement.scrollTop = 0
   regeneratePassword()
 }
 
@@ -746,6 +750,7 @@ async function init() {
   const query = host || ''
   await loadResults(query)
   searchInput.value = query
+  if (!settingsOpen) searchInput.focus({ preventScroll: true })
 
   if (!searchListenerReady) {
     searchListenerReady = true
@@ -990,6 +995,29 @@ themeButton.addEventListener('click', () => {
 
 showAllButton.addEventListener('click', () => {
   void loadAll()
+})
+
+document.addEventListener('keydown', (event) => {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
+    return
+  }
+  if (settingsOpen || searchInput.disabled || searchWrap.hidden) return
+  const target = event.target
+  if (
+    target instanceof HTMLElement &&
+    target.closest('input, textarea, select, [contenteditable="true"]')
+  ) {
+    return
+  }
+  if (event.key.length !== 1 || event.key === ' ') return
+
+  searchInput.focus()
+  searchInput.value = event.key
+  event.preventDefault()
+  window.clearTimeout(searchTimer)
+  searchTimer = window.setTimeout(() => {
+    void loadResults(searchInput.value.trim())
+  }, 150)
 })
 
 if (typeof ResizeObserver === 'function') {

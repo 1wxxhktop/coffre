@@ -72,6 +72,11 @@
   pendant la fenêtre de réception, mobile restant à faire.
 - Extension : options du générateur (longueur, classes de caractères,
   caractères ambigus, entropie estimée) mémorisées localement.
+- Extension : icônes d’action 16/32/48/128 px et variantes clair/sombre
+  (`theme_icons`) pour la barre d’outils.
+- Extension : barre de recherche et bouton du générateur ancrés en haut pendant
+  le défilement ; la recherche est focalisée à l’ouverture et toute touche
+  imprimable lance une recherche automatiquement.
 - Extension : logo Coffre thémable (carré clair avec cadenas sombre en thème
   sombre, inversé en clair) dans le popup, le menu inline, les réglages et la
   fenêtre passkey.
