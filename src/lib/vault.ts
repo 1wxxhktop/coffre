@@ -82,6 +82,7 @@ import type {
   VaultIntegrity,
   VaultItem,
   VaultRevisionState,
+  VaultSharingMember,
   VaultSummary,
   VaultTombstone,
 } from './types'
@@ -3543,6 +3544,180 @@ export async function addSharedVault(
       recovery,
     },
     vault: vaultSummary(record, name, [], input.role),
+  }
+}
+
+/** Lit les membres et l’administrateur d’un coffre partagé. */
+export async function readVaultSharing(
+  file: VaultFile,
+  session: VaultSession,
+  vaultId: string,
+): Promise<{ members: VaultSharingMember[]; adminFingerprint?: string }> {
+  assertUnlocked(session)
+  const record = file.vaults.find((vault) => vault.id === vaultId)
+  if (!record) throw new VaultValidationError('Coffre introuvable')
+  const meta = await openJson<{
+    members?: unknown
+    adminFingerprint?: unknown
+  }>(record.name, session.vaultKey(vaultId), vaultMetaAad(vaultId))
+  const members: VaultSharingMember[] = []
+  if (Array.isArray(meta.members)) {
+    for (const entry of meta.members) {
+      if (!entry || typeof entry !== 'object') continue
+      const member = entry as Record<string, unknown>
+      if (
+        typeof member.encryptionPublicKey === 'string' &&
+        typeof member.signingPublicKey === 'string' &&
+        typeof member.fingerprint === 'string' &&
+        (member.role === 'read' || member.role === 'write')
+      ) {
+        members.push({
+          encryptionPublicKey: member.encryptionPublicKey,
+          signingPublicKey: member.signingPublicKey,
+          fingerprint: member.fingerprint,
+          role: member.role,
+        })
+      }
+    }
+  }
+  return {
+    members,
+    ...(typeof meta.adminFingerprint === 'string'
+      ? { adminFingerprint: meta.adminFingerprint }
+      : {}),
+  }
+}
+
+/** Met à jour la liste des membres dans les métadonnées chiffrées du coffre. */
+export async function setVaultSharingMembers(
+  file: VaultFile,
+  session: VaultSession,
+  vaultId: string,
+  members: VaultSharingMember[],
+  adminFingerprint: string,
+): Promise<VaultFile> {
+  assertUnlocked(session)
+  assertVaultWritable(session, vaultId)
+  const record = file.vaults.find((vault) => vault.id === vaultId)
+  if (!record) throw new VaultValidationError('Coffre introuvable')
+  const key = session.vaultKey(vaultId)
+  const meta = await openJson<{ name?: unknown; role?: unknown }>(
+    record.name,
+    key,
+    vaultMetaAad(vaultId),
+  )
+  const name = typeof meta.name === 'string' ? meta.name : 'Coffre partagé'
+  const nameSealed = await sealJson(
+    { name, role: meta.role === 'read' ? 'read' : 'write', members, adminFingerprint },
+    key,
+    vaultMetaAad(vaultId),
+  )
+  const now = new Date().toISOString()
+  return {
+    ...file,
+    updatedAt: now,
+    vaults: file.vaults.map((vault) =>
+      vault.id === vaultId ? { ...vault, name: nameSealed, updatedAt: now } : vault,
+    ),
+  }
+}
+
+/**
+ * Tourne la clé d’un coffre partagé et re-enveloppe les clés d’éléments.
+ * Les contenus et pièces jointes restent chiffrés par leur clé d’élément.
+ */
+export async function rotateVaultKey(
+  file: VaultFile,
+  session: VaultSession,
+  vaultId: string,
+  nextVaultKey: Uint8Array,
+): Promise<VaultFile> {
+  assertUnlocked(session)
+  assertVaultWritable(session, vaultId)
+  if (nextVaultKey.length !== KDF_DEFAULTS.keyLength) {
+    throw new VaultValidationError('Clé de coffre partagé invalide')
+  }
+  const record = file.vaults.find((vault) => vault.id === vaultId)
+  if (!record) throw new VaultValidationError('Coffre introuvable')
+  const oldKey = session.vaultKey(vaultId)
+  if (oldKey === nextVaultKey) {
+    throw new VaultValidationError('La nouvelle clé doit être différente')
+  }
+  const items: EncryptedItemRecord[] = []
+  for (const item of file.items) {
+    if (item.vaultId !== vaultId) {
+      items.push(item)
+      continue
+    }
+    let itemKey: Uint8Array | null = null
+    try {
+      itemKey = await openBytes(item.key, oldKey, itemKeyAad(vaultId, item.id))
+      items.push({
+        ...item,
+        key: await sealBytes(itemKey, nextVaultKey, itemKeyAad(vaultId, item.id)),
+        updatedAt: new Date().toISOString(),
+      })
+    } finally {
+      if (itemKey) wipe(itemKey)
+    }
+  }
+
+  const meta = await openJson<{ name?: unknown; role?: unknown }>(
+    record.name,
+    oldKey,
+    vaultMetaAad(vaultId),
+  )
+  const name = typeof meta.name === 'string' ? meta.name : 'Coffre partagé'
+  const nameSealed = await sealJson(
+    { ...meta, name, role: meta.role === 'read' ? 'read' : 'write' },
+    nextVaultKey,
+    vaultMetaAad(vaultId),
+  )
+
+  let recovery = file.recovery
+  if (recovery) {
+    if (!session.hasRecoveryKey) {
+      throw new VaultValidationError(
+        'La clé de récupération n’est pas disponible ; régénérez la phrase avant de révoquer un membre',
+      )
+    }
+    recovery = {
+      ...recovery,
+      wraps: await Promise.all(
+        recovery.wraps.map(async (wrap) =>
+          wrap.vaultId === vaultId
+            ? {
+                ...wrap,
+                key: await sealBytes(
+                  nextVaultKey,
+                  session.recoveryKey(),
+                  recoveryVaultKeyAad(vaultId),
+                ),
+              }
+            : wrap,
+        ),
+      ),
+    }
+  }
+
+  const now = new Date().toISOString()
+  const sealedVaultKey = await sealBytes(
+    nextVaultKey,
+    session.masterKey,
+    vaultKeyAad(vaultId),
+  )
+  session.setVaultKey(vaultId, nextVaultKey)
+  wipe(oldKey)
+  return {
+    ...file,
+    updatedAt: now,
+    items,
+    vaults: file.vaults.map((vault) =>
+      vault.id === vaultId
+        ? { ...vault, key: sealedVaultKey, name: nameSealed, updatedAt: now }
+        : vault,
+    ),
+    recovery,
   }
 }
 

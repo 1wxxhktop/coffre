@@ -188,7 +188,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   paquets signés avec la clé du coffre enveloppée pour chaque membre, import
   d’un coffre partagé. Les rôles sont vérifiés et les mutations sont bloquées
   en lecture seule dans l’application ; un client modifié resterait toutefois
-  capable d’écrire avec la clé partagée.
+  capable d’écrire avec la clé partagée. La révocation d’un membre tourne la
+  clé du coffre, re-enveloppe les clés d’éléments et génère un nouveau paquet
+  pour les membres restants.
 - **Règles de mot de passe par site** : le générateur applique les contraintes
   de longueur, classes et symboles du dataset Apple « Password Manager
   Resources », embarqué localement et sans requête réseau.
@@ -668,7 +670,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (436 tests) |
+| `bun run test` | Tests Vitest (455 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (124 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |

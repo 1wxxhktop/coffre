@@ -388,6 +388,14 @@ export interface RecoveryEnvelope {
   templateWraps?: Array<{ templateId: string; key: Sealed }>
 }
 
+/** Membre associé à un coffre partagé, sans clé privée. */
+export interface VaultSharingMember {
+  encryptionPublicKey: string
+  signingPublicKey: string
+  fingerprint: string
+  role: ShareRole
+}
+
 /** Identité de partage persistée : clés publiques en clair, privées scellées. */
 export interface SealedSharingIdentity {
   version: 1
@@ -492,6 +500,7 @@ export interface VaultSummary {
   name: string
   /** Rôle appliqué aux mutations locales. */
   role: ShareRole
+  adminFingerprint?: string
   createdAt: string
   updatedAt: string
   itemCount: number

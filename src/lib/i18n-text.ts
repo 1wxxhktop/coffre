@@ -630,6 +630,17 @@ export const EN_TEXT: Record<string, string> = {
   'Les éléments seront ajoutés par la synchronisation du coffre.':
     'Items will be added by vault synchronization.',
   'Lecture seule': 'Read-only',
+  'Membres du coffre': 'Vault members',
+  'Aucun membre enregistré.': 'No members saved.',
+  'Écriture': 'Write',
+  'Lecture': 'Read',
+  'Administrateur': 'Administrator',
+  'Révoquer': 'Revoke',
+  'Membre révoqué, nouveau paquet généré.':
+    'Member revoked, new package generated.',
+  'Un membre révoqué conserve l’ancienne clé pour les contenus déjà reçus.':
+    'A revoked member keeps the old key for content already received.',
+  'Révocation impossible.': 'Revocation failed.',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

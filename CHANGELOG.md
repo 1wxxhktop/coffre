@@ -169,7 +169,9 @@
   partage signés par membre, validation des identités/paquets importés et
   interface de génération/import dans les réglages. Les coffres partagés en
   lecture seule bloquent les mutations dans l’application ; la limite face à un
-  client modifié est documentée.
+  client modifié est documentée. Révocation d’un membre par rotation de la clé
+  du coffre, re-enveloppe des clés d’éléments et nouveau paquet pour les
+  membres restants.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation
