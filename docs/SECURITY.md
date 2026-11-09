@@ -242,9 +242,17 @@ révision de l’enregistrement est incrémentée lorsqu’un ciphertext change.
 Le MAC couvre un manifeste canonique (JSON à clés triées) contenant
 l’identifiant du fichier, l’appareil écrivain, `revision`, `keyEpoch`,
 l’empreinte SHA-256 des ciphertexts de tous les coffres (clé et nom), éléments
-(clé et contenu), pièces jointes et versions, ainsi que les horloges
-`{ rev, writer }` et les pierres tombales. Il ne contient aucun contenu
-déchiffré.
+(clé et contenu), pièces jointes, versions, modèles, événements d’activité,
+clés d’alias, identité de partage, accès d’urgence et entrées de l’historique
+du générateur, ainsi que les horloges `{ rev, writer }` et les pierres
+tombales. Il ne contient aucun contenu déchiffré.
+
+Deux versions de manifeste coexistent : le manifeste 2 couvre l’historique du
+générateur ; le manifeste 1 est encore accepté à l’ouverture pour les fichiers
+signés avant cette couverture et lors de la transition. Toute écriture signe en
+manifeste 2. Les sidecars `activity`, `templates`, `aliasKeys`, `sharing`,
+`emergency` et `generatorHistory` sont conservés par le cœur Rust et couverts
+par les deux versions, comme le fait déjà le code TypeScript.
 
 La clé HMAC est aléatoire, scellée avec l’AAD `coffre:v1:integrity-key` et
 tournée au changement de mot de passe maître ou après une récupération par
@@ -547,14 +555,14 @@ L’historique du générateur est un sidecar chiffré du fichier `.coffre` :
 - les mots de passe déchiffrés restent en mémoire React tant que le coffre est
   déverrouillé, puis sont effacés au verrouillage avec le reste de l’état.
 
-Limite d’intégrité : l’historique n’est pas inclus dans le manifeste du MAC
-global. Chaque entrée est authentifiée individuellement par AES-GCM et la
-révision du fichier est mise à jour à chaque mutation, mais un attaquant qui
-peut écrire le fichier pourrait supprimer ou rejouer une entrée sans invalider
-le MAC global ; il ne peut pas la lire. Cette limite est assumée pour ne pas
-modifier le manifeste de `coffre-core`, qui ne couvre pas encore les sidecars
-`activity` et `templates` ; elle devra être levée lors de l’alignement du
-manifeste Rust.
+Intégrité : l’historique est inclus dans le manifeste 2 du MAC global (identifiant
+de l’entrée, horloge et empreinte du ciphertext), en même temps que les
+sidecars `activity`, `templates`, `aliasKeys`, `sharing` et `emergency`. Une
+suppression, une substitution ou un rejeu d’entrée invalide donc le MAC. Les
+fichiers signés avec l’ancien manifeste 1 restent lisibles ; leur première
+mutation les réécrit en manifeste 2. Le cœur Rust et le code TypeScript
+partagent un vecteur croisé qui vérifie l’égalité octet pour octet du manifeste
+canonique.
 
 ### 2.13 Rappels d’échéance
 

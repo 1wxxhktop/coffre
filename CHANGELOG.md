@@ -10,6 +10,11 @@
   le générateur avec copie, création de connexion, suppression et effacement
   global. Aucun mot de passe en clair dans le fichier `.coffre` ni requête
   réseau.
+- Manifeste d’intégrité 2 : l’historique du générateur et tous les sidecars
+  (activité, modèles, alias, partage, urgence) sont couverts par le MAC global.
+  Les fichiers signés avec le manifeste 1 restent lisibles et sont réécrits en
+  manifeste 2 à la première mutation. Le cœur Rust et TypeScript partagent un
+  vecteur croisé du manifeste canonique.
 - Modèles intégrés pour tous les types d’éléments (connexion, note, carte,
   identité, passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle,
   document), avec la liste complète de leurs champs, création directe depuis

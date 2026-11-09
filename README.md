@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 490 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 492 tests unitaires et
 > 75 parcours Playwright exécutés sur Chromium et WebKit (150 exécutions, 7 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
@@ -163,9 +163,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
 - **MAC global et anti-retour en arrière (format 4)** : un HMAC-SHA-256 couvre
-  chaque enregistrement et les pierres tombales ; un fichier altéré s’ouvre en
-  lecture seule et une révision plus ancienne que celle déjà vue déclenche un
-  avertissement.
+  chaque enregistrement, les sidecars (activité, modèles, alias, partage,
+  urgence, historique du générateur) et les pierres tombales ; un fichier
+  altéré s’ouvre en lecture seule et une révision plus ancienne que celle déjà
+  vue déclenche un avertissement. Les fichiers signés avec l’ancien manifeste
+  restent lisibles.
 - **Tableau de bord Sécurité** : score et répartition des mots de passe,
   faiblesses, réutilisations, variantes proches, ancienneté, absence de 2FA,
   connexions incomplètes et sites en doublon, avec accès direct aux éléments à

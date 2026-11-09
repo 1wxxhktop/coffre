@@ -79,7 +79,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 - **Historique du générateur** : 50 entrées chiffrées avec AAD dédiée,
   rétention configurable, purge à l’ouverture, consommation automatique lors
   de l’enregistrement, fusion par horloges. Aucun mot de passe en clair dans le
-  fichier ; le sidecar n’est pas encore couvert par le MAC global (documenté).
+  fichier ; le sidecar est couvert par le manifeste 2 du MAC global, avec
+  lecture des fichiers signés en manifeste 1 et vecteur croisé TypeScript/Rust.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, effacement du presse-papiers au verrouillage.
 - **Récupération** : phrase EFF de 10 mots, enveloppe séparée, vérification de
@@ -90,8 +91,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 484 tests unitaires (69 fichiers), 144 exécutions Playwright
-  (72 parcours sur Chromium et WebKit), 30 tests Rust desktop (1 ignoré) +
+- **Tests** : 492 tests unitaires (71 fichiers), 150 exécutions Playwright
+  (75 parcours sur Chromium et WebKit), 30 tests Rust desktop (1 ignoré) +
   12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
