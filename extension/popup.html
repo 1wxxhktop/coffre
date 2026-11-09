@@ -69,6 +69,41 @@
             <button id="generator-close" class="icon-button" type="button" aria-label="Fermer le générateur" data-i18n-aria-label="popup_generateClose">×</button>
           </div>
           <output id="generated-password" class="generator__value" aria-live="polite"></output>
+          <p class="generator__entropy">
+            <span data-i18n="popup_entropy">Entropie estimée</span>
+            <strong id="generator-entropy">—</strong>
+          </p>
+          <div class="generator__options">
+            <label class="generator__length" for="generator-length">
+              <span class="generator__length-label">
+                <span data-i18n="popup_length">Longueur</span>
+                <strong id="generator-length-value">20</strong>
+              </span>
+              <input id="generator-length" type="range" min="8" max="64" step="1" value="20" />
+            </label>
+            <div class="generator__toggles" role="group" aria-label="Classes de caractères" data-i18n-aria-label="popup_characterClasses">
+              <label class="generator__toggle">
+                <input id="generator-lowercase" type="checkbox" checked />
+                <span data-i18n="popup_lowercase">Minuscules</span>
+              </label>
+              <label class="generator__toggle">
+                <input id="generator-uppercase" type="checkbox" checked />
+                <span data-i18n="popup_uppercase">Majuscules</span>
+              </label>
+              <label class="generator__toggle">
+                <input id="generator-digits" type="checkbox" checked />
+                <span data-i18n="popup_digits">Chiffres</span>
+              </label>
+              <label class="generator__toggle">
+                <input id="generator-symbols" type="checkbox" checked />
+                <span data-i18n="popup_symbols">Symboles</span>
+              </label>
+            </div>
+            <label class="generator__toggle generator__toggle--wide">
+              <input id="generator-ambiguous" type="checkbox" checked />
+              <span data-i18n="popup_excludeAmbiguous">Éviter les caractères ambigus (O, 0, I, l, 1…)</span>
+            </label>
+          </div>
           <div class="generator__actions">
             <button id="regenerate" class="button" type="button">
               <span data-i18n="popup_regenerate">Régénérer</span>

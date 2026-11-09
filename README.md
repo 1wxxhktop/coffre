@@ -712,6 +712,8 @@ passerelle en mémoire, puis remplit la page active. Le même manifeste contient
 `background.scripts` pour Firefox et `background.service_worker` pour Chromium.
 Le popup inclut une **barre de recherche** permanente, un **générateur de mot
 de passe local** avec copie en un clic et un **thème système/clair/sombre**.
+Le générateur permet de régler la longueur, les classes de caractères et
+l’exclusion des caractères ambigus ; les options sont mémorisées localement.
 Un clic sur une connexion déploie ses détails (identifiant, mot de passe masqué,
 code TOTP) avec copie champ par champ, y compris lorsque le remplissage
 automatique échoue. Les réglages (thème, adresse de Coffre, test de connexion)
