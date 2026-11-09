@@ -549,19 +549,54 @@ L’analyse de sécurité est entièrement locale et ne conserve aucun résultat
 - les mots de passe faibles sont estimés par longueur, entropie et présence du
   titre ou de l’identifiant dans le secret ; les réutilisations exactes et les
   variantes proches sont détectées sans exposer les secrets ;
-- l’ancienneté utilise la dernière modification de l’élément, l’absence de 2FA
-  le champ TOTP, et les connexions incomplètes les champs identifiant, mot de
-  passe et URL ;
+- l’ancienneté utilise la dernière modification de l’élément ; l’absence de
+  2FA n’est signalée que si le site est connu comme proposant une méthode
+  (2FA Directory) et que le champ TOTP est vide ; les connexions incomplètes
+  utilisent les champs identifiant, mot de passe et URL ;
+- « Passkey disponible » signale une connexion par mot de passe sur un site du
+  répertoire Passkeys Directory qui accepte les passkeys, sauf si une passkey
+  existe déjà pour le même domaine enregistrable ;
+- « Site sans HTTPS » signale une URL `http://` hors bouclage ;
 - le score, la répartition solides/moyens/faibles et les listes ne contiennent
   que des références d’éléments et des compteurs, jamais un mot de passe ;
 - l’historique du score conserve au plus une mesure par jour pendant 365 jours
-  dans `localStorage` : date, score et compteurs, jamais un secret ni une URL ;
+  dans `localStorage` : date, score, version de formule et compteurs, jamais un
+  secret ni une URL. Le calcul passe en version 2 avec Q2 (règle 2FA et
+  pénalité HTTP) ; les mesures antérieures restent lisibles et la courbe est
+  annotée lorsqu’elles côtoient les nouvelles ;
 - « Changer sur le site » ouvre l’URL standard
   `https://<hôte>/.well-known/change-password` dans le navigateur système ; la
   requête est faite par le navigateur, pas par Coffre, et aucune donnée du
   coffre n’est transmise ;
 - la vérification des fuites est une action explicite, désactivée par défaut
   (voir 2.12.1).
+
+#### Disponibilité de la 2FA et des passkeys
+
+Les répertoires `site-security.json` sont des instantanés embarqués, datés du
+9 novembre 2026 :
+
+- **2FA Directory** (`https://2fa.directory`) : 2 453 domaines avec au moins une
+  méthode (`totp`, `sms`, `call`, `email`, `u2f`, `custom-software`,
+  `custom-hardware`) et, lorsqu’elle existe, le lien de documentation. Données
+  sous licence MIT, attribution dans `NOTICE` ;
+- **Passkeys Directory** (`https://passkeys.directory`) : 403 domaines qui
+  acceptent les passkeys et, lorsqu’il existe, le lien de documentation. Données
+  sous licence CC BY 4.0, attribution dans `NOTICE`.
+
+Le fichier est chargé par import dynamique dans un chunk séparé, uniquement
+dans l’application ; il n’est pas inclus dans le bundle de l’extension. Il ne
+contient aucun secret et aucune donnée du coffre. Aucune requête vers un
+service externe n’est faite à l’exécution ; le script
+`scripts/update-2fa-directory.mjs` est réservé aux mises à jour de version et
+peut relire des instantanés locaux.
+
+Limites : la couverture dépend des répertoires et de leurs domaines déclarés
+(par exemple `mail.google.com` est couvert, `accounts.google.com` peut ne pas
+l’être) ; un site absent ou inconnu ne déclenche aucune alerte « Sans 2FA » ;
+le support des passkeys peut évoluer entre deux versions ; l’action « Créer une
+passkey » ouvre simplement le site et ne crée rien sans la fenêtre de
+confirmation de l’extension.
 
 ### 2.12.1 Surveillance optionnelle des fuites (HIBP)
 

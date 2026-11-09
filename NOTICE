@@ -244,5 +244,38 @@ transformation est documentée et reproductible avec
 `scripts/update-crux-domains.ts` ; le jeu de données est distribué séparément
 du code GPLv3 et sa licence CC BY 4.0 s’applique à ce fichier de données.
 
+================================================================================
+10. 2FA DIRECTORY
+================================================================================
+
+Fichier : src/assets/site-security.json (partie `twoFactor`)
+Source  : https://2fa.directory — https://github.com/2factorauth/twofactorauth
+Auteur  : 2factorauth et contributeurs
+Licence : MIT (données) — https://github.com/2factorauth/twofactorauth/blob/master/LICENSE.md
+Instantané : 9 novembre 2026
+
+Attribution à conserver :
+  « Data sourced from 2FA Directory by 2factorauth. »
+
+Le texte de la licence MIT figure à la section 3 (Apple Password Manager
+Resources) ; il s’applique également à ce jeu de données.
+
+================================================================================
+11. PASSKEYS DIRECTORY
+================================================================================
+
+Fichier : src/assets/site-security.json (partie `passkeys`)
+Source  : https://passkeys.directory — https://github.com/2factorauth/passkeys
+Auteur  : 2factorauth et contributeurs
+Licence : Creative Commons Attribution 4.0 International (CC BY 4.0)
+          https://creativecommons.org/licenses/by/4.0/
+Instantané : 9 novembre 2026
+
+Attribution à conserver :
+  « Data sourced from Passkeys Directory by 2factorauth, licensed under
+  CC BY 4.0. »
+
+Les icônes du dépôt Passkeys Directory ne sont pas incluses dans ce fichier.
+
 Pour toute question relative à ces attributions, ouvrir une issue dans le
 dépôt du projet.

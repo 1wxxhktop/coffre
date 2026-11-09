@@ -3,6 +3,7 @@ import {
   CircleHelp,
   Clock3,
   Copy,
+  Fingerprint,
   KeyRound,
   Link2,
   ShieldAlert,
@@ -73,7 +74,7 @@ function PointButton({
   label: string
   hint: string
   category: SecurityCategory
-  icon: 'copy' | 'key' | 'clock' | 'help' | 'link' | 'breach'
+  icon: 'copy' | 'key' | 'clock' | 'help' | 'link' | 'breach' | 'fingerprint'
   onOpen: (category: SecurityCategory) => void
 }) {
   const Icon =
@@ -87,7 +88,9 @@ function PointButton({
             ? Link2
             : icon === 'breach'
               ? ShieldAlert
-              : KeyRound
+              : icon === 'fingerprint'
+                ? Fingerprint
+                : KeyRound
 
   return (
     <button
@@ -320,6 +323,20 @@ export function SecurityDialog({
         </div>
       )}
 
+      {report.passkeyAvailable.length > 0 && (
+        <p className="security-section__hint">
+          <Fingerprint size={13} />{' '}
+          {t(
+            pluralKey(
+              report.passkeyAvailable.length,
+              'security.passkey.available.one',
+              'security.passkey.available.other',
+            ),
+            { count: report.passkeyAvailable.length },
+          )}
+        </p>
+      )}
+
       {report.total > 0 && (
         <>
           <div className="security-primary" aria-label={t('security.primary')}>
@@ -358,6 +375,22 @@ export function SecurityDialog({
                 onOpen={onOpenCategory}
               />
             )}
+            <PointButton
+              count={report.passkeyAvailable.length}
+              label={t('security.passkey')}
+              hint={t('security.passkey.hint')}
+              category="passkey"
+              icon="fingerprint"
+              onOpen={onOpenCategory}
+            />
+            <PointButton
+              count={report.noHttps.length}
+              label={t('security.noHttps')}
+              hint={t('security.noHttps.hint')}
+              category="noHttps"
+              icon="breach"
+              onOpen={onOpenCategory}
+            />
             <PointButton
               count={similarCount}
               label={t('security.similar')}
