@@ -456,6 +456,35 @@ export async function nativeSaveIdentity(input: {
   }
 }
 
+export async function nativeCheckLogin(input: {
+  host: string
+  username: string
+  password: string
+}): Promise<{
+  state?: 'same' | 'different' | 'missing'
+  error?: string
+}> {
+  try {
+    const response = await encryptedRequest({
+      type: 'check-login',
+      host: input.host,
+      username: input.username,
+      password: input.password,
+    })
+    if (typeof response.error === 'string') return { error: response.error }
+    const state =
+      response.state === 'same' ||
+      response.state === 'different' ||
+      response.state === 'missing'
+        ? response.state
+        : 'missing'
+    return { state }
+  } catch (error) {
+    resetConnection()
+    return { error: error instanceof Error ? error.message : 'native-unavailable' }
+  }
+}
+
 export async function nativeSaveLogin(input: {
   host: string
   username: string

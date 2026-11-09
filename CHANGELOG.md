@@ -62,6 +62,9 @@
   pendant la fenêtre de réception, mobile restant à faire.
 - Extension : options du générateur (longueur, classes de caractères,
   caractères ambigus, entropie estimée) mémorisées localement.
+- Extension : plus de demande d’enregistrement quand les identifiants soumis
+  correspondent déjà à une connexion du coffre ; une mise à jour est proposée
+  uniquement si le mot de passe a changé.
 - Extension : le bouton d’activation du remplissage est remplacé par un
   indicateur « Remplissage actif » dès que le content script répond dans
   l’onglet courant.

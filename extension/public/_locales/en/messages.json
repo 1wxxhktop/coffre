@@ -418,5 +418,14 @@
   },
   "popup_inlineActive": {
     "message": "Filling active on this tab"
+  },
+  "popup_savePrompt": {
+    "message": "Save “$1” for $2?"
+  },
+  "popup_updatePrompt": {
+    "message": "Update “$1” for $2?"
+  },
+  "popup_update": {
+    "message": "Update"
   }
 }

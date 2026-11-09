@@ -232,6 +232,22 @@ export function ExtensionBridge() {
         })
         return { id: item.id, updated: false }
       },
+      async checkLogin(input) {
+        const host = hostFromUrl(input.host) || input.host.trim().toLowerCase()
+        if (!host) return 'missing'
+        const username = input.username.trim()
+        const existing = items.filter(
+          (item): item is LoginItem =>
+            item.type === 'login' &&
+            !item.deletedAt &&
+            item.username.trim().toLowerCase() === username.toLowerCase() &&
+            loginAllowsHost(item, host),
+        )
+        if (existing.length === 0) return 'missing'
+        return existing.some((item) => item.password === input.password)
+          ? 'same'
+          : 'different'
+      },
       async saveCard(input) {
         const number = input.number.replace(/\s+/g, '').trim()
         if (!number) return null

@@ -179,6 +179,10 @@ export interface CoffreExtensionBridge {
   ) => Promise<ExtensionFillValues | null>
   /** Enregistre ou met à jour une connexion après soumission du formulaire. */
   saveLogin?: (input: ExtensionSaveInput) => Promise<ExtensionSaveResult | null>
+  /** Compare des identifiants soumis à une connexion existante. */
+  checkLogin?: (
+    input: ExtensionSaveInput,
+  ) => Promise<'same' | 'different' | 'missing' | null>
   saveCard?: (input: ExtensionCardSaveInput) => Promise<ExtensionSaveResult | null>
   saveIdentity?: (
     input: ExtensionIdentitySaveInput,

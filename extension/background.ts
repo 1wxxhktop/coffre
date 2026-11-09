@@ -14,6 +14,7 @@ import type {
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
 import { isValidRpId } from '../src/lib/passkeys'
 import {
+  nativeCheckLogin,
   nativeFill,
   nativeFocus,
   nativePair,
@@ -520,6 +521,7 @@ interface PendingSave {
   url: string
   username: string
   password: string
+  update?: boolean
   card?: ExtensionCardSaveInput
   identity?: ExtensionIdentitySaveInput
   expires: number
@@ -681,6 +683,82 @@ function pendingText(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
 }
 
+type LoginSaveState = 'same' | 'different' | 'missing'
+
+/**
+ * Repli pour les versions de l’application antérieures à `check-login` :
+ * compare via la recherche et le remplissage existants, sans redéployer le
+ * desktop ni dupliquer les secrets dans le service worker au-delà du contrôle.
+ */
+async function compareExistingLogin(
+  status: AppStatus,
+  host: string,
+  username: string,
+  password: string,
+): Promise<LoginSaveState | null> {
+  const result = await search(host, 'login')
+  if (result.error) return null
+  const candidates = (result.items ?? []).filter(
+    (item): item is ExtensionLoginSummary =>
+      'username' in item &&
+      'host' in item &&
+      item.username.trim().toLowerCase() === username.trim().toLowerCase() &&
+      hostMatches(item.host, host),
+  )
+  if (candidates.length === 0) return 'missing'
+
+  let compared = false
+  for (const candidate of candidates) {
+    const fetched = await fetchCredentials(candidate.id, host, status)
+    if (!fetched.credentials || fetched.credentials.kind !== 'login') continue
+    compared = true
+    if (fetched.credentials.password === password) return 'same'
+  }
+  return compared ? 'different' : null
+}
+
+async function loginSaveState(
+  status: AppStatus,
+  host: string,
+  username: string,
+  password: string,
+): Promise<LoginSaveState | null> {
+  if (status.mode === 'native') {
+    if (!status.paired || !status.unlocked) return null
+    const result = await nativeCheckLogin({ host, username, password })
+    if (result.state) return result.state
+    return compareExistingLogin(status, host, username, password)
+  }
+  if (!status.appOpen || !status.tabId || !status.unlocked) return null
+
+  try {
+    const [result] = await api.scripting.executeScript({
+      target: { tabId: status.tabId },
+      world: 'MAIN',
+      func: (values: { host: string; username: string; password: string }) => {
+        const bridge = (
+          window as unknown as {
+            __coffreExtension?: {
+              checkLogin?: (
+                input: typeof values,
+              ) => Promise<'same' | 'different' | 'missing' | null>
+            }
+          }
+        ).__coffreExtension
+        return bridge?.checkLogin ? bridge.checkLogin(values) : null
+      },
+      args: [{ host, username, password }],
+    })
+    const state = result?.result
+    if (state === 'same' || state === 'different' || state === 'missing') {
+      return state
+    }
+  } catch {
+    // Ancienne version de l’application : repli ci-dessous.
+  }
+  return compareExistingLogin(status, host, username, password)
+}
+
 async function formSubmitted(
   sender: chrome.runtime.MessageSender,
   message: ExtensionMessage,
@@ -772,6 +850,17 @@ async function formSubmitted(
       ? Boolean(status.paired && status.unlocked)
       : Boolean(status.appOpen && status.unlocked)
   if (!canSave) return { prompt: false }
+
+  if (kind === 'login') {
+    const state = await loginSaveState(
+      status,
+      host,
+      pending.username,
+      pending.password,
+    )
+    if (state === 'same') return { prompt: false }
+    if (state === 'different') pending.update = true
+  }
 
   setPendingSave(saveKey(tabId as number, frameId as number), pending)
   return { prompt: true }
@@ -1479,6 +1568,7 @@ async function handle(
           host: pending.host,
           kind: pending.kind,
           detail: pending.detail,
+          update: pending.update === true,
           tabId,
           frameId: Number(key.split(':')[1]),
         },
