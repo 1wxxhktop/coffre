@@ -5,7 +5,8 @@ Ces captures accompagnent la PR `design/d1-d9`. Elles comparent l’état de
 
 ## Contenu
 
-Cinq écrans communs, plus le tableau de bord dans l’état « après » :
+Cinq écrans communs, plus le tableau de bord et les modèles dans l’état
+« après » :
 
 | Écran | Fichier |
 | --- | --- |
@@ -15,9 +16,10 @@ Cinq écrans communs, plus le tableau de bord dans l’état « après » :
 | Réglages | `settings-*.jpg` |
 | Tableau de bord Sécurité | `security-*.jpg` |
 | Tableau de bord (après uniquement) | `dashboard-*.jpg` |
+| Modèles (après, desktop uniquement) | `models-*.jpg` |
 
 Combinaisons : sombre et clair à **1280 × 800**, sombre et clair à
-**375 × 812**. Soit 20 captures avant et 24 après.
+**375 × 812**. Soit 20 captures avant et 26 après.
 
 - `before/` : `main` à `10de4a9`, avant le lot design.
 - `after/` : branche `design/d1-d9` avec le système de jetons, le panneau de

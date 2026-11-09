@@ -118,7 +118,7 @@ export function ItemRow({
         </span>
       )}
       <span className={`item-icon item-icon--${item.type}`}>
-        <ItemIcon type={item.type} size={18} />
+        <ItemIcon type={item.type} item={item} size={18} />
       </span>
 
       <span className="item-row__content">

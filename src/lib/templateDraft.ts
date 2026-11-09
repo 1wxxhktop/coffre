@@ -19,7 +19,7 @@ export function draftFromTemplate(
   vaultId: string,
 ): ItemDraft {
   return {
-    ...emptyDraft('note', vaultId),
+    ...emptyDraft(template.type ?? 'note', vaultId),
     title: template.name,
     templateId: template.id,
     customFields: template.fields.map((field) => ({
@@ -28,6 +28,5 @@ export function draftFromTemplate(
       value: '',
       type: fieldType(field.type),
     })),
-    type: 'note',
   }
 }
