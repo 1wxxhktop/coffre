@@ -62,6 +62,9 @@
   pendant la fenêtre de réception, mobile restant à faire.
 - Extension : options du générateur (longueur, classes de caractères,
   caractères ambigus, entropie estimée) mémorisées localement.
+- Extension : le bouton d’activation du remplissage est remplacé par un
+  indicateur « Remplissage actif » dès que le content script répond dans
+  l’onglet courant.
 - Extension : réglages intégrés au popup (thème, adresse de l’application,
   test de connexion), barre d’actions et notification ancrées en bas de la
   fenêtre, et activation du remplissage compatible WebKit/Orion (repli

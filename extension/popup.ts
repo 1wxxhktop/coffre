@@ -98,6 +98,7 @@ const themeButton = $<HTMLButtonElement>('theme')
 const themeIcon = $<HTMLSpanElement>('theme-icon')
 const footerStatus = $<HTMLSpanElement>('footer-status')
 const bottomDock = $<HTMLDivElement>('bottom-dock')
+const inlineStatus = $<HTMLParagraphElement>('inline-status')
 
 let currentTab: chrome.tabs.Tab | null = null
 let status: AppStatus = { appOpen: false, unlocked: false, appUrl: '' }
@@ -111,6 +112,7 @@ let searchListenerReady = false
 let themePreference: ThemePreference = 'system'
 let themeInitialized = false
 let settingsOpen = false
+let inlineReady = false
 
 const THEME_ICONS: Record<ThemePreference, string> = {
   system:
@@ -306,6 +308,7 @@ function renderStatus() {
   pairButton.hidden = true
   activateInlineButton.hidden = true
   focusAppButton.hidden = true
+  inlineStatus.hidden = true
   searchWrap.hidden = false
   searchInput.disabled = true
   results.replaceChildren()
@@ -352,7 +355,7 @@ function renderStatus() {
 
   searchWrap.hidden = false
   searchInput.disabled = false
-  if (status.hostAccess === false) {
+  if (status.hostAccess === false && !inlineReady) {
     showMessage(
       'Activez le remplissage dans les champs pour remplir les formulaires directement.',
       'info',
@@ -360,9 +363,10 @@ function renderStatus() {
   } else {
     hideMessage()
   }
-  actions.hidden = false
+  actions.hidden = inlineReady
   openAppButton.hidden = true
-  activateInlineButton.hidden = false
+  activateInlineButton.hidden = inlineReady
+  inlineStatus.hidden = !inlineReady
   footerStatus.textContent =
     status.mode === 'native'
       ? 'Coffre desktop · pont natif local'
@@ -505,8 +509,22 @@ async function refreshPendingSave(): Promise<void> {
   }
 }
 
+async function detectInlineReady(): Promise<boolean> {
+  if (!currentTab?.id || !currentTab.url) return false
+  if (!/^https?:/i.test(currentTab.url)) return false
+  try {
+    const response = (await api.tabs.sendMessage(currentTab.id, {
+      type: 'COFFRE_PING',
+    })) as { ok?: boolean } | undefined
+    return response?.ok === true
+  } catch {
+    return false
+  }
+}
+
 async function refreshStatus(): Promise<boolean> {
   status = await send<AppStatus>({ type: 'GET_STATUS' })
+  inlineReady = status.unlocked ? await detectInlineReady() : false
   renderStatus()
   return (
     status.appOpen &&
