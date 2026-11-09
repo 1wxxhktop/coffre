@@ -70,6 +70,11 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : proposition de mot de passe fort sur les formulaires
+  d’inscription et de changement de mot de passe. Génération locale selon les
+  règles du site, aperçu partiel, remplissage du champ et de sa confirmation
+  après clic, sans soumission automatique. Les formulaires de connexion simple
+  ne déclenchent pas la proposition.
 - Extension : accueil à l’installation (`welcome.html`) pour choisir
   l’application desktop ou Web, associer ou configurer l’adresse, activer site
   par site (défaut) ou tous les sites, puis afficher les raccourcis. Note de

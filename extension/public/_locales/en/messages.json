@@ -614,6 +614,21 @@
   "menu_fieldCount": {
     "message": "fillable field(s)"
   },
+  "menu_signupTitle": {
+    "message": "Use a strong password"
+  },
+  "menu_signupHint": {
+    "message": "Generated locally using the site rules."
+  },
+  "menu_signupUse": {
+    "message": "Use this password"
+  },
+  "menu_signupRegenerate": {
+    "message": "Regenerate"
+  },
+  "menu_signupFilled": {
+    "message": "Strong password filled. Save the login after validation."
+  },
   "menu_alias": {
     "message": "Create an email alias"
   },

@@ -99,6 +99,29 @@ try {
   }
   await popup.close()
 
+  for (const theme of ['dark', 'light']) {
+    await page.evaluate((value) => chrome.storage.local.set({ theme: value }), theme)
+    const signupMenu = await context.newPage()
+    await signupMenu.setViewportSize({ width: 380, height: 560 })
+    await signupMenu.goto(
+      `chrome-extension://${extensionId}/menu.html?tab=1&frame=0&host=github.com&top=github.com&kind=login&mode=open&signup=1`,
+    )
+    await signupMenu.locator('#signup').waitFor()
+    await signupMenu
+      .locator('#signup-preview')
+      .filter({ hasText: '…' })
+      .waitFor()
+    await signupMenu.evaluate(() => {
+      const message = document.getElementById('message')
+      if (message) message.hidden = true
+    })
+    await signupMenu.screenshot({
+      path: join(output, `signup-menu-${theme}.png`),
+      fullPage: true,
+    })
+    await signupMenu.close()
+  }
+
   for (const pageName of ['welcome', 'options']) {
     for (const theme of ['dark', 'light']) {
       const shot = await context.newPage()

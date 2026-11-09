@@ -12,12 +12,14 @@ import {
   detectCardFields,
   detectIdentityFields,
   detectLoginFields,
+  detectSignupFields,
   fillDetectedCard,
   fillDetectedIdentity,
   fillDetectedLogin,
   fillFieldsByLabel,
   fillOtpField,
   fillPasswordField,
+  fillSignupPasswords,
   canFillCard,
   isVisible,
   readCardValues,
@@ -49,6 +51,7 @@ interface MenuHandle {
   iframe: HTMLIFrameElement
   mode: 'badge' | 'save' | 'open'
   kind: AutofillKind
+  signup: boolean
   anchor: HTMLInputElement
   width: number
   height: number
@@ -293,7 +296,11 @@ function openMenuAtActiveField(kind: AutofillKind): boolean {
       ? lastFocusedInput
       : detected?.anchor
   if (!anchor) return false
-  showMenu(anchor, kind || detected?.kind || 'login', 'open')
+  const detectedKind =
+    detected?.kind === 'card' || detected?.kind === 'identity'
+      ? detected.kind
+      : 'login'
+  showMenu(anchor, kind || detectedKind, 'open', detected?.kind === 'signup')
   return true
 }
 
@@ -301,6 +308,7 @@ function showMenu(
   anchor: HTMLInputElement,
   kind: AutofillKind,
   mode: 'badge' | 'save' | 'open' = 'badge',
+  signup = false,
 ): void {
   if (!context) return
   removeMenu()
@@ -334,6 +342,7 @@ function showMenu(
   url.searchParams.set('top', context.topHost)
   url.searchParams.set('kind', kind)
   url.searchParams.set('mode', mode)
+  if (signup) url.searchParams.set('signup', '1')
   iframe.src = url.toString()
   shadow.append(iframe)
   const initialWidth =
@@ -349,6 +358,7 @@ function showMenu(
     iframe,
     mode,
     kind,
+    signup,
     anchor,
     width: initialWidth,
     height: initialHeight,
@@ -363,16 +373,18 @@ function refreshDetection(): void {
     removeMenu()
     return
   }
+  const kind = detected.kind === 'signup' ? 'login' : detected.kind
+  const signup = detected.kind === 'signup'
   if (menu && menu.mode === 'badge') {
-    if (menu.kind !== detected.kind) {
+    if (menu.kind !== kind || menu.signup !== signup) {
       removeMenu()
-      showMenu(detected.anchor, detected.kind)
+      showMenu(detected.anchor, kind, 'badge', signup)
       return
     }
     menu.anchor = detected.anchor
     positionMenu()
   } else if (!menu) {
-    showMenu(detected.anchor, detected.kind)
+    showMenu(detected.anchor, kind, 'badge', signup)
   }
 }
 
@@ -432,6 +444,24 @@ function handleSubmit() {
   if (!detected || !context) return
   const url = location.href
   const host = context.host
+  if (detected.kind === 'signup') {
+    const fields = detected.signup
+    if (!fields.password.value) return
+    void send<{ prompt?: boolean; offerId?: string }>({
+      type: 'FORM_SUBMITTED',
+      host,
+      username: fields.username?.value ?? '',
+      password: fields.password.value,
+      url,
+    })
+      .then((response) => {
+        if (response?.prompt && response.offerId) {
+          showSaveBanner(response.offerId)
+        }
+      })
+      .catch(() => undefined)
+    return
+  }
   if (detected.kind === 'login') {
     const fields = detected.login
     if (!fields.password || !fields.username || !fields.password.value) return
@@ -553,6 +583,31 @@ api.runtime.onMessage.addListener(
     if (message?.type === 'COFFRE_FILL_TEXT') {
       const filled = fillActiveText(
         typeof message.text === 'string' ? message.text : '',
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+    if (message?.type === 'COFFRE_FILL_SIGNUP') {
+      const pageHost = hostFromUrl(location.href)
+      const expected = hostFromUrl(message.host ?? '') || message.host || ''
+      if (
+        !pageHost ||
+        !expected ||
+        !(pageHost === expected || hostMatches(pageHost, expected))
+      ) {
+        sendResponse({ ok: false, error: 'domain-mismatch' })
+        return
+      }
+      const fields = detectSignupFields(document)
+      if (!fields) {
+        sendResponse({ ok: false, error: 'no-fields' })
+        return
+      }
+      const filled = fillSignupPasswords(
+        fields,
+        typeof message.password === 'string' ? message.password : '',
       )
       sendResponse(
         filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },

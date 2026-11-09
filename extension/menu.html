@@ -28,6 +28,20 @@
 
       <p id="message" class="message" hidden></p>
 
+      <section id="signup" class="signup" hidden aria-labelledby="signup-title">
+        <div class="signup__head">
+          <strong id="signup-title" data-i18n="menu_signupTitle">Utiliser un mot de passe fort</strong>
+          <button id="signup-regenerate" class="icon-button" type="button" title="Régénérer" data-i18n-title="menu_signupRegenerate" aria-label="Régénérer" data-i18n-aria-label="menu_signupRegenerate">
+            ↻
+          </button>
+        </div>
+        <p class="signup__hint" data-i18n="menu_signupHint">Généré localement selon les règles du site.</p>
+        <output id="signup-preview" class="signup__preview" aria-live="polite"></output>
+        <button id="signup-use" class="button button--primary" type="button">
+          <span data-i18n="menu_signupUse">Utiliser ce mot de passe</span>
+        </button>
+      </section>
+
       <div id="tabs" class="tabs" hidden>
         <button id="tab-login" class="tab tab--active" type="button" data-kind="login" data-i18n="menu_tabLogins">Connexions</button>
         <button id="tab-card" class="tab" type="button" data-kind="card" data-i18n="menu_tabCards">Cartes</button>

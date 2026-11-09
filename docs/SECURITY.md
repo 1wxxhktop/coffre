@@ -370,6 +370,19 @@ appairage) est conservée dans `chrome.storage.local`.
 - Un champ `risk` est réservé au signal anti-hameçonnage (Q1) ; tant que Q1
   n’est pas livré, il reste absent et le bouton « Enregistrer » n’est pas
   prioritaire par défaut en cas de signal.
+- **Mot de passe fort à l’inscription** : un champ `autocomplete="new-password"`,
+  une confirmation ou un formulaire d’inscription reconnu affiche d’abord
+  « Utiliser un mot de passe fort » dans le menu du champ. Le mot de passe est
+  généré localement selon les règles embarquées du site (aucune requête), et
+  seul un aperçu partiel est affiché. Le secret complet n’est jamais dans le
+  DOM de la page, dans l’URL ou dans un stockage : il est transmis une fois, du
+  menu d’extension au content script, uniquement après le clic, puis rempli
+  dans le champ et sa confirmation. Aucun formulaire n’est soumis
+  automatiquement. Un formulaire de connexion simple avec
+  `current-password` ne déclenche pas cette proposition.
+- Lorsque le lot Q3 sera livré, l’historique du générateur pourra être alimenté
+  depuis le service worker au moment du remplissage ; le mot de passe complet
+  n’est volontairement pas conservé par l’extension en attendant.
 - **Raccourcis clavier** : la section `commands` du manifeste n’ajoute aucune
   permission ; l’API `commands` est disponible sans permission et les
   commandes accordent `activeTab` lorsqu’elles sont invoquées par l’utilisateur.

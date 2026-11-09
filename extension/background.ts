@@ -1489,6 +1489,14 @@ function isSaveBannerPage(sender: chrome.runtime.MessageSender): boolean {
   )
 }
 
+function isMenuPage(sender: chrome.runtime.MessageSender): boolean {
+  const page = api.runtime.getURL('menu.html')
+  return (
+    typeof sender.url === 'string' &&
+    (sender.url === page || sender.url.startsWith(`${page}?`))
+  )
+}
+
 const OFFER_ID_PATTERN = /^[a-f0-9-]{8,64}$/i
 
 function closePasskeyWindow(request: PendingPasskeyRequest): void {
@@ -2144,6 +2152,43 @@ async function handle(
         tab,
       )
       return { ok: true }
+    }
+    case 'FILL_SIGNUP': {
+      if (!isMenuPage(sender)) return { error: 'forbidden' }
+      const tabId = Number(message.tabId)
+      const frameId = Number(message.frameId)
+      const password =
+        typeof message.password === 'string' ? message.password : ''
+      if (
+        !Number.isInteger(tabId) ||
+        tabId < 0 ||
+        !Number.isInteger(frameId) ||
+        frameId < 0 ||
+        password.length < 4 ||
+        password.length > 128
+      ) {
+        return { error: 'invalid' }
+      }
+      const tab = await api.tabs.get(tabId).catch(() => undefined)
+      const host = tab?.url ? hostFromUrl(tab.url) : ''
+      if (!host) return { error: 'no-tab' }
+      if (!(await ensureContentScript(tabId, frameId))) {
+        return { error: 'permission' }
+      }
+      try {
+        const response = (await api.tabs.sendMessage(
+          tabId,
+          { type: 'COFFRE_FILL_SIGNUP', password, host },
+          { frameId },
+        )) as { ok?: boolean; filled?: number; error?: string } | undefined
+        if (!response?.ok) return { error: response?.error ?? 'no-fields' }
+        // Q3 : lorsqu’il sera livré, l’historique du générateur pourra être
+        // alimenté ici via l’application, sans stocker le mot de passe dans
+        // l’extension. Le secret n’est volontairement pas conservé.
+        return { ok: true, filled: response.filled ?? 0 }
+      } catch {
+        return { error: 'no-tab' }
+      }
     }
     case 'PAIR':
       return nativePair()
