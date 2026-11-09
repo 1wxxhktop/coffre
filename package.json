@@ -29,6 +29,8 @@
     "bridge:smoke": "node scripts/smoke-bridge.mjs",
     "icons": "bun run scripts/generate-icons.mjs",
     "version:check": "node scripts/check-versions.mjs",
+    "sbom": "./scripts/generate-sbom.sh",
+    "repro:check": "./scripts/check-reproducible-build.sh",
     "tauri": "tauri",
     "tauri:icons": "tauri icon public/icon.svg",
     "desktop:dev": "tauri dev",
@@ -55,6 +57,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
+    "@cyclonedx/cyclonedx-npm": "6.0.1",
     "@playwright/test": "^1.64.1",
     "@tauri-apps/cli": "^2",
     "@types/aes-js": "^3.1.4",

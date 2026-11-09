@@ -59,7 +59,7 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   manifeste/MAC v4, mutations, signature v4, rotation de mot de passe et fusion
   L3 ; façade UniFFI JSON, CLI `list`/`get`/`totp`/`run --env`, commande Tauri
   de fusion, buffers `Zeroizing`, vecteurs croisés TypeScript ↔ Rust et CI
-  Linux/macOS/Windows.
+  Linux/macOS/Windows, builds Web/extension reproductibles et SBOM CycloneDX.
 - **Synchronisation** : dossier choisi par l’utilisateur, un fichier par
   appareil, fusion v4 par horloges et pierres tombales, vérification du MAC
   distant, adoption d’une nouvelle époque de clés, archivage des conflits et
