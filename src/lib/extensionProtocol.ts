@@ -7,6 +7,7 @@
  */
 
 import type { CardItem, IdentityItem, LoginItem, VaultItem } from './types'
+import { isIpAddress, isPublicSuffix, registrableDomain } from './publicSuffix'
 
 export const EXTENSION_BRIDGE_VERSION = 1
 export const EXTENSION_MAX_RESULTS = 50
@@ -217,29 +218,80 @@ export function hostFromUrl(value: string): string {
   }
 }
 
-export function hostMatches(itemHost: string, pageHost: string): boolean {
-  if (!itemHost || !pageHost) return false
-  return (
-    itemHost === pageHost ||
-    itemHost.endsWith(`.${pageHost}`) ||
-    pageHost.endsWith(`.${itemHost}`)
-  )
+function normalizeHost(host: string): string {
+  return host
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '')
+    .toLowerCase()
 }
 
 /**
- * Vrai si l’une des URL de l’élément autorise le remplissage sur cet hôte.
+ * Analyse un hôte ou une URL de service. Un hôte sans schéma est supposé
+ * HTTPS ; `hôte:port` est accepté, les autres schémas sont refusés.
+ */
+function parseWebUrl(value: string): URL | null {
+  const raw = value.trim()
+  if (!raw) return null
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(raw)
+  let candidate = raw
+  if (scheme) {
+    const name = scheme[1].toLowerCase()
+    if (name !== 'http' && name !== 'https') {
+      if (!/^[^/]+:\d+(\/|$)/.test(raw)) return null
+      candidate = `https://${raw}`
+    }
+  } else {
+    candidate = `https://${raw}`
+  }
+  try {
+    const url = new URL(candidate)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    if (!url.hostname) return null
+    return url
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Compare deux hôtes avec la même règle que les extensions natives :
+ * même domaine enregistrable, relation parent/sous-domaine, et refus des
+ * suffixes publics. Les IP, `localhost` et les hôtes d’une étiquette ne
+ * correspondent qu’à l’identique (ou à un sous-domaine pour une étiquette).
+ */
+export function hostMatches(itemHost: string, pageHost: string): boolean {
+  const item = normalizeHost(hostFromUrl(itemHost) || itemHost)
+  const page = normalizeHost(hostFromUrl(pageHost) || pageHost)
+  if (!item || !page) return false
+  if (item === page) return true
+  if (isIpAddress(item) || isIpAddress(page)) return false
+  if (isPublicSuffix(item) || isPublicSuffix(page)) return false
+  if (!item.includes('.') || !page.includes('.')) {
+    return page.endsWith(`.${item}`) || item.endsWith(`.${page}`)
+  }
+  const itemDomain = registrableDomain(item)
+  const pageDomain = registrableDomain(page)
+  if (!itemDomain || !pageDomain || itemDomain !== pageDomain) return false
+  return page.endsWith(`.${item}`) || item.endsWith(`.${page}`)
+}
+
+/**
+ * Vrai si l’une des URL de l’élément autorise le remplissage sur ce service.
  * Le pont natif applique ce contrôle avant de renvoyer un secret, même si
  * l’extension a déjà filtré les résultats.
  */
 export function loginAllowsHost(
   item: Pick<LoginItem, 'urls'>,
-  pageHost: string,
+  service: string,
 ): boolean {
-  const host = hostFromUrl(pageHost) || pageHost.trim().toLowerCase()
-  if (!host) return false
-  return item.urls.some((url) => {
-    const itemHost = hostFromUrl(url)
-    return Boolean(itemHost) && hostMatches(itemHost, host)
+  const page = parseWebUrl(service)
+  if (!page) return false
+  return item.urls.some((value) => {
+    const itemUrl = parseWebUrl(value)
+    if (!itemUrl) return false
+    if (itemUrl.protocol === 'https:' && page.protocol === 'http:') return false
+    if (itemUrl.port && page.port !== itemUrl.port) return false
+    return hostMatches(itemUrl.hostname, page.hostname)
   })
 }
 
