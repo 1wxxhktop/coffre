@@ -185,7 +185,7 @@
   délai imposé sans serveur.
 - Chaîne d’approvisionnement : toolchain Rust épinglée, builds Web/extension
   comparés deux fois avec `SOURCE_DATE_EPOCH=0`, SBOM CycloneDX Rust et web
-  générés en CI et joints aux releases macOS. `cargo deny` contrôle licences,
+  générés en CI et joints aux releases macOS avec une somme SHA-256. `cargo deny` contrôle licences,
   avis RUSTSEC et sources ; les exceptions sont documentées dans
   `src-tauri/deny.toml`. Fuzzing hebdomadaire du parseur et de la fusion
   `coffre-core` avec libFuzzer.

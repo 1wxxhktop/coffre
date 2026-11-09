@@ -121,6 +121,7 @@ jobs:
             "src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.sha256 \
             "Coffre_${version}_universal.app.zip" \
             sbom/*.cdx.json \
+            sbom/SHA256SUMS \
             --title "Coffre $version" \
             --generate-notes \
             --draft \

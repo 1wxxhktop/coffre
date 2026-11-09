@@ -30,4 +30,12 @@ env -u npm_execpath ./node_modules/.bin/cyclonedx-npm \
   --ignore-npm-errors --output-reproducible \
   --output-format JSON --output-file "$OUT/web.cdx.json" >/dev/null
 find src-tauri -name "*.cdx.json" -delete
+(
+  cd "$OUT"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum ./*.cdx.json > SHA256SUMS
+  else
+    shasum -a 256 ./*.cdx.json > SHA256SUMS
+  fi
+)
 echo "SBOM générés dans $OUT"
