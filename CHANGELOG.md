@@ -2,6 +2,14 @@
 
 ## Non publié
 
+- Modèles intégrés pour tous les types d’éléments (connexion, note, carte,
+  identité, passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle,
+  document), avec la liste complète de leurs champs, création directe depuis
+  les réglages et choix du type dans les modèles personnalisés.
+- Icônes de service locales sur les éléments : détection depuis l’URL, le RP ID
+  d’une passkey, l’endpoint d’une API ou le site d’une licence (GitHub, Google,
+  Apple, Amazon, bancaire, etc.), marque de carte, monogramme pour les domaines
+  inconnus. Aucune requête réseau.
 - Dette React : filtres, sélection, limite d’affichage, QR codes et historique
   de sécurité sont désormais dérivés pendant le rendu, sans effets de
   synchronisation ; `bun run lint` ne signale plus aucun avertissement.
