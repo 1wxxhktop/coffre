@@ -85,20 +85,6 @@
           <span data-i18n="popup_showAll">Afficher toutes mes connexions</span>
         </button>
 
-        <div id="actions" class="actions" hidden>
-          <button id="activate-inline" class="button" type="button" hidden>
-            <span data-i18n="popup_activateInline">Activer le remplissage dans les champs</span>
-          </button>
-          <button id="pair" class="button button--primary" type="button" hidden>
-            <span data-i18n="popup_pair">Associer l’extension</span>
-          </button>
-          <button id="open-app" class="button button--primary" type="button">
-            <span data-i18n="popup_openApp">Ouvrir Coffre</span>
-          </button>
-          <button id="focus-app" class="button" type="button" hidden>
-            <span data-i18n="popup_unlockApp">Déverrouiller Coffre</span>
-          </button>
-        </div>
         </div>
 
         <section id="settings-view" class="settings-view" hidden>
@@ -151,9 +137,25 @@
         </section>
       </main>
 
-      <footer class="footer">
-        <span id="footer-status"><span data-i18n="popup_footer">Local · aucun serveur</span></span>
-      </footer>
+      <div id="bottom-dock" class="bottom-dock">
+        <div id="actions" class="actions" hidden>
+          <button id="activate-inline" class="button" type="button" hidden>
+            <span data-i18n="popup_activateInline">Activer le remplissage dans les champs</span>
+          </button>
+          <button id="pair" class="button button--primary" type="button" hidden>
+            <span data-i18n="popup_pair">Associer l’extension</span>
+          </button>
+          <button id="open-app" class="button button--primary" type="button">
+            <span data-i18n="popup_openApp">Ouvrir Coffre</span>
+          </button>
+          <button id="focus-app" class="button" type="button" hidden>
+            <span data-i18n="popup_unlockApp">Déverrouiller Coffre</span>
+          </button>
+        </div>
+        <footer class="footer">
+          <span id="footer-status"><span data-i18n="popup_footer">Local · aucun serveur</span></span>
+        </footer>
+      </div>
     </div>
     <script type="module" src="./popup.ts"></script>
   </body>
