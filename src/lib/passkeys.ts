@@ -8,7 +8,7 @@
 
 import { sha256 } from './crypto'
 import { encodeCbor, type CborValue } from './cbor'
-import { PUBLIC_SUFFIXES } from './domains'
+import { isIpAddress, isPublicSuffix } from './publicSuffix'
 import type { PasskeyItem } from './types'
 
 export class PasskeyError extends Error {
@@ -132,10 +132,6 @@ function uint32(value: number): Uint8Array {
   )
 }
 
-function isIpAddress(host: string): boolean {
-  return /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host.includes(':')
-}
-
 function secureOrigin(origin: string): URL {
   let url: URL
   try {
@@ -162,7 +158,7 @@ export function isValidRpId(rpId: string, origin: string): boolean {
   const value = rpId.trim().toLowerCase()
   if (!value || value.length > 253 || value.includes('/')) return false
   if (isIpAddress(value)) return false
-  if (PUBLIC_SUFFIXES.has(value)) return false
+  if (isPublicSuffix(value)) return false
   if (value !== 'localhost' && !value.includes('.')) return false
 
   const url = secureOrigin(origin)
