@@ -109,8 +109,17 @@ function isEncryptedEnvelope(value: unknown): value is BridgeEncryptedEnvelope {
  * lorsque le coffre est déverrouillé.
  */
 export function NativeBridge() {
-  const { status, items, templates, vaults, addItem, updateItem, unlockWithBiometrics, recordActivity } =
-    useVault()
+  const {
+    status,
+    items,
+    templates,
+    vaults,
+    addItem,
+    updateItem,
+    unlockWithBiometrics,
+    recordActivity,
+    recordGeneratedPassword,
+  } = useVault()
   const { settings } = useSettings()
   const { tt } = useI18n()
   const statusRef = useRef(status)
@@ -507,6 +516,20 @@ export function NativeBridge() {
             },
           }
         }
+        case 'record-generated-password': {
+          const password =
+            typeof payload.password === 'string' ? payload.password : ''
+          const host = typeof payload.host === 'string' ? payload.host : ''
+          if (!password || password.length > 1024) {
+            return { type: 'record-result', ok: false, error: 'invalid' }
+          }
+          try {
+            await recordGeneratedPassword({ password, host })
+            return { type: 'record-result', ok: true }
+          } catch {
+            return { type: 'record-result', ok: false, error: 'record-failed' }
+          }
+        }
         case 'save-card': {
           const number =
             typeof payload.number === 'string'
@@ -851,7 +874,7 @@ export function NativeBridge() {
           return { type: 'protocol-error', error: 'unknown-type' }
       }
     },
-    [addItem, loadSessionKey, recordActivity, updateItem],
+    [addItem, loadSessionKey, recordActivity, recordGeneratedPassword, updateItem],
   )
 
   const handleEncrypted = useCallback(

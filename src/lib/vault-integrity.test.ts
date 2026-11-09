@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  appendGeneratorHistory,
   canonicalJson,
   changeMasterPassword,
   checkVaultRollback,
@@ -73,6 +74,37 @@ describe('format 4 : intégrité globale', () => {
 
     const report = await verifyVaultFile(signed, opened.session)
     expect(report.signedRecords).toBe(4)
+    opened.session.lock()
+  })
+
+  it('couvre l’historique du générateur dans le manifeste 2', async () => {
+    const opened = await freshVault()
+    const generated = await appendGeneratorHistory(opened.file, opened.session, {
+      password: 'secret-généré-42!',
+      domain: 'github.com',
+    })
+    const signed = await signVaultFile(generated.file, opened.session, opened.file)
+
+    const v1 = await computeManifest(signed, 1)
+    const v2 = await computeManifest(signed, 2)
+    expect(v1.records.some((record) => record.type === 'generator-history')).toBe(false)
+    expect(v2.records.some((record) => record.type === 'generator-history')).toBe(true)
+
+    const reopened = await unlockVaultFile(signed, PASSWORD)
+    expect(reopened.integrity).toBe('valid')
+    reopened.session.lock()
+
+    const tampered = {
+      ...signed,
+      generatorHistory: signed.generatorHistory?.map((entry) => ({
+        ...entry,
+        data: { ...entry.data, c: 'AAAA' },
+      })),
+    }
+    const invalid = await unlockVaultFile(tampered, PASSWORD)
+    expect(invalid.integrity).toBe('invalid')
+    expect(invalid.readOnly).toBe(true)
+    invalid.session.lock()
     opened.session.lock()
   })
 

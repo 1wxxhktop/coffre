@@ -715,6 +715,33 @@ export const EN_TEXT: Record<string, string> = {
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':
     'Check my passwords against known breaches (Have I Been Pwned)',
+  'Historique du générateur': 'Generator history',
+  'Les 50 derniers mots de passe générés restent chiffrés dans le coffre.':
+    'The last 50 generated passwords stay encrypted in the vault.',
+  Conservation: 'Retention',
+  Désactivé: 'Disabled',
+  '1 jour': '1 day',
+  '7 jours': '7 days',
+  '30 jours': '30 days',
+  'Aucun mot de passe généré récemment.': 'No recently generated password.',
+  'Sans domaine': 'No domain',
+  Masquer: 'Hide',
+  Afficher: 'Show',
+  'Créer une connexion': 'Create a login',
+  'Connexion générée': 'Generated login',
+  'Connexion créée depuis l’historique': 'Login created from history',
+  'Historique du générateur effacé': 'Generator history cleared',
+  'Historique du générateur purgé': 'Generator history purged',
+  'Les mots de passe générés restent chiffrés dans le coffre.':
+    'Generated passwords stay encrypted in the vault.',
+  'Secrets générés localement, jamais en clair.':
+    'Secrets generated locally, never in clear text.',
+  'entrée(s) disponible(s) dans l’historique.':
+    'entry/entries available in history.',
+  'Aucun coffre disponible': 'No vault available',
+  'Création impossible': 'Creation failed',
+  'Tout effacer': 'Clear all',
+  'Régénérer': 'Regenerate',
 }
 
 /** Traduit un texte source ; renvoie le texte tel quel s’il est inconnu. */

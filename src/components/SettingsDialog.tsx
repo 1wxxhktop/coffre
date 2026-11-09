@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   Fingerprint,
   HardDrive,
+  History,
   KeyRound,
   Languages,
   LoaderCircle,
@@ -117,6 +118,9 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     emptyTrash,
     recordActivity,
     confirmMasterPassword,
+    generatorHistory,
+    purgeGeneratorHistory,
+    clearGeneratorHistory,
   } = useVault()
   const { toast } = useToast()
 
@@ -1131,6 +1135,75 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                       Configurez d’abord une phrase de récupération.
                     </p>
                   )}
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <History size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Historique du générateur")}</h3>
+                      <p>
+                        {tt(
+                          "Les mots de passe générés restent chiffrés dans le coffre.",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="field">
+                    <span className="field__label">{tt("Conservation")}</span>
+                    <select
+                      className="input"
+                      value={settings.generatorHistoryRetentionDays}
+                      onChange={(event) => {
+                        const days = Number(event.target.value)
+                        updateSettings({ generatorHistoryRetentionDays: days })
+                        void purgeGeneratorHistory(days)
+                          .then(() =>
+                            toast(
+                              days === 0
+                                ? tt('Historique du générateur effacé')
+                                : tt('Historique du générateur purgé'),
+                              'success',
+                            ),
+                          )
+                          .catch(() => undefined)
+                      }}
+                    >
+                      <option value={0}>{tt("Désactivé")}</option>
+                      <option value={1}>{tt("1 jour")}</option>
+                      <option value={7}>{tt("7 jours")}</option>
+                      <option value={30}>{tt("30 jours")}</option>
+                    </select>
+                  </label>
+                  <p className="settings-copy">
+                    {generatorHistory.filter((entry) => entry.state === 'available').length}{' '}
+                    {tt("entrée(s) disponible(s) dans l’historique.")}
+                  </p>
+
+                  <div className="settings-actions settings-actions--start">
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => {
+                        void clearGeneratorHistory()
+                          .then(() =>
+                            toast(tt('Historique du générateur effacé'), 'success'),
+                          )
+                          .catch(() => undefined)
+                      }}
+                      disabled={
+                        !generatorHistory.some(
+                          (entry) => entry.state === 'available',
+                        )
+                      }
+                    >
+                      <Trash2 size={16} />
+                      {tt("Tout effacer")}
+                    </button>
+                  </div>
                 </section>
 
                 {keychainAvailable() && (

@@ -219,7 +219,8 @@ Le fichier exporté est du JSON. Les champs suivants sont **en clair** :
 
 Les titres, identifiants, mots de passe, notes, cartes, identités, étiquettes,
 URL, secrets TOTP, champs personnalisés, noms de fichiers, tailles, types MIME,
-dates de mise à la corbeille et contenus des pièces jointes sont **chiffrés**. Un
+dates de mise à la corbeille, contenus des pièces jointes et entrées de
+l’historique du générateur (mot de passe et domaine) sont **chiffrés**. Un
 attaquant peut néanmoins déduire le nombre de coffres, d’éléments, de versions et
 de pièces jointes, ainsi que leurs dates — mais pas quels éléments sont dans la
 corbeille.
@@ -241,9 +242,17 @@ révision de l’enregistrement est incrémentée lorsqu’un ciphertext change.
 Le MAC couvre un manifeste canonique (JSON à clés triées) contenant
 l’identifiant du fichier, l’appareil écrivain, `revision`, `keyEpoch`,
 l’empreinte SHA-256 des ciphertexts de tous les coffres (clé et nom), éléments
-(clé et contenu), pièces jointes et versions, ainsi que les horloges
-`{ rev, writer }` et les pierres tombales. Il ne contient aucun contenu
-déchiffré.
+(clé et contenu), pièces jointes, versions, modèles, événements d’activité,
+clés d’alias, identité de partage, accès d’urgence et entrées de l’historique
+du générateur, ainsi que les horloges `{ rev, writer }` et les pierres
+tombales. Il ne contient aucun contenu déchiffré.
+
+Deux versions de manifeste coexistent : le manifeste 2 couvre l’historique du
+générateur ; le manifeste 1 est encore accepté à l’ouverture pour les fichiers
+signés avant cette couverture et lors de la transition. Toute écriture signe en
+manifeste 2. Les sidecars `activity`, `templates`, `aliasKeys`, `sharing`,
+`emergency` et `generatorHistory` sont conservés par le cœur Rust et couverts
+par les deux versions, comme le fait déjà le code TypeScript.
 
 La clé HMAC est aléatoire, scellée avec l’AAD `coffre:v1:integrity-key` et
 tournée au changement de mot de passe maître ou après une récupération par
@@ -630,6 +639,40 @@ maintenant » depuis le tableau de bord Sécurité.
 - Limites : couverture dépendante du service HIBP, SHA-1 de conception ancienne
   mais adapté au k-anonymat, et impossibilité de vérifier hors ligne sans base
   locale.
+
+### 2.12.2 Historique chiffré du générateur
+
+L’historique du générateur est un sidecar chiffré du fichier `.coffre` :
+
+- chaque entrée est scellée par la clé maîtresse avec l’AAD
+  `coffre:v1:generator-history:<id>` ; le contenu contient le mot de passe, le
+  domaine éventuel, la date, l’état (`available`, `used`, `deleted`), la date
+  de changement d’état et l’élément consommateur éventuel ;
+- le fichier ne contient en clair que l’identifiant aléatoire de l’entrée, sa
+  date de création, son horloge et son ciphertext. Un test vérifie que le mot
+  de passe généré n’apparaît pas dans le JSON produit ;
+- 50 entrées au maximum. La rétention est réglable (1, 7 ou 30 jours, ou
+  désactivée ; défaut 7 jours) et stockée dans les préférences locales, qui ne
+  contiennent aucun secret. La purge s’exécute à l’ouverture et lorsque le
+  réglage change ; désactiver efface tout l’historique ;
+- une entrée est marquée `used` et masquée dès qu’un élément de connexion est
+  enregistré avec le même mot de passe ; « Supprimer » retire l’entrée et
+  « Tout effacer » vide l’historique. La fusion de synchronisation choisit
+  l’enregistrement à l’horloge la plus haute et plafonne à 50 entrées ;
+- le menu de l’extension enregistre le mot de passe après une copie depuis son
+  générateur ; aucun appel réseau n’est effectué. Le mot de passe n’est jamais
+  écrit dans le journal d’activité ;
+- les mots de passe déchiffrés restent en mémoire React tant que le coffre est
+  déverrouillé, puis sont effacés au verrouillage avec le reste de l’état.
+
+Intégrité : l’historique est inclus dans le manifeste 2 du MAC global (identifiant
+de l’entrée, horloge et empreinte du ciphertext), en même temps que les
+sidecars `activity`, `templates`, `aliasKeys`, `sharing` et `emergency`. Une
+suppression, une substitution ou un rejeu d’entrée invalide donc le MAC. Les
+fichiers signés avec l’ancien manifeste 1 restent lisibles ; leur première
+mutation les réécrit en manifeste 2. Le cœur Rust et le code TypeScript
+partagent un vecteur croisé qui vérifie l’égalité octet pour octet du manifeste
+canonique.
 
 ### 2.13 Rappels d’échéance
 

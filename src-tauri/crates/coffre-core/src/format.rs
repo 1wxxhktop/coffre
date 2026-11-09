@@ -126,6 +126,20 @@ pub struct VaultFile {
     pub attachments: Vec<AttachmentRecord>,
     #[serde(default)]
     pub versions: Vec<VersionRecord>,
+    /// Sidecars chiffrés conservés tels quels : le cœur ne les déchiffre pas,
+    /// mais le manifeste couvre leur ciphertext.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub templates: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub activity: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub generator_history: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub alias_keys: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sharing: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emergency: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery: Option<RecoveryEnvelope>,
     /// Enveloppe FIDO2/PRF optionnelle, conservée telle quelle par le cœur.
@@ -178,6 +192,7 @@ pub struct ManifestRecord {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Manifest {
+    pub manifest: u8,
     pub file: String,
     pub writer: String,
     pub revision: u64,
@@ -197,8 +212,125 @@ fn clock_parts(clock: &Option<Clock>) -> (u64, String) {
     }
 }
 
+fn value_str<'a>(value: &'a Value, key: &str) -> Result<&'a str, CoreError> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| CoreError::InvalidFormat(format!("champ « {key} » absent du sidecar")))
+}
+
+fn value_clock(value: &Value) -> (u64, String) {
+    match value.get("clock") {
+        Some(clock) => (
+            clock.get("rev").and_then(Value::as_u64).unwrap_or(0),
+            clock
+                .get("writer")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        ),
+        None => (0, String::new()),
+    }
+}
+
+fn value_sealed_digest(value: &Value) -> Result<String, CoreError> {
+    let sealed = crate::crypto::SealedValue {
+        n: value_str(value, "n")?.to_string(),
+        c: value_str(value, "c")?.to_string(),
+    };
+    Ok(sealed_digest(&sealed))
+}
+
+fn text_digest(value: &str) -> String {
+    to_base64(&sha256(value.as_bytes()))
+}
+
+fn emergency_mode(value: &Value) -> &str {
+    value
+        .get("mode")
+        .and_then(Value::as_str)
+        .unwrap_or("immediate")
+}
+
+fn emergency_id(value: &Value) -> Result<String, CoreError> {
+    if emergency_mode(value) == "shamir" {
+        let threshold = value
+            .get("threshold")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| CoreError::InvalidFormat("seuil d’urgence absent".into()))?;
+        let total = value
+            .get("total")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| CoreError::InvalidFormat("total d’urgence absent".into()))?;
+        let shares = value
+            .get("shares")
+            .and_then(Value::as_array)
+            .ok_or_else(|| CoreError::InvalidFormat("parts d’urgence absentes".into()))?;
+        let mut fingerprints = Vec::with_capacity(shares.len());
+        for share in shares {
+            let contact = share
+                .get("contact")
+                .ok_or_else(|| CoreError::InvalidFormat("contact d’urgence absent".into()))?;
+            fingerprints.push(value_str(contact, "fingerprint")?.to_string());
+        }
+        Ok(format!(
+            "shamir:{threshold}/{total}:{}",
+            fingerprints.join(",")
+        ))
+    } else {
+        let contact = value
+            .get("contact")
+            .ok_or_else(|| CoreError::InvalidFormat("contact d’urgence absent".into()))?;
+        Ok(value_str(contact, "fingerprint")?.to_string())
+    }
+}
+
+fn emergency_digest(value: &Value) -> Result<String, CoreError> {
+    if emergency_mode(value) == "shamir" {
+        let shares = value
+            .get("shares")
+            .and_then(Value::as_array)
+            .ok_or_else(|| CoreError::InvalidFormat("parts d’urgence absentes".into()))?;
+        let mut encs = Vec::with_capacity(shares.len());
+        let mut ciphertexts = Vec::with_capacity(shares.len());
+        for share in shares {
+            let sealed = share
+                .get("sealed")
+                .ok_or_else(|| CoreError::InvalidFormat("part d’urgence absente".into()))?;
+            encs.push(value_str(sealed, "enc")?.to_string());
+            ciphertexts.push(value_str(sealed, "ciphertext")?.to_string());
+        }
+        Ok(text_digest(&format!(
+            "{}.{}",
+            encs.join("."),
+            ciphertexts.join(".")
+        )))
+    } else {
+        let sealed = value
+            .get("sealed")
+            .ok_or_else(|| CoreError::InvalidFormat("enveloppe d’urgence absente".into()))?;
+        Ok(text_digest(&format!(
+            "{}.{}",
+            value_str(sealed, "enc")?,
+            value_str(sealed, "ciphertext")?
+        )))
+    }
+}
+
 impl Manifest {
     pub fn compute(file: &VaultFile) -> Result<Self, CoreError> {
+        Self::compute_version(file, 2)
+    }
+
+    /// Calcule le manifeste canonique d’une version donnée. La version 1 est
+    /// conservée pour vérifier les fichiers signés avant la couverture de
+    /// l’historique du générateur.
+    pub fn compute_version(file: &VaultFile, manifest_version: u8) -> Result<Self, CoreError> {
+        if !(1..=2).contains(&manifest_version) {
+            return Err(CoreError::InvalidFormat(
+                "version de manifeste inconnue".into(),
+            ));
+        }
         let revision = file
             .revision
             .ok_or_else(|| CoreError::InvalidFormat("révision absente".into()))?;
@@ -296,11 +428,124 @@ impl Manifest {
             });
         }
 
+        for template in &file.templates {
+            let (rev, writer) = value_clock(template);
+            let id = value_str(template, "id")?.to_string();
+            let key = template
+                .get("key")
+                .ok_or_else(|| CoreError::InvalidFormat("clé de modèle absente".into()))?;
+            let content = template
+                .get("content")
+                .ok_or_else(|| CoreError::InvalidFormat("contenu de modèle absent".into()))?;
+            records.push(ManifestRecord {
+                kind: "template",
+                id: id.clone(),
+                vault_id: String::new(),
+                parent_id: None,
+                rev,
+                writer: writer.clone(),
+                ciphertext: value_sealed_digest(key)?,
+            });
+            records.push(ManifestRecord {
+                kind: "template",
+                id: format!("{id}:content"),
+                vault_id: String::new(),
+                parent_id: None,
+                rev,
+                writer,
+                ciphertext: value_sealed_digest(content)?,
+            });
+        }
+
+        for event in &file.activity {
+            let (rev, writer) = value_clock(event);
+            let data = event
+                .get("data")
+                .ok_or_else(|| CoreError::InvalidFormat("données d’activité absentes".into()))?;
+            records.push(ManifestRecord {
+                kind: "activity",
+                id: value_str(event, "id")?.to_string(),
+                vault_id: String::new(),
+                parent_id: None,
+                rev,
+                writer,
+                ciphertext: value_sealed_digest(data)?,
+            });
+        }
+
+        for alias in &file.alias_keys {
+            let (rev, writer) = value_clock(alias);
+            let data = alias
+                .get("data")
+                .ok_or_else(|| CoreError::InvalidFormat("clé d’alias absente".into()))?;
+            records.push(ManifestRecord {
+                kind: "alias-key",
+                id: value_str(alias, "service")?.to_string(),
+                vault_id: String::new(),
+                parent_id: None,
+                rev,
+                writer,
+                ciphertext: value_sealed_digest(data)?,
+            });
+        }
+
+        if let Some(sharing) = &file.sharing {
+            let keys = sharing
+                .get("privateKeys")
+                .ok_or_else(|| CoreError::InvalidFormat("clés de partage absentes".into()))?;
+            records.push(ManifestRecord {
+                kind: "sharing",
+                id: value_str(sharing, "fingerprint")?.to_string(),
+                vault_id: String::new(),
+                parent_id: None,
+                rev: 0,
+                writer: String::new(),
+                ciphertext: value_sealed_digest(keys)?,
+            });
+        }
+
+        if let Some(emergency) = &file.emergency {
+            records.push(ManifestRecord {
+                kind: "emergency",
+                id: emergency_id(emergency)?,
+                vault_id: String::new(),
+                parent_id: None,
+                rev: 0,
+                writer: String::new(),
+                ciphertext: emergency_digest(emergency)?,
+            });
+        }
+
+        if manifest_version >= 2 {
+            for entry in &file.generator_history {
+                let (rev, writer) = value_clock(entry);
+                let data = entry
+                    .get("data")
+                    .ok_or_else(|| CoreError::InvalidFormat("entrée générateur absente".into()))?;
+                records.push(ManifestRecord {
+                    kind: "generator-history",
+                    id: value_str(entry, "id")?.to_string(),
+                    vault_id: String::new(),
+                    parent_id: None,
+                    rev,
+                    writer,
+                    ciphertext: value_sealed_digest(data)?,
+                });
+            }
+        }
+
         let order = |kind: &str| match kind {
             "vault" => 0,
             "item" => 1,
             "attachment" => 2,
-            _ => 3,
+            "version" => 3,
+            "template" => 4,
+            "activity" => 5,
+            "alias-key" => 6,
+            "sharing" => 7,
+            "emergency" => 8,
+            "generator-history" => 9,
+            _ => 10,
         };
         records.sort_by(|a, b| {
             order(a.kind)
@@ -312,6 +557,7 @@ impl Manifest {
         tombstones.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.id.cmp(&b.id)));
 
         Ok(Manifest {
+            manifest: manifest_version,
             file: file.id.clone(),
             writer: file.writer.clone().unwrap_or_default(),
             revision,
@@ -351,7 +597,7 @@ impl Manifest {
             })
             .collect();
         json!({
-            "manifest": 1,
+            "manifest": self.manifest,
             "file": self.file,
             "writer": self.writer,
             "revision": self.revision,

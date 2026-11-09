@@ -26,6 +26,7 @@ import {
   nativePair,
   nativePasskeyCreate,
   nativePasskeyGet,
+  nativeRecordGeneratedPassword,
   nativeRecordPhishingChoice,
   nativeSaveCard,
   nativeSaveIdentity,
@@ -221,6 +222,46 @@ async function readStatus(): Promise<AppStatus> {
     }
   }
   return { ...(await readTabStatus()), hostAccess }
+}
+
+async function recordGeneratedPassword(
+  host: string,
+  password: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  if (!password || password.length > 1024) return { error: 'invalid' }
+  const status = await readStatus()
+  if (status.mode === 'native') {
+    if (!status.paired) return { error: 'needs-pairing' }
+    if (!status.unlocked) return { error: 'locked' }
+    return nativeRecordGeneratedPassword({ password, host })
+  }
+  if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
+  if (!status.unlocked) return { error: 'locked' }
+  try {
+    await api.scripting.executeScript({
+      target: { tabId: status.tabId },
+      world: 'MAIN',
+      func: (value: { password: string; host: string }) => {
+        const bridge = (
+          window as unknown as {
+            __coffreExtension?: {
+              recordGeneratedPassword?: (input: {
+                password: string
+                host?: string
+              }) => Promise<void>
+            }
+          }
+        ).__coffreExtension
+        return bridge?.recordGeneratedPassword
+          ? bridge.recordGeneratedPassword(value)
+          : undefined
+      },
+      args: [{ password, host }],
+    })
+    return { ok: true }
+  } catch {
+    return { error: 'permission' }
+  }
 }
 
 async function requireNativeCredentials(
@@ -1688,6 +1729,11 @@ async function handle(
         ? { ok: true }
         : { error: 'expired' }
     }
+    case 'RECORD_GENERATED_PASSWORD':
+      return recordGeneratedPassword(
+        message.host ?? '',
+        message.password ?? '',
+      )
     case 'ALIAS_GENERATE': {
       const host = message.host ?? ''
       const status = await readStatus()
