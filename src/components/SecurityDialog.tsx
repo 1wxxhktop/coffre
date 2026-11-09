@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CircleHelp,
   Clock3,
@@ -15,6 +15,7 @@ import { useI18n } from '../state/I18nProvider'
 import { pluralKey } from '../lib/i18n'
 import {
   loadSecurityHistory,
+  mergeSecuritySnapshot,
   recordSecuritySnapshot,
   type SecuritySnapshot,
 } from '../lib/securityHistory'
@@ -115,7 +116,12 @@ export function SecurityDialog({
   onOpenCategory,
 }: SecurityDialogProps) {
   const { t } = useI18n()
-  const [history, setHistory] = useState<SecuritySnapshot[]>(() => loadSecurityHistory())
+  const [initialHistory] = useState<SecuritySnapshot[]>(() => loadSecurityHistory())
+  // L’instantané courant est dérivé du rapport ; l’effet ne fait que persister.
+  const history = useMemo(
+    () => mergeSecuritySnapshot(initialHistory, report),
+    [initialHistory, report],
+  )
   const tone = securityTone(report.score)
   const scoreLabel =
     report.score >= 90
@@ -159,7 +165,7 @@ export function SecurityDialog({
 
   useEffect(() => {
     if (report.total === 0) return
-    setHistory(recordSecuritySnapshot(report))
+    recordSecuritySnapshot(report)
   }, [report])
   const reusedCount = report.reused.reduce((total, group) => total + group.items.length, 0)
   const similarCount = report.similar.reduce((total, group) => total + group.items.length, 0)

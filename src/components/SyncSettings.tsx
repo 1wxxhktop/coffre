@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import {
   AlertTriangle,
@@ -16,7 +16,6 @@ import { formatDateTime } from '../lib/settings'
 import {
   getSyncConfig,
   syncDeviceFileName,
-  type SyncConfig,
 } from '../lib/syncConfig'
 import { SyncEpochRequiredError } from '../lib/syncService'
 import {
@@ -31,7 +30,6 @@ export function SyncSettings() {
   const {
     file,
     syncPending,
-    syncRevision,
     configureSync,
     configureWebSync,
     disableSync,
@@ -39,22 +37,14 @@ export function SyncSettings() {
   } = useVault()
   const { tt } = useI18n()
   const { toast } = useToast()
-  const [config, setConfig] = useState<SyncConfig | null>(
-    file ? getSyncConfig(file.id) : null,
-  )
+  // La configuration est relue à chaque rendu ; `syncRevision` provoque le
+  // rendu après chaque changement de synchronisation.
+  const config = file ? getSyncConfig(file.id) : null
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsPassword, setNeedsPassword] = useState(false)
   const [password, setPassword] = useState('')
   const [showDisable, setShowDisable] = useState(false)
-
-  const reload = useCallback(() => {
-    setConfig(file ? getSyncConfig(file.id) : null)
-  }, [file])
-
-  useEffect(() => {
-    reload()
-  }, [reload, syncRevision])
 
   const chooseFolder = async () => {
     if (!file || busy) return
@@ -77,7 +67,6 @@ export function SyncSettings() {
           'Ce navigateur ne permet pas de choisir un dossier. Utilisez l’export et l’import manuels.',
         )
       }
-      reload()
       toast(tt('Dossier de synchronisation configuré.'), 'success')
     } catch (caught) {
       setError(
@@ -98,7 +87,6 @@ export function SyncSettings() {
       const result = await syncNow(newPassword)
       setNeedsPassword(false)
       setPassword('')
-      reload()
       if (result.conflicts > 0) {
         toast(
           `Synchronisation terminée avec ${result.conflicts} conflit${
@@ -133,7 +121,6 @@ export function SyncSettings() {
     setBusy(true)
     try {
       await disableSync()
-      reload()
       setNeedsPassword(false)
       setError(null)
       toast(tt('Synchronisation désactivée pour ce coffre.'), 'info')

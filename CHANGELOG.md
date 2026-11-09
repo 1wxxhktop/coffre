@@ -2,6 +2,9 @@
 
 ## Non publié
 
+- Dette React : filtres, sélection, limite d’affichage, QR codes et historique
+  de sécurité sont désormais dérivés pendant le rendu, sans effets de
+  synchronisation ; `bun run lint` ne signale plus aucun avertissement.
 - Liste groupée automatiquement par date : sections « Aujourd’hui », « Hier »,
   « 7 derniers jours », « Ce mois-ci » puis par mois, en-têtes sticky, tri
   appliqué à l’intérieur des groupes et option pour revenir à une liste plate.

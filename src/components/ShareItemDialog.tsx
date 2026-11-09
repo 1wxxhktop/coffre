@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { qrDataUrl } from '../lib/qr'
 import {
   AlertTriangle,
@@ -44,20 +44,16 @@ export function ShareItemDialog({ item, onClose }: ShareItemDialogProps) {
   const { toast } = useToast()
   const [days, setDays] = useState(7)
   const [share, setShare] = useState<CreatedOfflineShare | null>(null)
-  const [qrCode, setQrCode] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    if (!share) {
-      setQrCode(null)
-      return
-    }
+  // Le QR code est dérivé de la clé : aucun état intermédiaire à maintenir.
+  const qrCode = useMemo(() => {
+    if (!share) return null
     try {
-      setQrCode(qrDataUrl(share.keyPayload))
+      return qrDataUrl(share.keyPayload)
     } catch {
-      setQrCode(null)
+      return null
     }
   }, [share])
 
@@ -65,7 +61,7 @@ export function ShareItemDialog({ item, onClose }: ShareItemDialogProps) {
     setBusy(true)
     setError(null)
     setCopied(false)
-    setQrCode(null)
+    setShare(null)
     try {
       const expiresAt =
         days > 0 ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() : undefined
@@ -137,7 +133,6 @@ export function ShareItemDialog({ item, onClose }: ShareItemDialogProps) {
             onChange={(event) => {
               setDays(Number(event.target.value))
               setShare(null)
-              setQrCode(null)
             }}
             disabled={busy}
           >

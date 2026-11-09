@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, Check, LoaderCircle, Plane, ShieldCheck } from 'lucide-react'
 import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
 import { getSyncConfig } from '../lib/syncConfig'
 import { SyncEpochRequiredError } from '../lib/syncService'
-import { getTravelMode, type TravelModeState } from '../lib/travelMode'
+import { getTravelMode } from '../lib/travelMode'
 import { isTauriRuntime } from '../lib/external'
 
 /**
@@ -14,12 +14,11 @@ import { isTauriRuntime } from '../lib/external'
  * dossier ; aucune suppression n’est propagée aux autres appareils.
  */
 export function TravelModeSettings() {
-  const { file, vaults, enableTravelMode, disableTravelMode, syncRevision } = useVault()
+  const { file, vaults, enableTravelMode, disableTravelMode } = useVault()
   const { tt } = useI18n()
   const { toast } = useToast()
-  const [travel, setTravel] = useState<TravelModeState | null>(() =>
-    file ? getTravelMode(file.id) : null,
-  )
+  // Le mode voyage est stocké localement : il est relu à chaque rendu.
+  const travel = file ? getTravelMode(file.id) : null
   const [safeVaultIds, setSafeVaultIds] = useState<string[]>(() =>
     file ? (getTravelMode(file.id)?.safeVaultIds ?? vaults.map((vault) => vault.id)) : [],
   )
@@ -28,12 +27,6 @@ export function TravelModeSettings() {
   const [needsRemotePassword, setNeedsRemotePassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const next = file ? getTravelMode(file.id) : null
-    setTravel(next)
-    if (next?.safeVaultIds.length) setSafeVaultIds(next.safeVaultIds)
-  }, [file, syncRevision])
 
   if (!file || !isTauriRuntime()) return null
 
@@ -54,7 +47,6 @@ export function TravelModeSettings() {
     setError(null)
     try {
       await enableTravelMode(safeVaultIds, password)
-      setTravel({ enabled: true, safeVaultIds })
       setPassword('')
       toast(tt('Mode voyage activé.'), 'success')
     } catch (caught) {
@@ -71,7 +63,6 @@ export function TravelModeSettings() {
     setError(null)
     try {
       const result = await disableTravelMode(password, remotePassword || undefined)
-      setTravel(null)
       setPassword('')
       setRemotePassword('')
       setNeedsRemotePassword(false)

@@ -8,9 +8,9 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | Contrôle | Commande | Résultat |
 | --- | --- | --- |
 | TypeScript | `bun run typecheck` | OK |
-| Lint + jetons | `bun run lint` | OK, 0 erreur ; seuls des avertissements `oxlint` préexistants |
+| Lint + jetons | `bun run lint` | OK, 0 erreur et 0 avertissement |
 | Jetons seuls | `bun run lint:design` | OK, aucune valeur littérale hors jetons |
-| Tests unitaires | `bun run test` | 62 fichiers, 451 tests |
+| Tests unitaires | `bun run test` | 65 fichiers, 463 tests |
 | E2E Chromium + WebKit | `bun run test:e2e` | 124 tests passés, 6 ignorés (130 exécutions) |
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |
