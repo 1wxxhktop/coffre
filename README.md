@@ -853,7 +853,7 @@ trousseau et de la nouvelle interface) :
   n’ouvre aucune connexion réseau ;
 - les 124 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
-- `cargo test --lib` exécute 18 tests : stockage natif (rotation, permissions,
+- `cargo test --lib` exécute 30 tests (1 ignoré) : stockage natif (rotation, permissions,
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP et
   détection de LocalAuthentication/Touch ID sur la machine de build ;
