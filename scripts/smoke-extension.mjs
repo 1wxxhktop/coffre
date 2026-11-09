@@ -190,6 +190,25 @@ try {
   assert.equal(values.username, 'ada')
   assert.equal(values.password, 's3cret!')
 
+  const details = await extensionPage.evaluate(
+    ({ id, host }) => chrome.runtime.sendMessage({ type: 'DETAILS', itemId: id, host }),
+    { id: itemId, host },
+  )
+  assert.equal(details.details?.username, 'ada')
+  assert.equal(details.details?.password, 's3cret!')
+
+  const deniedDetails = await extensionPage.evaluate(
+    ({ id }) =>
+      chrome.runtime.sendMessage({
+        type: 'DETAILS',
+        itemId: id,
+        host: 'evil.example',
+      }),
+    { id: itemId },
+  )
+  assert.equal(deniedDetails.details, undefined)
+  assert.ok(deniedDetails.error)
+
   const passkeyURL = new URL('/passkey', TARGET_URL)
   if (passkeyURL.hostname === '127.0.0.1') passkeyURL.hostname = 'localhost'
   if (passkeyURL.protocol === 'https:' || passkeyURL.hostname === 'localhost') {

@@ -706,8 +706,11 @@ coffre : sur desktop, elle passe par le **pont natif** appairé (aucun onglet
 Coffre requis) ; sinon elle interroge l’onglet Coffre déverrouillé via une
 passerelle en mémoire, puis remplit la page active. Le même manifeste contient
 `background.scripts` pour Firefox et `background.service_worker` pour Chromium.
-Le popup inclut une **barre de recherche** permanente et un **générateur de mot
-de passe local** avec copie en un clic.
+Le popup inclut une **barre de recherche** permanente, un **générateur de mot
+de passe local** avec copie en un clic et un **thème système/clair/sombre**.
+Un clic sur une connexion déploie ses détails (identifiant, mot de passe masqué,
+code TOTP) avec copie champ par champ, y compris lorsque le remplissage
+automatique échoue.
 
 ```bash
 bun run extension:build

@@ -286,5 +286,50 @@
   },
   "menu_aliasCopied": {
     "message": "Alias copied:"
+  },
+  "details_username": {
+    "message": "Username"
+  },
+  "details_password": {
+    "message": "Password"
+  },
+  "details_totp": {
+    "message": "Verification code"
+  },
+  "details_copy": {
+    "message": "Copy"
+  },
+  "details_copied": {
+    "message": "Copied"
+  },
+  "details_reveal": {
+    "message": "Show"
+  },
+  "details_hide": {
+    "message": "Hide"
+  },
+  "details_loading": {
+    "message": "Loading details…"
+  },
+  "details_error": {
+    "message": "Details unavailable."
+  },
+  "details_expand": {
+    "message": "Show details"
+  },
+  "details_fill": {
+    "message": "Fill"
+  },
+  "theme_toggle": {
+    "message": "Change theme"
+  },
+  "theme_system": {
+    "message": "Theme: follow system"
+  },
+  "theme_light": {
+    "message": "Theme: light"
+  },
+  "theme_dark": {
+    "message": "Theme: dark"
   }
 }

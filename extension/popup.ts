@@ -1,6 +1,8 @@
 import { hostFromUrl, type ExtensionLoginSummary } from '../src/lib/extensionProtocol'
 import { DEFAULT_PASSWORD_OPTIONS, generatePassword } from '../src/lib/password'
+import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
+import { loadTheme, nextTheme, saveTheme, type ThemePreference } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
@@ -24,6 +26,11 @@ interface SearchResponse {
 interface FillResponse {
   ok?: boolean
   filled?: number
+  error?: string
+}
+
+interface DetailsResponse {
+  details?: LoginDetails
   error?: string
 }
 
@@ -56,6 +63,8 @@ const saveIgnoreButton = $<HTMLButtonElement>('save-ignore')
 const openAppButton = $<HTMLButtonElement>('open-app')
 const focusAppButton = $<HTMLButtonElement>('focus-app')
 const settingsButton = $<HTMLButtonElement>('settings')
+const themeButton = $<HTMLButtonElement>('theme')
+const themeIcon = $<HTMLSpanElement>('theme-icon')
 const footerStatus = $<HTMLSpanElement>('footer-status')
 
 let currentTab: chrome.tabs.Tab | null = null
@@ -65,6 +74,20 @@ let generatedValue = ''
 let busy = false
 let searchTimer: number | undefined
 let searchListenerReady = false
+let themePreference: ThemePreference = 'system'
+let themeInitialized = false
+
+const THEME_ICONS: Record<ThemePreference, string> = {
+  system:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>',
+  light:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>',
+  dark:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 7 7 0 1 0 20 14.5z"/></svg>',
+}
+
+const FILL_ICON =
+  '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></svg>'
 
 const ERROR_MESSAGES: Record<string, string> = {
   'app-closed': 'error_appClosed',
@@ -106,6 +129,20 @@ function setBusy(value: boolean) {
   for (const button of results.querySelectorAll('button')) {
     button.disabled = value
   }
+}
+
+function renderTheme(): void {
+  const label = t(`theme_${themePreference}`)
+  themeButton.title = `${t('theme_toggle')} — ${label}`
+  themeButton.setAttribute('aria-label', themeButton.title)
+  themeIcon.innerHTML = THEME_ICONS[themePreference]
+}
+
+async function initTheme(): Promise<void> {
+  if (themeInitialized) return
+  themeInitialized = true
+  themePreference = await loadTheme()
+  renderTheme()
 }
 
 function renderStatus() {
@@ -176,6 +213,50 @@ function renderStatus() {
       : 'Coffre déverrouillé · local'
 }
 
+async function toggleDetails(
+  entry: ExtensionLoginSummary,
+  row: HTMLLIElement,
+  panel: HTMLDivElement,
+  toggle: HTMLButtonElement,
+): Promise<void> {
+  const expanded = row.dataset.expanded === 'true'
+  if (expanded) {
+    row.dataset.expanded = 'false'
+    toggle.setAttribute('aria-expanded', 'false')
+    panel.hidden = true
+    return
+  }
+
+  row.dataset.expanded = 'true'
+  toggle.setAttribute('aria-expanded', 'true')
+  panel.hidden = false
+  panel.replaceChildren(detailsNotice(t('details_loading')))
+
+  const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
+  if (!host) {
+    panel.replaceChildren(detailsNotice(t('details_error')))
+    return
+  }
+
+  try {
+    const response = await send<DetailsResponse>({
+      type: 'DETAILS',
+      itemId: entry.id,
+      host,
+    })
+    if (panel.hidden) return
+    if (response.error || !response.details) {
+      panel.replaceChildren(detailsNotice(t('details_error')))
+      return
+    }
+    renderLoginDetails(panel, response.details, () => {
+      void fillEntry(entry.id)
+    })
+  } catch {
+    if (!panel.hidden) panel.replaceChildren(detailsNotice(t('details_error')))
+  }
+}
+
 function renderResults() {
   results.replaceChildren()
   empty.hidden = entries.length > 0
@@ -183,6 +264,17 @@ function renderResults() {
   for (const entry of entries) {
     const item = document.createElement('li')
     item.className = 'result'
+    item.dataset.expanded = 'false'
+
+    const head = document.createElement('div')
+    head.className = 'result__head'
+
+    const toggle = document.createElement('button')
+    toggle.type = 'button'
+    toggle.className = 'result__toggle'
+    toggle.setAttribute('aria-expanded', 'false')
+    toggle.title = t('details_expand')
+    toggle.setAttribute('aria-label', `${t('details_expand')} — ${entry.title}`)
 
     const icon = document.createElement('span')
     icon.className = 'result__icon'
@@ -193,23 +285,44 @@ function renderResults() {
     const title = document.createElement('div')
     title.className = 'result__title'
     title.textContent = entry.title
+    title.title = entry.title
     const sub = document.createElement('div')
     sub.className = 'result__sub'
-    sub.textContent = entry.username || entry.host || 'Sans identifiant'
+    sub.textContent = entry.username || entry.host || t('menu_noLogin')
+    sub.title = sub.textContent
     text.append(title, sub)
 
-    const actionsCell = document.createElement('div')
-    actionsCell.className = 'result__actions'
+    const chevron = document.createElement('span')
+    chevron.className = 'result__chevron'
+    chevron.setAttribute('aria-hidden', 'true')
+    chevron.textContent = '›'
+
+    toggle.append(icon, text, chevron)
 
     const fillButton = document.createElement('button')
     fillButton.type = 'button'
-    fillButton.className = 'button button--primary'
-    fillButton.textContent = 'Remplir'
+    fillButton.className = 'button button--primary result__fill'
+    fillButton.title = t('details_fill')
+    fillButton.setAttribute('aria-label', `${t('details_fill')} — ${entry.title}`)
+    fillButton.innerHTML = FILL_ICON
+    const fillLabel = document.createElement('span')
+    fillLabel.className = 'result__fill-label'
+    fillLabel.textContent = t('details_fill')
+    fillButton.append(fillLabel)
     fillButton.addEventListener('click', () => void fillEntry(entry.id))
 
-    actionsCell.append(fillButton)
+    head.append(toggle, fillButton)
 
-    item.append(icon, text, actionsCell)
+    const details = document.createElement('div')
+    details.className = 'result__details'
+    details.hidden = true
+    details.setAttribute('aria-live', 'polite')
+
+    toggle.addEventListener('click', () => {
+      void toggleDetails(entry, item, details, toggle)
+    })
+
+    item.append(head, details)
     results.append(item)
   }
 }
@@ -325,6 +438,7 @@ async function copyGeneratedPassword(): Promise<void> {
 }
 
 async function init() {
+  await initTheme()
   const [tab] = await api.tabs.query({ active: true, currentWindow: true })
   currentTab = tab ?? null
   const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
@@ -483,6 +597,12 @@ saveIgnoreButton.addEventListener('click', () => {
 
 settingsButton.addEventListener('click', () => {
   void api.runtime.openOptionsPage()
+})
+
+themeButton.addEventListener('click', () => {
+  themePreference = nextTheme(themePreference)
+  void saveTheme(themePreference)
+  renderTheme()
 })
 
 showAllButton.addEventListener('click', () => {
