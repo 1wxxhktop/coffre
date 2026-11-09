@@ -188,6 +188,38 @@ body {
   color: var(--success-text);
 }
 
+.phishing {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning) 12%, var(--panel));
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.phishing strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.phishing p {
+  margin: 0;
+}
+
+.phishing__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.phishing__actions .button {
+  flex: 1;
+}
+
 .search {
   margin-top: 10px;
 }
