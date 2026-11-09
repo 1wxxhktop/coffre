@@ -69,6 +69,9 @@
   pendant la fenêtre de réception, mobile restant à faire.
 - Extension : options du générateur (longueur, classes de caractères,
   caractères ambigus, entropie estimée) mémorisées localement.
+- Extension : logo Coffre thémable (carré clair avec cadenas sombre en thème
+  sombre, inversé en clair) dans le popup, le menu inline, les réglages et la
+  fenêtre passkey.
 - Extension : la liste des connexions utilise toute la hauteur disponible ;
   l’indicateur de remplissage actif est réduit à une pastille verte dans le
   pied de page.

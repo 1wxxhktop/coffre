@@ -7,11 +7,13 @@ import {
 } from '../src/lib/password'
 import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
+import { mountLogos } from './logo'
 import { loadTheme, nextTheme, saveTheme, type ThemePreference } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
 localizeDocument()
+mountLogos()
 
 interface AppStatus {
   appOpen: boolean

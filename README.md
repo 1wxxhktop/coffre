@@ -733,7 +733,8 @@ statut restent ancrés en bas de la fenêtre, même lorsque celle-ci ne s’ajus
 pas automatiquement à son contenu. La liste des connexions occupe toute la
 hauteur disponible et défile avec le reste du panneau. Une fois le remplissage
 actif dans l’onglet, le bouton d’activation laisse place à une pastille verte
-dans le pied de page.
+dans le pied de page. Le logo Coffre est un SVG inline qui s’inverse selon le
+thème clair ou sombre, dans le popup comme dans le menu des champs.
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
 propose une mise à jour.

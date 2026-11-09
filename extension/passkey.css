@@ -84,14 +84,12 @@ body {
 }
 
 .mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 34px;
   height: 34px;
+  flex: none;
+  overflow: hidden;
   border-radius: 10px;
-  background: var(--primary);
-  color: var(--primary-text);
-  font-weight: 700;
 }
 
 .eyebrow {

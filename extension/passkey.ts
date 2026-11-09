@@ -6,11 +6,13 @@
  */
 
 import { localizeDocument } from './i18n'
+import { mountLogos } from './logo'
 import { loadTheme } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
 localizeDocument()
+mountLogos()
 void loadTheme()
 
 interface PasskeyInfo {
