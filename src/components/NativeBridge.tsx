@@ -585,6 +585,33 @@ export function NativeBridge() {
             return { type: 'save-result', ok: false, error: 'save-failed' }
           }
         }
+        case 'check-login': {
+          const host =
+            typeof payload.host === 'string'
+              ? hostFromUrl(payload.host) || payload.host.trim().toLowerCase()
+              : ''
+          const username =
+            typeof payload.username === 'string' ? payload.username.trim() : ''
+          const password =
+            typeof payload.password === 'string' ? payload.password : ''
+          if (!host) return { type: 'login-state', state: 'missing' }
+          const existing = itemsRef.current.filter(
+            (candidate): candidate is LoginItem =>
+              candidate.type === 'login' &&
+              !candidate.deletedAt &&
+              candidate.username.trim().toLowerCase() === username.toLowerCase() &&
+              loginAllowsHost(candidate, host),
+          )
+          return {
+            type: 'login-state',
+            state:
+              existing.length === 0
+                ? 'missing'
+                : existing.some((item) => item.password === password)
+                  ? 'same'
+                  : 'different',
+          }
+        }
         case 'save-login': {
           const host =
             typeof payload.host === 'string'

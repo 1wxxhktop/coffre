@@ -418,5 +418,14 @@
   },
   "popup_inlineActive": {
     "message": "Remplissage actif dans cet onglet"
+  },
+  "popup_savePrompt": {
+    "message": "Enregistrer « $1 » pour $2 ?"
+  },
+  "popup_updatePrompt": {
+    "message": "Mettre à jour « $1 » pour $2 ?"
+  },
+  "popup_update": {
+    "message": "Mettre à jour"
   }
 }

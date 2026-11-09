@@ -727,6 +727,9 @@ s’ouvrent directement dans le popup, sans nouvel onglet. La barre d’action e
 statut restent ancrés en bas de la fenêtre, même lorsque celle-ci ne s’ajuste
 pas automatiquement à son contenu. Une fois le remplissage actif dans l’onglet,
 le bouton d’activation laisse place à l’indicateur « Remplissage actif ».
+Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
+les identifiants sont absents du coffre ; si le mot de passe a changé, elle
+propose une mise à jour.
 
 ```bash
 bun run extension:build

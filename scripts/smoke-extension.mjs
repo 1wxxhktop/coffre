@@ -166,6 +166,29 @@ try {
   assert.equal(status.unlocked, true)
 
   const host = new URL(TARGET_URL).hostname
+
+  assert.ok(Number.isInteger(status.tabId))
+  const loginState = async (username, password) =>
+    extensionPage.evaluate(
+      async ({ tabId, host, username, password }) => {
+        const [result] = await chrome.scripting.executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          func: (values) => {
+            const bridge = window.__coffreExtension
+            return bridge?.checkLogin ? bridge.checkLogin(values) : null
+          },
+          args: [{ host, username, password }],
+        })
+        return result?.result
+      },
+      { tabId: status.tabId, host, username, password },
+    )
+
+  assert.equal(await loginState('ada', 's3cret!'), 'same')
+  assert.equal(await loginState('ada', 'autre-mot-de-passe'), 'different')
+  assert.equal(await loginState('inconnu', 's3cret!'), 'missing')
+
   const search = await extensionPage.evaluate(
     (query) => chrome.runtime.sendMessage({ type: 'SEARCH', query }),
     host,
@@ -208,6 +231,53 @@ try {
   )
   assert.equal(deniedDetails.details, undefined)
   assert.ok(deniedDetails.error)
+
+  // Une soumission avec les mêmes identifiants ne doit pas demander de les
+  // enregistrer à nouveau ; un mot de passe différent doit proposer une mise à jour.
+  await extensionPage.evaluate(async (tabId) => {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      files: ['content.js'],
+    })
+  }, targetTab.id)
+  await target.evaluate(() => {
+    document
+      .querySelector('form')
+      ?.addEventListener('submit', (event) => event.preventDefault(), {
+        once: true,
+      })
+  })
+  await target.getByRole('button', { name: 'Connexion' }).click()
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  const samePending = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    targetTab.id,
+  )
+  assert.equal(samePending.pending, null)
+
+  await target.locator('#password').fill('nouveau-secret!')
+  await target.evaluate(() => {
+    document
+      .querySelector('form')
+      ?.addEventListener('submit', (event) => event.preventDefault(), {
+        once: true,
+      })
+  })
+  await target.getByRole('button', { name: 'Connexion' }).click()
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  const updatePending = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    targetTab.id,
+  )
+  assert.equal(updatePending.pending?.update, true)
+  assert.equal(updatePending.pending?.username, 'ada')
+  await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'SAVE_DISMISS_PENDING', tabId }),
+    targetTab.id,
+  )
 
   const passkeyURL = new URL('/passkey', TARGET_URL)
   if (passkeyURL.hostname === '127.0.0.1') passkeyURL.hostname = 'localhost'

@@ -490,22 +490,30 @@ function renderResults() {
 async function refreshPendingSave(): Promise<void> {
   if (!currentTab?.id) {
     savePrompt.hidden = true
+    saveNowButton.textContent = t('popup_save')
     return
   }
   try {
     const response = await send<{
-      pending?: { username: string; host: string } | null
+      pending?: { username: string; host: string; update?: boolean } | null
     }>({ type: 'GET_PENDING_SAVE', tabId: currentTab.id })
     if (!response.pending) {
       savePrompt.hidden = true
+      saveNowButton.textContent = t('popup_save')
       return
     }
-    saveText.textContent = `Enregistrer « ${
-      response.pending.username || 'sans identifiant'
-    } » pour ${response.pending.host} ?`
+    const label =
+      response.pending.username || t('menu_noLogin')
+    const update = response.pending.update === true
+    saveText.textContent = t(
+      update ? 'popup_updatePrompt' : 'popup_savePrompt',
+      [label, response.pending.host],
+    )
+    saveNowButton.textContent = update ? t('popup_update') : t('popup_save')
     savePrompt.hidden = false
   } catch {
     savePrompt.hidden = true
+    saveNowButton.textContent = t('popup_save')
   }
 }
 
