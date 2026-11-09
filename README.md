@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 562 tests unitaires et
-> 73 parcours Playwright exécutés sur Chromium et WebKit (146 exécutions, 6 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 561 tests unitaires et
+> 73 parcours Playwright exécutés sur Chromium et WebKit (146 exécutions, 7 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -95,6 +95,16 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   optionnelles. L’extension ne stocke aucun identifiant et ne copie rien dans le
   presse-papiers ; seule la clé de session du pont natif est conservée dans son
   stockage local.
+- **Protection anti-hameçonnage** : avant un remplissage forcé ou un
+  enregistrement, Coffre compare le domaine de la page aux domaines du coffre et
+  à deux listes embarquées de sites populaires — Apple Password Manager
+  Resources (MIT) et Chrome UX Report (CC BY 4.0, 1 000 origines) —
+  (confusables Unicode, fautes de frappe, marque en sous-domaine, IP brute,
+  HTTP, port inhabituel, identifiant déjà enregistré ailleurs). Un bandeau
+  **Annuler** (par défaut) / **Continuer quand même** précède l’action ; le
+  choix est journalisé dans le journal d’activité chiffré, sans URL complète.
+  Aucune requête réseau, aucune API de réputation.
+  [Capture du bandeau](docs/screenshots/phishing-warning.png).
 - **Disponibilité de la 2FA et des passkeys** : le tableau de bord ne signale
   « Sans 2FA » que pour les sites dont une méthode est connue (2FA Directory,
   MIT) et propose les connexions qui peuvent utiliser une passkey (Passkeys
@@ -713,7 +723,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (562 tests) |
+| `bun run test` | Tests Vitest (548 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (144 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
@@ -907,7 +917,7 @@ trousseau et de la nouvelle interface) :
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB et reste stable ; hors vérification optionnelle des fuites, elle
   n’ouvre aucune connexion réseau ;
-- les 146 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
+- les 144 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
 - `cargo test --lib` exécute 34 tests (1 ignoré) : stockage natif (rotation, permissions,
   effacement), trames et manifestes du pont natif, confinement et écritures

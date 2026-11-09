@@ -12,15 +12,21 @@ import type {
   ExtensionPasskeyGetResult,
 } from '../src/lib/extensionProtocol'
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
+import type {
+  PhishingAssessment,
+  PhishingQuery,
+} from '../src/lib/phishing'
 import { isValidRpId } from '../src/lib/passkeys'
 import { submitLoginForm } from './loginSubmit'
 import {
+  nativeAssessHost,
   nativeCheckLogin,
   nativeFill,
   nativeFocus,
   nativePair,
   nativePasskeyCreate,
   nativePasskeyGet,
+  nativeRecordPhishingChoice,
   nativeSaveCard,
   nativeSaveIdentity,
   nativeSaveLogin,
@@ -48,11 +54,14 @@ interface ExtensionMessage {
   kind?: string
   formKind?: string
   includeSensitive?: boolean
+  overridePhishing?: boolean
   card?: Record<string, unknown>
   identity?: Record<string, unknown>
   requestId?: string
   payload?: unknown
   decision?: string
+  signals?: string[]
+  choice?: string
 }
 
 interface AppStatus {
@@ -220,14 +229,99 @@ async function requireNativeCredentials(
   host: string,
   kind: ExtensionAutofillKind = 'login',
   includeSensitive = false,
+  allowMismatch = false,
 ): Promise<{ credentials?: ExtensionFillValues | null; error?: string }> {
   if (!status.paired) return { error: 'needs-pairing' }
   if (!status.unlocked) return { error: 'locked' }
   if (kind === 'login' && !host) return { error: 'domain-mismatch' }
-  const result = await nativeFill(itemId, host, kind, includeSensitive)
+  const result = await nativeFill(
+    itemId,
+    host,
+    kind,
+    includeSensitive,
+    allowMismatch,
+  )
   if (result.error) return { error: result.error }
   return {
     credentials: (result.credentials as ExtensionFillValues | null) ?? null,
+  }
+}
+
+/**
+ * Évalue l’hôte avant un remplissage forcé ou un enregistrement. La réponse ne
+ * contient que des codes de signaux et, au plus, le domaine connu imité.
+ */
+async function assessHost(
+  query: PhishingQuery,
+): Promise<PhishingAssessment | null> {
+  const status = await readStatus()
+  if (status.mode === 'native') {
+    if (!status.paired || !status.unlocked) return null
+    const result = await nativeAssessHost(query)
+    return (result.assessment as PhishingAssessment | null) ?? null
+  }
+  if (!status.appOpen || !status.tabId || !status.unlocked) return null
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const [result] = await api.scripting.executeScript({
+        target: { tabId: status.tabId },
+        world: 'MAIN',
+        func: (value: PhishingQuery) => {
+          const bridge = (
+            window as unknown as {
+              __coffreExtension?: {
+                assessHost?: (
+                  input: PhishingQuery,
+                ) => Promise<PhishingAssessment | null>
+              }
+            }
+          ).__coffreExtension
+          return bridge?.assessHost ? bridge.assessHost(value) : null
+        },
+        args: [query],
+      })
+      const assessment = (result?.result as PhishingAssessment | null) ?? null
+      if (assessment) return assessment
+    } catch {
+      // La passerelle peut être recréée pendant une mutation : nouvel essai.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 120))
+  }
+  return null
+}
+
+async function recordPhishingChoice(input: {
+  host: string
+  signals: string[]
+  choice: 'cancel' | 'continue'
+}): Promise<void> {
+  const status = await readStatus()
+  if (status.mode === 'native') {
+    if (!status.paired || !status.unlocked) return
+    await nativeRecordPhishingChoice(input).catch(() => undefined)
+    return
+  }
+  if (!status.appOpen || !status.tabId || !status.unlocked) return
+  try {
+    await api.scripting.executeScript({
+      target: { tabId: status.tabId },
+      world: 'MAIN',
+      func: (value: typeof input) => {
+        const bridge = (
+          window as unknown as {
+            __coffreExtension?: {
+              recordPhishingChoice?: (choice: typeof value) => Promise<void>
+            }
+          }
+        ).__coffreExtension
+        return bridge?.recordPhishingChoice
+          ? bridge.recordPhishingChoice(value)
+          : undefined
+      },
+      args: [input],
+    })
+  } catch {
+    // Le journal est accessoire : le remplissage continue.
   }
 }
 
@@ -295,6 +389,7 @@ async function credentialsFromTab(
   host: string,
   kind: ExtensionAutofillKind = 'login',
   includeSensitive = false,
+  allowMismatch = false,
 ): Promise<{ credentials?: ExtensionFillValues | null; error?: string }> {
   if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
   if (!status.unlocked) return { error: 'locked' }
@@ -308,6 +403,7 @@ async function credentialsFromTab(
         pageHost: string,
         wanted: string,
         sensitive: boolean,
+        mismatch: boolean,
       ) => {
         const bridge = (
           window as unknown as {
@@ -315,10 +411,15 @@ async function credentialsFromTab(
               fill: (
                 itemId: string,
                 host?: string,
+                options?: { allowMismatch?: boolean },
               ) => Promise<ExtensionCredentials | null>
               fillItem?: (
                 itemId: string,
-                options?: { host?: string; includeSensitive?: boolean },
+                options?: {
+                  host?: string
+                  includeSensitive?: boolean
+                  allowMismatch?: boolean
+                },
               ) => Promise<ExtensionFillValues | null>
               searchCustom?: (query: string) => Promise<ExtensionAutofillSummary[]>
               fillCustom?: (itemId: string) => Promise<ExtensionFillValues | null>
@@ -333,13 +434,14 @@ async function credentialsFromTab(
           return bridge.fillItem(id, {
             host: pageHost,
             includeSensitive: sensitive,
+            allowMismatch: mismatch,
           })
         }
         if (wanted !== 'login') return null
-        const login = await bridge.fill(id, pageHost)
+        const login = await bridge.fill(id, pageHost, { allowMismatch: mismatch })
         return login ? { kind: 'login', ...login } : null
       },
-      args: [itemId, host, kind, includeSensitive],
+      args: [itemId, host, kind, includeSensitive, allowMismatch],
     })
     return {
       credentials: (result?.result as ExtensionFillValues | null | undefined) ?? null,
@@ -535,6 +637,8 @@ interface PendingSave {
   update?: boolean
   card?: ExtensionCardSaveInput
   identity?: ExtensionIdentitySaveInput
+  /** Signaux affichés avant l’enregistrement, s’il y en a. */
+  phishing?: PhishingAssessment
   expires: number
   timer: number
 }
@@ -596,11 +700,26 @@ async function fetchCredentials(
   status: AppStatus,
   kind: ExtensionAutofillKind = 'login',
   includeSensitive = false,
+  allowMismatch = false,
 ): Promise<{ credentials?: ExtensionFillValues | null; error?: string }> {
   if (status.mode === 'native') {
-    return requireNativeCredentials(status, itemId, host, kind, includeSensitive)
+    return requireNativeCredentials(
+      status,
+      itemId,
+      host,
+      kind,
+      includeSensitive,
+      allowMismatch,
+    )
   }
-  return credentialsFromTab(status, itemId, host, kind, includeSensitive)
+  return credentialsFromTab(
+    status,
+    itemId,
+    host,
+    kind,
+    includeSensitive,
+    allowMismatch,
+  )
 }
 
 async function menuSearch(
@@ -630,13 +749,47 @@ async function menuFill(
   tabId: number,
   frameId: number,
   host: string,
+  pageUrl: string,
   itemId: string,
   kind: ExtensionAutofillKind = 'login',
   includeSensitive = false,
-): Promise<{ ok?: boolean; error?: string }> {
+  overridePhishing = false,
+): Promise<{
+  ok?: boolean
+  error?: string
+  phishing?: PhishingAssessment
+}> {
   if (!validTabFrame(tabId, frameId) || !host || !itemId) {
     return { error: 'invalid' }
   }
+
+  let url = pageUrl.slice(0, 2048)
+  if (!url) {
+    try {
+      const tab = await api.tabs.get(tabId)
+      url = tab.url ?? ''
+    } catch {
+      url = ''
+    }
+  }
+
+  const assessment = await assessHost({
+    host,
+    url,
+    mode: 'fill',
+    itemId,
+  })
+  if (assessment && assessment.signals.length > 0) {
+    if (!overridePhishing) {
+      return { error: 'phishing-warning', phishing: assessment }
+    }
+    void recordPhishingChoice({
+      host,
+      signals: assessment.signals.map((signal) => signal.code),
+      choice: 'continue',
+    })
+  }
+
   const status = await readStatus()
   const fetched = await fetchCredentials(
     itemId,
@@ -644,6 +797,7 @@ async function menuFill(
     status,
     kind,
     includeSensitive,
+    Boolean(assessment && assessment.signals.length > 0 && overridePhishing),
   )
   if (fetched.error) return { error: fetched.error }
   const credentials = fetched.credentials
@@ -871,6 +1025,15 @@ async function formSubmitted(
     )
     if (state === 'same') return { prompt: false }
     if (state === 'different') pending.update = true
+    const assessment = await assessHost({
+      host,
+      url,
+      username: pending.username,
+      mode: 'save',
+    })
+    if (assessment && assessment.signals.length > 0) {
+      pending.phishing = assessment
+    }
   }
 
   setPendingSave(saveKey(tabId as number, frameId as number), pending)
@@ -878,7 +1041,12 @@ async function formSubmitted(
 }
 
 async function saveCredentials(
-  input: { host: string; username: string; password: string },
+  input: {
+    host: string
+    username: string
+    password: string
+    overridePhishing?: boolean
+  },
 ): Promise<{ ok?: boolean; updated?: boolean; itemId?: string; error?: string }> {
   const status = await readStatus()
   if (status.mode === 'native') {
@@ -907,6 +1075,7 @@ async function saveCredentials(
                 username: string
                 password: string
                 title?: string
+                overridePhishing?: boolean
               }) => Promise<{ id: string; updated: boolean } | null>
             }
           }
@@ -1048,13 +1217,29 @@ async function saveIdentity(
 async function menuSave(
   tabId: number,
   frameId: number,
-): Promise<{ ok?: boolean; updated?: boolean; error?: string }> {
+  overridePhishing = false,
+): Promise<{
+  ok?: boolean
+  updated?: boolean
+  error?: string
+  phishing?: PhishingAssessment
+}> {
   if (!validTabFrame(tabId, frameId)) return { error: 'invalid' }
   const key = saveKey(tabId, frameId)
   const pending = pendingSaves.get(key)
   if (!pending || pending.expires < Date.now()) {
     pendingSaves.delete(key)
     return { error: 'no-pending' }
+  }
+  if (pending.phishing && pending.phishing.signals.length > 0) {
+    if (!overridePhishing) {
+      return { error: 'phishing-warning', phishing: pending.phishing }
+    }
+    void recordPhishingChoice({
+      host: pending.host,
+      signals: pending.phishing.signals.map((signal) => signal.code),
+      choice: 'continue',
+    })
   }
   const result =
     pending.kind === 'card' && pending.card
@@ -1065,6 +1250,7 @@ async function menuSave(
             host: pending.host,
             username: pending.username,
             password: pending.password,
+            overridePhishing,
           })
   if (result.ok) {
     clearPendingSave(key)
@@ -1397,7 +1583,13 @@ async function passkeyRequest(
 
 async function contentContext(
   sender: chrome.runtime.MessageSender,
-): Promise<{ tabId: number; frameId: number; host: string; topHost: string } | null> {
+): Promise<{
+  tabId: number
+  frameId: number
+  host: string
+  topHost: string
+  url: string
+} | null> {
   const tabId = sender.tab?.id
   const frameId = sender.frameId
   if (!Number.isInteger(tabId) || !Number.isInteger(frameId)) return null
@@ -1409,6 +1601,7 @@ async function contentContext(
     frameId: frameId as number,
     host,
     topHost: sender.tab?.url ? hostFromUrl(sender.tab.url) : '',
+    url: url.slice(0, 2048),
   }
 }
 
@@ -1539,6 +1732,7 @@ async function handle(
         Number(message.tabId),
         Number(message.frameId),
         message.host ?? '',
+        message.url ?? '',
         message.itemId ?? '',
         message.kind === 'card' ||
         message.kind === 'identity' ||
@@ -1546,6 +1740,7 @@ async function handle(
           ? message.kind
           : 'login',
         message.includeSensitive === true,
+        message.overridePhishing === true,
       )
     case 'FORM_SUBMITTED':
       return formSubmitted(sender, message)
@@ -1562,11 +1757,16 @@ async function handle(
           host: pending.host,
           kind: pending.kind,
           detail: pending.detail,
+          phishing: pending.phishing,
         },
       }
     }
     case 'SAVE_NOW':
-      return menuSave(Number(message.tabId), Number(message.frameId))
+      return menuSave(
+        Number(message.tabId),
+        Number(message.frameId),
+        message.overridePhishing === true,
+      )
     case 'GET_PENDING_SAVE': {
       const tabId = Number(message.tabId)
       const key = latestPendingForTab(tabId)
@@ -1592,7 +1792,26 @@ async function handle(
       return menuSave(
         Number(key.split(':')[0]),
         Number(key.split(':')[1]),
+        message.overridePhishing === true,
       )
+    }
+    case 'PHISHING_CHOICE': {
+      const host = message.host ?? ''
+      const choice =
+        message.choice === 'continue'
+          ? 'continue'
+          : message.choice === 'cancel'
+            ? 'cancel'
+            : null
+      const signals = Array.isArray(message.signals)
+        ? message.signals
+            .filter((entry): entry is string => typeof entry === 'string')
+            .map((entry) => entry.slice(0, 40))
+            .slice(0, 20)
+        : []
+      if (!host || !choice) return { error: 'invalid' }
+      await recordPhishingChoice({ host, signals, choice })
+      return { ok: true }
     }
     case 'SAVE_DISMISS': {
       const key = saveKey(Number(message.tabId), Number(message.frameId))

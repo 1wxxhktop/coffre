@@ -25,6 +25,7 @@ import {
   searchIdentities,
   searchLogins,
 } from '../lib/extensionProtocol'
+import { assessPhishingForItems } from '../lib/phishing'
 import {
   emptyDraft,
   type CardItem,
@@ -322,6 +323,58 @@ export function NativeBridge() {
                   : searchLogins(itemsRef.current, query),
           }
         }
+        case 'assess-host': {
+          const host = typeof payload.host === 'string' ? payload.host : ''
+          const url = typeof payload.url === 'string' ? payload.url : ''
+          const username =
+            typeof payload.username === 'string' ? payload.username : ''
+          const mode = payload.mode === 'save' ? 'save' : 'fill'
+          const itemId =
+            typeof payload.itemId === 'string' ? payload.itemId : ''
+          const item = itemId
+            ? itemsRef.current.find(
+                (candidate) => candidate.id === itemId && !candidate.deletedAt,
+              )
+            : undefined
+          const normalizedHost =
+            hostFromUrl(host || url) || host.trim().toLowerCase()
+          return {
+            type: 'phishing-assessment',
+            assessment: assessPhishingForItems(itemsRef.current, {
+              host,
+              url,
+              username,
+              mode,
+              itemId,
+              skipDomainSignals: Boolean(
+                item &&
+                  item.type === 'login' &&
+                  normalizedHost &&
+                  loginAllowsHost(item, normalizedHost),
+              ),
+            }),
+          }
+        }
+        case 'phishing-choice': {
+          const host = typeof payload.host === 'string' ? payload.host : ''
+          const choice =
+            payload.choice === 'continue' ? 'continue' : payload.choice === 'cancel' ? 'cancel' : ''
+          const signals = Array.isArray(payload.signals)
+            ? payload.signals
+                .filter((entry): entry is string => typeof entry === 'string')
+                .map((entry) => entry.slice(0, 40))
+                .slice(0, 20)
+            : []
+          if (!host || !choice) {
+            return { type: 'phishing-choice-result', ok: false, error: 'invalid' }
+          }
+          void recordActivity(
+            'phishing-warning',
+            `${choice}:${signals.join(',')}`,
+            host,
+          )
+          return { type: 'phishing-choice-result', ok: true }
+        }
         case 'fill': {
           const kind =
             payload.kind === 'card' ||
@@ -426,7 +479,7 @@ export function NativeBridge() {
             typeof payload.host === 'string'
               ? hostFromUrl(payload.host) || payload.host.trim().toLowerCase()
               : ''
-          if (!loginAllowsHost(item, host)) {
+          if (payload.allowMismatch !== true && !loginAllowsHost(item, host)) {
             return {
               type: 'credentials',
               credentials: null,
@@ -623,6 +676,22 @@ export function NativeBridge() {
             typeof payload.password === 'string' ? payload.password : ''
           if (!host || !password) {
             return { type: 'save-result', ok: false, error: 'domain-mismatch' }
+          }
+          const assessment = assessPhishingForItems(itemsRef.current, {
+            host,
+            url: host,
+            username,
+            mode: 'save',
+          })
+          if (
+            assessment.signals.length > 0 &&
+            payload.overridePhishing !== true
+          ) {
+            return {
+              type: 'save-result',
+              ok: false,
+              error: 'phishing-warning',
+            }
           }
           const existing = itemsRef.current.find(
             (candidate): candidate is LoginItem =>

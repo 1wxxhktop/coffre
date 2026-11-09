@@ -430,5 +430,35 @@
   },
   "popup_filledSubmitted": {
     "message": "Identifiants remplis. Connexion lancée."
+  },
+  "phishing_title": {
+    "message": "Attention"
+  },
+  "phishing_generic": {
+    "message": "Ce site présente un risque d’hameçonnage."
+  },
+  "phishing_imitates": {
+    "message": "Ce site imite $1."
+  },
+  "phishing_unknownUsername": {
+    "message": "Cet identifiant est déjà enregistré sur un autre site."
+  },
+  "phishing_ip": {
+    "message": "Le site utilise une adresse IP brute."
+  },
+  "phishing_http": {
+    "message": "La page n’est pas chiffrée (HTTP)."
+  },
+  "phishing_port": {
+    "message": "Le site utilise un port inhabituel."
+  },
+  "phishing_cancel": {
+    "message": "Annuler"
+  },
+  "phishing_continue": {
+    "message": "Continuer quand même"
+  },
+  "phishing_cancelled": {
+    "message": "Remplissage annulé."
   }
 }
