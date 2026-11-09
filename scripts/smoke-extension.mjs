@@ -286,11 +286,74 @@ try {
   )
   assert.equal(updatePending.pending?.update, true)
   assert.equal(updatePending.pending?.username, 'ada')
-  await extensionPage.evaluate(
+
+  // E0 : la proposition vit dans storage.session, pas dans storage.local.
+  const storedPending = await extensionPage.evaluate(async () => {
+    const key = 'coffre.pendingSaves.v1'
+    const values = await chrome.storage.session.get(key)
+    return values[key]
+  })
+  assert.equal(storedPending?.[0]?.password, 'nouveau-secret!')
+  const localStorageDump = await extensionPage.evaluate(() =>
+    chrome.storage.local.get(null),
+  )
+  assert.equal(JSON.stringify(localStorageDump).includes('nouveau-secret!'), false)
+  assert.equal(
+    Object.keys(localStorageDump).some((key) => key.includes('pending')),
+    false,
+  )
+
+  const contentSessionAccess = await extensionPage.evaluate(async (tabId) => {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: async () => {
+        try {
+          await chrome.storage.session.get(null)
+          return 'readable'
+        } catch {
+          return 'blocked'
+        }
+      },
+    })
+    return result?.result
+  }, targetTab.id)
+  assert.equal(contentSessionAccess, 'blocked')
+
+  // Simule l’arrêt du service worker par le navigateur, puis vérifie que la
+  // proposition est toujours disponible au réveil.
+  const cdp = await context.newCDPSession(extensionPage)
+  const versions = new Map()
+  cdp.on('ServiceWorker.workerVersionUpdated', ({ versions: entries }) => {
+    for (const entry of entries) versions.set(entry.versionId, entry)
+  })
+  await cdp.send('ServiceWorker.enable')
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  const running = [...versions.values()].find(
+    (entry) => entry.runningStatus === 'running',
+  )
+  assert.ok(running, 'service worker de l’extension introuvable')
+  await cdp.send('ServiceWorker.stopWorker', { versionId: running.versionId })
+  await cdp.detach()
+  await new Promise((resolve) => setTimeout(resolve, 500))
+
+  const afterRestart = await extensionPage.evaluate(
     (tabId) =>
-      chrome.runtime.sendMessage({ type: 'SAVE_DISMISS_PENDING', tabId }),
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
     targetTab.id,
   )
+  assert.equal(afterRestart.pending?.username, 'ada')
+  assert.equal(afterRestart.pending?.update, true)
+
+  // Simulation de l’expiration à dix minutes : la lecture purge la proposition.
+  const expiredPending = await extensionPage.evaluate(async (tabId) => {
+    const key = 'coffre.pendingSaves.v1'
+    const values = await chrome.storage.session.get(key)
+    const entries = Array.isArray(values[key]) ? values[key] : []
+    for (const entry of entries) entry.expiresAt = Date.now() - 1
+    await chrome.storage.session.set({ [key]: entries })
+    return chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId })
+  }, targetTab.id)
+  assert.equal(expiredPending.pending, null)
 
   const passkeyURL = new URL('/passkey', TARGET_URL)
   if (passkeyURL.hostname === '127.0.0.1') passkeyURL.hostname = 'localhost'

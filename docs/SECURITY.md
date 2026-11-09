@@ -389,14 +389,24 @@ appairage) est conservée dans `chrome.storage.local`.
   par inadvertance ; le déplacement entre coffres et la corbeille restent
   disponibles.
 - Après soumission d’un formulaire, l’extension propose d’enregistrer ou de
-  mettre à jour la connexion. Le mot de passe reste en mémoire du service
-  worker au plus deux minutes ; il n’est jamais écrit sur disque par
-  l’extension. Si la page navigue, le badge de l’extension et le popup
-  conservent la proposition. La mutation réelle passe par le provider Coffre
-  (desktop) ou par la passerelle de l’onglet déverrouillé.
-- Le dernier identifiant utilisé pour un onglet est mémorisé deux minutes pour
-  les connexions en plusieurs étapes ; ce n’est qu’un identifiant, pas un
-  secret.
+  mettre à jour la connexion. La proposition, qui contient le mot de passe en
+  transit, est conservée dans `storage.session` — mémoire du navigateur,
+  jamais `storage.local` — pendant **dix minutes au plus**. `setAccessLevel`
+  réserve ce stockage aux contextes de confiance (pages d’extension et service
+  worker), pas aux content scripts. La proposition est purgée à chaque
+  lecture, à la fermeture de l’onglet et au verrouillage du coffre, et seules
+  les dix plus récentes sont conservées. Elle est perdue à la fermeture du
+  navigateur, à la désinstallation ou au redémarrage de l’extension. Si la
+  page navigue, le badge de l’extension et le popup conservent la proposition.
+  La mutation réelle passe par le provider Coffre (desktop) ou par la
+  passerelle de l’onglet déverrouillé.
+- Le dernier identifiant utilisé pour un onglet est mémorisé deux minutes dans
+  `storage.session` pour les connexions en plusieurs étapes ; ce n’est qu’un
+  identifiant, pas un secret.
+- Une demande de passkey en cours ne survit pas à l’arrêt du service worker :
+  elle contient un résolveur de promesse lié à la page. Le navigateur reprend
+  alors la main (« utiliser un autre appareil »). Le badge de propositions est
+  recalculé au réveil du service worker à partir de `storage.session`.
 - Les identifiants transitent en mémoire entre l’onglet Coffre, le service
   worker et la page active ; ils ne sont ni journalisés ni persistés. Le pont
   natif les chiffre en AES-256-GCM sur le socket local.

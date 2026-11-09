@@ -70,6 +70,12 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : les propositions d’enregistrement et la dernière connexion
+  choisie survivent à l’arrêt du service worker MV3. Elles vivent dans
+  `storage.session` (dix minutes, dix propositions au plus, purge à la
+  fermeture de l’onglet et au verrouillage), restent inaccessibles aux content
+  scripts et ne touchent jamais `storage.local` ; le badge est recalculé au
+  réveil.
 - Extension : options du générateur (longueur, classes de caractères,
   caractères ambigus, entropie estimée) mémorisées localement.
 - Extension : le remplissage d’une connexion valide automatiquement le

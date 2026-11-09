@@ -15,6 +15,12 @@ import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
 import { isValidRpId } from '../src/lib/passkeys'
 import { submitLoginForm } from './loginSubmit'
 import {
+  PendingSaveStore,
+  RecentSelectionStore,
+  type SessionStorageArea,
+  type StoredPendingSave,
+} from './sessionState'
+import {
   nativeCheckLogin,
   nativeFill,
   nativeFocus,
@@ -33,6 +39,74 @@ const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? ch
 
 const DEFAULT_APP_URL = 'http://localhost:1420'
 const APP_URL_KEY = 'appUrl'
+
+/**
+ * `storage.session` est le seul stockage partagé qui accepte un secret en
+ * transit : il reste en mémoire et disparaît à la fermeture du navigateur.
+ * Un repli mémoire couvre les navigateurs qui ne l’exposent pas encore.
+ */
+class MemorySessionArea implements SessionStorageArea {
+  private values = new Map<string, unknown>()
+
+  async get(keys?: string | string[] | null): Promise<Record<string, unknown>> {
+    if (keys === null || keys === undefined) {
+      return Object.fromEntries(this.values)
+    }
+    const wanted = Array.isArray(keys) ? keys : [keys]
+    return Object.fromEntries(
+      wanted
+        .filter((key) => this.values.has(key))
+        .map((key) => [key, this.values.get(key)]),
+    )
+  }
+
+  async set(items: Record<string, unknown>): Promise<void> {
+    for (const [key, value] of Object.entries(items)) this.values.set(key, value)
+  }
+
+  async remove(keys: string | string[]): Promise<void> {
+    for (const key of Array.isArray(keys) ? keys : [keys]) this.values.delete(key)
+  }
+}
+
+function sessionStorageArea(): SessionStorageArea {
+  try {
+    const session = api.storage.session as SessionStorageArea | undefined
+    if (session) return session
+  } catch {
+    // Firefox avant 115 ou navigateur sans stockage de session.
+  }
+  return new MemorySessionArea()
+}
+
+async function prepareSessionStorage(): Promise<void> {
+  try {
+    const session = api.storage.session as
+      | (SessionStorageArea & {
+          setAccessLevel?: (value: {
+            accessLevel: 'TRUSTED_CONTEXTS' | 'TRUSTED_AND_UNTRUSTED_CONTEXTS'
+          }) => Promise<void>
+        })
+      | undefined
+    await session?.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' })
+  } catch {
+    // Firefox expose storage.session sans setAccessLevel : l’accès reste
+    // limité aux pages d’extension par le manifeste.
+  }
+}
+
+const sessionReady = prepareSessionStorage()
+const sessionStorage = sessionStorageArea()
+const pendingSaveStore = new PendingSaveStore(
+  sessionStorage,
+  Date.now,
+  sessionReady,
+)
+const recentSelectionStore = new RecentSelectionStore(
+  sessionStorage,
+  Date.now,
+  sessionReady,
+)
 
 interface ExtensionMessage {
   type?: string
@@ -201,8 +275,9 @@ void updateActionBadge()
 async function readStatus(): Promise<AppStatus> {
   const hostAccess = await hasHostAccess()
   const native = await nativeStatus()
+  let status: AppStatus
   if (native) {
-    return {
+    status = {
       appOpen: true,
       unlocked: native.unlocked,
       paired: native.paired,
@@ -210,8 +285,13 @@ async function readStatus(): Promise<AppStatus> {
       mode: 'native',
       appUrl: '',
     }
+  } else {
+    status = { ...(await readTabStatus()), hostAccess }
   }
-  return { ...(await readTabStatus()), hostAccess }
+  // Une proposition d’enregistrement ne survit pas au verrouillage du coffre :
+  // le secret en transit n’a plus de raison d’être conservé.
+  if (!status.unlocked) await clearSessionState()
+  return status
 }
 
 async function requireNativeCredentials(
@@ -524,57 +604,49 @@ async function fill(
   return injectCredentials(targetId, data)
 }
 
-interface PendingSave {
-  host: string
-  kind: ExtensionAutofillKind
-  label: string
-  detail: string
-  url: string
-  username: string
-  password: string
-  update?: boolean
-  card?: ExtensionCardSaveInput
-  identity?: ExtensionIdentitySaveInput
-  expires: number
-  timer: number
-}
+let badgeTimer: ReturnType<typeof setTimeout> | undefined
 
-const recentSelections = new Map<
-  number,
-  { itemId: string; host: string; expires: number }
->()
-const pendingSaves = new Map<string, PendingSave>()
-const latestPendingByTab = new Map<number, string>()
+function scheduleBadgeRefresh(entries: StoredPendingSave[]): void {
+  if (badgeTimer) clearTimeout(badgeTimer)
+  badgeTimer = undefined
+  if (entries.length === 0) return
+  const nextExpiry = Math.min(...entries.map((entry) => entry.expiresAt))
+  badgeTimer = setTimeout(
+    () => void updateActionBadge(),
+    Math.max(1_000, nextExpiry - Date.now() + 250),
+  )
+}
 
 async function updateActionBadge(): Promise<void> {
   try {
+    const entries = await pendingSaveStore.list()
+    scheduleBadgeRefresh(entries)
     await api.action.setBadgeBackgroundColor({ color: '#d97706' })
     await api.action.setBadgeText({
-      text: pendingSaves.size > 0 ? '●' : '',
+      text: entries.length > 0 ? '●' : '',
     })
   } catch {
     // Certains navigateurs ne supportent pas le badge : le popup reste usable.
   }
 }
 
-function clearPendingSave(key: string): void {
-  const pending = pendingSaves.get(key)
-  if (pending) clearTimeout(pending.timer)
-  pendingSaves.delete(key)
-  const tabId = Number(key.split(':')[0])
-  if (latestPendingByTab.get(tabId) === key) latestPendingByTab.delete(tabId)
-  void updateActionBadge()
+async function clearPendingSave(key: string): Promise<void> {
+  await pendingSaveStore.remove(key)
+  await updateActionBadge()
 }
 
-function latestPendingForTab(tabId: number): string | null {
-  const key = latestPendingByTab.get(tabId)
-  if (!key) return null
-  const pending = pendingSaves.get(key)
-  if (!pending || pending.expires < Date.now()) {
-    clearPendingSave(key)
-    return null
-  }
-  return key
+async function latestPendingForTab(
+  tabId: number,
+): Promise<StoredPendingSave | null> {
+  return pendingSaveStore.latestForTab(tabId)
+}
+
+async function clearSessionState(): Promise<void> {
+  await Promise.all([
+    pendingSaveStore.clear(),
+    recentSelectionStore.clear(),
+  ])
+  await updateActionBadge()
 }
 
 function saveKey(tabId: number, frameId: number): string {
@@ -615,11 +687,11 @@ async function menuSearch(
 }> {
   const result = await search(query.trim() || host, kind)
   if (result.error) return { error: result.error }
-  const recent = recentSelections.get(tabId)
+  const recent = await recentSelectionStore.get(tabId)
   const recentId =
     kind === 'login' &&
     recent &&
-    recent.expires > Date.now() &&
+    recent.expiresAt > Date.now() &&
     (recent.host === host || hostMatches(recent.host, host))
       ? recent.itemId
       : undefined
@@ -663,11 +735,7 @@ async function menuFill(
       return { error: response?.error ?? 'no-fields' }
     }
     if (kind === 'login') {
-      recentSelections.set(tabId, {
-        itemId,
-        host,
-        expires: Date.now() + 120_000,
-      })
+      await recentSelectionStore.set(tabId, itemId, host)
     }
     return { ok: true }
   } catch {
@@ -675,19 +743,22 @@ async function menuFill(
   }
 }
 
-function setPendingSave(
+async function setPendingSave(
   key: string,
-  pending: Omit<PendingSave, 'expires' | 'timer'>,
-): void {
-  clearPendingSave(key)
-  const expires = Date.now() + 120_000
-  const timer = setTimeout(() => {
-    clearPendingSave(key)
-  }, 120_000)
-  pendingSaves.set(key, { ...pending, expires, timer })
-  const tabId = Number(key.split(':')[0])
-  latestPendingByTab.set(tabId, key)
-  void updateActionBadge()
+  pending: Omit<
+    StoredPendingSave,
+    'id' | 'key' | 'tabId' | 'frameId' | 'createdAt' | 'expiresAt'
+  >,
+): Promise<StoredPendingSave> {
+  const [tabId, frameId] = key.split(':').map(Number)
+  const saved = await pendingSaveStore.upsert({
+    ...pending,
+    key,
+    tabId,
+    frameId,
+  })
+  await updateActionBadge()
+  return saved
 }
 
 function pendingText(value: unknown, max: number): string {
@@ -797,7 +868,10 @@ async function formSubmitted(
     password: '',
   }
 
-  let pending: Omit<PendingSave, 'expires' | 'timer'>
+  let pending: Omit<
+    StoredPendingSave,
+    'id' | 'key' | 'tabId' | 'frameId' | 'createdAt' | 'expiresAt'
+  >
   if (kind === 'card') {
     const card = message.card ?? {}
     const number = pendingText(card.number, 40).replace(/\s+/g, '')
@@ -873,7 +947,7 @@ async function formSubmitted(
     if (state === 'different') pending.update = true
   }
 
-  setPendingSave(saveKey(tabId as number, frameId as number), pending)
+  await setPendingSave(saveKey(tabId as number, frameId as number), pending)
   return { prompt: true }
 }
 
@@ -1051,11 +1125,8 @@ async function menuSave(
 ): Promise<{ ok?: boolean; updated?: boolean; error?: string }> {
   if (!validTabFrame(tabId, frameId)) return { error: 'invalid' }
   const key = saveKey(tabId, frameId)
-  const pending = pendingSaves.get(key)
-  if (!pending || pending.expires < Date.now()) {
-    pendingSaves.delete(key)
-    return { error: 'no-pending' }
-  }
+  const pending = await pendingSaveStore.get(key)
+  if (!pending) return { error: 'no-pending' }
   const result =
     pending.kind === 'card' && pending.card
       ? await saveCard(pending.card)
@@ -1067,7 +1138,7 @@ async function menuSave(
             password: pending.password,
           })
   if (result.ok) {
-    clearPendingSave(key)
+    await clearPendingSave(key)
   }
   return result
 }
@@ -1551,11 +1622,8 @@ async function handle(
       return formSubmitted(sender, message)
     case 'SAVE_STATUS': {
       const key = saveKey(Number(message.tabId), Number(message.frameId))
-      const pending = pendingSaves.get(key)
-      if (!pending || pending.expires < Date.now()) {
-        pendingSaves.delete(key)
-        return { pending: null }
-      }
+      const pending = await pendingSaveStore.get(key)
+      if (!pending) return { pending: null }
       return {
         pending: {
           username: pending.label,
@@ -1569,39 +1637,35 @@ async function handle(
       return menuSave(Number(message.tabId), Number(message.frameId))
     case 'GET_PENDING_SAVE': {
       const tabId = Number(message.tabId)
-      const key = latestPendingForTab(tabId)
-      if (!key) return { pending: null }
-      const pending = pendingSaves.get(key)
+      const pending = await latestPendingForTab(tabId)
       if (!pending) return { pending: null }
       return {
         pending: {
+          id: pending.id,
           username: pending.label,
           host: pending.host,
           kind: pending.kind,
           detail: pending.detail,
           update: pending.update === true,
           tabId,
-          frameId: Number(key.split(':')[1]),
+          frameId: pending.frameId,
         },
       }
     }
     case 'SAVE_PENDING_NOW': {
       const tabId = Number(message.tabId)
-      const key = latestPendingForTab(tabId)
-      if (!key) return { error: 'no-pending' }
-      return menuSave(
-        Number(key.split(':')[0]),
-        Number(key.split(':')[1]),
-      )
+      const pending = await latestPendingForTab(tabId)
+      if (!pending) return { error: 'no-pending' }
+      return menuSave(pending.tabId, pending.frameId)
     }
     case 'SAVE_DISMISS': {
       const key = saveKey(Number(message.tabId), Number(message.frameId))
-      clearPendingSave(key)
+      await clearPendingSave(key)
       return { ok: true }
     }
     case 'SAVE_DISMISS_PENDING': {
-      const key = latestPendingForTab(Number(message.tabId))
-      if (key) clearPendingSave(key)
+      const pending = await latestPendingForTab(Number(message.tabId))
+      if (pending) await clearPendingSave(pending.key)
       return { ok: true }
     }
     case 'GET_APP_URL':
@@ -1629,6 +1693,12 @@ api.tabs.onRemoved.addListener((tabId) => {
   for (const request of [...pendingPasskeys.values()]) {
     if (request.tabId === tabId) decidePasskey(request.id, 'decline')
   }
+  void Promise.all([
+    pendingSaveStore.removeTab(tabId),
+    recentSelectionStore.removeTab(tabId),
+  ])
+    .then(() => updateActionBadge())
+    .catch(() => undefined)
 })
 
 api.runtime.onMessage.addListener(
