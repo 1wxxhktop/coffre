@@ -12,6 +12,7 @@
  */
 
 import { normalizeTotpUri } from './totp'
+import { recoveryCodesExportText } from './recoveryCodes'
 import type { CustomField, VaultItem, VaultSummary } from './types'
 
 export type CsvExportFormat = 'apple' | 'coffre'
@@ -57,6 +58,7 @@ const FULL_HEADERS = [
   'passport_expiry',
   'id_card_expiry',
   'license_expiry',
+  'recovery_codes',
 ]
 
 function csvCell(value: string): string {
@@ -212,6 +214,7 @@ function fullRow(item: VaultItem, vaultName: string): string[] {
     identity ? identity.passportExpiry ?? '' : '',
     identity ? identity.idCardExpiry ?? '' : '',
     identity ? identity.licenseExpiry ?? '' : '',
+    item.type === 'recovery-codes' ? recoveryCodesExportText(item) : '',
   ]
 }
 
