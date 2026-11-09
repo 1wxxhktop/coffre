@@ -286,6 +286,14 @@ pub fn core_passkey_assert(
         .iter()
         .find(|item| item.id == item_id)
         .ok_or_else(|| ffi_error("élément introuvable"))?;
+    if item
+        .content
+        .get("deletedAt")
+        .and_then(serde_json::Value::as_str)
+        .is_some()
+    {
+        return Err(ffi_error("élément supprimé"));
+    }
     let stored: StoredPasskey = serde_json::from_value(item.content.clone()).map_err(ffi_error)?;
     let assertion =
         core::assert_passkey(&stored, &rp_id, &origin, &challenge).map_err(ffi_error)?;
