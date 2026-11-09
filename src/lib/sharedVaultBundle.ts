@@ -37,6 +37,7 @@ import type {
   VaultTombstone,
 } from './types'
 import {
+  adoptVaultKey,
   adoptVaultSharingMembers,
   canonicalJson,
   readVaultSharing,
@@ -293,17 +294,35 @@ export async function importSharedVaultBundle(
   const existing = file.vaults.find((vault) => vault.id === vaultId)
   let previousPackage: SharedVaultPackage | undefined
   if (existing) {
+    const localSharing = await readVaultSharing(file, session, vaultId)
     const localKey = session.vaultKey(vaultId)
     if (!equalBytes(localKey, vaultKey)) {
-      throw new Error(
-        'La clé de ce coffre partagé a changé ; recréez le coffre à partir du nouveau bundle.',
+      if (
+        !localSharing.adminFingerprint ||
+        localSharing.adminFingerprint !== bundle.package.admin.fingerprint
+      ) {
+        throw new Error(
+          'Rotation refusée : le paquet ne vient pas de l’administrateur du coffre.',
+        )
+      }
+      file = await adoptVaultKey(
+        file,
+        session,
+        vaultId,
+        vaultKey,
+        bundle.package,
+        memberRecords,
+        bundle.package.admin.fingerprint,
+        imported.role,
       )
+      session.setVaultRole(vaultId, imported.role)
+      previousPackage = bundle.package
+      changed = true
+    } else {
+      previousPackage = localSharing.package
+      session.setVaultKey(vaultId, vaultKey)
     }
-    previousPackage = (
-      await readVaultSharing(file, session, vaultId)
-    ).package
     vaults = file.vaults
-    session.setVaultKey(vaultId, vaultKey)
   } else {
     changed = true
     const now = new Date().toISOString()
@@ -475,7 +494,9 @@ export async function importSharedVaultBundle(
         memberRecords,
         bundle.package.admin.fingerprint,
         bundle.package,
+        imported.role,
       )
+      session.setVaultRole(vaultId, imported.role)
       changed = true
     }
   }
