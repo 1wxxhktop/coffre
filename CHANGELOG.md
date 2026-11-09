@@ -70,6 +70,12 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : déverrouillage depuis la popup. Avec le pont natif, Coffre
+  reprend le premier plan et déclenche Touch ID si l’option est active ; le
+  mot de passe maître reste saisi dans l’application. Si l’application est
+  fermée, l’hôte natif la démarre sur ce clic explicite (jamais pour une simple
+  lecture d’état). Le popup suit l’état et affiche un message clair en cas de
+  refus ou d’expiration. Sans desktop, il ouvre l’onglet Coffre Web.
 - Extension : les propositions d’enregistrement et la dernière connexion
   choisie survivent à l’arrêt du service worker MV3. Elles vivent dans
   `storage.session` (dix minutes, dix propositions au plus, purge à la

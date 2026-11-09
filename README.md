@@ -79,10 +79,12 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   automatique des connexions, codes TOTP, **cartes bancaires** et **identités /
   adresses** depuis l’onglet Coffre déverrouillé, ou directement depuis
   l’application desktop grâce au **pont natif** appairé et chiffré (ECDH P-256,
-  HKDF, AES-256-GCM). Menu dans les champs (iframe d’extension, détection
-  locale), iframes, connexions en plusieurs étapes, proposition d’enregistrer
-  ou de mettre à jour après soumission, et **passkeys WebAuthn** (création et
-  connexion) avec confirmation dans une fenêtre d’extension. Le CVC et le PIN
+  HKDF, AES-256-GCM), y compris le **déverrouillage demandé depuis la popup**
+  (Touch ID ou fenêtre de Coffre, démarrage de l’application si elle est
+  fermée). Menu dans les champs (iframe d’extension, détection locale), iframes,
+  connexions en plusieurs étapes, proposition d’enregistrer ou de mettre à jour
+  après soumission, et **passkeys WebAuthn** (création et connexion) avec
+  confirmation dans une fenêtre d’extension. Le CVC et le PIN
   ne sont remplis qu’après une action explicite ; une carte est refusée hors
   HTTPS et dans une iframe tierce qui n’est pas un prestataire de paiement
   connu. Les pages sont autorisées explicitement via les permissions
@@ -820,9 +822,15 @@ Edge, Brave et Firefox). Dans le popup de l’extension :
 
 La clé de session est conservée dans le trousseau du système et dans
 `chrome.storage.local` ; les échanges sont chiffrés en AES-256-GCM. Si
-l’application est verrouillée, le popup propose de la ramener au premier plan.
-Sans application desktop, l’extension conserve le remplissage via l’onglet
-Coffre Web.
+l’application est verrouillée, le popup propose **Déverrouiller Coffre** :
+Coffre affiche sa fenêtre et déclenche Touch ID si l’option est active, sinon
+la saisie du mot de passe maître se fait dans l’application — jamais dans la
+popup ni par le pont. Un refus laisse le coffre verrouillé. Si l’application
+est fermée, l’hôte natif la démarre sur ce clic explicite, puis la popup suit
+l’état du coffre. Sans application desktop, le bouton ouvre ou active l’onglet
+Coffre Web et le popup se met à jour quand le coffre est déverrouillé (la
+popup peut toutefois se fermer lorsque le navigateur ou l’application prend le
+focus ; rouvrez-la ensuite).
 
 L’adresse de Coffre est configurable dans les réglages de l’extension
 (`http://localhost:1420` par défaut). L’extension demande l’accès à l’onglet

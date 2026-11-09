@@ -32,6 +32,7 @@ import {
   nativeSaveLogin,
   nativeSearch,
   nativeStatus,
+  nativeUnlock,
 } from './nativeBridge'
 
 /** Firefox expose `browser` (promesses) ; Chrome expose `chrome`. */
@@ -1483,6 +1484,50 @@ async function contentContext(
   }
 }
 
+/**
+ * Déverrouillage demandé depuis l’extension.
+ *
+ * Le mot de passe maître n’est jamais demandé ni transmis ici : l’application
+ * desktop affiche sa propre fenêtre (Touch ID ou saisie), ou l’onglet Coffre
+ * Web est ouvert. L’extension se contente ensuite d’interroger l’état.
+ */
+async function requestUnlock(): Promise<{
+  ok?: boolean
+  pending?: boolean
+  mode?: 'native' | 'tab'
+  error?: string
+}> {
+  const native = await nativeStatus()
+  if (native) {
+    if (!native.paired) return { error: 'needs-pairing' }
+    if (native.unlocked) return { ok: true, mode: 'native' }
+    const result = await nativeUnlock()
+    if (result.error === 'needs-pairing') return result
+    if (!result.error) {
+      return { ok: true, pending: result.pending === true, mode: 'native' }
+    }
+    await openApp()
+    return { ok: true, pending: true, mode: 'tab' }
+  }
+
+  const tabStatus = await readTabStatus()
+  if (tabStatus.appOpen && tabStatus.unlocked) {
+    return { ok: true, mode: 'tab' }
+  }
+
+  // L’application desktop peut être fermée : l’hôte natif la démarre
+  // uniquement sur ce clic explicite (drapeau `launch`), jamais pour une
+  // simple lecture d’état.
+  const launched = await nativeUnlock()
+  if (launched.ok || launched.pending) {
+    return { ok: true, pending: launched.pending === true, mode: 'native' }
+  }
+  if (launched.error === 'needs-pairing') return launched
+
+  await openApp()
+  return { ok: true, pending: true, mode: 'tab' }
+}
+
 async function openApp(): Promise<{ ok: boolean }> {
   const native = await nativeStatus()
   if (native) {
@@ -1518,6 +1563,8 @@ async function handle(
     case 'OPEN_APP':
     case 'FOCUS_APP':
       return openApp()
+    case 'UNLOCK_REQUEST':
+      return requestUnlock()
     case 'PAIR':
       return nativePair()
     case 'ENABLE_INLINE':

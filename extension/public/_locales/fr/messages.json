@@ -38,6 +38,30 @@
   "popup_unlockApp": {
     "message": "Déverrouiller Coffre"
   },
+  "popup_openUnlock": {
+    "message": "Ouvrir Coffre pour déverrouiller"
+  },
+  "popup_unlocking": {
+    "message": "Déverrouillage en cours… Confirmez dans Coffre."
+  },
+  "popup_unlockCancel": {
+    "message": "Annuler le déverrouillage"
+  },
+  "popup_unlockHint": {
+    "message": "Coffre est toujours verrouillé. Confirmez Touch ID ou saisissez le mot de passe maître dans l’application."
+  },
+  "popup_unlockTimeout": {
+    "message": "Déverrouillage non confirmé. Réessayez depuis Coffre."
+  },
+  "popup_unlockCancelled": {
+    "message": "Déverrouillage annulé dans l’extension."
+  },
+  "popup_unlocked": {
+    "message": "Coffre déverrouillé."
+  },
+  "popup_unlockTab": {
+    "message": "Coffre s’ouvre dans un onglet. Déverrouillez-le, la popup se mettra à jour."
+  },
   "popup_footer": {
     "message": "Local · aucun serveur"
   },

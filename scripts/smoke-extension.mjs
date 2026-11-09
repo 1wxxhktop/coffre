@@ -107,6 +107,12 @@ for (const pattern of ['http://*/*', 'https://*/*']) {
     manifest.host_permissions.push(pattern)
   }
 }
+// Le smoke tourne sur le profil du développeur : retirer `nativeMessaging`
+// évite de démarrer une vraie application desktop installée. Le relais natif a
+// son propre smoke (`bridge:smoke`).
+manifest.permissions = manifest.permissions.filter(
+  (permission) => permission !== 'nativeMessaging',
+)
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
 
 const context = await chromium.launchPersistentContext(join(workDir, 'profile'), {
@@ -175,6 +181,11 @@ try {
   )
   assert.equal(status.appOpen, true)
   assert.equal(status.unlocked, true)
+  const unlockRequest = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'UNLOCK_REQUEST' }),
+  )
+  assert.equal(unlockRequest.ok, true)
+  assert.equal(unlockRequest.mode, 'tab')
 
   const host = new URL(TARGET_URL).hostname
 
@@ -437,6 +448,14 @@ try {
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }),
   )
   assert.equal(locked.unlocked, false)
+
+  // Sans application desktop, le déverrouillage ouvre/active l’onglet Coffre.
+  const tabUnlock = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'UNLOCK_REQUEST' }),
+  )
+  assert.equal(tabUnlock.ok, true)
+  assert.equal(tabUnlock.pending, true)
+  assert.equal(tabUnlock.mode, 'tab')
 
   console.log('Extension : recherche, remplissage et verrouillage validés.')
 } finally {

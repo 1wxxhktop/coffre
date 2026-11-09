@@ -115,7 +115,32 @@ try {
   assert.equal(message.type, 'hello')
   assert.equal(message.value, 42)
   assert.equal(message.relayed, true)
-  console.log('Pont natif : relais stdin/stdout ↔ socket vérifié.')
+
+  // Une lecture d’état sans socket ne doit pas lancer l’application : seul un
+  // hello explicite avec `launch: true` emprunte le chemin de démarrage.
+  let ordinaryStderr = ''
+  const ordinary = spawn(binary, ['chrome-extension://coffre-smoke/'], {
+    env: {
+      ...process.env,
+      COFFRE_BRIDGE_SOCKET: join(directory, 'absent.sock'),
+    },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  ordinary.stderr.on('data', (chunk) => {
+    ordinaryStderr += chunk.toString('utf8')
+  })
+  ordinary.stdin.write(frame({ id: 'smoke-2', type: 'hello' }))
+  await withTimeout(
+    new Promise((resolve) => ordinary.once('exit', resolve)),
+    5000,
+    'arrêt sans lancement',
+  )
+  assert.match(
+    ordinaryStderr,
+    /n’est pas ouvert/,
+    'un hello ordinaire ne doit pas démarrer Coffre',
+  )
+  console.log('Pont natif : relais vérifié, lancement réservé au clic explicite.')
 } finally {
   child?.kill()
   server?.close()

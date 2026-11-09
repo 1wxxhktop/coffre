@@ -11,6 +11,8 @@ use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+#[cfg(unix)]
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};
@@ -402,14 +404,104 @@ pub fn is_native_host_invocation() -> bool {
     })
 }
 
+/// Une demande explicite de déverrouillage peut demander le démarrage de
+/// l’application. Une simple lecture d’état ne le fait jamais.
+#[cfg(unix)]
+fn frame_requests_launch(data: &[u8]) -> bool {
+    serde_json::from_slice::<serde_json::Value>(data)
+        .ok()
+        .and_then(|value| value.get("launch").and_then(serde_json::Value::as_bool))
+        .unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn launch_desktop_app() -> Result<(), String> {
+    use std::process::{Command, Stdio};
+
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+
+    #[cfg(target_os = "macos")]
+    {
+        // Dans une application empaquetée, `open` passe par LaunchServices et
+        // restaure correctement l’icône, le focus et le bundle.
+        if let Some(bundle) = executable
+            .ancestors()
+            .find(|path| path.extension().is_some_and(|extension| extension == "app"))
+        {
+            return Command::new("open")
+                .arg(bundle)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .map(|status| {
+                    if status.success() {
+                        Ok(())
+                    } else {
+                        Err("Impossible de démarrer Coffre".to_string())
+                    }
+                })
+                .map_err(|error| error.to_string())?;
+        }
+    }
+
+    Command::new(&executable)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(unix)]
+fn connect_socket_with_retry(
+    path: &std::path::Path,
+    attempts: usize,
+    delay: Duration,
+) -> Result<std::os::unix::net::UnixStream, String> {
+    use std::os::unix::net::UnixStream;
+
+    let mut last_error = String::from("Coffre n’est pas ouvert");
+    for _ in 0..attempts {
+        match UnixStream::connect(path) {
+            Ok(stream) => return Ok(stream),
+            Err(error) => last_error = error.to_string(),
+        }
+        std::thread::sleep(delay);
+    }
+    Err(last_error)
+}
+
 /// Mode hôte de messagerie native : relaie stdin/stdout vers le socket local.
+///
+/// Si l’application est fermée, le premier message entrant est examiné : seul
+/// un `hello` portant `launch: true` (clic « Déverrouiller » dans l’extension)
+/// démarre l’application. Les lectures d’état ordinaires échouent proprement.
 #[cfg(unix)]
 pub fn run_native_host() -> Result<(), String> {
     use std::os::unix::net::UnixStream;
 
     let path = socket_path()?;
-    let mut stream = UnixStream::connect(&path)
-        .map_err(|_| "Coffre n’est pas ouvert : impossible de joindre le pont natif".to_string())?;
+    let mut stream = match UnixStream::connect(&path) {
+        Ok(stream) => stream,
+        Err(_) => {
+            let stdin = io::stdin();
+            let mut input = stdin.lock();
+            let first = read_frame(&mut input)?
+                .ok_or_else(|| "Aucune demande de pont reçue".to_string())?;
+            if !frame_requests_launch(&first) {
+                return Err(
+                    "Coffre n’est pas ouvert : impossible de joindre le pont natif".to_string(),
+                );
+            }
+            launch_desktop_app()?;
+            let stream = connect_socket_with_retry(&path, 40, Duration::from_millis(250))?;
+            let mut writer = stream.try_clone().map_err(|error| error.to_string())?;
+            write_frame(&mut writer, &first)?;
+            stream
+        }
+    };
     let mut writer = stream.try_clone().map_err(|error| error.to_string())?;
 
     std::thread::spawn(move || {
@@ -470,6 +562,17 @@ mod tests {
         buffer.extend_from_slice(&(MAX_FRAME_BYTES as u32 + 1).to_be_bytes());
         let mut reader = std::io::Cursor::new(buffer);
         assert!(read_frame(&mut reader).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn seul_un_hello_de_launch_demarre_l_application() {
+        assert!(frame_requests_launch(
+            br#"{"id":"1","type":"hello","launch":true}"#
+        ));
+        assert!(!frame_requests_launch(br#"{"id":"1","type":"hello"}"#));
+        assert!(!frame_requests_launch(br#"{"id":"1","type":"status"}"#));
+        assert!(!frame_requests_launch(b"pas du JSON"));
     }
 
     #[test]
