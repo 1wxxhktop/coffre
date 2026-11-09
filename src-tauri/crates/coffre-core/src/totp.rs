@@ -142,10 +142,10 @@ impl TotpConfig {
             digest[offset + 2],
             digest[offset + 3],
         ]) & 0x7fff_ffff;
-        let modulo = 10u32.pow(self.digits);
+        let modulo = 10u64.pow(self.digits);
         Ok(format!(
             "{:0width$}",
-            binary % modulo,
+            u64::from(binary) % modulo,
             width = self.digits as usize
         ))
     }
