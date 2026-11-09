@@ -57,7 +57,8 @@ Attribution à conserver :
 3. APPLE PASSWORD MANAGER RESOURCES
 ================================================================================
 
-Fichier : src/assets/password-rules.json
+Fichiers : src/assets/password-rules.json
+           src/assets/popular-domains.json (liste de domaines dérivée)
 Source  : https://github.com/apple/password-manager-resources
 Licence : MIT
 Copyright 2020 - 2026 Apple Inc.
@@ -161,7 +162,90 @@ Coffre est fourni « en l’état », sans garantie d’aucune sorte, dans les l
 prévues par la GNU GPL v3.0. Voir les sections 15 et 16 du fichier LICENSE.
 
 ================================================================================
-9. 2FA DIRECTORY
+7. UNICODE CONFUSABLES (UTS #39)
+================================================================================
+
+Fichier : src/assets/confusables.json
+Source  : https://www.unicode.org/Public/security/latest/confusables.txt
+Version : Unicode 18.0.0 (instantané du 6 août 2026)
+Licence : Unicode License V3
+
+Copyright © 1991-2026 Unicode, Inc.
+
+NOTICE TO USER: Carefully read the following legal agreement. BY
+DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of data files and any associated documentation (the "Data Files") or
+software and any associated documentation (the "Software") to deal in the
+Data Files or Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, and/or sell
+copies of the Data Files or Software, and to permit persons to whom the
+Data Files or Software are furnished to do so, provided that either (a)
+this copyright and permission notice appear with all copies of the Data
+Files or Software, or (b) this copyright and permission notice appear in
+associated Documentation.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+THIRD PARTY RIGHTS.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or other
+dealings in these Data Files or Software without prior written
+authorization of the copyright holder.
+
+La table embarquée est une sélection réduite des correspondances dont la cible
+est une suite de lettres ou de chiffres ASCII, complétée par les homoglyphes
+grecs et cyrilliques les plus courants. Elle est régénérée par
+`scripts/update-confusables.mjs`.
+
+================================================================================
+8. LISTE D’ÉQUIVALENCES DE DOMAINES
+================================================================================
+
+Fichier : src/assets/domain-equivalences.json
+Source  : projet Coffre
+Licence : GPL-3.0-only
+
+Cette liste originale regroupe des domaines légitimes d’une même marque
+(par exemple `apple.com` et `icloud.com`) afin d’éviter les faux positifs de
+la protection anti-hameçonnage. Elle ne provient d’aucun jeu de données tiers.
+
+================================================================================
+9. CHROME UX REPORT (CRUX)
+================================================================================
+
+Fichier : src/assets/popular-domains-crux.json
+Source  : Chrome UX Report, Google
+          https://developer.chrome.com/docs/crux/
+Export  : https://github.com/zakird/crux-top-lists
+Licence : Creative Commons Attribution 4.0 International (CC BY 4.0)
+          https://creativecommons.org/licenses/by/4.0/
+
+Attribution à conserver :
+  « Chrome UX Report », Google, CC BY 4.0.
+
+Le fichier embarqué contient uniquement les domaines enregistrables dérivés
+des 1 000 origines les plus populaires du rapport CrUX (tranche de rang
+1 000). Les URL complètes, sous-domaines et rangs sont retirés. La
+transformation est documentée et reproductible avec
+`scripts/update-crux-domains.ts` ; le jeu de données est distribué séparément
+du code GPLv3 et sa licence CC BY 4.0 s’applique à ce fichier de données.
+
+================================================================================
+10. 2FA DIRECTORY
 ================================================================================
 
 Fichier : src/assets/site-security.json (partie `twoFactor`)
@@ -177,7 +261,7 @@ Le texte de la licence MIT figure à la section 3 (Apple Password Manager
 Resources) ; il s’applique également à ce jeu de données.
 
 ================================================================================
-10. PASSKEYS DIRECTORY
+11. PASSKEYS DIRECTORY
 ================================================================================
 
 Fichier : src/assets/site-security.json (partie `passkeys`)
