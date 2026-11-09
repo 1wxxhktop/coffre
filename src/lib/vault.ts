@@ -396,12 +396,47 @@ const sealedShareKeySchema = z.object({
   ciphertext: z.string().min(1).max(20_000),
 })
 
-const emergencyAccessSchema = z.object({
+const emergencyShareSchema = z.object({
+  contact: publicSharingIdentitySchema,
+  sealed: sealedShareKeySchema,
+})
+
+const emergencyImmediateSchema = z.object({
   version: z.literal(1),
+  mode: z.literal('immediate'),
   contact: publicSharingIdentitySchema,
   sealed: sealedShareKeySchema,
   createdAt: z.string().min(1).max(40),
 })
+
+const emergencyShamirSchema = z
+  .object({
+    version: z.literal(1),
+    mode: z.literal('shamir'),
+    threshold: z.number().int().min(2).max(5),
+    total: z.number().int().min(2).max(5),
+    shares: z.array(emergencyShareSchema).min(2).max(5),
+    createdAt: z.string().min(1).max(40),
+  })
+  .refine(
+    (value) => value.threshold <= value.total && value.shares.length === value.total,
+    'Partage d’urgence incohérent',
+  )
+
+const emergencyLegacySchema = z
+  .object({
+    version: z.literal(1),
+    contact: publicSharingIdentitySchema,
+    sealed: sealedShareKeySchema,
+    createdAt: z.string().min(1).max(40),
+  })
+  .transform((value) => ({ ...value, mode: 'immediate' as const }))
+
+const emergencyAccessSchema = z.union([
+  emergencyImmediateSchema,
+  emergencyShamirSchema,
+  emergencyLegacySchema,
+])
 
 const sharingIdentitySchema = z.object({
   version: z.literal(1),
@@ -1020,16 +1055,31 @@ export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
   }
 
   if (file.emergency) {
+    const emergency = file.emergency
+    const digest =
+      emergency.mode === 'immediate'
+        ? await sealedDigest({
+            n: emergency.sealed.enc,
+            c: emergency.sealed.ciphertext,
+          })
+        : await sealedDigest({
+            n: emergency.shares.map((share) => share.sealed.enc).join('.'),
+            c: emergency.shares
+              .map((share) => share.sealed.ciphertext)
+              .join('.'),
+          })
     records.push({
       type: 'emergency',
-      id: file.emergency.contact.fingerprint,
+      id:
+        emergency.mode === 'immediate'
+          ? emergency.contact.fingerprint
+          : `shamir:${emergency.threshold}/${emergency.total}:${emergency.shares
+              .map((share) => share.contact.fingerprint)
+              .join(',')}`,
       vaultId: '',
       rev: 0,
       writer: '',
-      ciphertext: await sealedDigest({
-        n: file.emergency.sealed.enc,
-        c: file.emergency.sealed.ciphertext,
-      }),
+      ciphertext: digest,
     })
   }
 

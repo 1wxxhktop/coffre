@@ -1062,7 +1062,11 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   récupération, car la clé maîtresse change ;
 - le contact doit posséder le fichier `.coffre` et sa clé privée d’identité pour
   ouvrir l’enveloppe. Sans serveur, aucun délai ne peut être imposé : l’accès
-  est immédiat. Le partage Shamir 2/3 reste à concevoir ;
+  immédiat est immédiat ;
+- le mode Shamir partage la clé maîtresse en `n` parts avec un seuil `k`
+  (2/3 par défaut) ; chaque part est enveloppée pour un contact distinct. Il
+  faut au moins `k` identités de contact pour reconstituer la clé. Les parts
+  sont ré-générées lors d’un changement de mot de passe ou d’une récupération ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;

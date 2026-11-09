@@ -653,8 +653,15 @@ export const EN_TEXT: Record<string, string> = {
   'Accès d’urgence supprimé': 'Emergency access removed',
   'Configuration impossible': 'Configuration failed',
   'Suppression impossible': 'Deletion failed',
-  'Sans serveur, aucun délai ne peut être imposé : le contact qui possède le fichier et sa clé privée peut ouvrir l’enveloppe immédiatement. Le partage Shamir 2/3 reste à venir.':
-    'Without a server, no delay can be enforced: the contact who holds the file and their private key can open the envelope immediately. Shamir 2/3 sharing remains to come.',
+  'Mode d’accès d’urgence': 'Emergency access mode',
+  'Contact unique (immédiat)': 'Single contact (immediate)',
+  'Shamir 2/3': 'Shamir 2/3',
+  'Identités des contacts (une par ligne)': 'Contact identities (one per line)',
+  'Contacts requis': 'Required contacts',
+  'contacts requis pour ouvrir l’accès d’urgence':
+    'contacts required to open emergency access',
+  'Sans serveur, aucun délai ne peut être imposé : un accès immédiat s’ouvre dès que le contact possède le fichier et sa clé privée. En mode Shamir, le nombre de contacts configuré est requis.':
+    'Without a server, no delay can be enforced: immediate access opens as soon as the contact holds the file and their private key. In Shamir mode, the configured number of contacts is required.',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':
