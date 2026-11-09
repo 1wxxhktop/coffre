@@ -1099,13 +1099,17 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   fichier `SHA256SUMS`. Ils ne sont pas encore signés séparément ;
 - `cargo deny` vérifie les licences autorisées, les avis RUSTSEC et les sources
   (crates.io uniquement). Les avis temporairement ignorés sont documentés dans
-  `src-tauri/deny.toml` : `rsa` 0.9 (attente de `ssh-key` 0.7/`rsa` 0.10) et
-  des crates transitoires non maintenues de la chaîne Tauri ;
+  `src-tauri/deny.toml` : des crates transitoires non maintenues de la chaîne
+  Tauri. L’avis `RUSTSEC-2023-0071` a été retiré après la migration de l’agent
+  SSH vers `rsa` 0.10 et `ssh-key` 0.7.0-rc.12 (pré-version, en attendant une
+  version stable) ;
 - deux cibles de fuzzing (`vault_parse`, `merge`) sont exécutées chaque
   semaine en CI sur Rust nightly ; le corpus et les artefacts restent hors du
   dépôt ;
-- les builds desktop ne sont pas encore comparés de façon reproductible, et
-  l’audit externe reste à intégrer.
+- les builds Web, extension et le bundle macOS sont comparés deux fois ; pour
+  le desktop, la caisse applicative est recompilée entre les deux bundles et
+  la signature ad hoc est incluse dans la comparaison. L’audit externe reste à
+  intégrer.
 
 ### 2.28 Divulgation responsable
 

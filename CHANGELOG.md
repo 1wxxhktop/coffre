@@ -205,11 +205,13 @@
   un contact ou en parts Shamir 2/3, ré-enveloppée lors des rotations ; aucun
   délai imposé sans serveur.
 - Chaîne d’approvisionnement : toolchain Rust épinglée, builds Web/extension
-  comparés deux fois avec `SOURCE_DATE_EPOCH=0`, SBOM CycloneDX Rust et web
-  générés en CI et joints aux releases macOS avec une somme SHA-256. `cargo deny` contrôle licences,
-  avis RUSTSEC et sources ; les exceptions sont documentées dans
-  `src-tauri/deny.toml`. Fuzzing hebdomadaire du parseur et de la fusion
-  `coffre-core` avec libFuzzer.
+  comparés deux fois avec `SOURCE_DATE_EPOCH=0`, bundle macOS comparé après
+  recompilation de la caisse applicative, SBOM CycloneDX Rust et web générés en
+  CI et joints aux releases macOS avec une somme SHA-256. `cargo deny` contrôle
+  licences, avis RUSTSEC et sources ; les exceptions sont documentées dans
+  `src-tauri/deny.toml`, et `RUSTSEC-2023-0071` est retiré depuis le passage à
+  `rsa` 0.10 / `ssh-key` 0.7.0-rc.12. Fuzzing hebdomadaire du parseur et de la
+  fusion `coffre-core` avec libFuzzer.
 - Divulgation responsable : `/.well-known/security.txt` avec contact GitHub
   privé, politique, langues et expiration ; validation automatique dans le lint.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
