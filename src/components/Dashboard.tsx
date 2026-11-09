@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   CalendarClock,
   ChevronRight,
   CircleHelp,
@@ -35,6 +36,7 @@ import {
 } from '../lib/security'
 import type { ItemFilter } from '../lib/filters'
 import type { UsageMap } from '../lib/usage'
+import { BACKUP_ALERT_TEXTS, type BackupAlert } from '../lib/backup'
 import {
   itemSubtitle,
   itemTypeLabel,
@@ -48,6 +50,7 @@ interface DashboardProps {
   usage: UsageMap
   securityReport: SecurityReport
   expiryEvents: ExpiryEvent[]
+  backupAlert: BackupAlert | null
   readOnly: boolean
   syncPending: boolean
   lastSavedAt: string | null
@@ -77,6 +80,7 @@ export function Dashboard({
   usage,
   securityReport,
   expiryEvents,
+  backupAlert,
   readOnly,
   syncPending,
   lastSavedAt,
@@ -296,6 +300,26 @@ export function Dashboard({
           </div>
         </div>
       </section>
+
+      {backupAlert && (
+        <div
+          className={`dashboard-backup-alert dashboard-backup-alert--${backupAlert.level}`}
+          role="status"
+        >
+          <AlertTriangle size={18} />
+          <div className="dashboard-backup-alert__body">
+            <strong>{tt('Sauvegarde planifiée')}</strong>
+            <p>{tt(BACKUP_ALERT_TEXTS[backupAlert.code])}</p>
+          </div>
+          <button
+            type="button"
+            className="button button--secondary button--sm"
+            onClick={onOpenSettings}
+          >
+            {tt('Réglages')}
+          </button>
+        </div>
+      )}
 
       <section
         className="dashboard__stats"

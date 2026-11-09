@@ -67,6 +67,8 @@ import {
   type VaultSummary,
 } from '../lib/types'
 import { isTauriRuntime } from '../lib/external'
+import { backupAlert } from '../lib/backup'
+import { getTravelMode } from '../lib/travelMode'
 import type { StateUpdate } from '../lib/stateUpdate'
 
 // Les dialogues lourds sont chargés à l’ouverture : le premier écran ne paie
@@ -308,6 +310,15 @@ export function VaultApp() {
     }
     return map
   }, [items, securityReport])
+  const dashboardBackupAlert = useMemo(
+    () =>
+      backupAlert(
+        settings,
+        isTauriRuntime() ? 'desktop' : 'web',
+        { travel: file ? getTravelMode(file.id)?.enabled === true : false },
+      ),
+    [settings, file],
+  )
   const expiryEvents = useMemo(() => collectExpiries(items), [items])
   const expiryByItem = useMemo(() => {
     const map = new Map<string, (typeof expiryEvents)[number]>()
@@ -1084,6 +1095,7 @@ export function VaultApp() {
               usage={usage}
               securityReport={securityReport}
               expiryEvents={expiryEvents}
+              backupAlert={dashboardBackupAlert}
               readOnly={readOnly}
               onNewItem={openCreateFromDashboard}
               onGeneratePassword={() => setGeneratorOpen(true)}

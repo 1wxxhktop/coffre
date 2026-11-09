@@ -345,6 +345,16 @@ interface VaultContextValue extends ProviderState {
     detail: string,
     host?: string,
   ) => Promise<void>
+  /** Vérifie une sauvegarde en lecture seule, sans toucher au coffre courant. */
+  verifyBackup: (
+    contents: string,
+    password?: string,
+  ) => Promise<{
+    items: number
+    vaults: number
+    currentItems: number
+    integrity: 'valid' | 'unsigned' | 'invalid'
+  }>
   setAliasKey: (service: AliasKeyService, key: string) => Promise<void>
   deleteAliasKey: (service: AliasKeyService) => Promise<void>
   dismissWarnings: () => void
@@ -3291,6 +3301,43 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [apply, enqueue, persist],
   )
 
+  const verifyBackup = useCallback(
+    async (
+      contents: string,
+      password?: string,
+    ): Promise<{
+      items: number
+      vaults: number
+      currentItems: number
+      integrity: 'valid' | 'unsigned' | 'invalid'
+    }> => {
+      const parsed = parseVaultFileText(contents)
+      const current = stateRef.current
+      let opened: OpenedVault
+      if (password) {
+        opened = await unlockVaultFile(parsed, password)
+      } else {
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        opened = await openVaultFileWithMasterKey(
+          parsed,
+          current.session.masterKey,
+        )
+      }
+      try {
+        await verifyVaultFile(opened.file, opened.session)
+        return {
+          items: opened.items.length,
+          vaults: opened.vaults.length,
+          currentItems: current.items.length,
+          integrity: opened.integrity,
+        }
+      } finally {
+        opened.session.lock()
+      }
+    },
+    [],
+  )
+
   const setAliasKey = useCallback(
     (service: AliasKeyService, key: string) =>
       enqueue(async () => {
@@ -3395,6 +3442,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     lanSync,
     confirmMasterPassword,
     recordActivity,
+    verifyBackup,
     setAliasKey,
     deleteAliasKey,
     dismissWarnings,
