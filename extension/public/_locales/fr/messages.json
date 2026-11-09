@@ -216,7 +216,7 @@
     "message": "Identité remplie."
   },
   "menu_filledLogin": {
-    "message": "Identifiants remplis."
+    "message": "Identifiants remplis. Connexion lancée."
   },
   "menu_noPending": {
     "message": "Aucune soumission en attente pour ce site."
@@ -427,5 +427,8 @@
   },
   "popup_update": {
     "message": "Mettre à jour"
+  },
+  "popup_filledSubmitted": {
+    "message": "Identifiants remplis. Connexion lancée."
   }
 }

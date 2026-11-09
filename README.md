@@ -739,7 +739,9 @@ thème clair ou sombre, dans le popup comme dans le menu des champs, et les
 icônes d’action 16/32/48/128 px disposent de variantes clair/sombre.
 La barre de recherche et le bouton du générateur restent ancrés en haut pendant
 le défilement ; la recherche est focalisée à l’ouverture et une touche
-imprimable lance immédiatement une recherche.
+imprimable lance immédiatement une recherche. Le bouton « Remplir » remplit la
+connexion puis valide automatiquement le formulaire de connexion ; les cartes
+et identités ne sont jamais soumises automatiquement.
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
 propose une mise à jour.
