@@ -98,6 +98,7 @@ Runtime web :
   - uqr                               MIT
   - aes-js                            MIT
   - fast-xml-parser                   MIT
+  - simple-icons                      CC0-1.0
 
 Build et développement :
   - Vite                              MIT
@@ -134,8 +135,9 @@ Desktop et mobile :
 
 Les polices utilisées par l’interface sont les polices système de l’appareil ;
 aucune police distante n’est embarquée ni téléchargée. Les icônes de l’interface
-proviennent de Lucide (ISC). Les icônes de l’application ont été générées pour
-Coffre à partir de son propre logo.
+proviennent de Lucide (ISC). Les icônes de service proviennent de Simple Icons
+(CC0 1.0) et sont rendues localement, sans requête réseau. Les icônes de
+l’application ont été générées pour Coffre à partir de son propre logo.
 
 ================================================================================
 5. TEXTES ET DOCUMENTATION

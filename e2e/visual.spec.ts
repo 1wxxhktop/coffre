@@ -72,7 +72,8 @@ for (const theme of ['dark', 'light'] as const) {
     await shot(page, `dashboard-${theme}.png`)
 
     await page.getByRole('button', { name: 'Réglages' }).first().click()
-    await page.getByRole('dialog').getByRole('heading', { name: 'Réglages' }).waitFor()
+    const settings = page.getByRole('dialog')
+    await settings.getByRole('heading', { name: 'Réglages' }).waitFor()
     await shot(page, `settings-${theme}.png`)
     await page.keyboard.press('Escape')
 

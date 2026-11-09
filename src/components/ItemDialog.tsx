@@ -762,7 +762,7 @@ export function ItemDialog({
   }`
   const headerIcon = (
     <span className={`item-icon item-icon--${itemType} item-icon--lg`}>
-      <ItemIcon type={itemType} size={22} />
+      <ItemIcon type={itemType} item={current} size={22} />
     </span>
   )
 
@@ -2006,7 +2006,7 @@ function ItemDetails({
       <div className="item-detail__toolbar">
         <div className="item-detail__identity">
           <span className={`item-icon item-icon--${item.type} item-icon--lg`}>
-            <ItemIcon type={item.type} size={22} />
+            <ItemIcon type={item.type} item={item} size={22} />
           </span>
           <div>
             <span className="item-detail__type">{itemTypeLabel(item.type)}</span>
