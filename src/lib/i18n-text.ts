@@ -18,8 +18,8 @@ export const EN_TEXT: Record<string, string> = {
   'Mot de passe maître modifié': 'Master password changed',
   'Coffre importé et déverrouillé': 'Vault imported and unlocked',
   'Partage importé': 'Share imported',
-  'Clé Touch ID réinitialisée': 'Touch ID key reset',
-  'Réinitialisation Touch ID impossible': 'Touch ID reset failed',
+  'Clé biométrique réinitialisée': 'Biometric key reset',
+  'Réinitialisation biométrique impossible': 'Biometric reset failed',
   'Coffre exporté': 'Vault exported',
   'Export impossible': 'Export failed',
   'Aucun élément importé': 'No item imported',
@@ -62,7 +62,24 @@ export const EN_TEXT: Record<string, string> = {
     'Decrypts and verifies each vault, item and attachment.',
   'Déverrouillage rapide par le trousseau de l’appareil.':
     'Quick unlock with the device keychain.',
-  'Déverrouiller avec Touch ID (empreinte)': 'Unlock with Touch ID (fingerprint)',
+  'Déverrouiller avec la biométrie (Touch ID / Windows Hello)':
+    'Unlock with biometrics (Touch ID / Windows Hello)',
+  'Réinitialiser le déverrouillage biométrique': 'Reset biometric unlock',
+  '(remplacé par la biométrie)': '(replaced by biometrics)',
+  'Intégration au système': 'System integration',
+  'Verrouillage avec la session, barre de menus et démarrage à l’ouverture de session.':
+    'Lock with the session, menu bar and launch at login.',
+  'Verrouiller avec la session': 'Lock with the session',
+  'Verrouiller à la mise en veille': 'Lock when the computer sleeps',
+  'Garder Coffre dans la barre de menus à la fermeture de la fenêtre':
+    'Keep Coffre in the menu bar when the window closes',
+  'Démarrer à l’ouverture de session': 'Launch at login',
+  'Coffre démarre verrouillé et masqué ; ouvrez-le depuis la barre de menus.':
+    'Coffre starts locked and hidden; open it from the menu bar.',
+  'Démarrage à l’ouverture de session activé': 'Launch at login enabled',
+  'Démarrage à l’ouverture de session désactivé': 'Launch at login disabled',
+  'Impossible de modifier le démarrage à l’ouverture de session':
+    'Unable to change launch at login',
   'Effacement du presse-papiers': 'Clipboard clearing',
   'Effacer le coffre local': 'Erase the local vault',
   'En savoir plus': 'Learn more',

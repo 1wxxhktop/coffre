@@ -2,6 +2,20 @@
 
 ## Non publié
 
+- Cœur natif pour extensions (S2) : ouverture par clé maîtresse sans Argon2id,
+  recherche de connexions par service avec la même règle de domaines que
+  `loginAllowsHost` (suffixes publics, IDN, ports, HTTP/HTTPS, IP, localhost),
+  révélation du seul élément demandé avec mot de passe et code TOTP, identités
+  AutoFill sans secret, et assertions/créations de passkeys ES256 en Rust.
+  Vecteurs croisés TypeScript ↔ Rust pour les domaines et les signatures de
+  passkeys ; script local de génération de `CoffreCore.xcframework`.
+- Intégration au système (S1) : verrouillage avec la session et à la mise en
+  veille sur macOS, Windows et Linux, icône de barre de menus (ouvrir, recherche
+  rapide, générateur, verrouiller) sans contenu du coffre, démarrage optionnel à
+  l’ouverture de session dans un état verrouillé et masqué, et déverrouillage
+  Windows Hello en plus de Touch ID. Le verrouillage système emprunte le même
+  chemin que le verrouillage manuel et laisse les écritures déjà en file se
+  terminer avant l’effacement des clés.
 - Protection anti-hameçonnage au remplissage forcé et à l’enregistrement :
   analyse locale des domaines du coffre et de deux listes populaires embarquées
   (Apple MIT et Chrome UX Report CC BY 4.0, 1 000 origines), avec confusables
