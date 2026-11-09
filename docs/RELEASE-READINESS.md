@@ -88,6 +88,11 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   « Passkey disponible » et « Site sans HTTPS », méthodes de 2FA et
   documentation dans la fiche. Aucune requête réseau, aucun ajout au bundle de
   l’extension.
+- **Codes de secours 2FA** : type d’élément dédié, import par collage, état
+  « utilisé » daté, alerte à deux codes restants, copie avec proposition de
+  marquage. Codes chiffrés dans le contenu de l’élément ; export `.coffre`
+  fidèle, colonne `recovery_codes` dans le CSV complet et champ texte long
+  documenté pour CXF/KDBX.
 - **Historique du générateur** : 50 entrées chiffrées avec AAD dédiée,
   rétention configurable, purge à l’ouverture, consommation automatique lors
   de l’enregistrement, fusion par horloges. Aucun mot de passe en clair dans le
@@ -114,8 +119,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 666 tests unitaires (80 fichiers), 156 exécutions Playwright
-  (78 parcours sur Chromium et WebKit), 36 tests Rust desktop (1 ignoré) +
+- **Tests** : 676 tests unitaires (81 fichiers), 158 exécutions Playwright
+  (79 parcours sur Chromium et WebKit), 36 tests Rust desktop (1 ignoré) +
   26 tests `coffre-core` + 3 tests FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,

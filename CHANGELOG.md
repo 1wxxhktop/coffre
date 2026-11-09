@@ -2,6 +2,13 @@
 
 ## Non publié
 
+- Codes de secours 2FA : nouveau type d’élément avec import par collage (un
+  code par ligne ou séparés par des espaces, puces et doublons ignorés), suivi
+  « utilisé » avec date, copie avec proposition de marquer le code utilisé, et
+  alerte du tableau de bord à partir de deux codes restants. Les codes restent
+  chiffrés dans le contenu de l’élément ; l’export `.coffre` les conserve. Le
+  CSV complet ajoute une colonne `recovery_codes`, CXF et KDBX les placent dans
+  un champ texte long documenté, en clair comme le reste de ces exports.
 - Sauvegardes planifiées : copies datées du fichier `.coffre` déjà chiffré dans
   un dossier choisi (disque externe, NAS, dossier synchronisé), quotidiennes ou
   hebdomadaires, au démarrage puis toutes les heures tant que l’application

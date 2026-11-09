@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 666 tests unitaires et
-> 78 parcours Playwright exécutés sur Chromium et WebKit (156 exécutions, 8 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 676 tests unitaires et
+> 79 parcours Playwright exécutés sur Chromium et WebKit (158 exécutions, 8 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -133,6 +133,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   [Capture de l’écran](docs/screenshots/generator-history.png).
 - **TOTP** (RFC 6238) : import d’une URI `otpauth://`, codes SHA-1/256/512,
   compte à rebours.
+- **Codes de secours 2FA** : élément dédié, import par collage d’un bloc de
+  codes, suivi « utilisé » avec date, copie avec proposition de marquer le
+  code utilisé et alerte du tableau de bord à partir de deux codes restants.
+  Les codes restent chiffrés dans le coffre ; le CSV complet ajoute une colonne
+  `recovery_codes`, CXF et KDBX les exportent dans un champ texte long.
 - **Copie temporaire** : effacement du presse-papiers après un délai et au
   verrouillage, si son contenu n’a pas changé.
 - **Verrouillage automatique** après inactivité, verrouillage immédiat lorsque
@@ -746,7 +751,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (666 tests) |
+| `bun run test` | Tests Vitest (676 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (156 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
