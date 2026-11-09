@@ -423,6 +423,43 @@ try {
     null,
     { timeout: 10_000 },
   )
+
+  // E4 : le menu contextuel ne contient que les connexions de ce domaine, et
+  // son gestionnaire de remplissage utilise bien l’onglet actif.
+  const menuSnapshot = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'CONTEXT_MENU_SNAPSHOT' }),
+  )
+  assert.ok(menuSnapshot.model.some((entry) => entry.id === `fill-login:${itemId}`))
+  assert.ok(menuSnapshot.model.some((entry) => entry.id === 'fill-card'))
+  assert.ok(menuSnapshot.model.some((entry) => entry.id === 'fill-identity'))
+  await shortcutPage.evaluate(() => {
+    const username = document.querySelector('#username')
+    const password = document.querySelector('#password')
+    if (username) username.value = ''
+    if (password) password.value = ''
+  })
+  const shortcutTab = await extensionPage.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    return tab
+  })
+  const menuFill = await extensionPage.evaluate(
+    ({ tabId, itemId }) =>
+      chrome.runtime.sendMessage({
+        type: 'RUN_CONTEXT_MENU',
+        menuItemId: `fill-login:${itemId}`,
+        tabId,
+        frameId: 0,
+      }),
+    { tabId: shortcutTab.id, itemId },
+  )
+  assert.equal(menuFill.ok, true)
+  await shortcutPage.waitForFunction(
+    () =>
+      document.querySelector('#username')?.value === 'ada' &&
+      document.querySelector('#password')?.value === 's3cret!',
+    null,
+    { timeout: 10_000 },
+  )
   await shortcutPage.close()
   await extensionPage.bringToFront()
 
@@ -588,6 +625,14 @@ try {
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }),
   )
   assert.equal(locked.unlocked, false)
+  await extensionPage.bringToFront()
+  const lockedMenu = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'CONTEXT_MENU_SNAPSHOT' }),
+  )
+  assert.deepEqual(
+    lockedMenu.model.map((entry) => entry.id),
+    ['unlock'],
+  )
 
   // Sans application desktop, le déverrouillage ouvre/active l’onglet Coffre.
   const tabUnlock = await extensionPage.evaluate(() =>

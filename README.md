@@ -798,6 +798,15 @@ TOTP » n’ont pas de touche par défaut : assignez-les dans
 fonctionnent sur un site non autorisé au préalable, sans ouvrir la popup. La
 liste des touches effectives est affichée dans les réglages du popup.
 
+**Menu contextuel.** Un clic droit dans un champ propose « Remplir avec
+Coffre » avec les connexions du site actif, « Générer un mot de passe »,
+« Insérer un alias e-mail », « Remplir une carte » et « Remplir une identité ».
+Sur une page, il propose « Ouvrir Coffre » et « Ajouter ce site à Coffre »
+(qui ouvre l’application : l’extension n’écrit jamais dans le coffre). Coffre
+verrouillé, une seule entrée « Déverrouiller Coffre » est affichée. Les noms
+d’éléments sont filtrés sur le domaine de l’onglet actif ; le menu est
+reconstruit à l’activation d’un onglet et au changement de fenêtre.
+
 **Cartes et identités.** La détection repose sur les attributs `autocomplete`
 (`cc-number`, `cc-exp`, `cc-csc`, `given-name`, `postal-code`…), les types de
 champs et des libellés français (« Numéro de carte », « Titulaire », « Code

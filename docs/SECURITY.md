@@ -388,6 +388,19 @@ appairage) est conservée dans `chrome.storage.local`.
   `commands` ne permet pas de déclencher une commande) ; il est refusé à toute
   page qui n’est pas une page d’extension et n’expose aucune opération
   supplémentaire.
+- **Menu contextuel** : la permission `contextMenus` est la seule ajoutée par
+  E4 ; elle ne donne accès à aucune page, aucun secret et aucun historique.
+  Le menu est reconstruit à l’activation d’un onglet, au changement de fenêtre,
+  à l’installation et au démarrage. Les connexions sont filtrées sur l’hôte de
+  l’onglet actif avant de créer les entrées : un nom d’un autre domaine ne peut
+  pas apparaître. Coffre verrouillé : une seule entrée « Déverrouiller
+  Coffre ». Les clics utilisent `activeTab`, comme les raccourcis, et
+  n’écrivent jamais dans le coffre : « Ajouter ce site » ouvre l’application
+  pour que la saisie y soit faite. L’alias e-mail n’est inséré que si
+  l’application Web le fournit (le pont natif ne l’expose pas encore).
+- Le canal interne `RUN_CONTEXT_MENU` / `CONTEXT_MENU_SNAPSHOT` sert aux tests
+  Playwright (les menus natifs ne sont pas cliquables depuis le navigateur) ;
+  il est réservé aux pages d’extension et appelle le gestionnaire réel.
 - Le remplissage vérifie l’hôte de la frame dans le content script **et** dans
   l’application (`loginAllowsHost`) ; les iframes ne sont remplies que si leur
   origine correspond à l’URL de l’élément.

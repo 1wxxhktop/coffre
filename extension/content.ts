@@ -240,6 +240,38 @@ function commandKind(value: unknown): AutofillKind {
   return value === 'card' || value === 'identity' ? value : 'login'
 }
 
+function fillActiveText(value: string): number {
+  if (!value) return 0
+  const active = document.activeElement
+  const target =
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    (active instanceof HTMLElement && active.isContentEditable)
+      ? active
+      : lastFocusedInput
+  if (!target) return 0
+
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    const prototype =
+      target instanceof HTMLInputElement
+        ? HTMLInputElement.prototype
+        : HTMLTextAreaElement.prototype
+    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
+    setter?.call(target, value)
+    target.dispatchEvent(new Event('input', { bubbles: true }))
+    target.dispatchEvent(new Event('change', { bubbles: true }))
+    target.focus()
+    return 1
+  }
+  if (target instanceof HTMLElement && target.isContentEditable) {
+    target.textContent = value
+    target.dispatchEvent(new Event('input', { bubbles: true }))
+    target.focus()
+    return 1
+  }
+  return 0
+}
+
 function openMenuAtActiveField(kind: AutofillKind): boolean {
   if (!context) return false
   const detected = detectAutofillFields(document)
@@ -440,6 +472,7 @@ api.runtime.onMessage.addListener(
       kind?: string
       password?: string
       code?: string
+      text?: string
       values?: {
         kind?: string
         username?: string
@@ -488,6 +521,15 @@ api.runtime.onMessage.addListener(
       const filled = fillOtpField(
         document,
         typeof message.code === 'string' ? message.code : '',
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+    if (message?.type === 'COFFRE_FILL_TEXT') {
+      const filled = fillActiveText(
+        typeof message.text === 'string' ? message.text : '',
       )
       sendResponse(
         filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },

@@ -10,7 +10,8 @@
     "scripting",
     "storage",
     "nativeMessaging",
-    "clipboardWrite"
+    "clipboardWrite",
+    "contextMenus"
   ],
   "host_permissions": [
     "http://localhost:1420/*",
