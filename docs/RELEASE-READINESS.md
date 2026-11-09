@@ -104,8 +104,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   (73 parcours sur Chromium et WebKit), 32 tests Rust desktop (1 ignoré) +
   12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
 
-- **Tests** : 548 tests unitaires (73 fichiers), 144 exécutions Playwright
-  (72 parcours sur Chromium et WebKit), 34 tests Rust desktop (1 ignoré) +
+- **Tests** : 567 tests unitaires (73 fichiers), 146 exécutions Playwright
+  (73 parcours sur Chromium et WebKit), 36 tests Rust desktop (1 ignoré) +
   22 tests `coffre-core` + 3 tests FFI + 13 tests `coffre-cli` + 17 tests agent
 
   SSH, smoke extension
