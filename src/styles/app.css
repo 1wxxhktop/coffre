@@ -739,18 +739,27 @@ body:has(.app-shell) {
 
 .item-row__title {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  overflow: hidden;
+  min-width: 0;
   color: var(--text-1);
   font-size: var(--text-sm);
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.item-row__title-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .item-row__favorite {
   flex: none;
+  margin-top: 2px;
   color: var(--warning);
 }
 
@@ -804,6 +813,15 @@ body:has(.app-shell) {
   font-weight: 650;
   white-space: nowrap;
 }
+
+/* À la largeur minimale de la liste, le badge de sécurité devient une icône
+   seule pour préserver le titre. Le libellé reste accessible. */
+@container (max-width: 359px) {
+  .item-row__issue-label {
+    display: none;
+  }
+}
+
 
 .item-row--trash {
   border-style: dashed;
@@ -1792,6 +1810,12 @@ body:has(.app-shell) {
 
   .topbar__menu {
     display: grid;
+  }
+
+  /* En-tête de détail compact : le contenu prime sur le chrome. */
+  .topbar.topbar--detail {
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
   }
 
   .topbar--detail .topbar__menu {

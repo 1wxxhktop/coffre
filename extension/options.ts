@@ -7,10 +7,12 @@ interface AppStatus {
 }
 
 import { localizeDocument } from './i18n'
+import { loadTheme } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
 localizeDocument()
+void loadTheme()
 
 const input = document.getElementById('app-url') as HTMLInputElement
 const saveButton = document.getElementById('save') as HTMLButtonElement

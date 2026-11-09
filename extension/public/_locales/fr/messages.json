@@ -286,5 +286,50 @@
   },
   "menu_aliasCopied": {
     "message": "Alias copié :"
+  },
+  "details_username": {
+    "message": "Identifiant"
+  },
+  "details_password": {
+    "message": "Mot de passe"
+  },
+  "details_totp": {
+    "message": "Code de vérification"
+  },
+  "details_copy": {
+    "message": "Copier"
+  },
+  "details_copied": {
+    "message": "Copié"
+  },
+  "details_reveal": {
+    "message": "Afficher"
+  },
+  "details_hide": {
+    "message": "Masquer"
+  },
+  "details_loading": {
+    "message": "Chargement des détails…"
+  },
+  "details_error": {
+    "message": "Détails indisponibles."
+  },
+  "details_expand": {
+    "message": "Afficher les détails"
+  },
+  "details_fill": {
+    "message": "Remplir"
+  },
+  "theme_toggle": {
+    "message": "Changer de thème"
+  },
+  "theme_system": {
+    "message": "Thème : suivre le système"
+  },
+  "theme_light": {
+    "message": "Thème : clair"
+  },
+  "theme_dark": {
+    "message": "Thème : sombre"
   }
 }

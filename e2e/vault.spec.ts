@@ -67,6 +67,13 @@ test.describe('coffre et éléments', () => {
     )
   })
 
+  test('affiche « Aucun élément » pour une catégorie vide', async ({ page }) => {
+    await createVault(page)
+    await page.locator('.sidebar').getByRole('button', { name: /^Cartes/ }).click()
+    await expect(page.locator('.topbar__sub')).toContainText('Aucun élément')
+    await expect(page.locator('.topbar__sub')).not.toContainText('0 élément')
+  })
+
   test('verrouille et déverrouille avec le mot de passe maître', async ({ page }) => {
     await createVault(page)
     await addLogin(page)

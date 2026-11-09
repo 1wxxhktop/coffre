@@ -190,6 +190,25 @@ try {
   assert.equal(values.username, 'ada')
   assert.equal(values.password, 's3cret!')
 
+  const details = await extensionPage.evaluate(
+    ({ id, host }) => chrome.runtime.sendMessage({ type: 'DETAILS', itemId: id, host }),
+    { id: itemId, host },
+  )
+  assert.equal(details.details?.username, 'ada')
+  assert.equal(details.details?.password, 's3cret!')
+
+  const deniedDetails = await extensionPage.evaluate(
+    ({ id }) =>
+      chrome.runtime.sendMessage({
+        type: 'DETAILS',
+        itemId: id,
+        host: 'evil.example',
+      }),
+    { id: itemId },
+  )
+  assert.equal(deniedDetails.details, undefined)
+  assert.ok(deniedDetails.error)
+
   const passkeyURL = new URL('/passkey', TARGET_URL)
   if (passkeyURL.hostname === '127.0.0.1') passkeyURL.hostname = 'localhost'
   if (passkeyURL.protocol === 'https:' || passkeyURL.hostname === 'localhost') {
@@ -207,7 +226,11 @@ try {
       const windowPromise = context.waitForEvent('page', { timeout: 30_000 })
       await passkeyPage.getByRole('button', { name: action }).click()
       const prompt = await windowPromise
-      await prompt.getByRole('button', { name: button }).click()
+      // La fenêtre de confirmation se ferme dès que la décision est envoyée :
+      // déclencher le clic sans attendre la fermeture évite une course Playwright.
+      await prompt
+        .getByRole('button', { name: button })
+        .evaluate((element) => element.click())
       await passkeyPage.waitForFunction(
         () => Boolean(document.querySelector('#passkey-result')?.dataset.kind),
         null,

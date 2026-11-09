@@ -449,6 +449,37 @@ async function injectCredentials(
   }
 }
 
+/**
+ * Détails d’une connexion pour affichage/copie manuelle dans le popup ou le
+ * menu inline. Le domaine est vérifié comme pour un remplissage : l’extension
+ * ne peut pas révéler un identifiant enregistré pour un autre site.
+ */
+async function itemDetails(
+  itemId: string,
+  host: string,
+): Promise<{ details?: ExtensionCredentials; error?: string }> {
+  if (!itemId || !host) return { error: 'not-found' }
+
+  const status = await readStatus()
+  const fetched = await fetchCredentials(itemId, host, status)
+  if (fetched.error) return { error: fetched.error }
+
+  const credentials = fetched.credentials
+  if (!credentials || credentials.kind !== 'login') {
+    return { error: 'not-found' }
+  }
+
+  return {
+    details: {
+      id: credentials.id,
+      title: credentials.title,
+      username: credentials.username,
+      password: credentials.password,
+      totp: credentials.totp,
+    },
+  }
+}
+
 async function fill(
   itemId: string,
   tabId: number | undefined,
@@ -1311,6 +1342,8 @@ async function handle(
       return search(message.query ?? '')
     case 'FILL':
       return fill(message.itemId ?? '', message.tabId)
+    case 'DETAILS':
+      return itemDetails(message.itemId ?? '', message.host ?? '')
     case 'OPEN_APP':
     case 'FOCUS_APP':
       return openApp()

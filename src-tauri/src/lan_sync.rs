@@ -32,6 +32,11 @@ const PAIR_TTL: Duration = Duration::from_secs(120);
 const SYNC_TTL: Duration = Duration::from_secs(120);
 const MAX_FRAME: usize = 64 * 1024 * 1024;
 const IO_TIMEOUT: Duration = Duration::from_secs(15);
+// Noise XX avec X25519 : message 1 = e, message 2 = e, ee, s, es,
+// message 3 = s, se. Les tailles sont fixes tant que NOISE_PARAMS ne change pas.
+const NOISE_MSG1_LEN: usize = 32;
+const NOISE_MSG2_LEN: usize = 96;
+const NOISE_MSG3_LEN: usize = 64;
 
 #[derive(Default)]
 pub struct LanState {
@@ -487,6 +492,32 @@ fn build_session(identity: &IdentityFile, initiator: bool) -> Result<HandshakeSt
     }
 }
 
+fn read_noise_message(
+    stream: &mut TcpStream,
+    buffer: &mut [u8],
+    expected: usize,
+) -> Result<(), String> {
+    if buffer.len() < expected {
+        return Err("Tampon Noise trop petit".to_string());
+    }
+    stream
+        .read_exact(&mut buffer[..expected])
+        .map_err(|_| "Connexion interrompue".to_string())
+}
+
+fn write_noise_message(
+    stream: &mut TcpStream,
+    message: &[u8],
+    expected: usize,
+) -> Result<(), String> {
+    if message.len() != expected {
+        return Err("Message Noise inattendu".to_string());
+    }
+    stream
+        .write_all(message)
+        .map_err(|_| "Connexion interrompue".to_string())
+}
+
 fn handshake(
     stream: &mut TcpStream,
     identity: &IdentityFile,
@@ -499,39 +530,27 @@ fn handshake(
         let size = session
             .write_message(&[], &mut message)
             .map_err(|error| error.to_string())?;
-        stream
-            .write_all(&message[..size])
-            .map_err(|_| "Connexion interrompue".to_string())?;
-        let size = stream
-            .read(&mut buffer)
-            .map_err(|_| "Connexion interrompue".to_string())?;
+        write_noise_message(stream, &message[..size], NOISE_MSG1_LEN)?;
+        read_noise_message(stream, &mut buffer, NOISE_MSG2_LEN)?;
         session
-            .read_message(&buffer[..size], &mut message)
+            .read_message(&buffer[..NOISE_MSG2_LEN], &mut message)
             .map_err(|_| "Négociation Noise invalide".to_string())?;
         let size = session
             .write_message(&[], &mut message)
             .map_err(|error| error.to_string())?;
-        stream
-            .write_all(&message[..size])
-            .map_err(|_| "Connexion interrompue".to_string())?;
+        write_noise_message(stream, &message[..size], NOISE_MSG3_LEN)?;
     } else {
-        let size = stream
-            .read(&mut buffer)
-            .map_err(|_| "Connexion interrompue".to_string())?;
+        read_noise_message(stream, &mut buffer, NOISE_MSG1_LEN)?;
         session
-            .read_message(&buffer[..size], &mut message)
+            .read_message(&buffer[..NOISE_MSG1_LEN], &mut message)
             .map_err(|_| "Négociation Noise invalide".to_string())?;
         let size = session
             .write_message(&[], &mut message)
             .map_err(|error| error.to_string())?;
-        stream
-            .write_all(&message[..size])
-            .map_err(|_| "Connexion interrompue".to_string())?;
-        let size = stream
-            .read(&mut buffer)
-            .map_err(|_| "Connexion interrompue".to_string())?;
+        write_noise_message(stream, &message[..size], NOISE_MSG2_LEN)?;
+        read_noise_message(stream, &mut buffer, NOISE_MSG3_LEN)?;
         session
-            .read_message(&buffer[..size], &mut message)
+            .read_message(&buffer[..NOISE_MSG3_LEN], &mut message)
             .map_err(|_| "Négociation Noise invalide".to_string())?;
     }
     session
@@ -1005,10 +1024,14 @@ mod tests {
 
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(IO_TIMEOUT)).unwrap();
+            stream.set_write_timeout(Some(IO_TIMEOUT)).unwrap();
             handle_pair(&mut stream, &responder, &secret)
         });
 
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream.set_read_timeout(Some(IO_TIMEOUT)).unwrap();
+        stream.set_write_timeout(Some(IO_TIMEOUT)).unwrap();
         let session = handshake(&mut stream, &initiator, true).unwrap();
         let remote = remote_static(&session).unwrap();
         assert_eq!(base64_std(&remote), expected);

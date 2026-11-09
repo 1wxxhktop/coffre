@@ -127,10 +127,40 @@ test.describe('système de design', () => {
     const back = page.locator('.topbar__back')
     await expect(back).toHaveAttribute('aria-label', 'Retour à Tous les éléments')
     await expect(back).toContainText('Tous les éléments')
+    await expect(
+      page.getByRole('button', { name: 'Retour à Tous les éléments' }),
+    ).toBeVisible()
+    const topbarHeight = await page
+      .locator('.topbar')
+      .evaluate((element) => element.getBoundingClientRect().height)
+    expect(topbarHeight).toBeLessThan(72)
 
     await back.click()
     await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible()
     await expect(page.locator('.mobile-tabs')).toBeVisible()
+  })
+
+  test('un seul onglet mobile est actif à la fois', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await createVault(page)
+
+    const tabs = page.locator('.mobile-tabs')
+    const active = tabs.locator('.mobile-tabs__item.is-active')
+    await expect(active).toHaveCount(1)
+    await expect(active).toContainText('Accueil')
+
+    await tabs.getByRole('button', { name: 'Tout', exact: true }).click()
+    await expect(active).toHaveCount(1)
+    await expect(active).toContainText('Tout')
+
+    await tabs.getByRole('button', { name: 'Sécurité', exact: true }).click()
+    await expect(active).toHaveCount(1)
+    await expect(active).toContainText('Sécurité')
+    await closeDialog(page)
+
+    await tabs.getByRole('button', { name: 'Réglages', exact: true }).click()
+    await expect(active).toHaveCount(1)
+    await expect(active).toContainText('Réglages')
   })
 
   test('le menu du détail regroupe les actions secondaires', async ({ page }) => {
