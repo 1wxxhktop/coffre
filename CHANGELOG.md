@@ -173,7 +173,8 @@
   signés. Identité persistée dans le fichier, ré-enveloppée au changement de
   mot de passe et créable depuis les réglages avec export public ; paquets de
   partage signés par membre, validation des identités/paquets importés et
-  interface de génération/import dans les réglages. Les coffres partagés en
+  interface de génération/import dans les réglages. L’échange de contenu entre
+  fichiers reste à implémenter. Les coffres partagés en
   lecture seule bloquent les mutations dans l’application ; la limite face à un
   client modifié est documentée. Révocation d’un membre par rotation de la clé
   du coffre, re-enveloppe des clés d’éléments et nouveau paquet pour les

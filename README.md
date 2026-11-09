@@ -186,7 +186,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
 - **Partage de coffres (préparation L10)** : identité depuis les réglages,
   paquets signés avec la clé du coffre enveloppée pour chaque membre, import
-  d’un coffre partagé. Les rôles sont vérifiés et les mutations sont bloquées
+  d’un coffre partagé ; l’échange de contenu entre fichiers n’est pas encore
+  implémenté. Les rôles sont vérifiés et les mutations sont bloquées
   en lecture seule dans l’application ; un client modifié resterait toutefois
   capable d’écrire avec la clé partagée. La révocation d’un membre tourne la
   clé du coffre, re-enveloppe les clés d’éléments et génère un nouveau paquet

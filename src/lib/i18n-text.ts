@@ -627,8 +627,8 @@ export const EN_TEXT: Record<string, string> = {
   'Importer le coffre': 'Import vault',
   'Coffre partagé importé': 'Shared vault imported',
   'Import du coffre impossible': 'Could not import the vault',
-  'Les éléments seront ajoutés par la synchronisation du coffre.':
-    'Items will be added by vault synchronization.',
+  'L’import ajoute la clé du coffre ; l’échange de contenu entre fichiers n’est pas encore implémenté.':
+    'The import adds the vault key; content exchange between files is not yet implemented.',
   'Lecture seule': 'Read-only',
   'Membres du coffre': 'Vault members',
   'Aucun membre enregistré.': 'No members saved.',
