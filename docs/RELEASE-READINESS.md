@@ -88,6 +88,11 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   « Passkey disponible » et « Site sans HTTPS », méthodes de 2FA et
   documentation dans la fiche. Aucune requête réseau, aucun ajout au bundle de
   l’extension.
+- **Historique du générateur** : 50 entrées chiffrées avec AAD dédiée,
+  rétention configurable, purge à l’ouverture, consommation automatique lors
+  de l’enregistrement, fusion par horloges. Aucun mot de passe en clair dans le
+  fichier ; le sidecar est couvert par le manifeste 2 du MAC global, avec
+  lecture des fichiers signés en manifeste 1 et vecteur croisé TypeScript/Rust.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, verrouillage avec la session et à la mise en veille,
   effacement du presse-papiers au verrouillage.
@@ -103,8 +108,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 561 tests unitaires (74 fichiers), 146 exécutions Playwright
-  (73 parcours sur Chromium et WebKit), 34 tests Rust desktop (1 ignoré) +
+- **Tests** : 561 tests unitaires (74 fichiers), 150 exécutions Playwright
+  (75 parcours sur Chromium et WebKit), 34 tests Rust desktop (1 ignoré) +
   22 tests `coffre-core` + 3 tests FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,

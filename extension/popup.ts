@@ -728,6 +728,11 @@ async function copyGeneratedPassword(): Promise<void> {
   try {
     await navigator.clipboard.writeText(generatedValue)
     showMessage(t('popup_copied'), 'success')
+    void send({
+      type: 'RECORD_GENERATED_PASSWORD',
+      host: currentTab?.url ? hostFromUrl(currentTab.url) : '',
+      password: generatedValue,
+    }).catch(() => undefined)
   } catch {
     showMessage(t('error_generic'), 'error')
   }

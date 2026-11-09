@@ -195,6 +195,11 @@ export interface CoffreExtensionBridge {
   assessHost?: (query: PhishingQuery) => Promise<PhishingAssessment | null>
   /** Journalise le choix de l’utilisateur, sans URL complète. */
   recordPhishingChoice?: (input: ExtensionPhishingChoice) => Promise<void>
+  /** Ajoute un mot de passe généré à l’historique chiffré du coffre. */
+  recordGeneratedPassword?: (input: {
+    password: string
+    host?: string
+  }) => Promise<void>
   fillItem?: (
     itemId: string,
     options?: { host?: string; includeSensitive?: boolean; allowMismatch?: boolean },

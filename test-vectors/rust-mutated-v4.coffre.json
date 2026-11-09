@@ -51,15 +51,15 @@
       }
     },
     {
-      "id": "i_f1934fc5b968d1196fac1681f711a4fb",
+      "id": "i_cb4adc1675f2cd2c76ce2b1a4af707ec",
       "vaultId": "v_rust_vector",
       "key": {
-        "n": "qjHkvS/16lVzZ2D3",
-        "c": "JSycY0okZun7OeE8ek+fymGfTuOvAgt+pBIDYY7oQR5ey7NFQiojvyNsdlofzq07"
+        "n": "lscJmvV0UEKX1LHL",
+        "c": "UMevbErxP6yZMM/sIfLH4yBDKSxCUEkbCACRxgXZ/NFEh+j9fke7UEi3Yta57Lof"
       },
       "content": {
-        "n": "YqqFmmenRRcvIFNK",
-        "c": "RLdDRU1imvV4GlGsskkXuBPJoQ/hqny9PUcz+lJUoAZ+jMuJeq4Gb77JNRFm2ElfaKLr6ZTeTZqISl90CEkUVXD5qnLLzK364kxUWODVJcjlm/4HvHxcE9sALKXyBB0Q+Uj53lyrELS3m9JI9Axchipxh/FBBpg1f/O8BOXDwyJuYQ6nosFhLmmdGcirlM+zB5XK3GHRvPhvW+Ppqva0oYUb3EyhaqsadRJ7J394Zi9DUP2PBN9KIiHjC/Oji9WpaT7nW21FoA25OQhLiRlO08YD5CHXrllaAWRXC+ql5ELSksEVotwhgUpiRyCtoX6tZmNh/F1T62QU6pSrW4PAiPxGNj/qjLQvfXyOlyX5TY7El84="
+        "n": "SZM2mL4hyKCOwRmq",
+        "c": "IIypyjAR608ZxgMXwMJeDDQ2HnZ/eqFMQBTBskw585OunJfWaj+HRGpZuB5SlATF2kV0WgQXxuJGE1qD5jkB15lEN0Hp8/DxN3vBrixAVXIFxQGNUcV7m4nrEgj78gS3ZI3McUrx4MEsr3Zk+zalCRLLygUrl/OZtAgAdLh2Q5cCwr/zMu5DoGL9cdLILprmu5yBrUir9/sZ0MTQ2xhDIZ15yabBO86lgH9E80BxOo9zfrRzAkZeXsrfC9YX4ej0E0xhH/LcHYUpx/tVXbtQUC1g9RXNfrwf0mh1XH8LjDSTUHFqUv6TTgEsvMnmrssVrVw02psxyDI2e+9eZSWSoqtn2plPtzEcjXdqAwjDzKgqKvY="
       },
       "createdAt": "2026-11-08T21:20:00.000Z",
       "updatedAt": "2026-11-08T21:20:00.000Z",
@@ -98,10 +98,10 @@
   "keyEpoch": 1,
   "tombstones": [],
   "integrity": {
-    "mac": "tFqLfT7UODKmjKQzdWW7qNs6YCPIeJQJP/JA+Qx69rc=",
+    "mac": "ohShikncsw5+OL6CaV/LQaxXAkD4JMLsgGquuZKiSpA=",
     "key": {
-      "n": "7pIRR0rhP43tZagw",
-      "c": "/+1yPtMEIkH3D8x1UJScMaRhfZjS4GDM8VEPgJw73u1lAy676Rs/SQlrADevePsW"
+      "n": "9OWa++jV4fhfN4td",
+      "c": "WxBAPyHszkm1K+8NpSij/p+/IqREKdFgD8MSnJob3gtF2VjtmGky7/hW4LvsIID/"
     }
   }
 }
