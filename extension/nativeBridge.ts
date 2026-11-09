@@ -441,6 +441,24 @@ export async function nativeRecordPhishingChoice(input: {
   }
 }
 
+export async function nativeRecordGeneratedPassword(input: {
+  password: string
+  host?: string
+}): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    const response = await encryptedRequest({
+      type: 'record-generated-password',
+      password: input.password,
+      host: input.host ?? '',
+    })
+    if (typeof response.error === 'string') return { error: response.error }
+    return { ok: response.ok === true }
+  } catch (error) {
+    resetConnection()
+    return { error: error instanceof Error ? error.message : 'native-unavailable' }
+  }
+}
+
 export async function nativeSaveCard(input: {
   title?: string
   cardholder: string

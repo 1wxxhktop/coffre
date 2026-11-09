@@ -18,6 +18,10 @@
   attestation créée par chaque implémentation. Il est relu par
   `src/lib/passkeyVectors.test.ts` et
   `src-tauri/crates/coffre-core/tests/passkey.rs`.
+- `manifest-v2-sidecars.file.json` et `manifest-v2-sidecars.manifest.json`
+  forment un vecteur croisé du manifeste 2 : les sidecars sont sérialisés par
+  TypeScript puis relus par Rust, qui doit produire exactement le même JSON
+  canonique. Le fichier n’est pas déchiffrable (valeurs scellées fictives).
 
 Pour régénérer le vecteur Rust :
 
@@ -26,6 +30,7 @@ cargo run --manifest-path src-tauri/Cargo.toml -p coffre-core \
   --example generate_vector > test-vectors/rust-v4.coffre.json
 cargo run --manifest-path src-tauri/Cargo.toml -p coffre-core \
   --example generate_mutation > test-vectors/rust-mutated-v4.coffre.json
+bun test-vectors/generate-sidecars-vector.ts
 ```
 
 Pour régénérer les signatures Rust de `passkeys.json`, partez du JSON contenant

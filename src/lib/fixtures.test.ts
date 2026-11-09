@@ -134,6 +134,25 @@ describe('compatibilité des fichiers figés', () => {
     tampered.session.lock()
   })
 
+  it('lit un fichier v4 avec historique du générateur', async () => {
+    const raw = loadFixture('v4-generator.coffre.json')
+    const parsed = parseVaultFile(raw)
+    expect(parsed.version).toBe(4)
+    expect(parsed.generatorHistory).toHaveLength(1)
+    expect(JSON.stringify(parsed)).not.toContain('généré-pour-le-test-42!')
+
+    const opened = await unlockVaultFile(parsed, PASSWORD)
+    expect(opened.generatorHistory).toHaveLength(1)
+    expect(opened.generatorHistory[0]).toMatchObject({
+      password: 'généré-pour-le-test-42!',
+      domain: 'github.com',
+      state: 'available',
+    })
+    const report = await verifyVaultFile(parsed, opened.session)
+    expect(report.signedRecords).toBeGreaterThan(0)
+    opened.session.lock()
+  })
+
   it('refuse un fichier figé altéré', async () => {
     const parsed = parseVaultFile(loadFixture('v2.coffre.json'))
     const tampered = {

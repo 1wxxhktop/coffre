@@ -19,6 +19,7 @@
 
 import type {
   EncryptedActivityRecord,
+  EncryptedGeneratorRecord,
   EncryptedAttachmentRecord,
   EncryptedItemRecord,
   EncryptedTemplateRecord,
@@ -136,6 +137,10 @@ function vaultFingerprint(record: EncryptedVaultRecord): string {
     record.name.c,
     record.updatedAt,
   ].join(':')
+}
+
+function generatorFingerprint(record: EncryptedGeneratorRecord): string {
+  return `${record.data.n}:${record.data.c}`
 }
 
 function activityFingerprint(record: EncryptedActivityRecord): string {
@@ -436,6 +441,23 @@ export function mergeVaultFiles(
   )
   activity.splice(5_000)
 
+  const generatorRecords = new Map<string, EncryptedGeneratorRecord[]>()
+  for (const file of files) {
+    for (const entry of file.generatorHistory ?? []) {
+      const list = generatorRecords.get(entry.id) ?? []
+      list.push(entry)
+      generatorRecords.set(entry.id, list)
+    }
+  }
+  const generatorHistory: EncryptedGeneratorRecord[] = []
+  for (const records of generatorRecords.values()) {
+    generatorHistory.push(chooseRecord(records, generatorFingerprint).selected)
+  }
+  generatorHistory.sort(
+    (a, b) => compareText(b.createdAt, a.createdAt) || compareText(a.id, b.id),
+  )
+  generatorHistory.splice(50)
+
   const vaults: EncryptedVaultRecord[] = []
   for (const records of vaultRecords.values()) {
     const { selected, conflict } = chooseRecord(records, vaultFingerprint)
@@ -624,6 +646,7 @@ export function mergeVaultFiles(
     versions,
     templates,
     activity,
+    ...(generatorHistory.length > 0 ? { generatorHistory } : {}),
     ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
     tombstones,
     writer,

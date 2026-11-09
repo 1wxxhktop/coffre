@@ -123,6 +123,14 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   à la corbeille en une seule opération.
 - **Générateur** de mots de passe et de phrases de passe (liste EFF de
   7 776 mots), avec réglages et estimation d’entropie.
+- **Historique chiffré du générateur** : les 50 derniers secrets générés
+  (application, extension, assistant de changement) restent dans le contenu
+  chiffré du coffre, avec leur date et leur domaine. Rétention de 1, 7 ou
+  30 jours, ou désactivée (défaut : 7 jours) ; purge à l’ouverture ; entrée
+  retirée dès qu’elle est enregistrée dans un élément. L’écran « Historique »
+  du générateur permet de copier, créer une connexion, supprimer ou tout
+  effacer. Aucun mot de passe n’est écrit en clair ni envoyé sur le réseau.
+  [Capture de l’écran](docs/screenshots/generator-history.png).
 - **TOTP** (RFC 6238) : import d’une URI `otpauth://`, codes SHA-1/256/512,
   compte à rebours.
 - **Copie temporaire** : effacement du presse-papiers après un délai et au
@@ -187,9 +195,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   version, pièce jointe et enveloppe de récupération pour détecter une
   altération locale.
 - **MAC global et anti-retour en arrière (format 4)** : un HMAC-SHA-256 couvre
-  chaque enregistrement et les pierres tombales ; un fichier altéré s’ouvre en
-  lecture seule et une révision plus ancienne que celle déjà vue déclenche un
-  avertissement.
+  chaque enregistrement, les sidecars (activité, modèles, alias, partage,
+  urgence, historique du générateur) et les pierres tombales ; un fichier
+  altéré s’ouvre en lecture seule et une révision plus ancienne que celle déjà
+  vue déclenche un avertissement. Les fichiers signés avec l’ancien manifeste
+  restent lisibles.
 - **Tableau de bord Sécurité** : score et répartition des mots de passe,
   faiblesses, réutilisations, variantes proches, ancienneté, absence de 2FA,
   connexions incomplètes et sites en doublon, avec accès direct aux éléments à
