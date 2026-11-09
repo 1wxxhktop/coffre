@@ -57,6 +57,9 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : réglages intégrés au popup (thème, adresse de l’application,
+  test de connexion) et activation du remplissage compatible WebKit/Orion
+  (repli d’injection et vérification du content script).
 - Extension : thème clair/sombre (système, clair, sombre), détails de connexion
   avec copie individuelle de l’identifiant, du mot de passe et du code TOTP,
   et correction des débordements du popup et du menu inline.

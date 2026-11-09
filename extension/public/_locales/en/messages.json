@@ -331,5 +331,65 @@
   },
   "theme_dark": {
     "message": "Theme: dark"
+  },
+  "settings_title": {
+    "message": "Settings"
+  },
+  "settings_back": {
+    "message": "Back"
+  },
+  "settings_appearance": {
+    "message": "Appearance"
+  },
+  "settings_appAddress": {
+    "message": "App address"
+  },
+  "settings_save": {
+    "message": "Save"
+  },
+  "settings_test": {
+    "message": "Test"
+  },
+  "settings_invalid": {
+    "message": "Enter a valid http:// or https:// address."
+  },
+  "settings_permission": {
+    "message": "Permission denied for this address."
+  },
+  "settings_saved": {
+    "message": "Address saved."
+  },
+  "settings_saveError": {
+    "message": "Could not save the address."
+  },
+  "settings_status_native": {
+    "message": "Coffre desktop unlocked. Native bridge ready."
+  },
+  "settings_status_locked": {
+    "message": "Coffre is locked."
+  },
+  "settings_status_pair": {
+    "message": "Open the popup to pair the extension."
+  },
+  "settings_status_closed": {
+    "message": "Coffre is not open."
+  },
+  "settings_status_ready": {
+    "message": "Coffre is open and unlocked."
+  },
+  "settings_note": {
+    "message": "Local · no server · no telemetry."
+  },
+  "theme_choice_dark": {
+    "message": "Dark"
+  },
+  "theme_choice_light": {
+    "message": "Light"
+  },
+  "theme_choice_system": {
+    "message": "System"
+  },
+  "settings_savedNoPermission": {
+    "message": "Address saved. Allow access to this site if needed."
   }
 }

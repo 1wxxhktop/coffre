@@ -710,7 +710,8 @@ Le popup inclut une **barre de recherche** permanente, un **générateur de mot
 de passe local** avec copie en un clic et un **thème système/clair/sombre**.
 Un clic sur une connexion déploie ses détails (identifiant, mot de passe masqué,
 code TOTP) avec copie champ par champ, y compris lorsque le remplissage
-automatique échoue.
+automatique échoue. Les réglages (thème, adresse de Coffre, test de connexion)
+s’ouvrent directement dans le popup, sans nouvel onglet.
 
 ```bash
 bun run extension:build

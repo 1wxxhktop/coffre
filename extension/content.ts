@@ -338,6 +338,10 @@ api.runtime.onMessage.addListener(
     _sender,
     sendResponse,
   ) => {
+    if (message?.type === 'COFFRE_PING') {
+      sendResponse({ ok: true })
+      return
+    }
     if (message?.type !== 'COFFRE_FILL_ITEM') return
     const pageHost = hostFromUrl(location.href)
     const expected = hostFromUrl(message.host ?? '') || message.host || ''
