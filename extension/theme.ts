@@ -11,6 +11,9 @@ const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? ch
 export type ThemePreference = 'system' | 'light' | 'dark'
 
 const THEME_KEY = 'theme'
+// L’application Coffre est sombre par défaut : l’extension conserve ce rendu
+// tant que l’utilisateur n’a pas explicitement choisi clair ou système.
+const DEFAULT_THEME: ThemePreference = 'dark'
 
 function isPreference(value: unknown): value is ThemePreference {
   return value === 'system' || value === 'light' || value === 'dark'
@@ -23,12 +26,12 @@ export function applyTheme(preference: ThemePreference): void {
 }
 
 export async function loadTheme(): Promise<ThemePreference> {
-  let preference: ThemePreference = 'system'
+  let preference: ThemePreference = DEFAULT_THEME
   try {
     const stored = await api.storage.local.get(THEME_KEY)
     if (isPreference(stored[THEME_KEY])) preference = stored[THEME_KEY]
   } catch {
-    // Stockage indisponible : suivre le système.
+    // Stockage indisponible : garder le thème sombre de l’application.
   }
   applyTheme(preference)
   return preference
@@ -44,7 +47,7 @@ export async function saveTheme(preference: ThemePreference): Promise<void> {
 }
 
 export function nextTheme(preference: ThemePreference): ThemePreference {
-  if (preference === 'system') return 'light'
-  if (preference === 'light') return 'dark'
-  return 'system'
+  if (preference === 'dark') return 'light'
+  if (preference === 'light') return 'system'
+  return 'dark'
 }
