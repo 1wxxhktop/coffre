@@ -104,7 +104,10 @@ import {
   type ShareMember,
   type SharingIdentity,
 } from '../lib/sharing'
-import { createEmergencyRecord } from '../lib/emergencyVault'
+import {
+  createEmergencyRecord,
+  createShamirEmergencyRecord,
+} from '../lib/emergencyVault'
 import {
   createSharedVaultPackage,
   openSharedVaultPackage,
@@ -225,6 +228,11 @@ interface VaultContextValue extends ProviderState {
   getEmergencyAccess: () => EmergencyAccessRecord | null
   /** Crée ou remplace l’enveloppe d’accès d’urgence. */
   createEmergencyAccess: (contactText: string) => Promise<void>
+  /** Crée un accès d’urgence Shamir pour plusieurs contacts. */
+  createShamirEmergencyAccess: (
+    contactTexts: string[],
+    threshold?: number,
+  ) => Promise<void>
   /** Supprime l’enveloppe d’accès d’urgence. */
   removeEmergencyAccess: () => Promise<void>
   /** Supprime puis réenregistre la clé biométrique du coffre courant. */
@@ -1258,6 +1266,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const emergency = await createEmergencyRecord(
           current.session.masterKey,
           contact,
+        )
+        const file = await persist(current.file, { ...current.file, emergency })
+        apply((previous) => ({ ...previous, file }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const createShamirEmergencyAccess = useCallback(
+    (contactTexts: string[], threshold = 2) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) throw new Error('Le coffre est en lecture seule.')
+        const contacts = []
+        for (const text of contactTexts) {
+          if (text.trim()) contacts.push(await parsePublicSharingIdentity(text))
+        }
+        const emergency = await createShamirEmergencyRecord(
+          current.session.masterKey,
+          contacts,
+          threshold,
         )
         const file = await persist(current.file, { ...current.file, emergency })
         apply((previous) => ({ ...previous, file }))
@@ -2944,6 +2973,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     revokeSharingMember,
     getEmergencyAccess,
     createEmergencyAccess,
+    createShamirEmergencyAccess,
     removeEmergencyAccess,
     resetBiometricKey,
     lock,

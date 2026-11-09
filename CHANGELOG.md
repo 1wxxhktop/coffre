@@ -178,7 +178,8 @@
   client modifié est documentée. Révocation d’un membre par rotation de la clé
   du coffre, re-enveloppe des clés d’éléments et nouveau paquet pour les
   membres restants. Accès d’urgence : enveloppe HPKE de la clé maîtresse pour
-  un contact, ré-enveloppée lors des rotations ; délai et Shamir 2/3 à venir.
+  un contact ou en parts Shamir 2/3, ré-enveloppée lors des rotations ; aucun
+  délai imposé sans serveur.
 - Chaîne d’approvisionnement : toolchain Rust épinglée, builds Web/extension
   comparés deux fois avec `SOURCE_DATE_EPOCH=0`, SBOM CycloneDX Rust et web
   générés en CI et joints aux releases macOS. `cargo deny` contrôle licences,

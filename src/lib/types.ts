@@ -388,13 +388,32 @@ export interface RecoveryEnvelope {
   templateWraps?: Array<{ templateId: string; key: Sealed }>
 }
 
-/** Enveloppe d’accès d’urgence pour un contact. */
-export interface EmergencyAccessRecord {
+/** Part d’accès d’urgence enveloppée pour un contact. */
+export interface EmergencyShare {
+  contact: PublicSharingIdentity
+  sealed: SealedShareKey
+}
+
+/** Accès d’urgence immédiat pour un contact unique. */
+export interface EmergencyImmediateRecord {
   version: 1
+  mode: 'immediate'
   contact: PublicSharingIdentity
   sealed: SealedShareKey
   createdAt: string
 }
+
+/** Accès d’urgence Shamir : chaque part est enveloppée pour un contact. */
+export interface EmergencyShamirRecord {
+  version: 1
+  mode: 'shamir'
+  threshold: number
+  total: number
+  shares: EmergencyShare[]
+  createdAt: string
+}
+
+export type EmergencyAccessRecord = EmergencyImmediateRecord | EmergencyShamirRecord
 
 /** Membre associé à un coffre partagé, sans clé privée. */
 export interface VaultSharingMember {
