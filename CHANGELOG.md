@@ -14,6 +14,20 @@
   sauvegarde a échoué ou si elle date de plus de deux périodes. Le mode voyage
   suspend les écritures ; sur le Web, un rappel d’export manuel remplace la
   copie en arrière-plan. Aucune requête réseau.
+- Cœur natif pour extensions (S2) : ouverture par clé maîtresse sans Argon2id,
+  recherche de connexions par service avec la même règle de domaines que
+  `loginAllowsHost` (suffixes publics, IDN, ports, HTTP/HTTPS, IP, localhost),
+  révélation du seul élément demandé avec mot de passe et code TOTP, identités
+  AutoFill sans secret, et assertions/créations de passkeys ES256 en Rust.
+  Vecteurs croisés TypeScript ↔ Rust pour les domaines et les signatures de
+  passkeys ; script local de génération de `CoffreCore.xcframework`.
+- Intégration au système (S1) : verrouillage avec la session et à la mise en
+  veille sur macOS, Windows et Linux, icône de barre de menus (ouvrir, recherche
+  rapide, générateur, verrouiller) sans contenu du coffre, démarrage optionnel à
+  l’ouverture de session dans un état verrouillé et masqué, et déverrouillage
+  Windows Hello en plus de Touch ID. Le verrouillage système emprunte le même
+  chemin que le verrouillage manuel et laisse les écritures déjà en file se
+  terminer avant l’effacement des clés.
 - Modèles intégrés pour tous les types d’éléments (connexion, note, carte,
   identité, passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle,
   document), avec la liste complète de leurs champs, création directe depuis

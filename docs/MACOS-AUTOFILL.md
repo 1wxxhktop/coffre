@@ -52,7 +52,7 @@ l’AutoFill.
 │             └───────────┬───────────────────┘               │
 │                         ▼                                   │
 │         App Group « group.app.coffre.desktop »              │
-│         ├── vault.coffre (format v3, chiffré)               │
+│         ├── vault.coffre (format v4, chiffré)               │
 │         └── vault-key (trousseau partagé, Touch ID)         │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -72,7 +72,8 @@ partagé entre l’application et l’extension native :
 - signer l’application et l’extension avec la même équipe Developer ID ;
 - ajouter l’entitlement App Group aux deux cibles ;
 - écrire `vault.coffre` et ses sauvegardes dans le conteneur partagé ;
-- conserver le même format `.coffre` v3 et les mêmes AAD ;
+- conserver le même format `.coffre` v4 (MAC global, révisions) et les mêmes
+  AAD ;
 - migrer une dernière fois un éventuel fichier de `Application Support` vers
   l’App Group.
 
@@ -125,8 +126,13 @@ Trois options :
    canal partagé. macOS ne garantit pas que l’app soit lancée ; ce n’est pas
    fiable pour AutoFill.
 
-Recommandation : option 1, avec un crate `coffre-core` sans dépendance Tauri,
-exposant au minimum `unlock`, `list_items`, `open_item` et `wipe`.
+Recommandation appliquée en S2 : le crate `coffre-core` sans dépendance Tauri
+expose désormais `core_open_vault_with_key` (clé maîtresse déjà libérée),
+`core_logins_for_service` (métadonnées seulement), `core_reveal_login` (mot de
+passe et code TOTP du seul élément demandé), `core_credential_identities`,
+`core_passkey_assert` et `core_passkey_create`. Les bindings Swift sont générés
+par `scripts/build-coffre-core-apple.sh`, qui produit localement
+`CoffreCore.xcframework` (Xcode requis, hors CI).
 
 ### 3.4 Clé biométrique partagée
 
@@ -294,7 +300,7 @@ Après chaque opération qui change les éléments :
 
 1. **Export CSV compatible Mots de passe** — court terme, sans Xcode.
 2. **App Group** : déplacer le fichier natif déjà en place dans le conteneur
-   partagé, avec le même format v3 et les mêmes sauvegardes.
+   partagé, avec le même format v4 et les mêmes sauvegardes.
 3. **Crate `coffre-core`** partagé, avec FFI C/UniFFI et tests de vecteurs
    communs.
 4. **Squelette de l’extension** : `ASCredentialProviderViewController`,

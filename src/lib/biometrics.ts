@@ -1,5 +1,6 @@
 /**
- * Déverrouillage biométrique (Touch ID) via les commandes Tauri.
+ * Déverrouillage biométrique (Touch ID sur macOS, Windows Hello sur Windows)
+ * via les commandes Tauri.
  *
  * Sur les autres plateformes et dans le navigateur, toutes les fonctions
  * signalent l’absence de biométrie. La clé biométrique est rangée dans un
@@ -15,13 +16,23 @@ interface BiometricLoad {
   secret: string | null
 }
 
-/** Vrai uniquement dans l’application desktop macOS. */
+/** Vrai uniquement dans l’application desktop macOS ou Windows. */
 export function biometricSupported(): boolean {
   if (typeof window === 'undefined') return false
-  return '__TAURI_INTERNALS__' in window && navigator.userAgent.includes('Mac')
+  if (!('__TAURI_INTERNALS__' in window)) return false
+  const agent = navigator.userAgent
+  return agent.includes('Mac') || agent.includes('Windows')
 }
 
-/** Interroge le matériel ; false si Touch ID n’est pas configuré. */
+/** Nom du fournisseur biométrique de la plateforme. */
+export function biometricName(): string {
+  if (typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows')) {
+    return 'Windows Hello'
+  }
+  return 'Touch ID'
+}
+
+/** Interroge le matériel ; false si la biométrie n’est pas configurée. */
 export async function biometricAvailable(): Promise<boolean> {
   if (!biometricSupported()) return false
   try {
@@ -33,12 +44,13 @@ export async function biometricAvailable(): Promise<boolean> {
 
 /**
  * Authentifie puis relit la clé biométrique d’un coffre. Le texte du dialogue
- * Touch ID est fixé côté natif.
+ * est fixé côté natif.
  *
- * Touch ID est une barrière applicative : la clé est rangée dans le trousseau
- * de session, sans contrôle d’accès biométrique au niveau du système. Un
- * programme qui obtient l’accès au trousseau (avec le mot de passe de session)
- * peut la lire sans empreinte. Voir docs/SECURITY.md.
+ * Touch ID et Windows Hello restent une barrière applicative côté desktop :
+ * la clé est rangée dans le trousseau du système, sans contrôle d’accès
+ * biométrique au niveau du trousseau. Un programme qui obtient l’accès au
+ * trousseau (avec le mot de passe de session) peut la lire sans empreinte.
+ * Voir docs/SECURITY.md.
  */
 export async function loadBiometricKey(account: string): Promise<BiometricLoad> {
   if (!account || !biometricSupported()) {
@@ -61,9 +73,9 @@ export async function storeBiometricKey(
   }
 }
 
-/** Demande une confirmation Touch ID sans lire de secret. */
+/** Demande une confirmation biométrique sans lire de secret. */
 export async function confirmBiometric(
-  reason = 'Confirmer avec Touch ID',
+  reason = 'Confirmer avec la biométrie',
 ): Promise<boolean> {
   if (!biometricSupported()) return false
   try {
@@ -75,8 +87,8 @@ export async function confirmBiometric(
 
 /**
  * Confirmation d’une action sensible. Sur le Web, l’action explicite de
- * l’utilisateur suffit ; sur macOS avec Touch ID configuré, une authentification
- * est exigée avant de livrer un CVC ou un PIN.
+ * l’utilisateur suffit ; sur desktop avec biométrie configurée, une
+ * authentification est exigée avant de livrer un CVC ou un PIN.
  */
 export async function confirmSensitiveFill(reason: string): Promise<boolean> {
   if (!biometricSupported()) return true
