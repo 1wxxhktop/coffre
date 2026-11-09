@@ -76,6 +76,10 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   L’échange manuel `.coffre-shared.json` reste disponible.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
+- **Historique du générateur** : 50 entrées chiffrées avec AAD dédiée,
+  rétention configurable, purge à l’ouverture, consommation automatique lors
+  de l’enregistrement, fusion par horloges. Aucun mot de passe en clair dans le
+  fichier ; le sidecar n’est pas encore couvert par le MAC global (documenté).
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, effacement du presse-papiers au verrouillage.
 - **Récupération** : phrase EFF de 10 mots, enveloppe séparée, vérification de
