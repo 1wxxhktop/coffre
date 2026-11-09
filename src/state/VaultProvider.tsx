@@ -118,8 +118,25 @@ import {
   createSharedVaultBundle,
   importSharedVaultBundle,
   parseSharedVaultBundle,
+  signSharedVaultBundle,
   type SharedVaultBundle,
 } from '../lib/sharedVaultBundle'
+import {
+  syncSharedVault as syncSharedVaultContent,
+  type SharedSyncReport,
+} from '../lib/sharedSync'
+import {
+  configureDesktopSharedSync,
+  configureWebSharedSync,
+  disableSharedSync as disableSharedSyncConfig,
+  openSharedSyncIO,
+} from '../lib/sharedSyncStorage'
+import {
+  getSharedSyncConfig,
+  listSharedSyncConfigs,
+  saveSharedSyncConfig,
+  type SharedSyncConfig,
+} from '../lib/sharedSyncConfig'
 import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
 import { isTauriRuntime } from '../lib/external'
 import {
@@ -229,7 +246,21 @@ interface VaultContextValue extends ProviderState {
   getVaultSharing: (vaultId: string) => Promise<{
     members: import('../lib/types').VaultSharingMember[]
     adminFingerprint?: string
+    package?: SharedVaultPackage
   }>
+  /** Configure la synchronisation par dossier d’un coffre partagé. */
+  configureSharedFolder: (vaultId: string, dir: string) => Promise<void>
+  /** Configure la synchronisation Web via un dossier choisi. */
+  configureWebSharedFolder: (
+    vaultId: string,
+    handle: FileSystemDirectoryHandle,
+  ) => Promise<void>
+  /** Désactive la synchronisation d’un coffre partagé. */
+  disableSharedSync: (vaultId: string) => Promise<void>
+  /** Synchronise un coffre partagé avec son dossier. */
+  syncSharedVault: (vaultId: string) => Promise<SharedSyncReport>
+  /** État local de synchronisation d’un coffre partagé. */
+  getSharedSyncStatus: (vaultId: string) => SharedSyncConfig | null
   /** Révoque un membre et renvoie le nouveau paquet pour les restants. */
   revokeSharingMember: (
     vaultId: string,
@@ -1105,6 +1136,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
         const vaultKey = current.session.vaultKey(vaultId)
         if (!vaultKey) throw new Error('Coffre introuvable')
+        const sharing = await readVaultSharing(file, current.session, vaultId)
+        if (
+          sharing.adminFingerprint &&
+          sharing.adminFingerprint !== identity.fingerprint
+        ) {
+          throw new Error(
+            'Seul l’administrateur peut modifier le partage de ce coffre.',
+          )
+        }
         const members: ShareMember[] = [
           { identity: publicSharingIdentity(identity), role: 'write' },
         ]
@@ -1136,6 +1176,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             role: member.role,
           })),
           identity.fingerprint,
+          pkg,
         )
         const signed = await persist(file, withMembers)
         apply((previous) => ({ ...previous, file: signed }))
@@ -1257,6 +1298,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
         const vaultKey = current.session.vaultKey(vaultId)
         if (!vaultKey) throw new Error('Coffre introuvable')
+        const sharing = await readVaultSharing(file, current.session, vaultId)
+        if (
+          sharing.adminFingerprint &&
+          sharing.adminFingerprint !== identity.fingerprint
+        ) {
+          throw new Error(
+            'Seul l’administrateur peut modifier le partage de ce coffre.',
+          )
+        }
         const members: ShareMember[] = [
           { identity: publicSharingIdentity(identity), role: 'write' },
         ]
@@ -1275,7 +1325,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           admin: identity,
           members,
         })
-        const bundle = createSharedVaultBundle(file, vaultId, pkg)
+        const bundle = await signSharedVaultBundle(
+          createSharedVaultBundle(file, vaultId, pkg),
+          identity,
+        )
         const withMembers = await setVaultSharingMembers(
           file,
           current.session,
@@ -1287,6 +1340,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             role: member.role,
           })),
           identity.fingerprint,
+          pkg,
         )
         const signed = await persist(file, withMembers)
         apply((previous) => ({ ...previous, file: signed }))
@@ -1340,13 +1394,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           vaultId,
           randomBytes(32),
         )
-        file = await setVaultSharingMembers(
-          rotated,
-          current.session,
-          vaultId,
-          remaining,
-          identity.fingerprint,
-        )
         const pkg = await createSharedVaultPackage({
           vaultId,
           vaultKey: current.session.vaultKey(vaultId),
@@ -1360,6 +1407,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             role: member.role,
           })),
         })
+        file = await setVaultSharingMembers(
+          rotated,
+          current.session,
+          vaultId,
+          remaining,
+          identity.fingerprint,
+          pkg,
+        )
         const signed = await persist(current.file, file)
         apply((previous) => ({ ...previous, file: signed }))
         return pkg
@@ -1483,6 +1538,194 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [apply])
 
   const lock = useCallback(() => lockWith(true), [lockWith])
+
+  const configureSharedFolder = useCallback(
+    (vaultId: string, dir: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file) throw new Error('Coffre verrouillé')
+        if (!current.file.vaults.some((vault) => vault.id === vaultId)) {
+          throw new Error('Coffre introuvable')
+        }
+        configureDesktopSharedSync(current.file.id, vaultId, dir)
+        apply((previous) => ({
+          ...previous,
+          syncRevision: previous.syncRevision + 1,
+        }))
+      }),
+    [apply, enqueue],
+  )
+
+  const configureWebSharedFolder = useCallback(
+    (vaultId: string, handle: FileSystemDirectoryHandle) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file) throw new Error('Coffre verrouillé')
+        if (!current.file.vaults.some((vault) => vault.id === vaultId)) {
+          throw new Error('Coffre introuvable')
+        }
+        await configureWebSharedSync(current.file.id, vaultId, handle)
+        apply((previous) => ({
+          ...previous,
+          syncRevision: previous.syncRevision + 1,
+        }))
+      }),
+    [apply, enqueue],
+  )
+
+  const disableSharedSync = useCallback(
+    (vaultId: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file) throw new Error('Coffre verrouillé')
+        await disableSharedSyncConfig(current.file.id, vaultId)
+        apply((previous) => ({
+          ...previous,
+          syncRevision: previous.syncRevision + 1,
+        }))
+      }),
+    [apply, enqueue],
+  )
+
+  const getSharedSyncStatus = useCallback((vaultId: string) => {
+    const current = stateRef.current
+    if (!current.file) return null
+    return getSharedSyncConfig(current.file.id, vaultId)
+  }, [])
+
+  const sharedSyncBusyRef = useRef(new Set<string>())
+
+  const syncSharedVault = useCallback(
+    (vaultId: string) =>
+      enqueue(async (): Promise<SharedSyncReport> => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) {
+          throw new Error('Le coffre est ouvert en lecture seule.')
+        }
+        const config = getSharedSyncConfig(current.file.id, vaultId)
+        if (!config) throw new Error('Aucun dossier de synchronisation configuré.')
+        if (sharedSyncBusyRef.current.has(vaultId)) {
+          throw new Error('Synchronisation déjà en cours.')
+        }
+        sharedSyncBusyRef.current.add(vaultId)
+        try {
+          const sharing = await readVaultSharing(
+            current.file,
+            current.session,
+            vaultId,
+          )
+          if (!sharing.package) {
+            throw new Error(
+              'Paquet de partage indisponible : demandez un nouveau paquet à l’administrateur.',
+            )
+          }
+          if (!current.file.sharing) {
+            throw new Error('Identité de partage absente.')
+          }
+          const identity = await openSharingIdentity(
+            current.file.sharing,
+            current.session.masterKey,
+            current.file.id,
+          )
+          const io = await openSharedSyncIO(config)
+          const result = await syncSharedVaultContent({
+            file: current.file,
+            session: current.session,
+            identity,
+            vaultId,
+            package: sharing.package,
+            io,
+            lastImports: config.lastImports,
+          })
+          if (result.changed) {
+            const next = await persist(current.file, result.file)
+            let opened
+            try {
+              opened = await openVaultFileWithMasterKey(
+                next,
+                current.session.masterKey,
+              )
+            } catch {
+              current.session.lock()
+              lock()
+              throw new Error(
+                'Le coffre partagé synchronisé n’a pas pu être rouvert. Déverrouillez-le à nouveau.',
+              )
+            }
+            current.session.lock()
+            epochRef.current += 1
+            apply((previous) => ({
+              ...previous,
+              status: 'unlocked',
+              file: opened.file,
+              session: opened.session,
+              vaults: opened.vaults,
+              templates: opened.templates,
+              activity: opened.activity,
+              aliasKeys: opened.aliasKeys,
+              items: opened.items,
+              warnings: opened.warnings,
+              error: null,
+              readOnly: opened.readOnly,
+              syncPending: false,
+              syncRevision: previous.syncRevision + 1,
+            }))
+          } else {
+            apply((previous) => ({
+              ...previous,
+              syncRevision: previous.syncRevision + 1,
+            }))
+          }
+          saveSharedSyncConfig({
+            ...config,
+            lastImports: result.lastImports,
+            lastSyncAt: new Date().toISOString(),
+            lastWarning:
+              result.warnings.length > 0
+                ? result.warnings.slice(0, 3).join(' · ').slice(0, 500)
+                : undefined,
+          })
+          return {
+            imported: result.imported,
+            updated: result.updated,
+            deleted: result.deleted,
+            conflicts: result.conflicts,
+            warnings: result.warnings,
+            written: result.written,
+            changed: result.changed,
+          }
+        } finally {
+          sharedSyncBusyRef.current.delete(vaultId)
+        }
+      }),
+    [apply, enqueue, lock, persist],
+  )
+
+  const sharedSyncFileId =
+    state.status === 'unlocked' ? state.file?.id ?? null : null
+  useEffect(() => {
+    if (!sharedSyncFileId) return
+    const configs = listSharedSyncConfigs(sharedSyncFileId)
+    if (configs.length === 0) return
+    let cancelled = false
+    const syncAll = async () => {
+      for (const config of configs) {
+        if (cancelled) return
+        try {
+          await syncSharedVault(config.vaultId)
+        } catch {
+          // L’erreur est visible à la prochaine synchronisation manuelle.
+        }
+      }
+    }
+    const timer = window.setInterval(() => void syncAll(), 60_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [sharedSyncFileId, state.syncRevision, syncSharedVault])
+
 
   useEffect(() => {
     // Fermeture, rechargement ou mise en cache (bfcache) : la session est
@@ -2793,6 +3036,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const remotes: VaultFile[] = []
         const entries = await io.list()
         for (const entry of entries) {
+          if (!entry.name.endsWith('.coffre')) continue
           if (entry.name === ownName) continue
           try {
             const text = await io.read(entry.name)
@@ -3088,6 +3332,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     importSharingPackage,
     getVaultSharing,
     revokeSharingMember,
+    configureSharedFolder,
+    configureWebSharedFolder,
+    disableSharedSync,
+    syncSharedVault,
+    getSharedSyncStatus,
     getEmergencyAccess,
     createEmergencyAccess,
     createShamirEmergencyAccess,

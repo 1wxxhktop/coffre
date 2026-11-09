@@ -292,15 +292,11 @@ export async function rotateSharedVaultKey(
   }
 }
 
-/** Signe un rôle de membre avec la clé Ed25519 de l’administrateur. */
-export async function signShareRole(
+/** Signe une charge utile arbitraire avec la clé Ed25519 de partage. */
+export async function signSharingPayload(
   identity: SharingIdentity,
-  role: Omit<SignedShareRole, 'signature' | 'issuedBy'>,
-): Promise<SignedShareRole> {
-  const unsigned: Omit<SignedShareRole, 'signature'> = {
-    ...role,
-    issuedBy: identity.fingerprint,
-  }
+  payload: string,
+): Promise<string> {
   const key = await crypto.subtle.importKey(
     'pkcs8',
     buffer(fromBase64(identity.signingPrivateKey)),
@@ -308,14 +304,15 @@ export async function signShareRole(
     false,
     ['sign'],
   )
-  const signature = await crypto.subtle.sign('Ed25519', key, buffer(utf8(canonicalRole(unsigned))))
-  return { ...unsigned, signature: toBase64(new Uint8Array(signature)) }
+  const signature = await crypto.subtle.sign('Ed25519', key, buffer(utf8(payload)))
+  return toBase64(new Uint8Array(signature))
 }
 
-/** Vérifie la signature d’un rôle avec la clé publique de l’administrateur. */
-export async function verifyShareRole(
-  role: SignedShareRole,
+/** Vérifie une signature Ed25519 de partage. */
+export async function verifySharingPayload(
+  signature: string,
   signingPublicKey: string,
+  payload: string,
 ): Promise<boolean> {
   try {
     const key = await crypto.subtle.importKey(
@@ -325,16 +322,39 @@ export async function verifyShareRole(
       false,
       ['verify'],
     )
-    const { signature, ...unsigned } = role
     return await crypto.subtle.verify(
       'Ed25519',
       key,
       buffer(fromBase64(signature)),
-      buffer(utf8(canonicalRole(unsigned))),
+      buffer(utf8(payload)),
     )
   } catch {
     return false
   }
+}
+
+/** Signe un rôle de membre avec la clé Ed25519 de l’administrateur. */
+export async function signShareRole(
+  identity: SharingIdentity,
+  role: Omit<SignedShareRole, 'signature' | 'issuedBy'>,
+): Promise<SignedShareRole> {
+  const unsigned: Omit<SignedShareRole, 'signature'> = {
+    ...role,
+    issuedBy: identity.fingerprint,
+  }
+  return {
+    ...unsigned,
+    signature: await signSharingPayload(identity, canonicalRole(unsigned)),
+  }
+}
+
+/** Vérifie la signature d’un rôle avec la clé publique de l’administrateur. */
+export async function verifyShareRole(
+  role: SignedShareRole,
+  signingPublicKey: string,
+): Promise<boolean> {
+  const { signature, ...unsigned } = role
+  return verifySharingPayload(signature, signingPublicKey, canonicalRole(unsigned))
 }
 
 /** Crée une enveloppe d’accès d’urgence pour un contact. */

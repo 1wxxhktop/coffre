@@ -1,7 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Copy, Fingerprint, LoaderCircle, Package, Users } from 'lucide-react'
+import {
+  Copy,
+  Fingerprint,
+  FolderOpen,
+  LoaderCircle,
+  Package,
+  RefreshCw,
+  Users,
+} from 'lucide-react'
+import { open } from '@tauri-apps/plugin-dialog'
 import { copyToClipboard } from '../lib/clipboard'
-import { downloadFile } from '../lib/settings'
+import { downloadFile, formatDateTime } from '../lib/settings'
+import { isTauriRuntime } from '../lib/external'
+import {
+  pickWebSharedDirectory,
+  webSyncAvailable,
+} from '../lib/syncWebStorage'
 import { publicSharingIdentity, type SharingIdentity } from '../lib/sharing'
 import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
@@ -17,6 +31,12 @@ export function SharingSettings() {
     importSharingPackage,
     getVaultSharing,
     revokeSharingMember,
+    syncRevision,
+    configureSharedFolder,
+    configureWebSharedFolder,
+    disableSharedSync,
+    syncSharedVault,
+    getSharedSyncStatus,
   } = useVault()
   const { tt } = useI18n()
   const { toast } = useToast()
@@ -32,6 +52,13 @@ export function SharingSettings() {
     import('../lib/types').VaultSharingMember[]
   >([])
   const [adminFingerprint, setAdminFingerprint] = useState<string | undefined>()
+  const [hasPackage, setHasPackage] = useState(false)
+  const [sharedStatus, setSharedStatus] = useState<
+    import('../lib/sharedSyncConfig').SharedSyncConfig | null
+  >(null)
+  const [sharedBusy, setSharedBusy] = useState<
+    'choose' | 'sync' | 'disable' | null
+  >(null)
 
   useEffect(() => {
     let cancelled = false
@@ -57,15 +84,18 @@ export function SharingSettings() {
     if (!vaultId) {
       setMembers([])
       setAdminFingerprint(undefined)
+      setHasPackage(false)
       return
     }
     try {
       const sharing = await getVaultSharing(vaultId)
       setMembers(sharing.members)
       setAdminFingerprint(sharing.adminFingerprint)
+      setHasPackage(Boolean(sharing.package))
     } catch {
       setMembers([])
       setAdminFingerprint(undefined)
+      setHasPackage(false)
     }
   }
 
@@ -73,6 +103,10 @@ export function SharingSettings() {
     void loadMembers(shareVaultId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareVaultId])
+
+  useEffect(() => {
+    setSharedStatus(getSharedSyncStatus(shareVaultId))
+  }, [getSharedSyncStatus, shareVaultId, syncRevision])
 
   const create = async () => {
     if (busy) return
@@ -150,6 +184,82 @@ export function SharingSettings() {
     }
   }
 
+  const chooseSharedFolder = async () => {
+    if (!shareVaultId || sharedBusy) return
+    setSharedBusy('choose')
+    try {
+      if (isTauriRuntime()) {
+        const selected = await open({
+          directory: true,
+          multiple: false,
+          title: tt('Choisir un dossier de partage'),
+        })
+        if (typeof selected !== 'string') return
+        await configureSharedFolder(shareVaultId, selected)
+      } else if (webSyncAvailable()) {
+        const handle = await pickWebSharedDirectory()
+        await configureWebSharedFolder(shareVaultId, handle)
+      } else {
+        throw new Error(
+          'Ce navigateur ne permet pas de choisir un dossier. Utilisez l’échange manuel.',
+        )
+      }
+      setSharedStatus(getSharedSyncStatus(shareVaultId))
+      toast(tt('Dossier de partage configuré.'), 'success')
+    } catch (caught) {
+      toast(
+        caught instanceof Error
+          ? caught.message
+          : tt('Configuration du dossier impossible.'),
+        'error',
+      )
+    } finally {
+      setSharedBusy(null)
+    }
+  }
+
+  const runSharedSync = async () => {
+    if (!shareVaultId || sharedBusy) return
+    setSharedBusy('sync')
+    try {
+      const report = await syncSharedVault(shareVaultId)
+      setSharedStatus(getSharedSyncStatus(shareVaultId))
+      if (report.warnings.length > 0) {
+        toast(report.warnings.slice(0, 2).join(' '), 'info')
+      } else {
+        toast(tt('Synchronisation terminée.'), 'success')
+      }
+    } catch (caught) {
+      toast(
+        caught instanceof Error
+          ? caught.message
+          : tt('Synchronisation impossible.'),
+        'error',
+      )
+    } finally {
+      setSharedBusy(null)
+    }
+  }
+
+  const disableShared = async () => {
+    if (!shareVaultId || sharedBusy) return
+    setSharedBusy('disable')
+    try {
+      await disableSharedSync(shareVaultId)
+      setSharedStatus(null)
+      toast(tt('Synchronisation du partage désactivée.'), 'info')
+    } catch (caught) {
+      toast(
+        caught instanceof Error
+          ? caught.message
+          : tt('Désactivation impossible.'),
+        'error',
+      )
+    } finally {
+      setSharedBusy(null)
+    }
+  }
+
   const revoke = async (fingerprint: string) => {
     if (busy) return
     setBusy('revoke')
@@ -175,6 +285,7 @@ export function SharingSettings() {
       await importSharingPackage(importText, importName)
       setImportText('')
       setImportName('')
+      await loadMembers(shareVaultId)
       toast(tt('Coffre partagé importé'), 'success')
     } catch (caught) {
       toast(
@@ -390,6 +501,89 @@ export function SharingSettings() {
           )}
         </p>
       </details>
+
+      {(members.length > 0 || adminFingerprint) && hasPackage && (
+        <details className="settings-help" open={Boolean(sharedStatus)}>
+          <summary>{tt('Synchronisation par dossier')}</summary>
+        <p className="settings-copy">
+          {tt(
+            'Chaque membre dépose un bundle signé dans un dossier commun. Les fichiers restent chiffrés ; choisissez un dossier déjà synchronisé (iCloud Drive, Dropbox, Syncthing…).',
+          )}
+        </p>
+        {sharedStatus ? (
+          <>
+            <p className="settings-copy">
+              <FolderOpen size={15} />{' '}
+              <span className="mono">{sharedStatus.dir}</span>
+            </p>
+            <p className="settings-copy">
+              {tt('Dernière synchronisation :')}{' '}
+              {sharedStatus.lastSyncAt
+                ? formatDateTime(sharedStatus.lastSyncAt)
+                : tt('jamais')}
+            </p>
+            {sharedStatus.lastWarning && (
+              <p className="form-error" role="alert">
+                {sharedStatus.lastWarning}
+              </p>
+            )}
+            <div className="settings-actions settings-actions--start">
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => void runSharedSync()}
+                disabled={sharedBusy !== null}
+              >
+                {sharedBusy === 'sync' ? (
+                  <LoaderCircle size={16} className="spin" />
+                ) : (
+                  <RefreshCw size={16} />
+                )}
+                {tt('Synchroniser maintenant')}
+              </button>
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => void chooseSharedFolder()}
+                disabled={sharedBusy !== null}
+              >
+                <FolderOpen size={16} />
+                {tt('Changer de dossier')}
+              </button>
+              <button
+                type="button"
+                className="button button--danger-text"
+                onClick={() => void disableShared()}
+                disabled={sharedBusy !== null}
+              >
+                {tt('Désactiver')}
+              </button>
+            </div>
+            <p className="field__hint">
+              {tt(
+                'Synchronisation automatique toutes les 60 secondes lorsque le coffre est déverrouillé.',
+              )}
+            </p>
+          </>
+        ) : (
+          <div className="settings-actions settings-actions--start">
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => void chooseSharedFolder()}
+              disabled={sharedBusy !== null}
+            >
+              {sharedBusy === 'choose' ? (
+                <LoaderCircle size={16} className="spin" />
+              ) : (
+                <FolderOpen size={16} />
+              )}
+              {tt('Choisir un dossier')}
+            </button>
+          </div>
+        )}
+        </details>
+      )}
 
       <details className="settings-help">
         <summary>{tt('Importer un coffre partagé')}</summary>

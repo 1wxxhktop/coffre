@@ -27,7 +27,7 @@ export class SyncStorageError extends Error {
 }
 
 const FILE_ID = /^[A-Za-z0-9_-]{1,80}$/
-const FILE_NAME = /^[A-Za-z0-9_-]+\.coffre$/
+const FILE_NAME = /^[A-Za-z0-9_-]+(?:\.coffre|\.coffre-shared\.json)$/
 
 function requireDesktop(): void {
   if (!isTauriRuntime()) {

@@ -57,6 +57,7 @@ import {
 import { normalizeDateOnly } from './expiry'
 import { normalizeRecoveryPhrase } from './recovery'
 import { openSharingIdentity, resealSharingIdentity } from './sharingVault'
+import { parseSharedVaultPackage, type SharedVaultPackage } from './sharingPackage'
 import { resealEmergencyRecord } from './emergencyVault'
 import type { SharingIdentity, ShareRole } from './sharing'
 import type {
@@ -3648,13 +3649,18 @@ export async function readVaultSharing(
   file: VaultFile,
   session: VaultSession,
   vaultId: string,
-): Promise<{ members: VaultSharingMember[]; adminFingerprint?: string }> {
+): Promise<{
+  members: VaultSharingMember[]
+  adminFingerprint?: string
+  package?: SharedVaultPackage
+}> {
   assertUnlocked(session)
   const record = file.vaults.find((vault) => vault.id === vaultId)
   if (!record) throw new VaultValidationError('Coffre introuvable')
   const meta = await openJson<{
     members?: unknown
     adminFingerprint?: unknown
+    package?: unknown
   }>(record.name, session.vaultKey(vaultId), vaultMetaAad(vaultId))
   const members: VaultSharingMember[] = []
   if (Array.isArray(meta.members)) {
@@ -3676,35 +3682,52 @@ export async function readVaultSharing(
       }
     }
   }
+  let pkg: SharedVaultPackage | undefined
+  if (meta.package !== undefined) {
+    try {
+      pkg = await parseSharedVaultPackage(meta.package)
+    } catch {
+      // Un paquet local illisible ne doit pas casser la liste des membres ;
+      // la synchronisation signalera qu’il faut un nouveau paquet.
+      pkg = undefined
+    }
+  }
   return {
     members,
     ...(typeof meta.adminFingerprint === 'string'
       ? { adminFingerprint: meta.adminFingerprint }
       : {}),
+    ...(pkg ? { package: pkg } : {}),
   }
 }
 
-/** Met à jour la liste des membres dans les métadonnées chiffrées du coffre. */
-export async function setVaultSharingMembers(
+async function sealVaultSharing(
   file: VaultFile,
   session: VaultSession,
   vaultId: string,
   members: VaultSharingMember[],
   adminFingerprint: string,
+  pkg?: SharedVaultPackage,
 ): Promise<VaultFile> {
   assertUnlocked(session)
-  assertVaultWritable(session, vaultId)
   const record = file.vaults.find((vault) => vault.id === vaultId)
   if (!record) throw new VaultValidationError('Coffre introuvable')
   const key = session.vaultKey(vaultId)
-  const meta = await openJson<{ name?: unknown; role?: unknown }>(
+  const meta = await openJson<{ name?: unknown; role?: unknown; package?: unknown }>(
     record.name,
     key,
     vaultMetaAad(vaultId),
   )
   const name = typeof meta.name === 'string' ? meta.name : 'Coffre partagé'
+  const packageValue = pkg ?? meta.package
   const nameSealed = await sealJson(
-    { name, role: meta.role === 'read' ? 'read' : 'write', members, adminFingerprint },
+    {
+      name,
+      role: meta.role === 'read' ? 'read' : 'write',
+      members,
+      adminFingerprint,
+      ...(packageValue !== undefined ? { package: packageValue } : {}),
+    },
     key,
     vaultMetaAad(vaultId),
   )
@@ -3716,6 +3739,34 @@ export async function setVaultSharingMembers(
       vault.id === vaultId ? { ...vault, name: nameSealed, updatedAt: now } : vault,
     ),
   }
+}
+
+/** Met à jour la liste des membres dans les métadonnées chiffrées du coffre. */
+export async function setVaultSharingMembers(
+  file: VaultFile,
+  session: VaultSession,
+  vaultId: string,
+  members: VaultSharingMember[],
+  adminFingerprint: string,
+  pkg?: SharedVaultPackage,
+): Promise<VaultFile> {
+  assertVaultWritable(session, vaultId)
+  return sealVaultSharing(file, session, vaultId, members, adminFingerprint, pkg)
+}
+
+/**
+ * Adopte les métadonnées d’un paquet importé, y compris pour un membre en
+ * lecture. Le paquet et les rôles ont déjà été vérifiés par l’appelant.
+ */
+export async function adoptVaultSharingMembers(
+  file: VaultFile,
+  session: VaultSession,
+  vaultId: string,
+  members: VaultSharingMember[],
+  adminFingerprint: string,
+  pkg?: SharedVaultPackage,
+): Promise<VaultFile> {
+  return sealVaultSharing(file, session, vaultId, members, adminFingerprint, pkg)
 }
 
 /**

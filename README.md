@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
-> La version web/PWA est fonctionnelle et couverte par 463 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 472 tests unitaires et
 > 65 parcours Playwright exécutés sur Chromium et WebKit (130 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
@@ -184,16 +184,17 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   générations de copie locale de secours, restaurables depuis l’écran de
   récupération. Export CSV en clair au format **Mots de passe (Apple)** pour les
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
-- **Partage de coffres (préparation L10)** : identité depuis les réglages,
-  paquets signés avec la clé du coffre enveloppée pour chaque membre, import
-  d’un coffre partagé, avec paquet complet des éléments chiffrés. Les rôles
-  sont vérifiés et les mutations sont bloquées
-  en lecture seule dans l’application ; un client modifié resterait toutefois
-  capable d’écrire avec la clé partagée. La révocation d’un membre tourne la
-  clé du coffre, re-enveloppe les clés d’éléments et génère un nouveau paquet
-  pour les membres restants. L’accès d’urgence enveloppe la clé maîtresse pour
-  un contact ou la partage en Shamir 2/3 ; sans serveur, aucun délai imposé
-  n’est possible.
+- **Partage de coffres (L10)** : identité depuis les réglages, paquets signés
+  avec la clé du coffre enveloppée pour chaque membre, import d’un coffre
+  partagé avec paquet complet des éléments chiffrés. Les rôles sont vérifiés et
+  les mutations sont bloquées en lecture seule dans l’application ; un client
+  modifié resterait toutefois capable d’écrire avec la clé partagée. La
+  révocation d’un membre tourne la clé du coffre, re-enveloppe les clés
+  d’éléments et génère un nouveau paquet pour les membres restants. Un dossier
+  commun permet la synchronisation des bundles signés (toutes les 60 secondes
+  ou à la demande) ; l’échange manuel `.coffre-shared.json` reste disponible.
+  L’accès d’urgence enveloppe la clé maîtresse pour un contact ou la partage en
+  Shamir 2/3 ; sans serveur, aucun délai imposé n’est possible.
 - **Règles de mot de passe par site** : le générateur applique les contraintes
   de longueur, classes et symboles du dataset Apple « Password Manager
   Resources », embarqué localement et sans requête réseau.
@@ -673,7 +674,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (463 tests) |
+| `bun run test` | Tests Vitest (472 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (124 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |

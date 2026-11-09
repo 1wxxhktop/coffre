@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   ensureWebSyncPermission,
+  listWebSharedFiles,
   listWebSyncFiles,
   prepareWebSyncDirectory,
+  readWebSharedFile,
   readWebSyncFile,
+  writeWebSharedFile,
   writeWebSyncFile,
 } from './syncWebStorage'
 
@@ -153,6 +156,8 @@ describe('synchronisation Web (File System Access)', () => {
       'fichier.txt',
       '.cache.coffre',
       'nom avec espace.coffre',
+      '.coffre-shared.json',
+      'sub/partage.coffre-shared.json',
     ]) {
       await expect(
         readWebSyncFile(
@@ -176,6 +181,17 @@ describe('synchronisation Web (File System Access)', () => {
         '../evasion',
       ),
     ).rejects.toThrow()
+  })
+
+  it('lit et écrit un bundle de coffre partagé', async () => {
+    const root = directory() as unknown as FileSystemDirectoryHandle
+    const name = 'shared-v_test-SHA256_abc.coffre-shared.json'
+    await writeWebSharedFile(root, name, '{"format":"coffre-shared-vault"}')
+    expect(await readWebSharedFile(root, name)).toBe(
+      '{"format":"coffre-shared-vault"}',
+    )
+    const files = await listWebSharedFiles(root)
+    expect(files.map((entry) => entry.name)).toEqual([name])
   })
 
   it('renvoie null pour un fichier absent', async () => {
