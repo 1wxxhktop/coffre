@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr" data-page-title="saveBanner_pageTitle">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Enregistrer dans Coffre</title>
+    <link rel="stylesheet" href="./save-banner.css" />
+    <link rel="stylesheet" href="./logo.css" />
+  </head>
+  <body>
+    <section class="banner" role="dialog" aria-labelledby="banner-title" aria-describedby="banner-detail">
+      <header class="banner__head">
+        <span class="banner__mark" data-coffre-logo aria-hidden="true"></span>
+        <div class="banner__head-text">
+          <strong>Coffre</strong>
+          <small id="banner-host"></small>
+        </div>
+        <button id="banner-close" class="icon-button" type="button" aria-label="Fermer" data-i18n-aria-label="saveBanner_close">
+          ×
+        </button>
+      </header>
+
+      <h2 id="banner-title" class="banner__title"></h2>
+      <p id="banner-detail" class="banner__detail"></p>
+
+      <label id="banner-username-wrap" class="banner__field" hidden>
+        <span data-i18n="saveBanner_username">Identifiant</span>
+        <input id="banner-username" type="text" autocomplete="username" spellcheck="false" />
+      </label>
+
+      <p id="banner-message" class="banner__message" role="status" hidden></p>
+
+      <div class="banner__actions">
+        <button id="banner-save" class="button button--primary" type="button" data-autofocus>
+          <span data-i18n="saveBanner_save">Enregistrer</span>
+        </button>
+        <button id="banner-later" class="button" type="button">
+          <span data-i18n="saveBanner_later">Plus tard</span>
+        </button>
+      </div>
+    </section>
+    <script type="module" src="./save-banner.ts"></script>
+  </body>
+</html>
