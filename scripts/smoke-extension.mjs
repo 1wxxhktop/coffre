@@ -591,6 +591,77 @@ try {
   await excludedPage.close()
   await extensionPage.bringToFront()
 
+  // E8 : sections de la popup et remplissage au clavier, sans souris.
+  const keyboardPage = await context.newPage()
+  await keyboardPage.goto(new URL('/shortcut', TARGET_URL).toString())
+  await keyboardPage.locator('#username').fill('')
+  await keyboardPage.locator('#password').fill('')
+  await keyboardPage.bringToFront()
+  const keyboardTab = await extensionPage.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    return tab
+  })
+  const popupPage = await context.newPage()
+  await popupPage.addInitScript((tab) => {
+    const original = chrome.tabs.query.bind(chrome.tabs)
+    chrome.tabs.query = (queryInfo, callback) => {
+      if (queryInfo?.active && queryInfo?.currentWindow) {
+        if (typeof callback === 'function') {
+          callback([tab])
+          return undefined
+        }
+        return Promise.resolve([tab])
+      }
+      return original(queryInfo, callback)
+    }
+  }, keyboardTab)
+  await popupPage.goto(`chrome-extension://${extensionId}/popup.html`)
+  await popupPage.locator('.result-group__title').first().waitFor()
+  const popupHeadings = await popupPage
+    .locator('.result-group__title')
+    .allTextContents()
+  assert.ok(
+    popupHeadings.some((title) => /Pour ce site|For this site/.test(title)),
+  )
+
+  await popupPage.locator('#search').fill('introuvable-xyz')
+  await popupPage
+    .locator('#state-title')
+    .filter({ hasText: /Aucun résultat|No results/ })
+    .waitFor({ timeout: 10_000 })
+  await popupPage.locator('#search').fill(host)
+  await popupPage
+    .locator('[role="option"]')
+    .first()
+    .waitFor({ timeout: 10_000 })
+
+  await popupPage.locator('body').click({ position: { x: 4, y: 4 } })
+  await popupPage.keyboard.press('/')
+  assert.equal(
+    await popupPage.evaluate(() => document.activeElement?.id),
+    'search',
+  )
+  await popupPage.keyboard.press('ArrowDown')
+  const selectedOption = popupPage.locator(
+    '[role="option"][aria-selected="true"]',
+  )
+  assert.equal(await selectedOption.count(), 1)
+  assert.match(
+    (await selectedOption.getAttribute('aria-label')) ?? '',
+    /Example/,
+  )
+  await popupPage.keyboard.press('Enter')
+  await keyboardPage.waitForFunction(
+    () =>
+      document.querySelector('#username')?.value === 'ada' &&
+      document.querySelector('#password')?.value === 's3cret!',
+    null,
+    { timeout: 10_000 },
+  )
+  await popupPage.close().catch(() => undefined)
+  await keyboardPage.close()
+  await extensionPage.bringToFront()
+
   // E2 : bandeau après une inscription avec redirection.
   await target.goto(new URL('/register', TARGET_URL).toString())
   await target.locator('#email').fill('banner@example.com')

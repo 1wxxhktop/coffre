@@ -284,6 +284,123 @@
   "popup_footer": {
     "message": "Local · aucun serveur"
   },
+  "popup_footerHint": {
+    "message": "↑↓ naviguer · ↵ remplir · / rechercher"
+  },
+  "popup_footerPairing": {
+    "message": "Coffre desktop · non associé"
+  },
+  "popup_footerClosed": {
+    "message": "Coffre n’est pas ouvert"
+  },
+  "popup_footerLockedNative": {
+    "message": "Coffre desktop verrouillé"
+  },
+  "popup_footerLocked": {
+    "message": "Coffre verrouillé"
+  },
+  "popup_footerNative": {
+    "message": "Coffre desktop · pont natif local"
+  },
+  "popup_footerReady": {
+    "message": "Coffre déverrouillé · local"
+  },
+  "popup_pageUnsupported": {
+    "message": "Page non prise en charge"
+  },
+  "popup_searchFor": {
+    "message": "Rechercher pour $1…"
+  },
+  "popup_results": {
+    "message": "Résultats"
+  },
+  "popup_siteSection": {
+    "message": "Pour ce site"
+  },
+  "popup_favorites": {
+    "message": "Favoris"
+  },
+  "popup_recents": {
+    "message": "Récents"
+  },
+  "popup_searchResults": {
+    "message": "Résultats"
+  },
+  "popup_allItems": {
+    "message": "Toutes les connexions"
+  },
+  "popup_noSiteTitle": {
+    "message": "Aucun identifiant pour ce site"
+  },
+  "popup_noSiteText": {
+    "message": "Ajoutez cette connexion dans Coffre pour la retrouver ici."
+  },
+  "popup_addSite": {
+    "message": "Ajouter ce site dans Coffre"
+  },
+  "popup_noResultsTitle": {
+    "message": "Aucun résultat"
+  },
+  "popup_noResultsText": {
+    "message": "Aucune connexion ne correspond à « $1 »."
+  },
+  "popup_clearSearch": {
+    "message": "Effacer la recherche"
+  },
+  "state_closedTitle": {
+    "message": "Coffre n’est pas ouvert"
+  },
+  "state_closedText": {
+    "message": "Ouvrez Coffre pour remplir vos identifiants."
+  },
+  "state_pairTitle": {
+    "message": "Extension non associée"
+  },
+  "state_pairText": {
+    "message": "Associez cette extension à Coffre : le code s’affichera ici et dans l’application."
+  },
+  "state_lockedTitle": {
+    "message": "Coffre verrouillé"
+  },
+  "state_lockedText": {
+    "message": "Déverrouillez Coffre pour retrouver vos identifiants."
+  },
+  "state_siteTitle": {
+    "message": "Remplissage non activé"
+  },
+  "popup_pairRequested": {
+    "message": "Demande envoyée. Confirmez le code affiché dans Coffre."
+  },
+  "popup_paired": {
+    "message": "Extension associée à Coffre."
+  },
+  "popup_pairFailed": {
+    "message": "Association impossible."
+  },
+  "popup_pairCode": {
+    "message": "Code $1 — confirmez-le dans Coffre."
+  },
+  "popup_updated": {
+    "message": "Mot de passe mis à jour."
+  },
+  "popup_saved": {
+    "message": "Identifiant enregistré."
+  },
+  "popup_copiedPassword": {
+    "message": "Mot de passe copié."
+  },
+  "popup_copiedUsername": {
+    "message": "Identifiant copié."
+  },
+  "popup_copiedTotp": {
+    "message": "Code TOTP copié."
+  },
+  "popup_noTotp": {
+    "message": "Aucun code TOTP pour cette connexion."
+  },
+  "popup_copyFailed": {
+    "message": "Copie impossible."
+  },
   "options_title": {
     "message": "Réglages — Coffre"
   },

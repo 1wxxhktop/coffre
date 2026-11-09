@@ -18,7 +18,7 @@
         <button id="theme" class="icon-button" type="button" title="Changer de thème" data-i18n-title="theme_toggle" aria-label="Changer de thème" data-i18n-aria-label="theme_toggle">
           <span id="theme-icon" class="theme-icon" aria-hidden="true"></span>
         </button>
-        <button id="settings" class="icon-button" type="button" title="Réglages" data-i18n-title="popup_settings">
+        <button id="settings" class="icon-button" type="button" title="Réglages" data-i18n-title="popup_settings" aria-label="Réglages" data-i18n-aria-label="popup_settings">
           ⚙
         </button>
       </header>
@@ -46,6 +46,7 @@
               spellcheck="false"
               placeholder="Rechercher un identifiant…" data-i18n-placeholder="popup_searchPlaceholder"
               aria-label="Rechercher un identifiant" data-i18n-aria-label="popup_searchLabel"
+              aria-controls="results"
             />
           </div>
           <button
@@ -115,11 +116,14 @@
           </div>
         </section>
 
-        <ul id="results" class="results"></ul>
-        <p id="empty" class="empty" hidden></p>
-        <button id="show-all" class="button button--secondary" type="button" hidden>
-          <span data-i18n="popup_showAll">Afficher toutes mes connexions</span>
-        </button>
+        <section id="state" class="state" hidden aria-live="polite">
+          <span id="state-icon" class="state__icon" aria-hidden="true"></span>
+          <h2 id="state-title" class="state__title"></h2>
+          <p id="state-text" class="state__text"></p>
+          <button id="state-action" class="button button--primary state__action" type="button" hidden></button>
+        </section>
+
+        <div id="results" class="results-groups" role="region" aria-label="Résultats" data-i18n-aria-label="popup_results"></div>
 
         </div>
 
@@ -201,20 +205,9 @@
       </main>
 
       <div id="bottom-dock" class="bottom-dock">
-        <div id="actions" class="actions" hidden>
-          <button id="activate-inline" class="button" type="button" hidden>
-            <span data-i18n="popup_activateInline">Activer le remplissage dans les champs</span>
-          </button>
-          <button id="pair" class="button button--primary" type="button" hidden>
-            <span data-i18n="popup_pair">Associer l’extension</span>
-          </button>
-          <button id="open-app" class="button button--primary" type="button">
-            <span data-i18n="popup_openApp">Ouvrir Coffre</span>
-          </button>
-          <button id="focus-app" class="button" type="button" hidden>
-            <span data-i18n="popup_unlockApp">Déverrouiller Coffre</span>
-          </button>
-        </div>
+        <p id="footer-hint" class="footer__hint" hidden data-i18n="popup_footerHint">
+          ↑↓ naviguer · ↵ remplir · / rechercher
+        </p>
         <footer class="footer">
           <span id="inline-status-dot" class="footer__dot" hidden role="status" aria-label="Remplissage actif dans cet onglet" data-i18n-aria-label="popup_inlineActive" title="Remplissage actif dans cet onglet" data-i18n-title="popup_inlineActive"></span>
           <span id="footer-status"><span data-i18n="popup_footer">Local · aucun serveur</span></span>

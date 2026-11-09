@@ -284,6 +284,123 @@
   "popup_footer": {
     "message": "Local · no server"
   },
+  "popup_footerHint": {
+    "message": "↑↓ navigate · ↵ fill · / search"
+  },
+  "popup_footerPairing": {
+    "message": "Coffre desktop · not paired"
+  },
+  "popup_footerClosed": {
+    "message": "Coffre is not open"
+  },
+  "popup_footerLockedNative": {
+    "message": "Coffre desktop locked"
+  },
+  "popup_footerLocked": {
+    "message": "Coffre locked"
+  },
+  "popup_footerNative": {
+    "message": "Coffre desktop · local native bridge"
+  },
+  "popup_footerReady": {
+    "message": "Coffre unlocked · local"
+  },
+  "popup_pageUnsupported": {
+    "message": "Unsupported page"
+  },
+  "popup_searchFor": {
+    "message": "Search for $1…"
+  },
+  "popup_results": {
+    "message": "Results"
+  },
+  "popup_siteSection": {
+    "message": "For this site"
+  },
+  "popup_favorites": {
+    "message": "Favorites"
+  },
+  "popup_recents": {
+    "message": "Recent"
+  },
+  "popup_searchResults": {
+    "message": "Results"
+  },
+  "popup_allItems": {
+    "message": "All logins"
+  },
+  "popup_noSiteTitle": {
+    "message": "No login for this site"
+  },
+  "popup_noSiteText": {
+    "message": "Add this login in Coffre to find it here."
+  },
+  "popup_addSite": {
+    "message": "Add this site in Coffre"
+  },
+  "popup_noResultsTitle": {
+    "message": "No results"
+  },
+  "popup_noResultsText": {
+    "message": "No login matches “$1”."
+  },
+  "popup_clearSearch": {
+    "message": "Clear search"
+  },
+  "state_closedTitle": {
+    "message": "Coffre is not open"
+  },
+  "state_closedText": {
+    "message": "Open Coffre to fill your credentials."
+  },
+  "state_pairTitle": {
+    "message": "Extension not paired"
+  },
+  "state_pairText": {
+    "message": "Pair this extension with Coffre: the code appears here and in the app."
+  },
+  "state_lockedTitle": {
+    "message": "Coffre locked"
+  },
+  "state_lockedText": {
+    "message": "Unlock Coffre to find your credentials."
+  },
+  "state_siteTitle": {
+    "message": "Fill not enabled"
+  },
+  "popup_pairRequested": {
+    "message": "Request sent. Confirm the code shown in Coffre."
+  },
+  "popup_paired": {
+    "message": "Extension paired with Coffre."
+  },
+  "popup_pairFailed": {
+    "message": "Pairing failed."
+  },
+  "popup_pairCode": {
+    "message": "Code $1 — confirm it in Coffre."
+  },
+  "popup_updated": {
+    "message": "Password updated."
+  },
+  "popup_saved": {
+    "message": "Login saved."
+  },
+  "popup_copiedPassword": {
+    "message": "Password copied."
+  },
+  "popup_copiedUsername": {
+    "message": "Username copied."
+  },
+  "popup_copiedTotp": {
+    "message": "TOTP code copied."
+  },
+  "popup_noTotp": {
+    "message": "No TOTP code for this login."
+  },
+  "popup_copyFailed": {
+    "message": "Copy failed."
+  },
   "options_title": {
     "message": "Settings — Coffre"
   },
