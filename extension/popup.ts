@@ -12,6 +12,7 @@ import {
   loadSettings as loadExtensionSettings,
   type ActivationMode,
 } from './settings'
+import { isSiteExcluded } from './siteExclusions'
 import { loadTheme, nextTheme, saveTheme, type ThemePreference } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
@@ -91,6 +92,9 @@ const settingsTestButton = $<HTMLButtonElement>('settings-test')
 const settingsStatus = $<HTMLParagraphElement>('settings-status')
 const settingsOpenAppButton = $<HTMLButtonElement>('settings-open-app')
 const settingsOpenOptionsButton = $<HTMLButtonElement>('settings-open-options')
+const settingsExclusionHost = $<HTMLParagraphElement>('settings-exclusion-host')
+const excludeFillInput = $<HTMLInputElement>('exclude-fill')
+const excludeSaveInput = $<HTMLInputElement>('exclude-save')
 const shortcutsList = $<HTMLUListElement>('shortcuts-list')
 const settingsShortcutsButton = $<HTMLButtonElement>('settings-shortcuts')
 const themeChoices = Array.from(
@@ -158,6 +162,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   'native-timeout': 'error_nativeTimeout',
   'native-unavailable': 'error_nativeUnavailable',
   'shortcuts-page': 'error_shortcutsPage',
+  excluded: 'error_excluded',
 }
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -257,6 +262,46 @@ async function loadShortcuts(): Promise<void> {
   }
 }
 
+async function loadExclusions(): Promise<void> {
+  const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
+  const settings = await loadExtensionSettings()
+  const supported = Boolean(host) && /^https?:/i.test(currentTab?.url ?? '')
+  settingsExclusionHost.textContent = supported
+    ? t('settings_exclusionHost', [host])
+    : t('settings_exclusionNoSite')
+  excludeFillInput.disabled = !supported
+  excludeSaveInput.disabled = !supported
+  excludeFillInput.checked =
+    supported && isSiteExcluded(settings.neverFillSites, host)
+  excludeSaveInput.checked =
+    supported && isSiteExcluded(settings.neverSaveSites, host)
+}
+
+async function updateExclusion(
+  kind: 'fill' | 'save',
+  input: HTMLInputElement,
+): Promise<void> {
+  const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
+  if (!host) return
+  try {
+    const response = await send<{ ok?: boolean; error?: string }>({
+      type: 'SET_SITE_EXCLUSION',
+      host,
+      kind,
+      excluded: input.checked,
+    })
+    if (!response?.ok) {
+      input.checked = !input.checked
+      setSettingsStatus(errorText(response?.error), 'error')
+      return
+    }
+    if (kind === 'save' && input.checked) savePrompt.hidden = true
+  } catch {
+    input.checked = !input.checked
+    setSettingsStatus(t('error_generic'), 'error')
+  }
+}
+
 async function loadSettings(): Promise<void> {
   try {
     const response = await send<{ appUrl: string }>({ type: 'GET_APP_URL' })
@@ -264,6 +309,7 @@ async function loadSettings(): Promise<void> {
   } catch {
     settingsAppUrl.value = status.appUrl || ''
   }
+  await loadExclusions()
   await loadShortcuts()
 }
 
@@ -1132,6 +1178,13 @@ settingsOpenAppButton.addEventListener('click', () => {
 
 settingsOpenOptionsButton.addEventListener('click', () => {
   void api.runtime.openOptionsPage()
+})
+
+excludeFillInput.addEventListener('change', () => {
+  void updateExclusion('fill', excludeFillInput)
+})
+excludeSaveInput.addEventListener('change', () => {
+  void updateExclusion('save', excludeSaveInput)
 })
 
 settingsShortcutsButton.addEventListener('click', () => {

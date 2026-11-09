@@ -822,9 +822,18 @@ Web, l’activation site par site (défaut) ou tous les sites, puis rappelle les
 raccourcis et l’épinglage. Une note de mise à jour n’apparaît que lorsqu’une
 version change réellement le comportement ou les permissions. La page
 d’options (`chrome-extension://…/options.html`, aussi accessible depuis le
-popup) regroupe la connexion, le remplissage, l’enregistrement, les raccourcis,
-le thème et les permissions. Les réglages sont locaux : aucun secret, aucun
-nom d’élément, aucune télémétrie.
+popup) regroupe la connexion, le remplissage, l’enregistrement, les exclusions,
+les raccourcis, le thème et les permissions. Les réglages sont locaux : aucun
+secret, aucun nom d’élément, aucune télémétrie. Seules les exclusions
+contiennent des noms de domaines.
+
+**Exclusions par site.** Deux listes indépendantes sont modifiables depuis le
+popup ou la page d’options : « Ne jamais remplir ce site » masque le menu,
+bloque les remplissages, les raccourcis et la génération sur ce domaine ;
+« Ne jamais proposer d’enregistrer » empêche le bandeau et la proposition dans
+le popup. Le domaine est ramené au domaine enregistrable usuel
+(`login.example.com` → `example.com`). Le retrait d’une exclusion rétablit le
+comportement sans recharger l’extension.
 
 **Cartes et identités.** La détection repose sur les attributs `autocomplete`
 (`cc-number`, `cc-exp`, `cc-csc`, `given-name`, `postal-code`…), les types de

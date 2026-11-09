@@ -242,3 +242,24 @@ body {
     border-radius: 12px;
   }
 }
+
+.button--danger {
+  color: var(--error-text);
+}
+
+#banner-never {
+  flex-basis: 100%;
+}
+
+.banner__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.banner__actions .button {
+  flex: none;
+}
+
+#banner-never {
+  grid-column: 1 / -1;
+}

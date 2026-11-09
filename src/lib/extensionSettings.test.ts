@@ -39,7 +39,8 @@ describe('réglages de l’extension', () => {
     expect(settings.saveBanner).toBe(true)
     expect(settings.copyTotpAfterFill).toBe(false)
     expect(settings.autofillOnLoad).toBe(false)
-    expect(settings.excludedSites).toEqual([])
+    expect(settings.neverFillSites).toEqual([])
+    expect(settings.neverSaveSites).toEqual([])
   })
 
   it('normalise l’adresse et refuse les schémas dangereux', () => {
@@ -57,7 +58,8 @@ describe('réglages de l’extension', () => {
       activationMode: 'all',
       inlineMenu: false,
       saveBanner: false,
-      excludedSites: ['www.Example.com', 'example.com', '  ', 42],
+      neverFillSites: ['www.Example.com', 'example.com', '  ', 42],
+      neverSaveSites: ['login.example.com'],
     })
     expect(settings).toMatchObject({
       appUrl: 'https://coffre.example',
@@ -65,7 +67,8 @@ describe('réglages de l’extension', () => {
       activationMode: 'all',
       inlineMenu: false,
       saveBanner: false,
-      excludedSites: ['example.com'],
+      neverFillSites: ['example.com'],
+      neverSaveSites: ['example.com'],
     })
   })
 

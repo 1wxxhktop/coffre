@@ -26,7 +26,12 @@ import {
   type ContextMenuEntry,
 } from './contextMenuModel'
 import { t } from './i18n'
-import { loadSettings, usesNativeBridge } from './settings'
+import {
+  loadSettings,
+  saveSettings,
+  usesNativeBridge,
+} from './settings'
+import { isSiteExcluded, siteKey } from './siteExclusions'
 import { submitLoginForm } from './loginSubmit'
 import { saveBannerView } from './saveBannerState'
 import {
@@ -137,6 +142,7 @@ interface ExtensionMessage {
   appUrl?: string
   command?: string
   menuItemId?: string
+  excluded?: boolean
   kind?: string
   formKind?: string
   includeSensitive?: boolean
@@ -334,6 +340,18 @@ async function readStatus(): Promise<AppStatus> {
   // le secret en transit n’a plus de raison d’être conservé.
   if (!status.unlocked) await clearSessionState()
   return status
+}
+
+async function fillAllowedForHost(host: string): Promise<boolean> {
+  if (!host) return false
+  const settings = await loadSettings()
+  return !isSiteExcluded(settings.neverFillSites, host)
+}
+
+async function saveAllowedForHost(host: string): Promise<boolean> {
+  if (!host) return false
+  const settings = await loadSettings()
+  return !isSiteExcluded(settings.neverSaveSites, host)
 }
 
 async function requireNativeCredentials(
@@ -661,7 +679,7 @@ async function commandFillLogin(): Promise<boolean> {
     return false
   }
   const host = tab.url ? hostFromUrl(tab.url) : ''
-  if (!host) {
+  if (!host || !(await fillAllowedForHost(host))) {
     flashActionBadge()
     return false
   }
@@ -696,6 +714,11 @@ async function generateAndFillPassword(
   url: string,
   frameId = 0,
 ): Promise<boolean> {
+  const host = url ? hostFromUrl(url) : ''
+  if (!host || !(await fillAllowedForHost(host))) {
+    flashActionBadge()
+    return false
+  }
   let password = ''
   try {
     const { generatePasswordForRules, passwordRulesForUrl } = await import(
@@ -732,6 +755,11 @@ async function commandGeneratePassword(): Promise<boolean> {
     flashActionBadge()
     return false
   }
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+  if (!host || !(await fillAllowedForHost(host))) {
+    flashActionBadge()
+    return false
+  }
   return generateAndFillPassword(tab.id, tab.url ?? '')
 }
 
@@ -742,7 +770,7 @@ async function commandFillTotp(): Promise<boolean> {
     return false
   }
   const host = tab.url ? hostFromUrl(tab.url) : ''
-  if (!host) {
+  if (!host || !(await fillAllowedForHost(host))) {
     flashActionBadge()
     return false
   }
@@ -844,6 +872,7 @@ async function fill(
   } catch {
     host = ''
   }
+  if (!(await fillAllowedForHost(host))) return { error: 'excluded' }
 
   const status = await readStatus()
   const fetched =
@@ -963,6 +992,7 @@ async function menuFill(
   if (!validTabFrame(tabId, frameId) || !host || !itemId) {
     return { error: 'invalid' }
   }
+  if (!(await fillAllowedForHost(host))) return { error: 'excluded' }
   const status = await readStatus()
   const fetched = await fetchCredentials(
     itemId,
@@ -1109,6 +1139,7 @@ async function formSubmitted(
       ? hostFromUrl(message.host) || message.host.trim().toLowerCase()
       : ''
   if (!host) return { prompt: false }
+  if (!(await saveAllowedForHost(host))) return { prompt: false }
   const kind: ExtensionAutofillKind =
     message.formKind === 'card' || message.formKind === 'identity'
       ? message.formKind
@@ -1380,6 +1411,10 @@ async function savePendingEntry(
   pending: StoredPendingSave,
   username = pending.username,
 ): Promise<{ ok?: boolean; updated?: boolean; error?: string }> {
+  if (!(await saveAllowedForHost(pending.host))) {
+    await clearPendingSave(pending.key)
+    return { error: 'excluded' }
+  }
   const result =
     pending.kind === 'card' && pending.card
       ? await saveCard(pending.card)
@@ -1891,8 +1926,10 @@ async function rebuildContextMenus(): Promise<void> {
     return
   }
   const status = await readStatus()
+  const settings = await loadSettings()
   const [tab] = await api.tabs.query({ active: true, currentWindow: true })
   const host = tab?.url ? hostFromUrl(tab.url) : ''
+  const fillAllowed = !isSiteExcluded(settings.neverFillSites, host)
   const available =
     status.unlocked &&
     !(status.mode === 'native' && status.paired === false)
@@ -1913,6 +1950,7 @@ async function rebuildContextMenus(): Promise<void> {
 
   const model = buildContextMenuModel({
     unlocked: available,
+    fillAllowed,
     host,
     logins,
     cards,
@@ -2172,6 +2210,7 @@ async function handle(
       const tab = await api.tabs.get(tabId).catch(() => undefined)
       const host = tab?.url ? hostFromUrl(tab.url) : ''
       if (!host) return { error: 'no-tab' }
+      if (!(await fillAllowedForHost(host))) return { error: 'excluded' }
       if (!(await ensureContentScript(tabId, frameId))) {
         return { error: 'permission' }
       }
@@ -2188,6 +2227,37 @@ async function handle(
         return { ok: true, filled: response.filled ?? 0 }
       } catch {
         return { error: 'no-tab' }
+      }
+    }
+    case 'SET_SITE_EXCLUSION': {
+      if (!isExtensionPage(sender)) return { error: 'forbidden' }
+      const host = siteKey(message.host ?? '')
+      const kind = message.kind === 'save' ? 'save' : 'fill'
+      if (!host) return { error: 'invalid' }
+      const excluded = message.excluded !== false
+      const settings = await loadSettings()
+      const current =
+        kind === 'save' ? settings.neverSaveSites : settings.neverFillSites
+      const next = excluded
+        ? [...new Set([...current, host])]
+        : current.filter((entry) => siteKey(entry) !== host)
+      await saveSettings(
+        kind === 'save'
+          ? { neverSaveSites: next }
+          : { neverFillSites: next },
+      )
+      if (excluded && kind === 'save') {
+        await pendingSaveStore.removeWhere((entry) =>
+          isSiteExcluded([host], entry.host),
+        )
+        await updateActionBadge()
+      }
+      scheduleContextMenus()
+      return {
+        ok: true,
+        host,
+        kind,
+        excluded: next.includes(host),
       }
     }
     case 'PAIR':
@@ -2279,6 +2349,10 @@ async function handle(
       ) {
         return { offer: null }
       }
+      if (!(await saveAllowedForHost(pending.host))) {
+        await clearPendingSave(pending.key)
+        return { offer: null }
+      }
       const view = saveBannerView(pending)
       return view ? { offer: { id: view.offerId } } : { offer: null }
     }
@@ -2289,6 +2363,10 @@ async function handle(
       if (!OFFER_ID_PATTERN.test(offerId)) return { error: 'invalid' }
       const pending = await pendingSaveStore.find(offerId)
       if (!pending) return { error: 'no-pending' }
+      if (!(await saveAllowedForHost(pending.host))) {
+        await clearPendingSave(pending.key)
+        return { error: 'no-pending' }
+      }
       const view = saveBannerView(pending)
       return view ? { banner: view } : { error: 'no-pending' }
     }
@@ -2309,6 +2387,10 @@ async function handle(
       const key = saveKey(Number(message.tabId), Number(message.frameId))
       const pending = await pendingSaveStore.get(key)
       if (!pending) return { pending: null }
+      if (!(await saveAllowedForHost(pending.host))) {
+        await clearPendingSave(pending.key)
+        return { pending: null }
+      }
       return {
         pending: {
           username: pending.label,
@@ -2324,6 +2406,10 @@ async function handle(
       const tabId = Number(message.tabId)
       const pending = await latestPendingForTab(tabId)
       if (!pending) return { pending: null }
+      if (!(await saveAllowedForHost(pending.host))) {
+        await clearPendingSave(pending.key)
+        return { pending: null }
+      }
       return {
         pending: {
           id: pending.id,

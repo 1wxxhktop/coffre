@@ -116,9 +116,19 @@
           </span>
         </label>
         <h3 data-i18n="options_exclusions">Exclusions par site</h3>
-        <p class="muted" data-i18n="options_exclusionsSoon">
-          « Ne jamais proposer d’enregistrer » et « Ne jamais remplir » arrivent avec le lot E7. Aucune exclusion n’est encore enregistrée.
+        <p class="muted" data-i18n="options_exclusionsCopy">
+          Ajoutez une exclusion depuis la popup ou le menu d’un site. Les listes ci-dessous sont modifiables sans recharger l’extension.
         </p>
+        <div class="exclusion-groups">
+          <div>
+            <h4 data-i18n="settings_excludeFill">Ne jamais remplir ce site</h4>
+            <ul id="never-fill-list" class="exclusion-list"></ul>
+          </div>
+          <div>
+            <h4 data-i18n="settings_excludeSave">Ne jamais proposer d’enregistrer</h4>
+            <ul id="never-save-list" class="exclusion-list"></ul>
+          </div>
+        </div>
       </section>
 
       <section class="card">

@@ -332,8 +332,14 @@
   "options_exclusions": {
     "message": "Per-site exclusions"
   },
-  "options_exclusionsSoon": {
-    "message": "“Never offer to save” and “Never fill” arrive with E7. No exclusion is stored yet."
+  "options_exclusionsCopy": {
+    "message": "Add an exclusion from the popup or a site’s field menu. The lists below update without reloading the extension."
+  },
+  "options_exclusionsEmpty": {
+    "message": "No exclusion."
+  },
+  "options_exclusionsRemove": {
+    "message": "Remove"
   },
   "options_appearance": {
     "message": "Appearance"
@@ -403,6 +409,12 @@
   },
   "saveBanner_later": {
     "message": "Later"
+  },
+  "saveBanner_never": {
+    "message": "Never for this site"
+  },
+  "saveBanner_neverSaved": {
+    "message": "This site will no longer offer to save a login."
   },
   "saveBanner_close": {
     "message": "Close"
@@ -490,6 +502,9 @@
   },
   "error_nativeUnavailable": {
     "message": "The Coffre desktop app is unavailable."
+  },
+  "error_excluded": {
+    "message": "This site is excluded from Coffre."
   },
   "error_generic": {
     "message": "Operation failed."
@@ -605,6 +620,9 @@
   "menu_errorCancelled": {
     "message": "Biometric confirmation cancelled."
   },
+  "menu_errorExcluded": {
+    "message": "This site is excluded from Coffre."
+  },
   "menu_tabCustom": {
     "message": "Templates"
   },
@@ -628,6 +646,12 @@
   },
   "menu_signupFilled": {
     "message": "Strong password filled. Save the login after validation."
+  },
+  "menu_excludeSite": {
+    "message": "Never show on this site"
+  },
+  "menu_excluded": {
+    "message": "Coffre will no longer offer to fill on this site."
   },
   "menu_alias": {
     "message": "Create an email alias"
@@ -688,6 +712,21 @@
   },
   "settings_appearance": {
     "message": "Appearance"
+  },
+  "settings_exclusions": {
+    "message": "Exclusions"
+  },
+  "settings_exclusionHost": {
+    "message": "Current site: $1"
+  },
+  "settings_exclusionNoSite": {
+    "message": "Open this popup on an HTTP or HTTPS page to exclude the site."
+  },
+  "settings_excludeFill": {
+    "message": "Never fill on this site"
+  },
+  "settings_excludeSave": {
+    "message": "Never offer to save"
   },
   "settings_shortcuts": {
     "message": "Shortcuts"

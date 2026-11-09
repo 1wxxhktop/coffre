@@ -2,9 +2,11 @@
  * Réglages persistants de l’extension.
  *
  * Ils vivent dans `storage.local` et ne contiennent aucun secret : uniquement
- * le mode de connexion, les préférences de remplissage et, plus tard, la liste
- * d’exclusions par site (E7), documentée dans `docs/SECURITY.md`.
+ * le mode de connexion, les préférences de remplissage et les exclusions par
+ * site (domaines uniquement), documentées dans `docs/SECURITY.md`.
  */
+
+import { normalizeExclusions } from './siteExclusions'
 
 export type AppMode = 'auto' | 'desktop' | 'web'
 export type ActivationMode = 'site' | 'all'
@@ -17,7 +19,8 @@ export interface ExtensionSettings {
   saveBanner: boolean
   copyTotpAfterFill: boolean
   autofillOnLoad: boolean
-  excludedSites: string[]
+  neverFillSites: string[]
+  neverSaveSites: string[]
 }
 
 export interface LocalStorageArea {
@@ -33,7 +36,8 @@ export const INLINE_MENU_KEY = 'inlineMenu'
 export const SAVE_BANNER_KEY = 'saveBanner'
 export const COPY_TOTP_KEY = 'copyTotpAfterFill'
 export const AUTOFILL_ON_LOAD_KEY = 'autofillOnLoad'
-export const EXCLUDED_SITES_KEY = 'excludedSites'
+export const NEVER_FILL_SITES_KEY = 'neverFillSites'
+export const NEVER_SAVE_SITES_KEY = 'neverSaveSites'
 
 const KEYS = [
   APP_URL_KEY,
@@ -43,7 +47,8 @@ const KEYS = [
   SAVE_BANNER_KEY,
   COPY_TOTP_KEY,
   AUTOFILL_ON_LOAD_KEY,
-  EXCLUDED_SITES_KEY,
+  NEVER_FILL_SITES_KEY,
+  NEVER_SAVE_SITES_KEY,
 ]
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
@@ -54,7 +59,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   saveBanner: true,
   copyTotpAfterFill: false,
   autofillOnLoad: false,
-  excludedSites: [],
+  neverFillSites: [],
+  neverSaveSites: [],
 }
 
 interface StorageGlobal {
@@ -77,10 +83,6 @@ function isActivationMode(value: unknown): value is ActivationMode {
   return value === 'site' || value === 'all'
 }
 
-function normalizeHost(value: string): string {
-  return value.trim().toLowerCase().replace(/^www\./, '')
-}
-
 export function normalizeAppUrl(value: string): string | null {
   try {
     const url = new URL(value.trim())
@@ -98,13 +100,6 @@ export function sanitizeSettings(
     typeof values[APP_URL_KEY] === 'string'
       ? normalizeAppUrl(values[APP_URL_KEY] as string)
       : null
-  const excluded = Array.isArray(values[EXCLUDED_SITES_KEY])
-    ? (values[EXCLUDED_SITES_KEY] as unknown[])
-        .filter((entry): entry is string => typeof entry === 'string')
-        .map(normalizeHost)
-        .filter(Boolean)
-        .slice(0, 500)
-    : []
   return {
     appUrl: rawUrl ?? DEFAULT_APP_URL,
     appMode: isAppMode(values[APP_MODE_KEY])
@@ -129,7 +124,8 @@ export function sanitizeSettings(
       typeof values[AUTOFILL_ON_LOAD_KEY] === 'boolean'
         ? (values[AUTOFILL_ON_LOAD_KEY] as boolean)
         : DEFAULT_SETTINGS.autofillOnLoad,
-    excludedSites: [...new Set(excluded)],
+    neverFillSites: normalizeExclusions(values[NEVER_FILL_SITES_KEY]),
+    neverSaveSites: normalizeExclusions(values[NEVER_SAVE_SITES_KEY]),
   }
 }
 
@@ -140,7 +136,11 @@ export async function loadSettings(
     const values = await storage.get(KEYS)
     return sanitizeSettings(values)
   } catch {
-    return { ...DEFAULT_SETTINGS, excludedSites: [] }
+    return {
+      ...DEFAULT_SETTINGS,
+      neverFillSites: [],
+      neverSaveSites: [],
+    }
   }
 }
 
@@ -165,10 +165,11 @@ export async function saveSettings(
   if (patch.autofillOnLoad !== undefined) {
     values[AUTOFILL_ON_LOAD_KEY] = patch.autofillOnLoad
   }
-  if (patch.excludedSites !== undefined) {
-    values[EXCLUDED_SITES_KEY] = sanitizeSettings({
-      [EXCLUDED_SITES_KEY]: patch.excludedSites,
-    }).excludedSites
+  if (patch.neverFillSites !== undefined) {
+    values[NEVER_FILL_SITES_KEY] = normalizeExclusions(patch.neverFillSites)
+  }
+  if (patch.neverSaveSites !== undefined) {
+    values[NEVER_SAVE_SITES_KEY] = normalizeExclusions(patch.neverSaveSites)
   }
   await storage.set(values)
 }

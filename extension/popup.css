@@ -888,3 +888,22 @@ body {
   border-radius: 50%;
   background: var(--success);
 }
+
+.settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.settings-check input {
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.settings-check input:disabled + span {
+  opacity: 0.5;
+}
