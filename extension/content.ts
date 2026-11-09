@@ -122,8 +122,10 @@ function positionMenu() {
 
 function setMenuSize(width: number, height: number) {
   if (!menu) return
-  const boundedWidth = Math.min(360, Math.max(40, width))
-  const boundedHeight = Math.min(520, Math.max(40, height))
+  const availableWidth = Math.max(40, window.innerWidth - 16)
+  const availableHeight = Math.max(40, window.innerHeight - 16)
+  const boundedWidth = Math.min(360, availableWidth, Math.max(40, width))
+  const boundedHeight = Math.min(520, availableHeight, Math.max(40, height))
   menu.width = boundedWidth
   menu.height = boundedHeight
   menu.host.style.width = `${boundedWidth}px`
@@ -170,8 +172,12 @@ function showMenu(
   url.searchParams.set('mode', mode)
   iframe.src = url.toString()
   shadow.append(iframe)
-  host.style.width = mode === 'badge' ? '40px' : '340px'
-  host.style.height = mode === 'badge' ? '40px' : '430px'
+  const initialWidth =
+    mode === 'badge' ? 40 : Math.min(340, Math.max(40, window.innerWidth - 16))
+  const initialHeight =
+    mode === 'badge' ? 40 : Math.min(430, Math.max(40, window.innerHeight - 16))
+  host.style.width = `${initialWidth}px`
+  host.style.height = `${initialHeight}px`
   document.documentElement.append(host)
 
   menu = {
@@ -180,8 +186,8 @@ function showMenu(
     mode,
     kind,
     anchor,
-    width: mode === 'badge' ? 40 : 340,
-    height: mode === 'badge' ? 40 : 430,
+    width: initialWidth,
+    height: initialHeight,
   }
   positionMenu()
 }

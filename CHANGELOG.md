@@ -57,6 +57,9 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : thème clair/sombre (système, clair, sombre), détails de connexion
+  avec copie individuelle de l’identifiant, du mot de passe et du code TOTP,
+  et correction des débordements du popup et du menu inline.
 - Extension : remplissage des cartes bancaires et des identités/adresses depuis
   le menu à trois onglets, détection `autocomplete` et libellés français, CVC et
   PIN uniquement sur action explicite, refus des cartes hors HTTPS ou dans une
