@@ -251,7 +251,7 @@ test('crée, lit, modifie et supprime depuis le panneau de détail', async ({ pa
 
 test('remplace un mot de passe faible depuis le bandeau du détail', async ({ page }) => {
   await createVault(page)
-  const panel = await addLogin(page, 'Faible', 'ada', 'abc123')
+  const panel = await addLogin(page, 'Faible', 'ada', 'abc123', 'https://github.com')
   const alert = panel.locator('.alert-banner')
   await expect(alert).toContainText('Mot de passe faible')
 

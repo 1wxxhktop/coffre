@@ -430,6 +430,81 @@ appairage) est conservée dans `chrome.storage.local`.
   et la validation d’origine, mais une page qui contrôle entièrement son DOM
   peut toujours gêner l’affichage du menu.
 
+### 2.10.1 Protection anti-hameçonnage
+
+La protection anti-hameçonnage (`src/lib/phishing.ts`) est entièrement locale :
+elle ne contacte aucune API de réputation, n’envoie aucun domaine et ne
+conserve aucun résultat. Elle s’exécute dans l’application, avant un
+remplissage forcé ou un enregistrement demandé par l’extension.
+
+Signaux et seuils :
+
+- **confusable** : l’hôte contient des caractères non ASCII ou un libellé
+  `xn--` ; son squelette de confusables (table Unicode TR39 réduite, NFKC,
+  leetspeak et séquences courantes) correspond à un domaine du coffre ou de la
+  liste populaire, sans être le même domaine enregistrable ;
+- **faute de frappe** : distance de Damerau-Levenshtein ≤ 2 entre le libellé de
+  marque de la page et celui d’un domaine connu ; le libellé doit faire au
+  moins 5 caractères, soit au moins 6 caractères pour le domaine complet, et
+  conserver la première lettre de la marque. Une distance de 1 est un danger,
+  une distance de 2 un avertissement. Si les marques sont identiques, seule une
+  faute sur le TLD (`github.co` face à `github.com`) est signalée ;
+- **marque en sous-domaine** : un domaine connu apparaît comme libellé à
+  gauche du domaine enregistrable de la page (`paypal.com.login-check.io`,
+  `paypal.secure-login.io`) ;
+- **IP brute**, **HTTP** et **port inhabituel** : page servie depuis une adresse
+  IP, en clair, ou sur un port autre que 80/443. Les adresses de bouclage
+  (`localhost`, `127.0.0.0/8`, `::1`) sont ignorées ;
+- **domaine jamais vu** : à l’enregistrement uniquement, le même nom
+  d’utilisateur existe déjà sur un autre domaine enregistrable. C’est un
+  avertissement doux, jamais un blocage.
+
+Les domaines d’un même domaine enregistrable (`accounts.google.com` face à
+`google.com`) et les groupes d’équivalences légitimes (`apple.com` /
+`icloud.com`, `google.com` / `gmail.com`) ne déclenchent rien. La liste
+d’équivalences est embarquée dans `src/assets/domain-equivalences.json`.
+
+Jeux de données embarqués et datés :
+
+- `src/assets/popular-domains.json` : domaines dérivés d’Apple « Password
+  Manager Resources » (MIT), instantané du 9 novembre 2026, régénéré par
+  `scripts/update-popular-domains.mjs` sans réseau ;
+- `src/assets/popular-domains-crux.json` : domaines enregistrables dérivés des
+  1 000 origines les plus populaires du Chrome UX Report (Google, CC BY 4.0),
+  instantané du 9 novembre 2026, régénéré par
+  `scripts/update-crux-domains.ts` (seul script du lot à télécharger une source,
+  lors de la mise à jour manuelle ; aucun téléchargement à l’exécution) ;
+- `src/assets/confusables.json` : table réduite issue d’Unicode UTS #39
+  `confusables.txt` (Unicode License V3), instantané du 6 août 2026, régénéré
+  par `scripts/update-confusables.mjs` ;
+- `src/assets/domain-equivalences.json` : liste originale Coffre
+  (GPL-3.0-only).
+
+Aucun de ces fichiers n’est téléchargé à l’exécution. Les listes populaires et
+la table de confusables sont incluses dans le bundle de l’application ; elles
+ne sont pas nécessaires au bundle de l’extension, qui interroge l’application
+par le pont. Ce sont des ressources statiques de l’application, pas des données
+du fichier `.coffre`.
+
+Interface et journal :
+
+- le bandeau est rendu dans l’iframe d’origine extension ; « Annuler » est le
+  choix par défaut et ne transmet aucun identifiant ;
+- « Continuer quand même » transmet un indicateur explicite à l’application,
+  qui ne remplit ou n’enregistre qu’après cet accord ;
+- le choix est écrit dans le journal d’activité chiffré (`phishing-warning`)
+  avec les codes des signaux et l’hôte, jamais l’URL complète, jamais un
+  secret ;
+- le bandeau ne s’affiche pas pour un remplissage normal dont l’hôte
+  correspond déjà à l’élément ; les signaux IP, HTTP et port restent vérifiés.
+
+Limites : la liste de suffixes publics est réduite (voir 2.10), la table de
+confusables est volontairement partielle, une faute de frappe peut passer si
+elle affecte plusieurs caractères ou un domaine très court, et l’utilisateur
+peut toujours forcer l’action après l’avertissement. La protection complète le
+contrôle de domaine existant ; elle ne remplace ni la vigilance de
+l’utilisateur ni un audit externe.
+
 ### 2.11 Pont natif de l’extension (desktop)
 
 Sur desktop, l’extension peut parler directement à l’application au lieu de
@@ -483,19 +558,54 @@ L’analyse de sécurité est entièrement locale et ne conserve aucun résultat
 - les mots de passe faibles sont estimés par longueur, entropie et présence du
   titre ou de l’identifiant dans le secret ; les réutilisations exactes et les
   variantes proches sont détectées sans exposer les secrets ;
-- l’ancienneté utilise la dernière modification de l’élément, l’absence de 2FA
-  le champ TOTP, et les connexions incomplètes les champs identifiant, mot de
-  passe et URL ;
+- l’ancienneté utilise la dernière modification de l’élément ; l’absence de
+  2FA n’est signalée que si le site est connu comme proposant une méthode
+  (2FA Directory) et que le champ TOTP est vide ; les connexions incomplètes
+  utilisent les champs identifiant, mot de passe et URL ;
+- « Passkey disponible » signale une connexion par mot de passe sur un site du
+  répertoire Passkeys Directory qui accepte les passkeys, sauf si une passkey
+  existe déjà pour le même domaine enregistrable ;
+- « Site sans HTTPS » signale une URL `http://` hors bouclage ;
 - le score, la répartition solides/moyens/faibles et les listes ne contiennent
   que des références d’éléments et des compteurs, jamais un mot de passe ;
 - l’historique du score conserve au plus une mesure par jour pendant 365 jours
-  dans `localStorage` : date, score et compteurs, jamais un secret ni une URL ;
+  dans `localStorage` : date, score, version de formule et compteurs, jamais un
+  secret ni une URL. Le calcul passe en version 2 avec Q2 (règle 2FA et
+  pénalité HTTP) ; les mesures antérieures restent lisibles et la courbe est
+  annotée lorsqu’elles côtoient les nouvelles ;
 - « Changer sur le site » ouvre l’URL standard
   `https://<hôte>/.well-known/change-password` dans le navigateur système ; la
   requête est faite par le navigateur, pas par Coffre, et aucune donnée du
   coffre n’est transmise ;
 - la vérification des fuites est une action explicite, désactivée par défaut
   (voir 2.12.1).
+
+#### Disponibilité de la 2FA et des passkeys
+
+Les répertoires `site-security.json` sont des instantanés embarqués, datés du
+9 novembre 2026 :
+
+- **2FA Directory** (`https://2fa.directory`) : 2 453 domaines avec au moins une
+  méthode (`totp`, `sms`, `call`, `email`, `u2f`, `custom-software`,
+  `custom-hardware`) et, lorsqu’elle existe, le lien de documentation. Données
+  sous licence MIT, attribution dans `NOTICE` ;
+- **Passkeys Directory** (`https://passkeys.directory`) : 403 domaines qui
+  acceptent les passkeys et, lorsqu’il existe, le lien de documentation. Données
+  sous licence CC BY 4.0, attribution dans `NOTICE`.
+
+Le fichier est chargé par import dynamique dans un chunk séparé, uniquement
+dans l’application ; il n’est pas inclus dans le bundle de l’extension. Il ne
+contient aucun secret et aucune donnée du coffre. Aucune requête vers un
+service externe n’est faite à l’exécution ; le script
+`scripts/update-2fa-directory.mjs` est réservé aux mises à jour de version et
+peut relire des instantanés locaux.
+
+Limites : la couverture dépend des répertoires et de leurs domaines déclarés
+(par exemple `mail.google.com` est couvert, `accounts.google.com` peut ne pas
+l’être) ; un site absent ou inconnu ne déclenche aucune alerte « Sans 2FA » ;
+le support des passkeys peut évoluer entre deux versions ; l’action « Créer une
+passkey » ouvre simplement le site et ne crée rien sans la fenêtre de
+confirmation de l’extension.
 
 ### 2.12.1 Surveillance optionnelle des fuites (HIBP)
 
