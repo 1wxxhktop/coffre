@@ -15,6 +15,7 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 mod alias_service;
 mod autotype;
+mod backup_store;
 mod blob_store;
 mod bridge;
 mod lan_sync;
@@ -440,6 +441,47 @@ fn vault_clear(app: tauri::AppHandle) -> Result<(), String> {
     vault_store::clear(&vault_dir(&app)?)
 }
 
+/// Indique si le dossier cible de sauvegarde existe et est accessible.
+#[tauri::command(async)]
+fn backup_status(dir: String) -> Result<backup_store::BackupStatus, String> {
+    backup_store::status(&dir)
+}
+
+/// Liste les fichiers de sauvegarde datés d’un dossier.
+#[tauri::command(async)]
+fn backup_list(dir: String) -> Result<Vec<backup_store::BackupFileInfo>, String> {
+    backup_store::list(&dir)
+}
+
+/// Supprime des sauvegardes datées après application de la rétention.
+#[tauri::command(async)]
+fn backup_delete(dir: String, names: Vec<String>) -> Result<usize, String> {
+    backup_store::delete(&dir, &names)
+}
+
+/// Copie le coffre courant, déjà chiffré, dans le dossier de sauvegarde.
+#[tauri::command(async)]
+fn backup_copy_current(
+    app: tauri::AppHandle,
+    dir: String,
+    names: Vec<String>,
+) -> Result<backup_store::CopyResult, String> {
+    let source = vault_dir(&app)?.join("vault.coffre");
+    backup_store::copy_current(&source, &dir, &names)
+}
+
+/// Lit une sauvegarde pour le test de restauration, sans toucher au coffre.
+#[tauri::command(async)]
+fn backup_read(dir: String, name: String) -> Result<String, String> {
+    backup_store::read(&dir, &name)
+}
+
+/// Lit l’identifiant du coffre courant sans le déchiffrer.
+#[tauri::command(async)]
+fn backup_current_file_id(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    backup_store::current_file_id(&vault_dir(&app)?.join("vault.coffre"))
+}
+
 /// Prépare `Coffre/<idFichier>/` dans un dossier synchronisé choisi.
 #[tauri::command(async)]
 fn sync_prepare(base: String, file_id: String) -> Result<String, String> {
@@ -702,6 +744,12 @@ pub fn run() {
             vault_state_read,
             vault_state_write,
             vault_clear,
+            backup_status,
+            backup_list,
+            backup_delete,
+            backup_copy_current,
+            backup_read,
+            backup_current_file_id,
             alias_service::alias_create,
             blob_store::blob_encrypt,
             blob_store::blob_list,

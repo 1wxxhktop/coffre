@@ -603,6 +603,19 @@ export interface AppSettings {
   expiryNotifications: boolean
   /** Vérifier les mots de passe dans les fuites connues, en k-anonymat. */
   breachCheck: boolean
+  /** Sauvegardes planifiées : désactivées, quotidiennes ou hebdomadaires. */
+  backupFrequency: 'off' | 'daily' | 'weekly'
+  /** Dossier cible des sauvegardes sur desktop. */
+  backupFolder: string
+  backupRetentionDaily: number
+  backupRetentionWeekly: number
+  backupRetentionMonthly: number
+  /** Dernière exécution planifiée, réussie ou non. */
+  backupLastRunAt: string | null
+  /** Dernière sauvegarde réussie. */
+  backupLastSuccessAt: string | null
+  /** Code d’erreur stable, jamais un chemin ni un secret. */
+  backupLastError: string | null
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -622,6 +635,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   biometricUnlock: false,
   expiryNotifications: false,
   breachCheck: false,
+  backupFrequency: 'off',
+  backupFolder: '',
+  backupRetentionDaily: 7,
+  backupRetentionWeekly: 4,
+  backupRetentionMonthly: 12,
+  backupLastRunAt: null,
+  backupLastSuccessAt: null,
+  backupLastError: null,
 }
 
 export function isItemType(value: unknown): value is ItemType {

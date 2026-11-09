@@ -742,6 +742,53 @@ export const EN_TEXT: Record<string, string> = {
   'Création impossible': 'Creation failed',
   'Tout effacer': 'Clear all',
   'Régénérer': 'Regenerate',
+  'Sauvegardes planifiées': 'Scheduled backups',
+  'Sauvegarde planifiée': 'Scheduled backup',
+  'Copies chiffrées du fichier .coffre dans un dossier choisi, même quand le coffre est verrouillé.':
+    'Encrypted copies of the .coffre file in a chosen folder, even while the vault is locked.',
+  'Sur le Web, Coffre ne peut pas écrire en arrière-plan : un rappel vous invite à exporter.':
+    'On the Web, Coffre cannot write in the background: a reminder invites you to export.',
+  'Le mode voyage suspend les sauvegardes planifiées pour ne pas écrire un coffre réduit par-dessus la rétention.':
+    'Travel mode pauses scheduled backups so a reduced vault is not written over the retention set.',
+  Fréquence: 'Frequency',
+  Quotidienne: 'Daily',
+  Hebdomadaire: 'Weekly',
+  'Dossier cible': 'Target folder',
+  'Choisir un dossier de sauvegarde': 'Choose a backup folder',
+  'Dossier de sauvegarde configuré.': 'Backup folder configured.',
+  'Impossible de choisir ce dossier.': 'Unable to choose this folder.',
+  'Quotidiennes conservées': 'Daily backups kept',
+  'Hebdomadaires conservées': 'Weekly backups kept',
+  'Mensuelles conservées': 'Monthly backups kept',
+  'Dernière sauvegarde :': 'Last backup:',
+  'Aucune sauvegarde réussie pour le moment.': 'No successful backup yet.',
+  'Sauvegarder maintenant': 'Back up now',
+  'Tester la restauration': 'Test restore',
+  'Aucune sauvegarde à tester.': 'No backup to test.',
+  'Sauvegarde effectuée.': 'Backup completed.',
+  'Aucune sauvegarde nécessaire.': 'No backup needed.',
+  'Le dossier de sauvegarde est introuvable.': 'The backup folder cannot be found.',
+  'Sauvegarde impossible.': 'Backup failed.',
+  'Intégrité confirmée : {items} éléments (coffre courant : {current}).':
+    'Integrity confirmed: {items} items (current vault: {current}).',
+  'Vérification impossible. Saisissez le mot de passe de cette sauvegarde.':
+    'Verification failed. Enter this backup’s password.',
+  'Sauvegarde illisible ou corrompue.': 'Backup unreadable or corrupted.',
+  'Test de restauration :': 'Restore test:',
+  'Mot de passe de la sauvegarde': 'Backup password',
+  Vérifier: 'Verify',
+  Tester: 'Test',
+  'Sauvegardes suspendues par le mode voyage.': 'Backups paused by travel mode.',
+  'Le dossier de sauvegarde est introuvable (disque débranché ?).':
+    'The backup folder cannot be found (drive disconnected?).',
+  'Choisissez un dossier de sauvegarde.': 'Choose a backup folder.',
+  'La dernière sauvegarde a échoué.': 'The last backup failed.',
+  'Aucune sauvegarde planifiée n’a encore réussi.':
+    'No scheduled backup has succeeded yet.',
+  'La dernière sauvegarde date de plus de deux périodes.':
+    'The last backup is more than two periods old.',
+  'Pensez à exporter une sauvegarde manuelle.':
+    'Remember to export a manual backup.',
 }
 
 /** Traduit un texte source ; renvoie le texte tel quel s’il est inconnu. */

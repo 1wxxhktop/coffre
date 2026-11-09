@@ -93,6 +93,12 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   de l’enregistrement, fusion par horloges. Aucun mot de passe en clair dans le
   fichier ; le sidecar est couvert par le manifeste 2 du MAC global, avec
   lecture des fichiers signés en manifeste 1 et vecteur croisé TypeScript/Rust.
+- **Sauvegardes planifiées** : copies datées du `.coffre` chiffré dans un
+  dossier choisi, écriture atomique et contrôle SHA-256, vérification du MAC
+  lorsque le coffre est déverrouillé, test de restauration en lecture seule,
+  rétention 7 / 4 / 12 réglable, alerte si le dossier disparaît ou si la
+  dernière réussite est trop ancienne, suspension en mode voyage et rappel
+  d’export sur le Web. Aucun déchiffrement ni requête réseau.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, verrouillage avec la session et à la mise en veille,
   effacement du presse-papiers au verrouillage.
@@ -108,7 +114,7 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 561 tests unitaires (74 fichiers), 150 exécutions Playwright
+- **Tests** : 647 tests unitaires (78 fichiers), 150 exécutions Playwright
   (75 parcours sur Chromium et WebKit), 34 tests Rust desktop (1 ignoré) +
   22 tests `coffre-core` + 3 tests FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
