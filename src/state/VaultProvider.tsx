@@ -114,6 +114,12 @@ import {
   parseSharedVaultPackage,
   type SharedVaultPackage,
 } from '../lib/sharingPackage'
+import {
+  createSharedVaultBundle,
+  importSharedVaultBundle,
+  parseSharedVaultBundle,
+  type SharedVaultBundle,
+} from '../lib/sharedVaultBundle'
 import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
 import { isTauriRuntime } from '../lib/external'
 import {
@@ -212,7 +218,12 @@ interface VaultContextValue extends ProviderState {
     vaultId: string,
     memberIdentities: string[],
   ) => Promise<SharedVaultPackage>
-  /** Importe un coffre partagé dans le fichier local. */
+  /** Génère un paquet contenant la clé et le contenu chiffré. */
+  createSharingBundle: (
+    vaultId: string,
+    memberIdentities: string[],
+  ) => Promise<SharedVaultBundle>
+  /** Importe un coffre partagé (clé seule ou contenu complet). */
   importSharingPackage: (packageText: string, vaultName: string) => Promise<void>
   /** Liste les membres connus d’un coffre partagé. */
   getVaultSharing: (vaultId: string) => Promise<{
@@ -1158,6 +1169,48 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           file = await persist(file, { ...file, sharing: made.record })
           apply((previous) => ({ ...previous, file }))
         }
+        let bundleRecord: unknown
+        try {
+          bundleRecord = JSON.parse(packageText)
+        } catch {
+          bundleRecord = null
+        }
+        if (
+          bundleRecord &&
+          typeof bundleRecord === 'object' &&
+          (bundleRecord as { format?: unknown }).format === 'coffre-shared-vault'
+        ) {
+          const bundle = await parseSharedVaultBundle(bundleRecord)
+          const result = await importSharedVaultBundle(
+            bundle,
+            identity,
+            file,
+            current.session,
+            vaultName,
+          )
+          const signed = await persist(file, result.file)
+          const masterKey = current.session.masterKey
+          const opened = await openVaultFileWithMasterKey(signed, masterKey)
+          current.session.lock()
+          epochRef.current += 1
+          apply((previous) => ({
+            ...previous,
+            status: 'unlocked',
+            file: opened.file,
+            session: opened.session,
+            vaults: opened.vaults,
+            items: opened.items,
+            templates: opened.templates,
+            activity: opened.activity,
+            aliasKeys: opened.aliasKeys,
+            warnings: opened.warnings,
+            error: null,
+            readOnly: opened.readOnly,
+            syncPending: true,
+            syncRevision: previous.syncRevision + 1,
+          }))
+          return
+        }
         const pkg = await parseSharedVaultPackage(packageText)
         const imported = await openSharedVaultPackage(pkg, identity)
         const added = await addSharedVault(file, current.session, {
@@ -1175,6 +1228,69 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           syncPending: true,
           syncRevision: previous.syncRevision + 1,
         }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const createSharingBundle = useCallback(
+    (vaultId: string, memberIdentities: string[]) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) throw new Error('Le coffre est ouvert en lecture seule.')
+        let file = current.file
+        let identity: SharingIdentity
+        if (file.sharing) {
+          identity = await openSharingIdentity(
+            file.sharing,
+            current.session.masterKey,
+            file.id,
+          )
+        } else {
+          const made = await makeSharingIdentity(
+            current.session.masterKey,
+            file.id,
+          )
+          identity = made.identity
+          file = await persist(file, { ...file, sharing: made.record })
+          apply((previous) => ({ ...previous, file }))
+        }
+        const vaultKey = current.session.vaultKey(vaultId)
+        if (!vaultKey) throw new Error('Coffre introuvable')
+        const members: ShareMember[] = [
+          { identity: publicSharingIdentity(identity), role: 'write' },
+        ]
+        const seen = new Set([identity.fingerprint])
+        for (const text of memberIdentities) {
+          if (!text.trim()) continue
+          const member = await parsePublicSharingIdentity(text)
+          if (seen.has(member.fingerprint)) continue
+          seen.add(member.fingerprint)
+          members.push({ identity: member, role: 'read' })
+        }
+        if (members.length < 2) throw new Error('Ajoutez au moins une identité de membre')
+        const pkg = await createSharedVaultPackage({
+          vaultId,
+          vaultKey,
+          admin: identity,
+          members,
+        })
+        const bundle = createSharedVaultBundle(file, vaultId, pkg)
+        const withMembers = await setVaultSharingMembers(
+          file,
+          current.session,
+          vaultId,
+          members.map((member) => ({
+            encryptionPublicKey: member.identity.encryptionPublicKey,
+            signingPublicKey: member.identity.signingPublicKey,
+            fingerprint: member.identity.fingerprint,
+            role: member.role,
+          })),
+          identity.fingerprint,
+        )
+        const signed = await persist(file, withMembers)
+        apply((previous) => ({ ...previous, file: signed }))
+        return bundle
       }),
     [apply, enqueue, persist],
   )
@@ -2968,6 +3084,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     getSharingIdentity,
     createSharingIdentity,
     createSharingPackage,
+    createSharingBundle,
     importSharingPackage,
     getVaultSharing,
     revokeSharingMember,

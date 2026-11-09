@@ -12,6 +12,7 @@ export function SharingSettings() {
     getSharingIdentity,
     createSharingIdentity,
     createSharingPackage,
+    createSharingBundle,
     importSharingPackage,
     getVaultSharing,
     revokeSharingMember,
@@ -19,7 +20,7 @@ export function SharingSettings() {
   const { tt } = useI18n()
   const { toast } = useToast()
   const [identity, setIdentity] = useState<SharingIdentity | null>(null)
-  const [busy, setBusy] = useState<'identity' | 'package' | 'import' | 'revoke' | null>(null)
+  const [busy, setBusy] = useState<'identity' | 'package' | 'bundle' | 'import' | 'revoke' | null>(null)
   const [copied, setCopied] = useState<'identity' | 'package' | null>(null)
   const [shareVaultId, setShareVaultId] = useState(vaults[0]?.id ?? '')
   const [memberText, setMemberText] = useState('')
@@ -109,6 +110,27 @@ export function SharingSettings() {
       setPackageText(JSON.stringify(pkg, null, 2))
       await loadMembers(shareVaultId)
       toast(tt('Paquet de partage généré'), 'success')
+    } catch (caught) {
+      toast(
+        caught instanceof Error ? caught.message : tt('Génération du paquet impossible'),
+        'error',
+      )
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const generateBundle = async () => {
+    if (!shareVaultId || busy) return
+    setBusy('bundle')
+    try {
+      const bundle = await createSharingBundle(
+        shareVaultId,
+        memberText.split('\n'),
+      )
+      setPackageText(JSON.stringify(bundle, null, 2))
+      await loadMembers(shareVaultId)
+      toast(tt('Paquet complet généré'), 'success')
     } catch (caught) {
       toast(
         caught instanceof Error ? caught.message : tt('Génération du paquet impossible'),
@@ -269,6 +291,19 @@ export function SharingSettings() {
             )}
             {tt('Générer le paquet')}
           </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => void generateBundle()}
+            disabled={busy !== null || !shareVaultId}
+          >
+            {busy === 'bundle' ? (
+              <LoaderCircle size={16} className="spin" />
+            ) : (
+              <Package size={16} />
+            )}
+            {tt('Générer le paquet complet')}
+          </button>
         </div>
         {packageText && (
           <>
@@ -355,7 +390,7 @@ export function SharingSettings() {
           />
         </label>
         <p className="settings-copy">
-          {tt('L’import ajoute la clé du coffre ; l’échange de contenu entre fichiers n’est pas encore implémenté.')}
+          {tt('Le paquet complet contient les éléments chiffrés du coffre. Le paquet de clé seule n’ajoute que le coffre vide.')}
         </p>
         <label className="field field--full">
           <span className="field__label">{tt('Nom du coffre importé')}</span>
