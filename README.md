@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 558 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 561 tests unitaires et
 > 73 parcours Playwright exécutés sur Chromium et WebKit (146 exécutions, 7 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
@@ -91,12 +91,14 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   stockage local.
 - **Protection anti-hameçonnage** : avant un remplissage forcé ou un
   enregistrement, Coffre compare le domaine de la page aux domaines du coffre et
-  à une liste embarquée de sites populaires (confusables Unicode, fautes de
-  frappe, marque en sous-domaine, IP brute, HTTP, port inhabituel, identifiant
-  déjà enregistré ailleurs). Un bandeau **Annuler** (par défaut) / **Continuer
-  quand même** précède l’action ; le choix est journalisé dans le journal
-  d’activité chiffré, sans URL complète. Aucune requête réseau, aucune API de
-  réputation. [Capture du bandeau](docs/screenshots/phishing-warning.png).
+  à deux listes embarquées de sites populaires — Apple Password Manager
+  Resources (MIT) et Chrome UX Report (CC BY 4.0, 1 000 origines) —
+  (confusables Unicode, fautes de frappe, marque en sous-domaine, IP brute,
+  HTTP, port inhabituel, identifiant déjà enregistré ailleurs). Un bandeau
+  **Annuler** (par défaut) / **Continuer quand même** précède l’action ; le
+  choix est journalisé dans le journal d’activité chiffré, sans URL complète.
+  Aucune requête réseau, aucune API de réputation.
+  [Capture du bandeau](docs/screenshots/phishing-warning.png).
 - **Recherche** insensible aux accents, filtres par type et favoris, étiquettes ;
   elle inclut les champs personnalisés et les noms de pièces jointes.
 - **Tri de la liste** : utilisation récente, nom, date de création, date de

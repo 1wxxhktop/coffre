@@ -223,5 +223,26 @@ Cette liste originale regroupe des domaines légitimes d’une même marque
 (par exemple `apple.com` et `icloud.com`) afin d’éviter les faux positifs de
 la protection anti-hameçonnage. Elle ne provient d’aucun jeu de données tiers.
 
+================================================================================
+9. CHROME UX REPORT (CRUX)
+================================================================================
+
+Fichier : src/assets/popular-domains-crux.json
+Source  : Chrome UX Report, Google
+          https://developer.chrome.com/docs/crux/
+Export  : https://github.com/zakird/crux-top-lists
+Licence : Creative Commons Attribution 4.0 International (CC BY 4.0)
+          https://creativecommons.org/licenses/by/4.0/
+
+Attribution à conserver :
+  « Chrome UX Report », Google, CC BY 4.0.
+
+Le fichier embarqué contient uniquement les domaines enregistrables dérivés
+des 1 000 origines les plus populaires du rapport CrUX (tranche de rang
+1 000). Les URL complètes, sous-domaines et rangs sont retirés. La
+transformation est documentée et reproductible avec
+`scripts/update-crux-domains.ts` ; le jeu de données est distribué séparément
+du code GPLv3 et sa licence CC BY 4.0 s’applique à ce fichier de données.
+
 Pour toute question relative à ces attributions, ouvrir une issue dans le
 dépôt du projet.

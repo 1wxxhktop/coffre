@@ -436,10 +436,10 @@ Signaux et seuils :
   liste populaire, sans être le même domaine enregistrable ;
 - **faute de frappe** : distance de Damerau-Levenshtein ≤ 2 entre le libellé de
   marque de la page et celui d’un domaine connu ; le libellé doit faire au
-  moins 5 caractères, soit au moins 6 caractères pour le domaine complet. Une
-  distance de 1 est un danger, une distance de 2 un avertissement. Si les
-  marques sont identiques, seule une faute sur le TLD (`github.co` face à
-  `github.com`) est signalée ;
+  moins 5 caractères, soit au moins 6 caractères pour le domaine complet, et
+  conserver la première lettre de la marque. Une distance de 1 est un danger,
+  une distance de 2 un avertissement. Si les marques sont identiques, seule une
+  faute sur le TLD (`github.co` face à `github.com`) est signalée ;
 - **marque en sous-domaine** : un domaine connu apparaît comme libellé à
   gauche du domaine enregistrable de la page (`paypal.com.login-check.io`,
   `paypal.secure-login.io`) ;
@@ -460,17 +460,22 @@ Jeux de données embarqués et datés :
 - `src/assets/popular-domains.json` : domaines dérivés d’Apple « Password
   Manager Resources » (MIT), instantané du 9 novembre 2026, régénéré par
   `scripts/update-popular-domains.mjs` sans réseau ;
+- `src/assets/popular-domains-crux.json` : domaines enregistrables dérivés des
+  1 000 origines les plus populaires du Chrome UX Report (Google, CC BY 4.0),
+  instantané du 9 novembre 2026, régénéré par
+  `scripts/update-crux-domains.ts` (seul script du lot à télécharger une source,
+  lors de la mise à jour manuelle ; aucun téléchargement à l’exécution) ;
 - `src/assets/confusables.json` : table réduite issue d’Unicode UTS #39
   `confusables.txt` (Unicode License V3), instantané du 6 août 2026, régénéré
   par `scripts/update-confusables.mjs` ;
 - `src/assets/domain-equivalences.json` : liste originale Coffre
   (GPL-3.0-only).
 
-Aucun de ces fichiers n’est téléchargé à l’exécution. La liste populaire et la
-table de confusables sont incluses dans le bundle de l’application ; elles ne
-sont pas nécessaires au bundle de l’extension, qui interroge l’application par
-le pont. Ce sont des ressources statiques de l’application, pas des données du
-fichier `.coffre`.
+Aucun de ces fichiers n’est téléchargé à l’exécution. Les listes populaires et
+la table de confusables sont incluses dans le bundle de l’application ; elles
+ne sont pas nécessaires au bundle de l’extension, qui interroge l’application
+par le pont. Ce sont des ressources statiques de l’application, pas des données
+du fichier `.coffre`.
 
 Interface et journal :
 
