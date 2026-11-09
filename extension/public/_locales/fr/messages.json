@@ -391,5 +391,29 @@
   },
   "settings_savedNoPermission": {
     "message": "Adresse enregistrée. Autorisez l’accès à ce site si nécessaire."
+  },
+  "popup_length": {
+    "message": "Longueur"
+  },
+  "popup_lowercase": {
+    "message": "Minuscules"
+  },
+  "popup_uppercase": {
+    "message": "Majuscules"
+  },
+  "popup_digits": {
+    "message": "Chiffres"
+  },
+  "popup_symbols": {
+    "message": "Symboles"
+  },
+  "popup_excludeAmbiguous": {
+    "message": "Éviter les caractères ambigus (O, 0, I, l, 1…)"
+  },
+  "popup_entropy": {
+    "message": "Entropie estimée"
+  },
+  "popup_characterClasses": {
+    "message": "Classes de caractères"
   }
 }

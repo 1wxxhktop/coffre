@@ -1,5 +1,10 @@
 import { hostFromUrl, type ExtensionLoginSummary } from '../src/lib/extensionProtocol'
-import { DEFAULT_PASSWORD_OPTIONS, generatePassword } from '../src/lib/password'
+import {
+  DEFAULT_PASSWORD_OPTIONS,
+  generatePassword,
+  generatedEntropy,
+  type PasswordOptions,
+} from '../src/lib/password'
 import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
 import { loadTheme, nextTheme, saveTheme, type ThemePreference } from './theme'
@@ -50,6 +55,21 @@ const generatedPassword = $<HTMLOutputElement>('generated-password')
 const regenerateButton = $<HTMLButtonElement>('regenerate')
 const copyGeneratedButton = $<HTMLButtonElement>('copy-generated')
 const generatorCloseButton = $<HTMLButtonElement>('generator-close')
+const generatorLengthInput = $<HTMLInputElement>('generator-length')
+const generatorLengthValue = $<HTMLElement>('generator-length-value')
+const generatorEntropy = $<HTMLElement>('generator-entropy')
+const generatorLowercaseInput = $<HTMLInputElement>('generator-lowercase')
+const generatorUppercaseInput = $<HTMLInputElement>('generator-uppercase')
+const generatorDigitsInput = $<HTMLInputElement>('generator-digits')
+const generatorSymbolsInput = $<HTMLInputElement>('generator-symbols')
+const generatorAmbiguousInput = $<HTMLInputElement>('generator-ambiguous')
+
+const generatorClassToggles = [
+  { input: generatorLowercaseInput, key: 'lowercase' as const },
+  { input: generatorUppercaseInput, key: 'uppercase' as const },
+  { input: generatorDigitsInput, key: 'digits' as const },
+  { input: generatorSymbolsInput, key: 'symbols' as const },
+]
 const results = $<HTMLUListElement>('results')
 const empty = $<HTMLParagraphElement>('empty')
 const showAllButton = $<HTMLButtonElement>('show-all')
@@ -83,6 +103,8 @@ let currentTab: chrome.tabs.Tab | null = null
 let status: AppStatus = { appOpen: false, unlocked: false, appUrl: '' }
 let entries: ExtensionLoginSummary[] = []
 let generatedValue = ''
+let passwordOptions: PasswordOptions = { ...DEFAULT_PASSWORD_OPTIONS }
+let generatorOptionsLoaded = false
 let busy = false
 let searchTimer: number | undefined
 let searchListenerReady = false
@@ -101,6 +123,8 @@ const THEME_ICONS: Record<ThemePreference, string> = {
 
 const FILL_ICON =
   '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></svg>'
+
+const GENERATOR_OPTIONS_KEY = 'generatorOptions'
 
 const ERROR_MESSAGES: Record<string, string> = {
   'app-closed': 'error_appClosed',
@@ -543,18 +567,126 @@ async function fillEntry(itemId: string) {
   }
 }
 
+function sanitizePasswordOptions(value: unknown): PasswordOptions {
+  const source =
+    value && typeof value === 'object' ? (value as Partial<PasswordOptions>) : {}
+  const rawLength = Number(source.length)
+  const options: PasswordOptions = {
+    length: Number.isFinite(rawLength)
+      ? Math.min(64, Math.max(8, Math.round(rawLength)))
+      : DEFAULT_PASSWORD_OPTIONS.length,
+    lowercase: source.lowercase !== false,
+    uppercase: source.uppercase !== false,
+    digits: source.digits !== false,
+    symbols: source.symbols !== false,
+    excludeAmbiguous: source.excludeAmbiguous !== false,
+  }
+  if (
+    !options.lowercase &&
+    !options.uppercase &&
+    !options.digits &&
+    !options.symbols
+  ) {
+    options.lowercase = true
+  }
+  return options
+}
+
+function syncGeneratorToggleStates(): void {
+  const active = generatorClassToggles.filter(({ input }) => input.checked)
+  for (const { input } of generatorClassToggles) {
+    input.disabled = input.checked && active.length === 1
+    input
+      .closest('label')
+      ?.classList.toggle('generator__toggle--active', input.checked)
+  }
+  generatorAmbiguousInput
+    .closest('label')
+    ?.classList.toggle(
+      'generator__toggle--active',
+      generatorAmbiguousInput.checked,
+    )
+}
+
+function syncGeneratorControls(): void {
+  generatorLengthInput.value = String(passwordOptions.length)
+  generatorLengthValue.textContent = String(passwordOptions.length)
+  generatorLowercaseInput.checked = passwordOptions.lowercase
+  generatorUppercaseInput.checked = passwordOptions.uppercase
+  generatorDigitsInput.checked = passwordOptions.digits
+  generatorSymbolsInput.checked = passwordOptions.symbols
+  generatorAmbiguousInput.checked = passwordOptions.excludeAmbiguous
+  syncGeneratorToggleStates()
+}
+
+function readGeneratorControls(): void {
+  const rawLength = Number(generatorLengthInput.value)
+  passwordOptions = {
+    length: Number.isFinite(rawLength)
+      ? Math.min(64, Math.max(8, Math.round(rawLength)))
+      : DEFAULT_PASSWORD_OPTIONS.length,
+    lowercase: generatorLowercaseInput.checked,
+    uppercase: generatorUppercaseInput.checked,
+    digits: generatorDigitsInput.checked,
+    symbols: generatorSymbolsInput.checked,
+    excludeAmbiguous: generatorAmbiguousInput.checked,
+  }
+  if (
+    !passwordOptions.lowercase &&
+    !passwordOptions.uppercase &&
+    !passwordOptions.digits &&
+    !passwordOptions.symbols
+  ) {
+    passwordOptions.lowercase = true
+  }
+  syncGeneratorControls()
+}
+
+function saveGeneratorOptions(): void {
+  void (async () => {
+    try {
+      await api.storage.local.set({
+        [GENERATOR_OPTIONS_KEY]: passwordOptions,
+      })
+    } catch {
+      // Stockage indisponible : les options restent valables pour la session.
+    }
+  })()
+}
+
+async function loadGeneratorOptions(): Promise<void> {
+  if (generatorOptionsLoaded) return
+  generatorOptionsLoaded = true
+  try {
+    const stored = await api.storage.local.get(GENERATOR_OPTIONS_KEY)
+    passwordOptions = sanitizePasswordOptions(stored[GENERATOR_OPTIONS_KEY])
+  } catch {
+    passwordOptions = { ...DEFAULT_PASSWORD_OPTIONS }
+  }
+  syncGeneratorControls()
+}
+
 function regeneratePassword(): void {
   try {
-    generatedValue = generatePassword(DEFAULT_PASSWORD_OPTIONS)
+    generatedValue = generatePassword(passwordOptions)
     generatedPassword.textContent = generatedValue
+    generatorEntropy.textContent = `${generatedEntropy(passwordOptions)} bits`
   } catch {
     generatedValue = ''
     generatedPassword.textContent = ''
+    generatorEntropy.textContent = '—'
     showMessage(t('error_generic'), 'error')
   }
 }
 
-function openGenerator(): void {
+function updateGeneratorOptions(save: boolean): void {
+  readGeneratorControls()
+  if (save) saveGeneratorOptions()
+  regeneratePassword()
+}
+
+async function openGenerator(): Promise<void> {
+  await loadGeneratorOptions()
   generatorPanel.hidden = false
   regeneratePassword()
 }
@@ -599,7 +731,7 @@ async function init() {
 }
 
 generateButton.addEventListener('click', () => {
-  if (generatorPanel.hidden) openGenerator()
+  if (generatorPanel.hidden) void openGenerator()
   else generatorPanel.hidden = true
 })
 
@@ -608,6 +740,20 @@ generatorCloseButton.addEventListener('click', () => {
 })
 
 regenerateButton.addEventListener('click', regeneratePassword)
+generatorLengthInput.addEventListener('input', () => {
+  updateGeneratorOptions(false)
+})
+generatorLengthInput.addEventListener('change', () => {
+  updateGeneratorOptions(true)
+})
+for (const { input } of generatorClassToggles) {
+  input.addEventListener('change', () => {
+    updateGeneratorOptions(true)
+  })
+}
+generatorAmbiguousInput.addEventListener('change', () => {
+  updateGeneratorOptions(true)
+})
 copyGeneratedButton.addEventListener('click', () => {
   void copyGeneratedPassword()
 })

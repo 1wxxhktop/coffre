@@ -60,6 +60,8 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : options du générateur (longueur, classes de caractères,
+  caractères ambigus, entropie estimée) mémorisées localement.
 - Extension : réglages intégrés au popup (thème, adresse de l’application,
   test de connexion), barre d’actions et notification ancrées en bas de la
   fenêtre, et activation du remplissage compatible WebKit/Orion (repli
