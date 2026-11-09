@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 484 tests unitaires et
-> 72 parcours Playwright exécutés sur Chromium et WebKit (144 exécutions, 6 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 498 tests unitaires et
+> 73 parcours Playwright exécutés sur Chromium et WebKit (146 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -89,6 +89,15 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   optionnelles. L’extension ne stocke aucun identifiant et ne copie rien dans le
   presse-papiers ; seule la clé de session du pont natif est conservée dans son
   stockage local.
+- **Disponibilité de la 2FA et des passkeys** : le tableau de bord ne signale
+  « Sans 2FA » que pour les sites dont une méthode est connue (2FA Directory,
+  MIT) et propose les connexions qui peuvent utiliser une passkey (Passkeys
+  Directory, CC BY 4.0). Une catégorie « Site sans HTTPS » repère les URL
+  `http://`. La fiche d’une connexion affiche les méthodes possibles (TOTP, SMS,
+  clé matérielle, etc.), la documentation du site et l’action « Créer une
+  passkey ». Les jeux de données sont embarqués, datés et chargés dans un chunk
+  séparé ; ils ne sont pas inclus dans l’extension et aucune requête réseau
+  n’est effectuée. [Capture de la fiche](docs/screenshots/site-security.png).
 - **Recherche** insensible aux accents, filtres par type et favoris, étiquettes ;
   elle inclut les champs personnalisés et les noms de pièces jointes.
 - **Tri de la liste** : utilisation récente, nom, date de création, date de

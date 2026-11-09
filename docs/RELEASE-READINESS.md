@@ -76,6 +76,11 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   L’échange manuel `.coffre-shared.json` reste disponible.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
+- **Disponibilité 2FA et passkeys** : instantanés 2FA Directory (MIT) et
+  Passkeys Directory (CC BY 4.0), chargés dans un chunk séparé, catégories
+  « Passkey disponible » et « Site sans HTTPS », méthodes de 2FA et
+  documentation dans la fiche. Aucune requête réseau, aucun ajout au bundle de
+  l’extension.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, effacement du presse-papiers au verrouillage.
 - **Récupération** : phrase EFF de 10 mots, enveloppe séparée, vérification de
