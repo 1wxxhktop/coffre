@@ -72,11 +72,6 @@
   pendant la fenêtre de réception, mobile restant à faire.
 - Extension : options du générateur (longueur, classes de caractères,
   caractères ambigus, entropie estimée) mémorisées localement.
-- Extension : le remplissage d’une connexion valide automatiquement le
-  formulaire (bouton de connexion ou `requestSubmit`) pour réduire les
-  interactions, sans soumettre les cartes ni les identités.
-- Extension : logo en cadenas blanc à contour noir en thème clair, noir à
-  contour blanc en thème sombre.
 - Extension : icônes d’action 16/32/48/128 px et variantes clair/sombre
   (`theme_icons`) pour la barre d’outils.
 - Extension : barre de recherche et bouton du générateur ancrés en haut pendant

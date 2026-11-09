@@ -216,7 +216,7 @@
     "message": "Identity filled."
   },
   "menu_filledLogin": {
-    "message": "Credentials filled. Sign-in submitted."
+    "message": "Credentials filled."
   },
   "menu_noPending": {
     "message": "No pending submission for this site."
@@ -427,8 +427,5 @@
   },
   "popup_update": {
     "message": "Update"
-  },
-  "popup_filledSubmitted": {
-    "message": "Credentials filled. Sign-in submitted."
   }
 }
