@@ -71,7 +71,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   bundles de contenu signés, rôles `read`/`write`, révocation par rotation,
   accès d’urgence immédiat ou Shamir 2/3. Synchronisation par dossier commun,
   à la demande ou toutes les 60 secondes ; les bundles restent chiffrés et
-  signés, les paquets de partage sont conservés chiffrés dans les métadonnées.
+  signés, les paquets de partage sont conservés chiffrés dans les métadonnées
+  et les pièces jointes binaires chiffrées suivent le dossier sur desktop.
   L’échange manuel `.coffre-shared.json` reste disponible.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
@@ -85,7 +86,7 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 483 tests unitaires (69 fichiers), 144 exécutions Playwright
+- **Tests** : 484 tests unitaires (69 fichiers), 144 exécutions Playwright
   (72 parcours sur Chromium et WebKit), 30 tests Rust desktop (1 ignoré) +
   12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension

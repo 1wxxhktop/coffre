@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 483 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 484 tests unitaires et
 > 72 parcours Playwright exécutés sur Chromium et WebKit (144 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
@@ -686,7 +686,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (483 tests) |
+| `bun run test` | Tests Vitest (484 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (144 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
