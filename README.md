@@ -721,7 +721,8 @@ code TOTP) avec copie champ par champ, y compris lorsque le remplissage
 automatique échoue. Les réglages (thème, adresse de Coffre, test de connexion)
 s’ouvrent directement dans le popup, sans nouvel onglet. La barre d’action et le
 statut restent ancrés en bas de la fenêtre, même lorsque celle-ci ne s’ajuste
-pas automatiquement à son contenu.
+pas automatiquement à son contenu. Une fois le remplissage actif dans l’onglet,
+le bouton d’activation laisse place à l’indicateur « Remplissage actif ».
 
 ```bash
 bun run extension:build

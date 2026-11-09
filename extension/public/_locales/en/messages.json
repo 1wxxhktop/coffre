@@ -415,5 +415,8 @@
   },
   "popup_characterClasses": {
     "message": "Character classes"
+  },
+  "popup_inlineActive": {
+    "message": "Filling active on this tab"
   }
 }

@@ -415,5 +415,8 @@
   },
   "popup_characterClasses": {
     "message": "Classes de caractères"
+  },
+  "popup_inlineActive": {
+    "message": "Remplissage actif dans cet onglet"
   }
 }
