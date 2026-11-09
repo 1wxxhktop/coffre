@@ -864,3 +864,39 @@
   align-self: flex-start;
   margin-top: calc(-1 * var(--space-1));
 }
+
+/* Codes de secours */
+.recovery-code-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.recovery-code-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.recovery-code-row.is-used {
+  opacity: 0.65;
+}
+
+.recovery-code-row__value {
+  min-width: 160px;
+  flex: 1;
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.recovery-code-row__status {
+  color: var(--text-3);
+  font-size: var(--text-xs);
+}
