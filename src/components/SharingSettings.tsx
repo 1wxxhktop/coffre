@@ -355,7 +355,7 @@ export function SharingSettings() {
           />
         </label>
         <p className="settings-copy">
-          {tt('Les éléments seront ajoutés par la synchronisation du coffre.')}
+          {tt('L’import ajoute la clé du coffre ; l’échange de contenu entre fichiers n’est pas encore implémenté.')}
         </p>
         <label className="field field--full">
           <span className="field__label">{tt('Nom du coffre importé')}</span>
