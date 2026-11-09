@@ -8,6 +8,7 @@
 
 import { sha256 } from './crypto'
 import { encodeCbor, type CborValue } from './cbor'
+import { PUBLIC_SUFFIXES } from './domains'
 import type { PasskeyItem } from './types'
 
 export class PasskeyError extends Error {
@@ -38,53 +39,6 @@ const AAGUID = Uint8Array.of(
   0x00,
   0x01,
 )
-
-/**
- * Suffixes publics multi-étiquettes les plus courants. Une liste complète
- * (Public Suffix List) serait préférable ; cette liste couvre les cas usuels
- * et rejette surtout les suffixes à une seule étiquette.
- */
-const PUBLIC_SUFFIXES = new Set([
-  'com',
-  'net',
-  'org',
-  'io',
-  'co',
-  'dev',
-  'app',
-  'ai',
-  'fr',
-  'de',
-  'uk',
-  'us',
-  'ca',
-  'au',
-  'jp',
-  'cn',
-  'co.uk',
-  'org.uk',
-  'ac.uk',
-  'com.au',
-  'net.au',
-  'co.nz',
-  'co.jp',
-  'com.br',
-  'com.mx',
-  'co.in',
-  'com.cn',
-  'github.io',
-  'gitlab.io',
-  'pages.dev',
-  'workers.dev',
-  'appspot.com',
-  'herokuapp.com',
-  'netlify.app',
-  'vercel.app',
-  'web.app',
-  'firebaseapp.com',
-  'azurewebsites.net',
-  'cloudfront.net',
-])
 
 function encodeBase64(bytes: Uint8Array): string {
   let binary = ''
