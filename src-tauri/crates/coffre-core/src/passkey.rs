@@ -239,7 +239,7 @@ pub fn create_passkey(
         .to_pkcs8_der()
         .map_err(|_| CoreError::Crypto("export PKCS#8 impossible".into()))?;
     let private_key = STANDARD.encode(private_der.as_bytes());
-    let public_key = signing_key.verifying_key().to_encoded_point(false);
+    let public_key = signing_key.verifying_key().to_sec1_point(false);
     let public_key = public_key.as_bytes();
     let public_key_cose = STANDARD.encode(cose_public_key(public_key)?);
 
