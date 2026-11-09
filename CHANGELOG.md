@@ -175,7 +175,8 @@
   partage signés par membre, validation des identités/paquets importés et
   interface de génération/import dans les réglages, et paquet complet des
   éléments/pièces jointes/versions chiffrés, avec propagation des suppressions
-  par pierres tombales. L’échange reste manuel. Les coffres partagés en
+  par pierres tombales. Le paquet peut être copié ou téléchargé en fichier
+  `.coffre-shared.json` puis importé. L’échange reste manuel. Les coffres partagés en
   lecture seule bloquent les mutations dans l’application ; la limite face à un
   client modifié est documentée. Révocation d’un membre par rotation de la clé
   du coffre, re-enveloppe des clés d’éléments et nouveau paquet pour les
