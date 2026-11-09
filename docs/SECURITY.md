@@ -419,14 +419,27 @@ appairage) est conservée dans `chrome.storage.local`.
   Les réglages vivent dans `storage.local` : adresse de l’application, mode
   (`desktop` ou `web`), activation (`site` ou `all`), menu dans les champs,
   bandeau d’enregistrement, options futures (TOTP, remplissage au chargement)
-  et liste d’exclusions E7. Aucun secret, aucun mot de passe maître, aucun nom
-  d’élément n’y figure ; la liste d’exclusions est vide tant que E7 n’est pas
-  livré. Le mode Web ignore volontairement le pont natif.
+  et les deux listes d’exclusions. Aucun secret, aucun mot de passe maître,
+  aucun nom d’élément n’y figure ; les exclusions ne contiennent que des
+  domaines, jamais d’URL, de chemin ni d’identifiant. Le mode Web ignore
+  volontairement le pont natif.
 - L’activation site par site ne demande que l’origine du site courant ; « tous
   les sites » demande `http://*/*` et `https://*/*`. Les content scripts sont
   enregistrés dynamiquement sur la liste exacte des origines accordées ; les
   permissions d’hôte restent optionnelles et révocables par l’utilisateur.
   Aucune permission n’est ajoutée par l’accueil ou la page d’options.
+- **Exclusions par site** : deux listes locales, `neverFillSites` et
+  `neverSaveSites`, contiennent uniquement des domaines normalisés. Le domaine
+  retenu est le domaine enregistrable usuel (`login.example.com` →
+  `example.com`) à partir d’une liste bornée de suffixes multi-étiquettes ;
+  la liste publique complète n’est pas embarquée. Une exclusion « remplissage »
+  bloque le menu, les raccourcis, la génération et les messages de remplissage
+  dans le content script et dans le service worker ; une exclusion
+  « enregistrement » bloque la création et la conservation des propositions
+  dans `storage.session`. Ajouter une exclusion d’enregistrement purge les
+  propositions du domaine ; retirer une exclusion prend effet à chaud via
+  `storage.onChanged`, sans recharger l’extension. Aucune donnée de coffre
+  n’est lue pour gérer ces listes.
 - Le remplissage vérifie l’hôte de la frame dans le content script **et** dans
   l’application (`loginAllowsHost`) ; les iframes ne sont remplies que si leur
   origine correspond à l’URL de l’élément.

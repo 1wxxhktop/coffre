@@ -332,8 +332,14 @@
   "options_exclusions": {
     "message": "Exclusions par site"
   },
-  "options_exclusionsSoon": {
-    "message": "« Ne jamais proposer d’enregistrer » et « Ne jamais remplir » arrivent avec le lot E7. Aucune exclusion n’est encore enregistrée."
+  "options_exclusionsCopy": {
+    "message": "Ajoutez une exclusion depuis la popup ou le menu d’un site. Les listes ci-dessous sont modifiables sans recharger l’extension."
+  },
+  "options_exclusionsEmpty": {
+    "message": "Aucune exclusion."
+  },
+  "options_exclusionsRemove": {
+    "message": "Retirer"
   },
   "options_appearance": {
     "message": "Apparence"
@@ -403,6 +409,12 @@
   },
   "saveBanner_later": {
     "message": "Plus tard"
+  },
+  "saveBanner_never": {
+    "message": "Jamais pour ce site"
+  },
+  "saveBanner_neverSaved": {
+    "message": "Ce site ne proposera plus d’enregistrer de connexion."
   },
   "saveBanner_close": {
     "message": "Fermer"
@@ -490,6 +502,9 @@
   },
   "error_nativeUnavailable": {
     "message": "L’application Coffre desktop n’est pas disponible."
+  },
+  "error_excluded": {
+    "message": "Ce site est exclu de Coffre."
   },
   "error_generic": {
     "message": "Opération impossible."
@@ -605,6 +620,9 @@
   "menu_errorCancelled": {
     "message": "Confirmation biométrique annulée."
   },
+  "menu_errorExcluded": {
+    "message": "Ce site est exclu de Coffre."
+  },
   "menu_tabCustom": {
     "message": "Modèles"
   },
@@ -628,6 +646,12 @@
   },
   "menu_signupFilled": {
     "message": "Mot de passe fort rempli. Enregistrez la connexion après validation."
+  },
+  "menu_excludeSite": {
+    "message": "Ne plus afficher sur ce site"
+  },
+  "menu_excluded": {
+    "message": "Coffre ne proposera plus de remplissage sur ce site."
   },
   "menu_alias": {
     "message": "Créer un alias e-mail"
@@ -688,6 +712,21 @@
   },
   "settings_appearance": {
     "message": "Apparence"
+  },
+  "settings_exclusions": {
+    "message": "Exclusions"
+  },
+  "settings_exclusionHost": {
+    "message": "Site actif : $1"
+  },
+  "settings_exclusionNoSite": {
+    "message": "Ouvrez ce popup sur une page HTTP ou HTTPS pour exclure le site."
+  },
+  "settings_excludeFill": {
+    "message": "Ne jamais remplir ce site"
+  },
+  "settings_excludeSave": {
+    "message": "Ne jamais proposer d’enregistrer"
   },
   "settings_shortcuts": {
     "message": "Raccourcis"

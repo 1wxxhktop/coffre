@@ -385,3 +385,57 @@ body {
     flex-wrap: wrap;
   }
 }
+
+.exclusion-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.exclusion-groups h4 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.exclusion-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exclusion-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  font-size: 12.5px;
+}
+
+.exclusion-list li span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.exclusion-list button {
+  flex: none;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--danger);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.exclusion-list .empty {
+  color: var(--dim);
+  font-style: italic;
+}

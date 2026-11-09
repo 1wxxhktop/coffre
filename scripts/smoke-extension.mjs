@@ -519,11 +519,84 @@ try {
     registerTab.id,
   )
 
+  // E7 : exclusions par site, retirées à chaud.
+  const excludedPage = await context.newPage()
+  await excludedPage.goto(new URL('/shortcut', TARGET_URL).toString())
+  await excludedPage.bringToFront()
+  const setExclusion = (kind, excluded) =>
+    extensionPage.evaluate(
+      ({ host, kind, excluded }) =>
+        chrome.runtime.sendMessage({
+          type: 'SET_SITE_EXCLUSION',
+          host,
+          kind,
+          excluded,
+        }),
+      { host, kind, excluded },
+    )
+  assert.equal((await setExclusion('fill', true)).ok, true)
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  const excludedMenu = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'CONTEXT_MENU_SNAPSHOT' }),
+  )
+  assert.deepEqual(
+    excludedMenu.model.map((entry) => entry.id),
+    ['open-app', 'add-site'],
+  )
+  const blockedFill = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'RUN_COMMAND', command: 'fill-login' }),
+  )
+  assert.equal(blockedFill.ok, false)
+
+  assert.equal((await setExclusion('save', true)).ok, true)
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  await excludedPage.locator('#username').fill('excluded@example.com')
+  await excludedPage.locator('#password').fill('mot-de-passe-exclu!')
+  await excludedPage.getByRole('button', { name: 'Connexion' }).click()
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  const excludedTab = await extensionPage.evaluate(async () => {
+    const tabs = await chrome.tabs.query({})
+    return tabs.find((tab) => tab.url?.includes('/shortcut'))
+  })
+  assert.ok(excludedTab?.id)
+  const excludedPending = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    excludedTab.id,
+  )
+  assert.equal(excludedPending.pending, null)
+
+  assert.equal((await setExclusion('fill', false)).ok, true)
+  assert.equal((await setExclusion('save', false)).ok, true)
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  const restoredMenu = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'CONTEXT_MENU_SNAPSHOT' }),
+  )
+  assert.ok(restoredMenu.model.some((entry) => entry.id === 'fill-login'))
+  await excludedPage.locator('#username').fill('restored@example.com')
+  await excludedPage.locator('#password').fill('mot-de-passe-retabli!')
+  await excludedPage.getByRole('button', { name: 'Connexion' }).click()
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  const restoredPending = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    excludedTab.id,
+  )
+  assert.equal(restoredPending.pending?.username, 'restored@example.com')
+  await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'SAVE_DISMISS_PENDING', tabId }),
+    excludedTab.id,
+  )
+  await excludedPage.close()
+  await extensionPage.bringToFront()
+
   // E2 : bandeau après une inscription avec redirection.
   await target.goto(new URL('/register', TARGET_URL).toString())
   await target.locator('#email').fill('banner@example.com')
   await target.locator('#new-password').fill('mot-de-passe-bandeau!')
   await target.locator('#confirm-password').fill('mot-de-passe-bandeau!')
+  await new Promise((resolve) => setTimeout(resolve, 300))
   await target.getByRole('button', { name: 'Créer mon compte' }).click()
   await target.waitForURL('**/welcome*')
   await target

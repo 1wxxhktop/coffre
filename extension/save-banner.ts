@@ -35,6 +35,7 @@ const usernameInput = $<HTMLInputElement>('banner-username')
 const message = $<HTMLParagraphElement>('banner-message')
 const saveButton = $<HTMLButtonElement>('banner-save')
 const laterButton = $<HTMLButtonElement>('banner-later')
+const neverButton = $<HTMLButtonElement>('banner-never')
 const closeButton = $<HTMLButtonElement>('banner-close')
 
 const params = new URLSearchParams(window.location.search)
@@ -55,6 +56,7 @@ const ERROR_KEYS: Record<string, string> = {
   'save-failed': 'saveBanner_errorSave',
   forbidden: 'error_generic',
   invalid: 'error_generic',
+  excluded: 'error_excluded',
 }
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -170,8 +172,34 @@ async function save(): Promise<void> {
   }
 }
 
+async function never(): Promise<void> {
+  if (!view) return
+  neverButton.disabled = true
+  try {
+    const response = await send<{ ok?: boolean; error?: string }>({
+      type: 'SET_SITE_EXCLUSION',
+      host: view.host,
+      kind: 'save',
+      excluded: true,
+    })
+    if (!response?.ok) {
+      showMessage(errorText(response?.error), 'error')
+      return
+    }
+    showMessage(t('saveBanner_neverSaved'), 'success')
+    if (closeTimer !== undefined) window.clearTimeout(closeTimer)
+    window.parent.postMessage({ type: 'coffre-save-banner-close' }, '*')
+    window.setTimeout(close, 700)
+  } catch {
+    showMessage(t('error_generic'), 'error')
+  } finally {
+    neverButton.disabled = false
+  }
+}
+
 saveButton.addEventListener('click', () => void save())
 laterButton.addEventListener('click', close)
+neverButton.addEventListener('click', () => void never())
 closeButton.addEventListener('click', close)
 document.addEventListener('pointerdown', touchTimer, true)
 document.addEventListener('keydown', touchTimer, true)

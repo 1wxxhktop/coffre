@@ -26,6 +26,7 @@ export interface ContextMenuEntry {
 
 export interface ContextMenuInput {
   unlocked: boolean
+  fillAllowed?: boolean
   host: string
   logins: ExtensionAutofillSummary[]
   cards: ExtensionAutofillSummary[]
@@ -67,6 +68,21 @@ export function buildContextMenuModel(
         id: 'unlock',
         titleKey: 'context_unlock',
         contexts: ['all'],
+      },
+    ]
+  }
+
+  if (input.fillAllowed === false) {
+    return [
+      {
+        id: 'open-app',
+        titleKey: 'context_openApp',
+        contexts: ['page'],
+      },
+      {
+        id: 'add-site',
+        titleKey: 'context_addSite',
+        contexts: ['page'],
       },
     ]
   }

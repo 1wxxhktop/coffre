@@ -37,6 +37,8 @@ const saveBanner = $<HTMLInputElement>('save-banner')
 const requestAllButton = $<HTMLButtonElement>('request-all')
 const fillStatus = $<HTMLParagraphElement>('fill-status')
 const shortcutsList = $<HTMLUListElement>('shortcuts-list')
+const neverFillList = $<HTMLUListElement>('never-fill-list')
+const neverSaveList = $<HTMLUListElement>('never-save-list')
 const modeInputs = Array.from(
   document.querySelectorAll<HTMLInputElement>('input[name="app-mode"]'),
 )
@@ -142,6 +144,56 @@ async function describeStatus(): Promise<void> {
   setStatus(status, t('settings_status_ready'), 'ok')
 }
 
+function renderExclusionList(
+  element: HTMLUListElement,
+  entries: string[],
+  kind: 'fill' | 'save',
+): void {
+  element.replaceChildren()
+  if (entries.length === 0) {
+    const empty = document.createElement('li')
+    empty.className = 'empty'
+    empty.textContent = t('options_exclusionsEmpty')
+    element.append(empty)
+    return
+  }
+  for (const host of entries) {
+    const item = document.createElement('li')
+    const label = document.createElement('span')
+    label.textContent = host
+    const remove = document.createElement('button')
+    remove.type = 'button'
+    remove.textContent = t('options_exclusionsRemove')
+    remove.addEventListener('click', () => {
+      void (async () => {
+        const response = (await api.runtime.sendMessage({
+          type: 'SET_SITE_EXCLUSION',
+          host,
+          kind,
+          excluded: false,
+        })) as { ok?: boolean; error?: string }
+        if (!response?.ok) {
+          setStatus(fillStatus, t('error_generic'), 'error')
+          return
+        }
+        const settings = await loadSettings()
+        renderExclusionList(neverFillList, settings.neverFillSites, 'fill')
+        renderExclusionList(neverSaveList, settings.neverSaveSites, 'save')
+      })()
+    })
+    item.append(label, remove)
+    element.append(item)
+  }
+}
+
+function renderExclusions(settings: {
+  neverFillSites: string[]
+  neverSaveSites: string[]
+}): void {
+  renderExclusionList(neverFillList, settings.neverFillSites, 'fill')
+  renderExclusionList(neverSaveList, settings.neverSaveSites, 'save')
+}
+
 async function load(): Promise<void> {
   await loadTheme().then((preference) => {
     themePreference = preference
@@ -153,6 +205,7 @@ async function load(): Promise<void> {
   input.value = settings.appUrl
   inlineMenu.checked = settings.inlineMenu
   saveBanner.checked = settings.saveBanner
+  renderExclusions(settings)
   for (const modeInput of modeInputs) {
     modeInput.checked = modeInput.value === appMode
   }
