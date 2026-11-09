@@ -1,22 +1,36 @@
+:root {
+  --coffre-lock-fill: #09090b;
+  --coffre-lock-stroke: #fafafa;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --coffre-lock-fill: #ffffff;
+    --coffre-lock-stroke: #09090b;
+  }
+}
+
+:root[data-theme="light"] {
+  --coffre-lock-fill: #ffffff;
+  --coffre-lock-stroke: #09090b;
+}
+
 .logo-mark {
   display: block;
   width: 100%;
   height: 100%;
 }
 
-.logo-mark__bg {
-  fill: var(--text);
-}
-
 .logo-mark__stroke {
-  stroke: var(--panel, var(--surface));
+  stroke: var(--coffre-lock-stroke);
 }
 
 .logo-mark__fg {
-  fill: var(--panel, var(--surface));
+  fill: var(--coffre-lock-fill);
+  stroke: var(--coffre-lock-stroke);
 }
 
 .logo-mark__key {
-  fill: var(--text);
-  stroke: var(--text);
+  fill: var(--coffre-lock-stroke);
+  stroke: var(--coffre-lock-stroke);
 }
