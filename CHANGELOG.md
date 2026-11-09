@@ -2,6 +2,14 @@
 
 ## Non publié
 
+- Historique chiffré du générateur : 50 derniers secrets générés par
+  l’application ou l’extension, scellés par la clé maîtresse avec une AAD
+  dédiée, dates et domaines compris, fusion par horloges, rétention de 1, 7 ou
+  30 jours (ou désactivé), purge à l’ouverture et suppression automatique
+  lorsqu’une entrée est enregistrée dans un élément. Écran « Historique » dans
+  le générateur avec copie, création de connexion, suppression et effacement
+  global. Aucun mot de passe en clair dans le fichier `.coffre` ni requête
+  réseau.
 - Modèles intégrés pour tous les types d’éléments (connexion, note, carte,
   identité, passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle,
   document), avec la liste complète de leurs champs, création directe depuis

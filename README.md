@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 484 tests unitaires et
-> 72 parcours Playwright exécutés sur Chromium et WebKit (144 exécutions, 6 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 490 tests unitaires et
+> 75 parcours Playwright exécutés sur Chromium et WebKit (150 exécutions, 7 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -98,6 +98,14 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   à la corbeille en une seule opération.
 - **Générateur** de mots de passe et de phrases de passe (liste EFF de
   7 776 mots), avec réglages et estimation d’entropie.
+- **Historique chiffré du générateur** : les 50 derniers secrets générés
+  (application, extension, assistant de changement) restent dans le contenu
+  chiffré du coffre, avec leur date et leur domaine. Rétention de 1, 7 ou
+  30 jours, ou désactivée (défaut : 7 jours) ; purge à l’ouverture ; entrée
+  retirée dès qu’elle est enregistrée dans un élément. L’écran « Historique »
+  du générateur permet de copier, créer une connexion, supprimer ou tout
+  effacer. Aucun mot de passe n’est écrit en clair ni envoyé sur le réseau.
+  [Capture de l’écran](docs/screenshots/generator-history.png).
 - **TOTP** (RFC 6238) : import d’une URI `otpauth://`, codes SHA-1/256/512,
   compte à rebours.
 - **Copie temporaire** : effacement du presse-papiers après un délai et au
