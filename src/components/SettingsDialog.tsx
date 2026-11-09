@@ -26,6 +26,7 @@ import { ActivitySettings } from './ActivitySettings'
 import { BlobStorageSettings } from './BlobStorageSettings'
 import { SshAgentSettings } from './SshAgentSettings'
 import { SharingSettings } from './SharingSettings'
+import { EmergencyAccessSettings } from './EmergencyAccessSettings'
 import { ConfirmDialog } from './ConfirmDialog'
 import { PasswordStrength } from './PasswordStrength'
 import { RecoveryDialog } from './RecoveryDialog'
@@ -1181,6 +1182,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                 <SshAgentSettings />
 
                 <SharingSettings />
+
+                <EmergencyAccessSettings />
 
                 <section className="settings-section">
                   <div className="settings-section__head">

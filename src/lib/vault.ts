@@ -57,6 +57,7 @@ import {
 import { normalizeDateOnly } from './expiry'
 import { normalizeRecoveryPhrase } from './recovery'
 import { openSharingIdentity, resealSharingIdentity } from './sharingVault'
+import { resealEmergencyRecord } from './emergencyVault'
 import type { SharingIdentity, ShareRole } from './sharing'
 import type {
   ActivityEvent,
@@ -384,6 +385,24 @@ const recoveryWrapSchema = z.object({
   key: sealedSchema,
 })
 
+const publicSharingIdentitySchema = z.object({
+  encryptionPublicKey: z.string().min(1).max(200),
+  signingPublicKey: z.string().min(1).max(200),
+  fingerprint: z.string().min(1).max(200),
+})
+
+const sealedShareKeySchema = z.object({
+  enc: z.string().min(1).max(200),
+  ciphertext: z.string().min(1).max(20_000),
+})
+
+const emergencyAccessSchema = z.object({
+  version: z.literal(1),
+  contact: publicSharingIdentitySchema,
+  sealed: sealedShareKeySchema,
+  createdAt: z.string().min(1).max(40),
+})
+
 const sharingIdentitySchema = z.object({
   version: z.literal(1),
   encryptionPublicKey: z.string().min(1).max(200),
@@ -481,6 +500,7 @@ const vaultFileSchema = z.object({
   recovery: recoveryEnvelopeSchema.optional(),
   prf: prfEnvelopeSchema.optional(),
   sharing: sharingIdentitySchema.optional(),
+  emergency: emergencyAccessSchema.optional(),
   writer: idSchema.optional(),
   revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
   keyEpoch: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
@@ -739,7 +759,8 @@ export function parseVaultFile(raw: unknown): VaultFile {
     file.tombstones !== undefined ||
     file.integrity !== undefined ||
     file.prf !== undefined ||
-    file.sharing !== undefined
+    file.sharing !== undefined ||
+    file.emergency !== undefined
 
   if (file.version === 4) {
     if (
@@ -842,6 +863,7 @@ interface ManifestRecord {
     | 'activity'
     | 'alias-key'
     | 'sharing'
+    | 'emergency'
   id: string
   vaultId: string
   /** Élément parent pour une pièce jointe ou une version. */
@@ -899,6 +921,7 @@ const RECORD_TYPE_ORDER: Record<ManifestRecord['type'], number> = {
   activity: 5,
   'alias-key': 6,
   sharing: 7,
+  emergency: 8,
 }
 
 /**
@@ -993,6 +1016,20 @@ export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
       rev: 0,
       writer: '',
       ciphertext: await sealedDigest(file.sharing.privateKeys),
+    })
+  }
+
+  if (file.emergency) {
+    records.push({
+      type: 'emergency',
+      id: file.emergency.contact.fingerprint,
+      vaultId: '',
+      rev: 0,
+      writer: '',
+      ciphertext: await sealedDigest({
+        n: file.emergency.sealed.enc,
+        c: file.emergency.sealed.ciphertext,
+      }),
     })
   }
 
@@ -1945,6 +1982,14 @@ export async function recoverVaultFileWithRecoveryKey(
 
       const guard = await sealBytes(recoveryKey, masterKey, recoveryGuardAad())
       const integrityKey = randomBytes(KDF_DEFAULTS.keyLength)
+      let emergency = file.emergency
+      if (emergency) {
+        try {
+          emergency = await resealEmergencyRecord(emergency, masterKey)
+        } catch {
+          emergency = undefined
+        }
+      }
       const next: VaultFile = {
         ...file,
         kdf,
@@ -1964,6 +2009,7 @@ export async function recoverVaultFileWithRecoveryKey(
       // L’ancien MAC ne couvre plus les clés ré-enveloppées : on le remplace
       // par une signature calculée sous la nouvelle époque.
       delete next.integrity
+      if (emergency) next.emergency = emergency
 
       try {
         const signingSession = new VaultSession(masterKey.slice())
@@ -3854,6 +3900,10 @@ export async function changeMasterPassword(
         file.id,
       )
     }
+    let emergency = file.emergency
+    if (emergency) {
+      emergency = await resealEmergencyRecord(emergency, nextMasterKey)
+    }
 
     session.replaceMasterKey(nextMasterKey)
     // Rotation de l’époque : nouvelle clé HMAC, scellée sous la nouvelle clé
@@ -3868,6 +3918,7 @@ export async function changeMasterPassword(
       ...(activity.length > 0 ? { activity } : {}),
       ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
       ...(sharing ? { sharing } : {}),
+      ...(emergency ? { emergency } : {}),
       updatedAt: new Date().toISOString(),
       keyEpoch: (file.keyEpoch ?? 1) + 1,
       recovery,
