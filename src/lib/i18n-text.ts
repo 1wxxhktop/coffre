@@ -630,6 +630,20 @@ export const EN_TEXT: Record<string, string> = {
   'Le paquet complet contient les éléments chiffrés du coffre. Le paquet de clé seule n’ajoute que le coffre vide.':
     'The full package contains the vault’s encrypted items. The key-only package adds an empty vault.',
   'Générer le paquet complet': 'Generate full package',
+  'Synchronisation par dossier': 'Folder sync',
+  'Chaque membre dépose un bundle signé dans un dossier commun. Les fichiers restent chiffrés ; choisissez un dossier déjà synchronisé (iCloud Drive, Dropbox, Syncthing…).':
+    'Each member drops a signed bundle into a shared folder. Files stay encrypted; choose a folder that is already synced (iCloud Drive, Dropbox, Syncthing…).',
+  'jamais': 'never',
+  'Synchroniser maintenant': 'Sync now',
+  'Changer de dossier': 'Change folder',
+  'Synchronisation automatique toutes les 60 secondes lorsque le coffre est déverrouillé.':
+    'Automatic sync every 60 seconds while the vault is unlocked.',
+  'Choisir un dossier': 'Choose a folder',
+  'Choisir un dossier de partage': 'Choose a sharing folder',
+  'Dossier de partage configuré.': 'Sharing folder configured.',
+  'Configuration du dossier impossible.': 'Could not configure the folder.',
+  'Synchronisation impossible.': 'Sync failed.',
+  'Synchronisation du partage désactivée.': 'Sharing sync disabled.',
   'Paquet complet généré': 'Full package generated',
   'Lecture seule': 'Read-only',
   'Membres du coffre': 'Vault members',

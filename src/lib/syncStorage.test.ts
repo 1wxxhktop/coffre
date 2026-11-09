@@ -98,6 +98,8 @@ describe('stockage de synchronisation desktop', () => {
       'fichier.txt',
       '.cache.coffre',
       'nom avec espace.coffre',
+      '.coffre-shared.json',
+      'sub/partage.coffre-shared.json',
     ]) {
       await expect(readSyncFile('/sync', name)).rejects.toBeInstanceOf(
         SyncStorageError,
@@ -107,6 +109,16 @@ describe('stockage de synchronisation desktop', () => {
       )
     }
     expect(native.calls).toEqual([])
+  })
+
+  it('accepte les bundles de coffres partagés', async () => {
+    const name = 'shared-v_test-SHA256_abc.coffre-shared.json'
+    await writeSyncFile('/sync', name, '{}')
+    expect(native.calls.at(-1)).toEqual({
+      command: 'sync_write',
+      args: { dir: '/sync', name, contents: '{}' },
+    })
+    expect(await readSyncFile('/sync', name)).toBe('{"format":"coffre"}')
   })
 
   it('signale l’absence de runtime desktop', async () => {

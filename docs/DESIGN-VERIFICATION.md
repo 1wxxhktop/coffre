@@ -10,7 +10,7 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | TypeScript | `bun run typecheck` | OK |
 | Lint + jetons | `bun run lint` | OK, 0 erreur et 0 avertissement |
 | Jetons seuls | `bun run lint:design` | OK, aucune valeur littérale hors jetons |
-| Tests unitaires | `bun run test` | 65 fichiers, 463 tests |
+| Tests unitaires | `bun run test` | 67 fichiers, 472 tests |
 | E2E Chromium + WebKit | `bun run test:e2e` | 124 tests passés, 6 ignorés (130 exécutions) |
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |
@@ -18,7 +18,7 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | Versions | `bun run version:check` | 0.8.0 cohérente |
 | Rust format | `cargo fmt -- --check` | OK |
 | Rust lint | `cargo clippy --all-targets -- -D warnings` | OK |
-| Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 30 tests desktop (1 ignoré) + 12 tests cœur + 1 test FFI + 9 tests CLI + 17 tests agent SSH |
+| Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 30 tests desktop (1 ignoré) + 12 tests cœur + 1 test FFI + 13 tests CLI + 17 tests agent SSH |
 | axe A/AA | `e2e/accessibility.spec.ts` | 0 violation sur les écrans scannés |
 
 ## Couverture e2e design

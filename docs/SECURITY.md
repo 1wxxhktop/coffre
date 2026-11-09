@@ -1019,9 +1019,9 @@ Le générateur peut appliquer les contraintes d’un site :
 
 ### 2.26 Socle de partage et accès d’urgence (L10)
 
-Les modules `src/lib/sharing.ts` et `src/lib/sharingVault.ts` préparent le
+Les modules `src/lib/sharing.ts` et `src/lib/sharingVault.ts` portent le
 partage de coffres et l’accès d’urgence. L’identité est persistée dans le champ
-`sharing` du fichier `.coffre` ; l’interface de partage reste à intégrer.
+`sharing` du fichier `.coffre` ; l’interface est intégrée aux réglages.
 
 - chaque identité contient une paire X25519 pour HPKE et une paire Ed25519 pour
   signer les rôles ; les clés publiques et l’empreinte sont en clair, les clés
@@ -1045,12 +1045,20 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
 - les paquets peuvent être générés et importés depuis **Réglages → Sécurité**.
   L’import ajoute un coffre local avec la clé partagée, son nom chiffré et son
   rôle. Le paquet complet contient en plus les enregistrements déjà chiffrés
-  (éléments, pièces jointes, versions) ; l’échange reste manuel, sans
-  synchronisation automatique. L’import fusionne par identifiant et date de
-  mise à jour, avec un plafond de 20 000 éléments. Les pierres tombales des
-  éléments supprimés sont incluses et appliquées si elles sont plus récentes ;
-  l’échange reste manuel ; le paquet peut être copié ou téléchargé comme
-  fichier `.coffre-shared.json`, puis importé par le membre ;
+  (éléments, pièces jointes, versions). L’import fusionne par identifiant et
+  date de mise à jour, avec un plafond de 20 000 éléments. Les pierres tombales
+  des éléments supprimés sont incluses et appliquées si elles sont plus
+  récentes. Le paquet peut être copié ou téléchargé comme fichier
+  `.coffre-shared.json`, puis importé par le membre ;
+- synchronisation par dossier : chaque membre écrit
+  `shared-<coffre>-<empreinte>.coffre-shared.json`, un bundle signé par son
+  identité Ed25519. Le paquet de partage est conservé chiffré dans les
+  métadonnées du coffre. À l’import, l’application vérifie la signature, que
+  l’expéditeur appartient au paquet local et qu’il a le rôle `write` (ou
+  administrateur), puis vérifie que la clé du coffre est identique avant de
+  fusionner. Un bundle non signé, altéré, d’un expéditeur inconnu ou en lecture
+  est ignoré ; une nouvelle clé de coffre (révocation) n’est pas adoptée
+  automatiquement et doit faire l’objet d’un import complet ;
 - les mutations d’éléments vérifient le rôle local : un coffre `read` refuse
   création, modification, déplacement, corbeille, pièces jointes et suppression.
   Cette restriction est appliquée par l’application ; un membre qui modifie son
@@ -1077,16 +1085,26 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   au contact d’urgence ;
 - les rôles `read`/`write` sont signés par Ed25519 sur une chaîne canonique
   incluant le coffre, le membre, le rôle, la date et l’émetteur ;
+- les bundles de synchronisation sont signés par Ed25519 sur une sérialisation
+  JSON canonique (paquet, métadonnées chiffrées, éléments, pièces jointes,
+  versions, pierres tombales et date d’export). La signature ne remplace pas le
+  chiffrement : la clé du coffre reste nécessaire pour lire le contenu ;
 - les empreintes sont des SHA-256 des clés publiques, affichées avec le préfixe
   `SHA256:` ;
 - une clé de coffre partagé peut être enveloppée pour plusieurs membres ;
   la révocation prépare une nouvelle clé et de nouvelles enveloppes pour les
   membres restants, sans réutiliser l’ancienne ;
 - aucune requête réseau n’est effectuée ;
-- limites : la distribution des clés et l’interface de partage restent à
-  intégrer ; la révocation par rotation est préparée mais pas encore exposée.
-  L’accès d’urgence immédiat est préparé ; le délai imposé et le partage Shamir
-  2/3 restent à concevoir.
+- limites : la distribution initiale des identités et des paquets reste
+  manuelle ; la synchronisation par dossier est un échange de fichiers, sans
+  service temps réel ni fusion des pièces jointes binaires. Les rôles restent
+  appliqués par l’application : un membre `write` qui modifie son client peut
+  forger des contenus avec la clé partagée. Après une révocation, la
+  synchronisation par dossier refuse la nouvelle clé ; un import complet dans
+  un coffre existant la refuse aussi. Le membre doit recréer le coffre partagé
+  depuis le nouveau bundle, après avoir synchronisé ses éventuelles
+  modifications locales. Les contenus locaux absents du bundle ne sont pas
+  ré-enveloppés automatiquement.
 
 ### 2.27 Chaîne d’approvisionnement
 

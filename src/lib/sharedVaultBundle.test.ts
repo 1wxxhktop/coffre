@@ -3,6 +3,7 @@ import {
   createItem,
   createVaultFile,
   deleteItem,
+  readVaultSharing,
   signVaultFile,
   unlockVaultFile,
   updateItem,
@@ -14,6 +15,7 @@ import {
   createSharedVaultBundle,
   importSharedVaultBundle,
   parseSharedVaultBundle,
+  signSharedVaultBundle,
 } from './sharedVaultBundle'
 import { emptyDraft, type ItemDraft } from './types'
 
@@ -69,6 +71,14 @@ describe('paquet de contenu partagé', () => {
     )
     expect(imported.imported).toBe(1)
     expect(imported.role).toBe('read')
+    const sharing = await readVaultSharing(
+      imported.file,
+      member.session,
+      vaultId,
+    )
+    expect(sharing.members).toHaveLength(1)
+    expect(sharing.adminFingerprint).toBeDefined()
+    expect(sharing.package?.vaultId).toBe(vaultId)
     const signed = await signVaultFile(imported.file, member.session, member.file)
     const opened = await unlockVaultFile(signed, memberPassword)
     const item = opened.items.find((entry) => entry.title === 'Partagé')
@@ -84,6 +94,34 @@ describe('paquet de contenu partagé', () => {
     ).rejects.toThrow()
     opened.session.lock()
     member.session.lock()
+  })
+
+  it('signe le bundle et refuse un contenu modifié', async () => {
+    const { adminIdentity, bundle } = await setup()
+    const signed = await signSharedVaultBundle(bundle, adminIdentity)
+    expect(signed.sender?.fingerprint).toBe(adminIdentity.fingerprint)
+    const parsed = await parseSharedVaultBundle(JSON.stringify(signed), {
+      requireSignature: true,
+    })
+    expect(parsed.sender?.signature).toBe(signed.sender?.signature)
+
+    const tampered = {
+      ...signed,
+      tombstones: [
+        ...signed.tombstones,
+        { kind: 'item', id: 'faux', deletedAt: '2999-01-01T00:00:00.000Z' },
+      ],
+    }
+    await expect(
+      parseSharedVaultBundle(JSON.stringify(tampered), {
+        requireSignature: true,
+      }),
+    ).rejects.toThrow(/signature/i)
+    await expect(
+      parseSharedVaultBundle(JSON.stringify(bundle), {
+        requireSignature: true,
+      }),
+    ).rejects.toThrow(/signé/i)
   })
 
   it('propage la suppression d’un élément', async () => {
