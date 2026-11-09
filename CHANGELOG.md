@@ -5,6 +5,9 @@
 - Dette React : filtres, sélection, limite d’affichage, QR codes et historique
   de sécurité sont désormais dérivés pendant le rendu, sans effets de
   synchronisation ; `bun run lint` ne signale plus aucun avertissement.
+- Reproductibilité desktop : `bun run repro:desktop` compare deux bundles
+  macOS, avec recompilation de la caisse applicative et signature ad hoc entre
+  les deux. La vérification Web/extension reste couverte par `repro:check`.
 - Bundle découpé : les dialogues d’élément, de réglages, de sécurité et le
   générateur sont chargés à la demande, avec un écran d’attente accessible ;
   React, zod, hash-wasm, HPKE et Tauri sont répartis en chunks stables. Plus

@@ -698,6 +698,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run sbom` | Génère les SBOM CycloneDX Rust et web dans `sbom/` |
 | `bun run lint:security` | Vérifie `/.well-known/security.txt` |
 | `bun run repro:check` | Compare deux builds Web et extension avec `SOURCE_DATE_EPOCH=0` |
+| `bun run repro:desktop` | Compare deux bundles macOS après recompilation de la caisse applicative |
 | `bun run desktop:dev` | Lance l’application desktop Tauri |
 | `bun run desktop:build` | Produit les paquets desktop Tauri |
 | `./scripts/release-macos.sh` | Build macOS universel signé et notarié (certificat requis) |

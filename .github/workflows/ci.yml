@@ -245,6 +245,36 @@ jobs:
       - name: Construire deux fois
         run: ./scripts/check-reproducible-build.sh
 
+  desktop-reproducible:
+    name: Desktop reproductible (macOS)
+    # Le bundle macOS coûte cher en minutes : contrôle manuel uniquement.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      SOURCE_DATE_EPOCH: 0
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.99.1
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Construire deux bundles macOS
+        run: ./scripts/check-reproducible-desktop.sh
+
   sbom:
     name: SBOM
     runs-on: ubuntu-latest

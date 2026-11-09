@@ -33,6 +33,7 @@
     "version:check": "node scripts/check-versions.mjs",
     "sbom": "./scripts/generate-sbom.sh",
     "repro:check": "./scripts/check-reproducible-build.sh",
+    "repro:desktop": "./scripts/check-reproducible-desktop.sh",
     "tauri": "tauri",
     "tauri:icons": "tauri icon public/icon.svg",
     "desktop:dev": "tauri dev",
