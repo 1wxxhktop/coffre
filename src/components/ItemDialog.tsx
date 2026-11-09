@@ -260,6 +260,7 @@ export function ItemDialog({
     addAttachment,
     removeAttachment,
     downloadAttachment,
+    recordGeneratedPassword,
   } = useVault()
   const { settings } = useSettings()
   const { tt } = useI18n()
@@ -1868,6 +1869,7 @@ export function ItemDialog({
           onClose={() => setShowGenerator(false)}
           onUse={(value) => void applyGeneratedPassword(value)}
           url={draft.type === 'login' ? draft.urls[0] : undefined}
+          onRecord={recordGeneratedPassword}
         />
       )}
 

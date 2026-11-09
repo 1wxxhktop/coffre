@@ -1,5 +1,12 @@
-import { useMemo, useState } from 'react'
-import { Check, Copy, Dices, RefreshCw, Wand2 } from 'lucide-react'
+import { lazy, Suspense, useMemo, useState } from 'react'
+import {
+  Check,
+  Copy,
+  Dices,
+  History,
+  RefreshCw,
+  Wand2,
+} from 'lucide-react'
 import { Modal } from './Modal'
 import { PasswordStrength } from './PasswordStrength'
 import {
@@ -15,20 +22,34 @@ import {
 } from '../lib/generator'
 import { copySensitive } from '../lib/clipboard'
 import { generatePasswordForRules, passwordRulesForUrl, sitePasswordEntropy } from '../lib/passwordRules'
+import { hostFromUrl } from '../lib/extensionProtocol'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
+
+const GeneratorHistoryDialog = lazy(() =>
+  import('./GeneratorHistoryDialog').then((module) => ({
+    default: module.GeneratorHistoryDialog,
+  })),
+)
 
 interface GeneratorDialogProps {
   onClose: () => void
   onUse?: (value: string) => void
   /** URL ou hôte permettant d’appliquer les règles du site. */
   url?: string
+  /** Enregistre un secret généré dans l’historique chiffré du coffre. */
+  onRecord?: (input: { password: string; host?: string }) => Promise<void>
 }
 
 type Mode = 'password' | 'passphrase'
 
-export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
+export function GeneratorDialog({
+  onClose,
+  onUse,
+  url,
+  onRecord,
+}: GeneratorDialogProps) {
   const { settings } = useSettings()
   const { tt } = useI18n()
   const { toast } = useToast()
@@ -37,7 +58,9 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
   const [passphraseOptions, setPassphraseOptions] =
     useState<PassphraseOptions>(DEFAULT_PASSPHRASE_OPTIONS)
   const [copied, setCopied] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
+  const domain = hostFromUrl(url ?? '')
   const siteRules = useMemo(() => passwordRulesForUrl(url ?? ''), [url])
   const password = useMemo(
     () =>
@@ -76,6 +99,11 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
     setCopied(false)
   }
 
+  const record = (secret: string) => {
+    if (!secret) return
+    void onRecord?.({ password: secret, host: domain || undefined })
+  }
+
   const copy = async () => {
     const success = await copySensitive(value, settings.clipboardClearSeconds, () =>
       toast(tt('Presse-papiers effacé'), 'info'),
@@ -84,14 +112,40 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
       toast(tt('Impossible de copier'), 'error')
       return
     }
+    record(value)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
     toast(tt('Valeur copiée'), 'success')
   }
 
   const use = () => {
+    record(value)
     onUse?.(value)
     onClose()
+  }
+
+  if (showHistory) {
+    return (
+      <Suspense
+        fallback={
+          <Modal
+            title={tt('Historique du générateur')}
+            size="md"
+            onClose={() => setShowHistory(false)}
+          >
+            <p>{tt('Chargement…')}</p>
+          </Modal>
+        }
+      >
+        <GeneratorHistoryDialog
+          onClose={() => setShowHistory(false)}
+          onCreated={() => {
+            setShowHistory(false)
+            onClose()
+          }}
+        />
+      </Suspense>
+    )
   }
 
   return (
@@ -106,17 +160,17 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
         <>
           <button type="button" className="button button--ghost" onClick={regenerate}>
             <RefreshCw size={16} />
-            Régénérer
+            {tt('Régénérer')}
           </button>
           <div className="modal__footer-actions">
             <button type="button" className="button button--secondary" onClick={() => void copy()}>
               {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? 'Copié' : 'Copier'}
+              {copied ? tt('Copié') : tt('Copier')}
             </button>
             {onUse && (
               <button type="button" className="button button--primary" onClick={use}>
                 <Wand2 size={16} />
-                Utiliser
+                {tt('Utiliser')}
               </button>
             )}
           </div>
@@ -124,7 +178,7 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
       }
     >
       <div className="generator">
-        {mode === 'password' && siteRules && (
+        {siteRules && (
           <p className="settings-copy">
             {tt('Règles du site appliquées :')} <strong>{siteRules.domain}</strong>
           </p>
@@ -149,6 +203,15 @@ export function GeneratorDialog({ onClose, onUse, url }: GeneratorDialogProps) {
             Phrase de passe
           </button>
         </div>
+
+        <button
+          type="button"
+          className="link-button generator__history-button"
+          onClick={() => setShowHistory(true)}
+        >
+          <History size={14} />
+          {tt('Historique')}
+        </button>
 
         <div className="generator__output">
           <code>{value}</code>
