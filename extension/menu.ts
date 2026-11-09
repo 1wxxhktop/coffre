@@ -2,7 +2,9 @@ import type {
   ExtensionAutofillKind,
   ExtensionAutofillSummary,
 } from '../src/lib/extensionProtocol'
+import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
+import { loadTheme } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
@@ -25,6 +27,11 @@ interface SearchResponse {
 
 interface FillResponse {
   ok?: boolean
+  error?: string
+}
+
+interface DetailsResponse {
+  details?: LoginDetails
   error?: string
 }
 
@@ -161,6 +168,49 @@ function summaryText(entry: ExtensionAutofillSummary): string {
   return entry.username || entry.host || t('menu_noLogin')
 }
 
+async function toggleDetails(
+  entry: ExtensionAutofillSummary,
+  row: HTMLLIElement,
+  panel: HTMLDivElement,
+  toggle: HTMLButtonElement,
+): Promise<void> {
+  const expanded = row.dataset.expanded === 'true'
+  if (expanded) {
+    row.dataset.expanded = 'false'
+    toggle.setAttribute('aria-expanded', 'false')
+    panel.hidden = true
+    return
+  }
+
+  row.dataset.expanded = 'true'
+  toggle.setAttribute('aria-expanded', 'true')
+  panel.hidden = false
+  panel.replaceChildren(detailsNotice(t('details_loading')))
+
+  if (!query.host) {
+    panel.replaceChildren(detailsNotice(t('details_error')))
+    return
+  }
+
+  try {
+    const response = await send<DetailsResponse>({
+      type: 'DETAILS',
+      itemId: entry.id,
+      host: query.host,
+    })
+    if (panel.hidden) return
+    if (response.error || !response.details) {
+      panel.replaceChildren(detailsNotice(t('details_error')))
+      return
+    }
+    renderLoginDetails(panel, response.details, () => {
+      void fill(entry.id)
+    })
+  } catch {
+    if (!panel.hidden) panel.replaceChildren(detailsNotice(t('details_error')))
+  }
+}
+
 function renderResults(items: ExtensionAutofillSummary[], recentId?: string) {
   results.replaceChildren()
   empty.hidden = items.length > 0
@@ -183,6 +233,10 @@ function renderResults(items: ExtensionAutofillSummary[], recentId?: string) {
   for (const entry of ordered) {
     const item = document.createElement('li')
     item.className = 'result'
+    item.dataset.expanded = 'false'
+
+    const head = document.createElement('div')
+    head.className = 'result__head'
 
     const icon = document.createElement('span')
     icon.className = 'result__icon'
@@ -193,18 +247,57 @@ function renderResults(items: ExtensionAutofillSummary[], recentId?: string) {
     const title = document.createElement('div')
     title.className = 'result__title'
     title.textContent = entry.title
+    title.title = entry.title
     const sub = document.createElement('div')
     sub.className = 'result__sub'
     sub.textContent = summaryText(entry)
+    sub.title = sub.textContent
     text.append(title, sub)
+
+    const expandable = kind === 'login'
+    let details: HTMLDivElement | null = null
+
+    if (expandable) {
+      const toggle = document.createElement('button')
+      toggle.type = 'button'
+      toggle.className = 'result__toggle'
+      toggle.setAttribute('aria-expanded', 'false')
+      toggle.title = t('details_expand')
+      toggle.setAttribute('aria-label', `${t('details_expand')} — ${entry.title}`)
+
+      const chevron = document.createElement('span')
+      chevron.className = 'result__chevron'
+      chevron.setAttribute('aria-hidden', 'true')
+      chevron.textContent = '›'
+
+      toggle.append(icon, text, chevron)
+      head.append(toggle)
+
+      details = document.createElement('div')
+      details.className = 'result__details'
+      details.hidden = true
+      details.setAttribute('aria-live', 'polite')
+      toggle.addEventListener('click', () => {
+        if (details) void toggleDetails(entry, item, details, toggle)
+      })
+    } else {
+      const main = document.createElement('div')
+      main.className = 'result__main'
+      main.append(icon, text)
+      head.append(main)
+    }
 
     const fillButton = document.createElement('button')
     fillButton.type = 'button'
-    fillButton.className = 'button button--primary'
+    fillButton.className = 'button button--primary result__fill'
     fillButton.textContent = t('menu_fill')
+    fillButton.title = `${t('menu_fill')} — ${entry.title}`
+    fillButton.setAttribute('aria-label', `${t('menu_fill')} — ${entry.title}`)
     fillButton.addEventListener('click', () => void fill(entry.id))
 
-    item.append(icon, text, fillButton)
+    head.append(fillButton)
+    item.append(head)
+    if (details) item.append(details)
     results.append(item)
   }
 }
@@ -357,4 +450,5 @@ function init() {
   ignoreButton.addEventListener('click', () => void ignore())
 }
 
+void loadTheme()
 init()

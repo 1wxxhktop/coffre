@@ -123,7 +123,7 @@ export function ItemRow({
 
       <span className="item-row__content">
         <span className="item-row__title">
-          {item.title}
+          <span className="item-row__title-text">{item.title}</span>
           {item.favorite && (
             <Star
               size={12}
@@ -153,7 +153,9 @@ export function ItemRow({
         {issue && (
           <span className="item-row__issue" title={t(ISSUE_KEYS[issue.category])}>
             <ShieldAlert size={11} aria-hidden="true" />
-            <span aria-hidden="true">{issue.shortLabel}</span>
+            <span className="item-row__issue-label" aria-hidden="true">
+              {issue.shortLabel}
+            </span>
             <span className="sr-only">{t(ISSUE_KEYS[issue.category])}</span>
           </span>
         )}

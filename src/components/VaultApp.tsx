@@ -839,7 +839,7 @@ export function VaultApp() {
       key={item.id}
       item={item}
       vaultName={vaults.find((vault) => vault.id === item.vaultId)?.name ?? 'Coffre'}
-      showVault={vaultFilter === 'all'}
+      showVault={vaultFilter === 'all' && vaults.length > 1}
       selected={selectedId === item.id}
       selectable={selectionMode}
       issue={securityIssueById.get(item.id) ?? null}
