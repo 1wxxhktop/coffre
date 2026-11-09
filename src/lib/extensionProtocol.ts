@@ -6,6 +6,7 @@
  * active. Aucun message ne quitte la machine.
  */
 
+import type { PhishingAssessment, PhishingQuery } from './phishing'
 import type { CardItem, IdentityItem, LoginItem, VaultItem } from './types'
 
 export const EXTENSION_BRIDGE_VERSION = 1
@@ -120,6 +121,8 @@ export interface ExtensionSaveInput {
   username: string
   password: string
   title?: string
+  /** Vrai uniquement après confirmation explicite d’un avertissement. */
+  overridePhishing?: boolean
 }
 
 export interface ExtensionSaveResult {
@@ -165,17 +168,35 @@ export interface ExtensionPasskeyGetResult {
   signCount: number
 }
 
+export interface ExtensionPhishingChoice {
+  host: string
+  /** Codes des signaux affichés, jamais l’URL complète. */
+  signals: string[]
+  choice: 'cancel' | 'continue'
+}
+
 export interface CoffreExtensionBridge {
   version: number
   search: (query: string) => Promise<ExtensionLoginSummary[]>
-  fill: (itemId: string, host?: string) => Promise<ExtensionCredentials | null>
+  fill: (
+    itemId: string,
+    host?: string,
+    options?: { allowMismatch?: boolean },
+  ) => Promise<ExtensionCredentials | null>
   searchCards?: (query: string) => Promise<ExtensionCardSummary[]>
   searchIdentities?: (query: string) => Promise<ExtensionIdentitySummary[]>
   searchCustom?: (query: string) => Promise<ExtensionCustomSummary[]>
   generateAlias?: (site: string) => Promise<string | null>
+  /**
+   * Évalue l’hôte avant un remplissage forcé ou un enregistrement. La réponse
+   * ne contient aucun secret.
+   */
+  assessHost?: (query: PhishingQuery) => Promise<PhishingAssessment | null>
+  /** Journalise le choix de l’utilisateur, sans URL complète. */
+  recordPhishingChoice?: (input: ExtensionPhishingChoice) => Promise<void>
   fillItem?: (
     itemId: string,
-    options?: { host?: string; includeSensitive?: boolean },
+    options?: { host?: string; includeSensitive?: boolean; allowMismatch?: boolean },
   ) => Promise<ExtensionFillValues | null>
   /** Enregistre ou met à jour une connexion après soumission du formulaire. */
   saveLogin?: (input: ExtensionSaveInput) => Promise<ExtensionSaveResult | null>

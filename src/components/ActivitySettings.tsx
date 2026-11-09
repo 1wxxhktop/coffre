@@ -14,6 +14,7 @@ const LABELS: Record<ActivityKind, string> = {
   pairing: 'Appairage',
   share: 'Partage',
   'extension-fill': 'Remplissage par l’extension',
+  'phishing-warning': 'Avertissement anti-hameçonnage',
   autotype: 'Saisie automatique',
   'ssh-agent': 'Agent SSH',
 }
