@@ -1,9 +1,22 @@
 import { useState } from 'react'
-import { Check, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Check, LayoutGrid, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
-import type { ItemTemplate, TemplateField, TemplateFieldType } from '../lib/types'
+import {
+  emptyDraft as emptyItemDraft,
+  ITEM_TYPES,
+  itemTypeLabel,
+  type ItemTemplate,
+  type ItemType,
+  type TemplateField,
+  type TemplateFieldType,
+} from '../lib/types'
+import {
+  COMMON_MODEL_FIELDS,
+  ITEM_MODELS,
+  type ItemModel,
+} from '../lib/itemModels'
 import { draftFromTemplate } from '../lib/templateDraft'
 
 const FIELD_TYPES: Array<{ value: TemplateFieldType; label: string }> = [
@@ -18,6 +31,7 @@ interface Draft {
   id?: string
   name: string
   icon: string
+  type: ItemType
   fields: TemplateField[]
 }
 
@@ -25,6 +39,7 @@ function emptyDraft(): Draft {
   return {
     name: '',
     icon: '📦',
+    type: 'note',
     fields: [{ id: `tf_${Date.now()}`, label: '', type: 'text' }],
   }
 }
@@ -34,6 +49,7 @@ function draftFrom(template: ItemTemplate): Draft {
     id: template.id,
     name: template.name,
     icon: template.icon,
+    type: template.type ?? 'note',
     fields: template.fields.map((field) => ({ ...field })),
   }
 }
@@ -94,6 +110,7 @@ export function TemplateSettings() {
       const input = {
         name: draft.name,
         icon: draft.icon,
+        type: draft.type,
         fields: draft.fields,
       }
       if (draft.id) {
@@ -114,6 +131,10 @@ export function TemplateSettings() {
   }
 
   const createFromTemplate = async (template: ItemTemplate) => {
+    if ((template.type ?? 'note') === 'passkey') {
+      setError(tt('Les passkeys se créent depuis un site via WebAuthn.'))
+      return
+    }
     const vaultId = vaults[0]?.id
     if (!vaultId) {
       setError(tt('Aucun coffre de destination disponible.'))
@@ -124,6 +145,33 @@ export function TemplateSettings() {
     try {
       await addItem(draftFromTemplate(template, vaultId))
       toast(tt('Élément créé depuis le modèle.'), 'success')
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : tt('Création impossible.'),
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const createFromModel = async (model: ItemModel) => {
+    if (!model.creatable) {
+      setError(tt('Les passkeys se créent depuis un site via WebAuthn.'))
+      return
+    }
+    const vaultId = vaults[0]?.id
+    if (!vaultId) {
+      setError(tt('Aucun coffre de destination disponible.'))
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await addItem({
+        ...emptyItemDraft(model.type, vaultId),
+        title: model.name,
+      })
+      toast(tt('Élément créé depuis le modèle intégré.'), 'success')
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : tt('Création impossible.'),
@@ -165,6 +213,56 @@ export function TemplateSettings() {
       <section className="settings-section">
         <div className="settings-section__head">
           <span className="settings-section__icon">
+            <LayoutGrid size={18} />
+          </span>
+          <div>
+            <h3>{tt('Modèles intégrés')}</h3>
+            <p>{tt('Tous les types d’éléments du coffre, avec leurs champs.')}</p>
+          </div>
+        </div>
+
+        <p className="model-grid__note">
+          {tt('Tous les modèles incluent :')}{' '}
+          {COMMON_MODEL_FIELDS.map((field) => tt(field.label)).join(', ')}.
+        </p>
+
+        <div className="model-grid">
+          {ITEM_MODELS.map((model) => (
+            <article className="model-card" key={model.type} data-model={model.type}>
+              <div className="model-card__head">
+                <span className="model-card__icon" aria-hidden="true">
+                  {model.icon}
+                </span>
+                <div>
+                  <strong>{tt(model.name)}</strong>
+                  {itemTypeLabel(model.type) !== model.name && (
+                    <span>{itemTypeLabel(model.type)}</span>
+                  )}
+                </div>
+              </div>
+              <p>{tt(model.description)}</p>
+              <ul className="model-card__fields">
+                {model.fields.map((field) => (
+                  <li key={field.label}>{tt(field.label)}</li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="button button--secondary button--sm"
+                onClick={() => void createFromModel(model)}
+                disabled={busy || !model.creatable}
+              >
+                {model.creatable && <Plus size={14} />}
+                {model.creatable ? tt('Créer un élément') : tt('Créé via WebAuthn')}
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section__head">
+          <span className="settings-section__icon">
             <Plus size={18} />
           </span>
           <div>
@@ -201,6 +299,22 @@ export function TemplateSettings() {
                   onChange={(event) => setDraft({ ...draft, icon: event.target.value })}
                   maxLength={16}
                 />
+              </label>
+              <label className="field">
+                <span className="field__label">{tt('Type d’élément')}</span>
+                <select
+                  className="input"
+                  value={draft.type}
+                  onChange={(event) =>
+                    setDraft({ ...draft, type: event.target.value as ItemType })
+                  }
+                >
+                  {ITEM_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {itemTypeLabel(type)}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 
@@ -304,7 +418,8 @@ export function TemplateSettings() {
                 <div className="template-list__text">
                   <strong>{template.name}</strong>
                   <span>
-                    {template.fields.length} {tt('champ(s)')}
+                    {itemTypeLabel(template.type ?? 'note')} · {template.fields.length}{' '}
+                    {tt('champ(s)')}
                   </span>
                 </div>
                 <button

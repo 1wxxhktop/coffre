@@ -336,6 +336,8 @@ export interface ItemTemplate {
   id: string
   name: string
   icon: string
+  /** Type d’élément créé depuis ce modèle ; « note » pour les anciens modèles. */
+  type?: ItemType
   fields: TemplateField[]
   createdAt: string
   updatedAt: string

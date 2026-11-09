@@ -73,6 +73,7 @@ import type {
   EncryptedVersionRecord,
   ItemContent,
   ItemTemplate,
+  ItemType,
   TemplateField,
   ItemDraft,
   KdfParams,
@@ -91,6 +92,7 @@ import type {
 import {
   isCustomFieldType,
   isItemType,
+  ITEM_TYPES,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS_PER_ITEM,
   MAX_ATTACHMENTS_TOTAL_BYTES,
@@ -493,6 +495,7 @@ const templateFieldSchema = z.object({
 const templateContentSchema = z.object({
   name: z.string().min(1).max(80),
   icon: z.string().max(16).default('📦'),
+  type: z.enum(ITEM_TYPES).optional().default('note'),
   fields: z.array(templateFieldSchema).max(30),
 })
 
@@ -1656,6 +1659,7 @@ export async function openVaultFileWithMasterKey(
         id: record.id,
         name: parsed.name,
         icon: parsed.icon,
+        type: parsed.type,
         fields: parsed.fields,
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
@@ -4107,6 +4111,7 @@ function cleanTemplateFields(fields: TemplateField[]): TemplateField[] {
 export interface TemplateInput {
   name: string
   icon?: string
+  type?: ItemType
   fields: TemplateField[]
 }
 
@@ -4132,7 +4137,12 @@ export async function createTemplate(
   const key = randomBytes(KDF_DEFAULTS.keyLength)
   const now = new Date().toISOString()
   try {
-    const content = { name, icon: cleanText(input.icon ?? '📦', 16) || '📦', fields }
+    const content = {
+      name,
+      icon: cleanText(input.icon ?? '📦', 16) || '📦',
+      type: isItemType(input.type) ? input.type : 'note',
+      fields,
+    }
     const record: EncryptedTemplateRecord = {
       id,
       key: await sealBytes(key, session.masterKey, templateKeyAad(id)),
@@ -4197,7 +4207,12 @@ export async function updateTemplate(
   const key = randomBytes(KDF_DEFAULTS.keyLength)
   const now = new Date().toISOString()
   try {
-    const content = { name, icon: cleanText(input.icon ?? '📦', 16) || '📦', fields }
+    const content = {
+      name,
+      icon: cleanText(input.icon ?? '📦', 16) || '📦',
+      type: isItemType(input.type) ? input.type : 'note',
+      fields,
+    }
     const record: EncryptedTemplateRecord = {
       ...existing,
       key: await sealBytes(key, session.masterKey, templateKeyAad(templateId)),
