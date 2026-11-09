@@ -78,8 +78,9 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
 - **Anti-hameçonnage** : analyse locale des domaines au remplissage forcé et à
   l’enregistrement, bandeau Annuler / Continuer quand même, journalisation
-  chiffrée du choix. Jeux de données embarqués (Apple MIT, Unicode UTS #39),
-  aucune API de réputation ni requête réseau.
+  chiffrée du choix. Jeux de données embarqués (Apple MIT, Chrome UX Report
+  CC BY 4.0, Unicode UTS #39), aucune API de réputation ni requête réseau à
+  l’exécution.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, effacement du presse-papiers au verrouillage.
 - **Récupération** : phrase EFF de 10 mots, enveloppe séparée, vérification de
@@ -90,8 +91,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 484 tests unitaires (69 fichiers), 144 exécutions Playwright
-  (72 parcours sur Chromium et WebKit), 30 tests Rust desktop (1 ignoré) +
+- **Tests** : 561 tests unitaires (70 fichiers), 146 exécutions Playwright
+  (73 parcours sur Chromium et WebKit), 30 tests Rust desktop (1 ignoré) +
   12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
