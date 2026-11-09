@@ -1055,10 +1055,11 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   identité Ed25519. Le paquet de partage est conservé chiffré dans les
   métadonnées du coffre. À l’import, l’application vérifie la signature, que
   l’expéditeur appartient au paquet local et qu’il a le rôle `write` (ou
-  administrateur), puis vérifie que la clé du coffre est identique avant de
-  fusionner. Un bundle non signé, altéré, d’un expéditeur inconnu ou en lecture
-  est ignoré ; une nouvelle clé de coffre (révocation) n’est pas adoptée
-  automatiquement et doit faire l’objet d’un import complet ;
+  administrateur). Si la clé du coffre change, elle vérifie que le paquet
+  provient du même administrateur, ré-enveloppe les clés d’éléments locales et
+  ré-scellle les métadonnées avec la nouvelle clé avant de fusionner. Un bundle
+  non signé, altéré, d’un expéditeur inconnu, en lecture ou d’un autre
+  administrateur est ignoré ;
 - les mutations d’éléments vérifient le rôle local : un coffre `read` refuse
   création, modification, déplacement, corbeille, pièces jointes et suppression.
   Cette restriction est appliquée par l’application ; un membre qui modifie son
@@ -1099,12 +1100,13 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   manuelle ; la synchronisation par dossier est un échange de fichiers, sans
   service temps réel ni fusion des pièces jointes binaires. Les rôles restent
   appliqués par l’application : un membre `write` qui modifie son client peut
-  forger des contenus avec la clé partagée. Après une révocation, la
-  synchronisation par dossier refuse la nouvelle clé ; un import complet dans
-  un coffre existant la refuse aussi. Le membre doit recréer le coffre partagé
-  depuis le nouveau bundle, après avoir synchronisé ses éventuelles
-  modifications locales. Les contenus locaux absents du bundle ne sont pas
-  ré-enveloppés automatiquement.
+  forger des contenus avec la clé partagée. Après une révocation, le paquet
+  signé par le même administrateur peut être adopté automatiquement : les
+  clés d’éléments locales sont ré-enveloppées avec la nouvelle clé, les
+  métadonnées et l’enveloppe de récupération sont ré-scellées, puis le contenu
+  du bundle est fusionné. L’adoption est refusée si l’administrateur diffère ou
+  si la clé de récupération locale est indisponible ; un import manuel du
+  bundle complet reste alors possible.
 
 ### 2.27 Chaîne d’approvisionnement
 

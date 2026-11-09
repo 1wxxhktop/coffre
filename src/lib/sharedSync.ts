@@ -11,17 +11,14 @@
  * `persist` après réception du résultat.
  */
 
-import { equalBytes, sha256, toBase64, utf8, wipe } from './crypto'
+import { sha256, toBase64, utf8 } from './crypto'
 import {
   createSharedVaultBundle,
   importSharedVaultBundle,
   parseSharedVaultBundle,
   signSharedVaultBundle,
 } from './sharedVaultBundle'
-import {
-  openSharedVaultPackage,
-  type SharedVaultPackage,
-} from './sharingPackage'
+import type { SharedVaultPackage } from './sharingPackage'
 import type { SharingIdentity } from './sharing'
 import type { VaultFile } from './types'
 import type { VaultSession } from './vault'
@@ -192,21 +189,6 @@ export async function syncSharedVault(
       if (!senderIsAdmin && senderMember?.role.role !== 'write') {
         warnings.push(`« ${entry.name} » : membre en lecture, ignoré`)
         lastImports[entry.name] = hash
-        continue
-      }
-
-      // Vérifie que le bundle utilise la clé locale avant de fusionner.
-      const opened = await openSharedVaultPackage(bundle.package, identity)
-      let sameKey = false
-      try {
-        sameKey = equalBytes(opened.vaultKey, vaultKey)
-      } finally {
-        wipe(opened.vaultKey)
-      }
-      if (!sameKey) {
-        warnings.push(
-          `« ${entry.name} » : nouvelle clé de coffre, import manuel requis`,
-        )
         continue
       }
 

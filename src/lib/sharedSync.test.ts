@@ -3,6 +3,7 @@ import {
   createItem,
   createVaultFile,
   deleteItem,
+  rotateVaultKey,
   signVaultFile,
   unlockVaultFile,
   updateItem,
@@ -213,7 +214,7 @@ describe('synchronisation des coffres partagés', () => {
     admin.session.lock()
   })
 
-  it('refuse automatiquement une nouvelle clé de coffre', async () => {
+  it('adopte une rotation signée par l’administrateur', async () => {
     const {
       admin,
       adminIdentity,
@@ -224,17 +225,24 @@ describe('synchronisation des coffres partagés', () => {
       adminSync,
       openedMember,
     } = await setup()
+    const nextKey = new Uint8Array(32).fill(21)
+    const rotatedFile = await rotateVaultKey(
+      adminSync.file,
+      admin.session,
+      vaultId,
+      nextKey,
+    )
     const rotated = await createSharedVaultPackage({
       vaultId,
-      vaultKey: new Uint8Array(32).fill(21),
+      vaultKey: nextKey,
       admin: adminIdentity,
       members: [
         { identity: publicSharingIdentity(adminIdentity), role: 'write' },
-        { identity: publicSharingIdentity(memberIdentity), role: 'write' },
+        { identity: publicSharingIdentity(memberIdentity), role: 'read' },
       ],
     })
     const rotatedBundle = await signSharedVaultBundle(
-      createSharedVaultBundle(adminSync.file, vaultId, rotated),
+      createSharedVaultBundle(rotatedFile, vaultId, rotated),
       adminIdentity,
     )
     files.set(adminSync.ownFile, JSON.stringify(rotatedBundle))
@@ -248,8 +256,62 @@ describe('synchronisation des coffres partagés', () => {
       io: memorySharedSyncIO(files),
       lastImports: {},
     })
+    expect(result.changed).toBe(true)
+    expect(result.warnings).toEqual([])
+    expect(Array.from(openedMember.session.vaultKey(vaultId))).toEqual(
+      Array.from(nextKey),
+    )
+    expect(openedMember.session.vaultRole(vaultId)).toBe('read')
+    const signed = await signVaultFile(
+      result.file,
+      openedMember.session,
+      openedMember.file,
+    )
+    const reopened = await unlockVaultFile(signed, memberPassword)
+    expect(reopened.items.some((item) => item.title === 'Partagé')).toBe(true)
+    reopened.session.lock()
+    openedMember.session.lock()
+    admin.session.lock()
+  })
+
+  it('refuse une rotation décidée par un autre administrateur', async () => {
+    const {
+      admin,
+      adminIdentity,
+      memberIdentity,
+      vaultId,
+      pkg,
+      files,
+      adminSync,
+      openedMember,
+    } = await setup()
+    const otherAdmin = await generateSharingIdentity()
+    const forged = await createSharedVaultPackage({
+      vaultId,
+      vaultKey: new Uint8Array(32).fill(22),
+      admin: otherAdmin,
+      members: [
+        { identity: publicSharingIdentity(adminIdentity), role: 'write' },
+        { identity: publicSharingIdentity(memberIdentity), role: 'write' },
+      ],
+    })
+    const forgedBundle = await signSharedVaultBundle(
+      createSharedVaultBundle(adminSync.file, vaultId, forged),
+      adminIdentity,
+    )
+    files.set(adminSync.ownFile, JSON.stringify(forgedBundle))
+
+    const result = await syncSharedVault({
+      file: openedMember.file,
+      session: openedMember.session,
+      identity: memberIdentity,
+      vaultId,
+      package: pkg,
+      io: memorySharedSyncIO(files),
+      lastImports: {},
+    })
     expect(result.changed).toBe(false)
-    expect(result.warnings.join(' ')).toContain('nouvelle clé')
+    expect(result.warnings.join(' ')).toContain('Rotation refusée')
     expect(openedMember.items.some((item) => item.title === 'Partagé')).toBe(
       true,
     )

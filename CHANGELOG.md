@@ -204,7 +204,9 @@
   membre écrit un bundle signé Ed25519 (`shared-<coffre>-<empreinte>.coffre-shared.json`),
   importé automatiquement toutes les 60 secondes ou à la demande ; les paquets
   de partage sont conservés chiffrés dans les métadonnées pour permettre les
-  exports suivants. Les coffres partagés en
+  exports suivants. Une rotation de clé signée par le même administrateur est
+  adoptée automatiquement : ré-enveloppe des clés d’éléments locales,
+  métadonnées et récupération. Les coffres partagés en
   lecture seule bloquent les mutations dans l’application ; la limite face à un
   client modifié est documentée. Révocation d’un membre par rotation de la clé
   du coffre, re-enveloppe des clés d’éléments et nouveau paquet pour les
