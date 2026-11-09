@@ -272,6 +272,18 @@ fn validate_env_name(name: &str) -> Result<(), String> {
     }
 }
 
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+/// Décode les séquences `%XX`. Le travail se fait sur les octets : découper
+/// la chaîne (`&value[i..j]`) paniquerait au milieu d’un caractère multi-octet,
+/// par exemple pour `%aé`.
 fn percent_decode(value: &str) -> String {
     let bytes = value.as_bytes();
     let mut output = Vec::with_capacity(bytes.len());
@@ -279,9 +291,10 @@ fn percent_decode(value: &str) -> String {
     while index < bytes.len() {
         if bytes[index] == b'%'
             && index + 2 < bytes.len()
-            && let Ok(hex) = u8::from_str_radix(&value[index + 1..index + 3], 16)
+            && let (Some(high), Some(low)) =
+                (hex_digit(bytes[index + 1]), hex_digit(bytes[index + 2]))
         {
-            output.push(hex);
+            output.push(high << 4 | low);
             index += 3;
             continue;
         }
@@ -743,6 +756,20 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decode_pourcent_sans_couper_un_caractere() {
+        assert_eq!(percent_decode("a%20b"), "a b");
+        assert_eq!(percent_decode("caf%C3%A9"), "café");
+        assert_eq!(percent_decode("100%"), "100%");
+        assert_eq!(percent_decode("%4"), "%4");
+        assert_eq!(percent_decode("%zz"), "%zz");
+        // Un « % » suivi d’un caractère multi-octet ne doit pas faire paniquer
+        // le découpage de la chaîne au milieu de ce caractère.
+        assert_eq!(percent_decode("%aé"), "%aé");
+        assert_eq!(percent_decode("%é"), "%é");
+        assert_eq!(percent_decode("été%"), "été%");
+    }
 
     #[test]
     fn decode_base32_et_totp_rfc() {
