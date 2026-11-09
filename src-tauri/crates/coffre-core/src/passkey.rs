@@ -286,9 +286,11 @@ pub fn assert_passkey(
         ));
     }
     validate_challenge(challenge)?;
-    let private_der = STANDARD
-        .decode(&item.private_key)
-        .map_err(|_| CoreError::InvalidFormat("clé privée PKCS#8 invalide".into()))?;
+    let private_der = Zeroizing::new(
+        STANDARD
+            .decode(&item.private_key)
+            .map_err(|_| CoreError::InvalidFormat("clé privée PKCS#8 invalide".into()))?,
+    );
     let signing_key = SigningKey::from_pkcs8_der(&private_der)
         .map_err(|_| CoreError::InvalidFormat("clé privée PKCS#8 invalide".into()))?;
 
@@ -320,9 +322,11 @@ pub fn verify_assertion(
     client_data_json: &[u8],
     signature_der: &[u8],
 ) -> Result<(), CoreError> {
-    let private_der = STANDARD
-        .decode(public_key_pkcs8)
-        .map_err(|_| CoreError::InvalidFormat("clé privée PKCS#8 invalide".into()))?;
+    let private_der = Zeroizing::new(
+        STANDARD
+            .decode(public_key_pkcs8)
+            .map_err(|_| CoreError::InvalidFormat("clé privée PKCS#8 invalide".into()))?,
+    );
     let signing_key = SigningKey::from_pkcs8_der(&private_der)
         .map_err(|_| CoreError::InvalidFormat("clé privée PKCS#8 invalide".into()))?;
     let verifying_key: &VerifyingKey = signing_key.verifying_key();
