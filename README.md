@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 484 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 490 tests unitaires et
 > 72 parcours Playwright exécutés sur Chromium et WebKit (144 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
@@ -105,6 +105,13 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Verrouillage automatique** après inactivité, verrouillage immédiat lorsque
   l’onglet passe en arrière-plan (option active par défaut), verrouillage à la
   perte de focus sur desktop (option) et verrouillage manuel.
+- **Intégration au système (desktop)** : verrouillage immédiat lorsque la
+  session du système se verrouille ou que la machine se met en veille (deux
+  options actives par défaut), icône de barre de menus avec ouverture,
+  recherche rapide, générateur et verrouillage, démarrage à l’ouverture de
+  session (désactivé par défaut, coffre verrouillé et masqué), et conservation
+  optionnelle de l’application dans la barre de menus à la fermeture de la
+  fenêtre. Le menu ne contient aucun nom de coffre, d’élément ou d’utilisateur.
 - **Corbeille** : suppression réversible, restauration, suppression définitive
   et purge automatique configurable.
 - **Historique des versions** : chaque modification réelle conserve le contenu
@@ -209,6 +216,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   envelopper la clé maîtresse dans le fichier. Le mot de passe maître reste le
   secret racine ; l’enveloppe est révocable, liée au fichier et supprimée lors
   d’un changement de mot de passe ou d’une récupération.
+- **Déverrouillage biométrique desktop** : Touch ID sur macOS et Windows Hello
+  sur Windows. La clé maîtresse est rangée dans un service de trousseau séparé
+  et n’est libérée qu’après une authentification réussie ; sous Windows, le
+  consentement Windows Hello est vérifié avant chaque lecture de l’entrée
+  Credential Manager protégée par DPAPI.
 - **PWA installable** : fonctionnement hors ligne, icônes, service worker.
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
   de détail persistant. La création passe par une modale ; la lecture et
@@ -686,7 +698,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (484 tests) |
+| `bun run test` | Tests Vitest (490 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (144 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
@@ -879,12 +891,13 @@ trousseau et de la nouvelle interface) :
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB et reste stable ; hors vérification optionnelle des fuites, elle
   n’ouvre aucune connexion réseau ;
-- les 124 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
+- les 144 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
-- `cargo test --lib` exécute 30 tests (1 ignoré) : stockage natif (rotation, permissions,
+- `cargo test --lib` exécute 34 tests (1 ignoré) : stockage natif (rotation, permissions,
   effacement), trames et manifestes du pont natif, confinement et écritures
-  atomiques du dossier de synchronisation, validation du préfixe HIBP et
-  détection de LocalAuthentication/Touch ID sur la machine de build ;
+  atomiques du dossier de synchronisation, validation du préfixe HIBP,
+  traduction des événements de session macOS/Windows/Linux et détection de
+  LocalAuthentication/Touch ID sur la machine de build ;
 - `cargo test -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent`
   (11 + 1 + 9 + 17 tests) ouvre les fixtures TypeScript v1 à v4, crée/modifie/supprime, signe
   en v4, tourne le mot de passe, fusionne deux fichiers, exerce la façade
