@@ -1079,6 +1079,18 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   L’accès d’urgence immédiat est préparé ; le délai imposé et le partage Shamir
   2/3 restent à concevoir.
 
+### 2.27 Chaîne d’approvisionnement
+
+- la toolchain Rust est épinglée dans `rust-toolchain.toml` (1.99.1) et Bun
+  dans les workflows (1.4.3) ;
+- la CI compare deux builds Web et extension avec `SOURCE_DATE_EPOCH=0` ; une
+  différence fait échouer le job ;
+- des SBOM CycloneDX sont générés pour chaque crate Rust et pour le projet
+  npm, puis conservés comme artefact de CI. Ils ne sont pas encore signés ni
+  joints automatiquement aux releases ;
+- les builds desktop ne sont pas encore comparés de façon reproductible, et
+  `cargo deny`/l’audit externe restent à intégrer.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

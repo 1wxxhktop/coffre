@@ -176,6 +176,9 @@
   du coffre, re-enveloppe des clés d’éléments et nouveau paquet pour les
   membres restants. Accès d’urgence : enveloppe HPKE de la clé maîtresse pour
   un contact, ré-enveloppée lors des rotations ; délai et Shamir 2/3 à venir.
+- Chaîne d’approvisionnement : toolchain Rust épinglée, builds Web/extension
+  comparés deux fois avec `SOURCE_DATE_EPOCH=0`, SBOM CycloneDX Rust et web
+  générés en CI et conservés comme artefact.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation

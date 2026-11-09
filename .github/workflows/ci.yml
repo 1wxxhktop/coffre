@@ -143,6 +143,7 @@ jobs:
       - name: Installer Rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: 1.99.1
           components: rustfmt, clippy
 
       - name: Mettre en cache Cargo
@@ -198,6 +199,7 @@ jobs:
       - name: Installer Rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: 1.99.1
           components: rustfmt, clippy
 
       - name: Mettre en cache Cargo
@@ -213,6 +215,65 @@ jobs:
 
       - name: Tests et vecteurs croisés
         run: cargo test --manifest-path src-tauri/Cargo.toml -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent
+
+  reproducible:
+    name: Build reproductible
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_DATE_EPOCH: 0
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Construire deux fois
+        run: ./scripts/check-reproducible-build.sh
+
+  sbom:
+    name: SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SOURCE_DATE_EPOCH: 0
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.99.1
+
+      - name: Installer cargo-cyclonedx
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-cyclonedx@0.5.10
+
+      - name: Générer les SBOM
+        run: ./scripts/generate-sbom.sh
+
+      - name: Conserver les SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: coffre-sbom
+          path: sbom
+          retention-days: 7
 
   smoke-extension:
     name: Extension Chromium (smoke)

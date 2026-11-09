@@ -33,3 +33,6 @@ blob-report
 # Outils d’agents locaux (mémoire, worktrees) : jamais versionnés
 .claude/
 .workbuddy-ai/
+
+# SBOM générés
+sbom/

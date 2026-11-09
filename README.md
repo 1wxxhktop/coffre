@@ -690,6 +690,8 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run lint:i18n` | Vérifie qu’aucune chaîne d’interface n’est en dur |
 | `bun run icons` | Régénère les icônes PWA |
 | `bun run version:check` | Vérifie la cohérence des versions package/Tauri/extension/Cargo/cœur/CLI |
+| `bun run sbom` | Génère les SBOM CycloneDX Rust et web dans `sbom/` |
+| `bun run repro:check` | Compare deux builds Web et extension avec `SOURCE_DATE_EPOCH=0` |
 | `bun run desktop:dev` | Lance l’application desktop Tauri |
 | `bun run desktop:build` | Produit les paquets desktop Tauri |
 | `./scripts/release-macos.sh` | Build macOS universel signé et notarié (certificat requis) |
@@ -826,6 +828,9 @@ bun install
 bun run desktop:dev
 bun run desktop:build
 ```
+
+La toolchain Rust est épinglée dans `rust-toolchain.toml` (1.99.1) et Bun
+dans la CI (1.4.3).
 
 Le build a été validé sur macOS arm64 (0.7.0, puis 0.8.0 après l’ajout du
 trousseau et de la nouvelle interface) :
