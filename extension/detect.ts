@@ -13,9 +13,23 @@ export interface DetectedLoginFields {
   otp: HTMLInputElement | null
 }
 
+/** Champs d’un formulaire d’inscription ou de changement de mot de passe. */
+export interface DetectedSignupFields {
+  form: HTMLFormElement | null
+  username: HTMLInputElement | null
+  password: HTMLInputElement
+  confirm: HTMLInputElement | null
+}
+
 const USERNAME_PATTERN =
   /(user|email|login|ident|account|mail|phone|tel|handle)/i
 const OTP_PATTERN = /(otp|totp|one[-_ ]?time|2fa|mfa|two[-_ ]?factor|verification|security[-_ ]?code)/i
+const SIGNUP_CONTEXT_PATTERN =
+  /(sign ?up|signup|register|registration|create.{0,24}account|inscription|cr[ée]er.{0,24}compte|new password|nouveau mot de passe|change.{0,24}password|changer.{0,24}mot de passe|mot de passe oubli[ée])/i
+const NEW_PASSWORD_PATTERN =
+  /(new.?password|nouveau mot de passe|choose.?password|choisir.{0,12}mot de passe|cr[ée]er.{0,12}mot de passe)/i
+const CONFIRM_PASSWORD_PATTERN =
+  /(confirm|repeat|again|verification|v[ée]rification|confirmer|r[ée]p[ée]ter)/i
 
 function parseOpacity(value: string): number {
   const parsed = Number.parseFloat(value)
@@ -191,6 +205,92 @@ export function detectLoginFields(document: Document): DetectedLoginFields {
   }
 }
 
+/**
+ * Détecte un formulaire d’inscription ou de changement de mot de passe.
+ *
+ * Un simple formulaire de connexion avec `current-password` n’est jamais
+ * retenu. Les signaux acceptés sont `autocomplete="new-password"`, un second
+ * champ de mot de passe, ou un formulaire dont le texte indique explicitement
+ * une création de compte (avec un identifiant et sans `current-password`).
+ */
+export function detectSignupFields(
+  document: Document,
+): DetectedSignupFields | null {
+  const passwords = visiblePasswords(document)
+  if (passwords.length === 0) return null
+  const form = passwords[0].form
+  const scoped = passwords.filter((input) => input.form === form)
+  if (scoped.length === 0) return null
+
+  const autocomplete = (input: HTMLInputElement): string =>
+    (input.getAttribute('autocomplete') ?? '').toLowerCase()
+  const explicitNew = scoped.find(
+    (input) =>
+      autocomplete(input) === 'new-password' ||
+      NEW_PASSWORD_PATTERN.test(descriptors(input)),
+  )
+  const current = scoped.filter(
+    (input) => autocomplete(input) === 'current-password',
+  )
+  const formContext = form?.textContent ?? ''
+  const strongContext =
+    form !== null && SIGNUP_CONTEXT_PATTERN.test(formContext)
+  const primary =
+    explicitNew ??
+    scoped.find((input) => autocomplete(input) !== 'current-password') ??
+    scoped[0]
+  if (!primary) return null
+  const hasUsername = chooseUsername(document, primary) !== null
+
+  if (
+    !explicitNew &&
+    scoped.length < 2 &&
+    !(strongContext && hasUsername && current.length === 0)
+  ) {
+    return null
+  }
+  if (
+    !explicitNew &&
+    scoped.length >= 2 &&
+    current.length === scoped.length
+  ) {
+    return null
+  }
+  const others = scoped.filter((input) => input !== primary)
+  const confirm =
+    others.find(
+      (input) =>
+        autocomplete(input) === 'new-password' ||
+        CONFIRM_PASSWORD_PATTERN.test(descriptors(input)),
+    ) ??
+    others[0] ??
+    null
+
+  return {
+    form,
+    username: chooseUsername(document, primary),
+    password: primary,
+    confirm,
+  }
+}
+
+/** Remplit le champ nouveau mot de passe et sa confirmation. */
+export function fillSignupPasswords(
+  fields: DetectedSignupFields,
+  password: string,
+): number {
+  if (!password) return 0
+  let filled = 0
+  setNativeValue(fields.password, password)
+  filled += 1
+  if (fields.confirm) {
+    setNativeValue(fields.confirm, password)
+    filled += 1
+  }
+  fields.password.focus()
+  return filled
+}
+
 export interface LoginFillValues {
   username: string
   password: string
@@ -320,6 +420,7 @@ export interface DetectedIdentityFields {
 
 export type DetectedAutofill =
   | { kind: 'login'; login: DetectedLoginFields; anchor: HTMLInputElement }
+  | { kind: 'signup'; signup: DetectedSignupFields; anchor: HTMLInputElement }
   | { kind: 'card'; card: DetectedCardFields; anchor: HTMLInputElement }
   | { kind: 'identity'; identity: DetectedIdentityFields; anchor: HTMLInputElement }
 
@@ -667,6 +768,15 @@ export function detectIdentityFields(
 
 /** Détecte le formulaire le plus pertinent de la page. */
 export function detectAutofillFields(document: Document): DetectedAutofill | null {
+  const signup = detectSignupFields(document)
+  if (signup) {
+    return {
+      kind: 'signup',
+      signup,
+      anchor: signup.password,
+    }
+  }
+
   const login = detectLoginFields(document)
   if (login.password) {
     return {

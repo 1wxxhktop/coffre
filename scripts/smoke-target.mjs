@@ -14,6 +14,7 @@ const register = `<!doctype html><html lang="fr"><body>
     <form action="/welcome" method="post">
       <input id="email" name="email" autocomplete="username" />
       <input id="new-password" name="password" type="password" autocomplete="new-password" />
+      <input id="confirm-password" name="confirm" type="password" autocomplete="new-password" />
       <button type="submit">Créer mon compte</button>
     </form>
   </body></html>`

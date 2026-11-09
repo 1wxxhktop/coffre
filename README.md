@@ -789,6 +789,15 @@ Si le coffre est verrouillé avant l’enregistrement, la proposition a été pu
 par la règle E0 et le bandeau indique qu’elle a expiré plutôt que de rejouer un
 secret disparu.
 
+**Mot de passe fort à l’inscription.** Sur un champ
+`autocomplete="new-password"`, un formulaire d’inscription ou de changement de
+mot de passe, le menu affiche en premier « Utiliser un mot de passe fort » avec
+un aperçu partiel. Un clic génère localement un mot de passe conforme aux
+règles embarquées du site, remplit le champ et sa confirmation, sans soumettre
+le formulaire. Un simple formulaire de connexion `current-password` n’affiche
+pas cette proposition. L’historique du générateur (Q3) est prévu comme point
+d’extension.
+
 **Raccourcis.** La popup s’ouvre avec `⌘⇧Y` / `Ctrl+Shift+Y` ; `⌘⇧L`
 (`Option+Shift+L` sur macOS, `Ctrl+Shift+L` sur Windows/Linux) remplit la
 connexion la plus pertinente — ou ouvre le menu du champ actif s’il y en a

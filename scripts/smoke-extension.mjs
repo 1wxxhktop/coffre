@@ -465,10 +465,65 @@ try {
   await shortcutPage.close()
   await extensionPage.bringToFront()
 
+  // E6 : mot de passe fort sur un formulaire d’inscription à deux champs.
+  await target.goto(new URL('/register', TARGET_URL).toString())
+  await target.locator('#new-password').waitFor()
+  const registerTab = await extensionPage.evaluate(async () => {
+    const tabs = await chrome.tabs.query({})
+    return tabs.find((tab) => tab.url?.includes('/register'))
+  })
+  assert.ok(registerTab?.id)
+  const signupMenu = await context.newPage()
+  await signupMenu.goto(
+    `chrome-extension://${extensionId}/menu.html?tab=${registerTab.id}&frame=0&host=${host}&top=${host}&kind=login&mode=open&signup=1`,
+  )
+  await signupMenu.locator('#signup').waitFor()
+  await signupMenu
+    .locator('#signup-preview')
+    .filter({ hasText: '…' })
+    .waitFor({ timeout: 10_000 })
+  const preview = await signupMenu.locator('#signup-preview').innerText()
+  await signupMenu.locator('#signup-use').click()
+  await target.waitForFunction(
+    () => {
+      const password = document.querySelector('#new-password')
+      const confirm = document.querySelector('#confirm-password')
+      return (
+        password instanceof HTMLInputElement &&
+        confirm instanceof HTMLInputElement &&
+        password.value.length >= 8 &&
+        password.value === confirm.value
+      )
+    },
+    null,
+    { timeout: 10_000 },
+  )
+  const signupPassword = await target.locator('#new-password').inputValue()
+  assert.notEqual(preview, signupPassword)
+  assert.equal(preview.includes(signupPassword), false)
+  await signupMenu.close().catch(() => undefined)
+
+  await target.bringToFront()
+  await target.locator('#email').fill('signup@example.com')
+  await target.getByRole('button', { name: 'Créer mon compte' }).click()
+  await target.waitForURL('**/welcome*')
+  const signupPending = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    registerTab.id,
+  )
+  assert.equal(signupPending.pending?.username, 'signup@example.com')
+  await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'SAVE_DISMISS_PENDING', tabId }),
+    registerTab.id,
+  )
+
   // E2 : bandeau après une inscription avec redirection.
   await target.goto(new URL('/register', TARGET_URL).toString())
   await target.locator('#email').fill('banner@example.com')
   await target.locator('#new-password').fill('mot-de-passe-bandeau!')
+  await target.locator('#confirm-password').fill('mot-de-passe-bandeau!')
   await target.getByRole('button', { name: 'Créer mon compte' }).click()
   await target.waitForURL('**/welcome*')
   await target

@@ -614,6 +614,21 @@
   "menu_fieldCount": {
     "message": "champ(s) remplissable(s)"
   },
+  "menu_signupTitle": {
+    "message": "Utiliser un mot de passe fort"
+  },
+  "menu_signupHint": {
+    "message": "Généré localement selon les règles du site."
+  },
+  "menu_signupUse": {
+    "message": "Utiliser ce mot de passe"
+  },
+  "menu_signupRegenerate": {
+    "message": "Régénérer"
+  },
+  "menu_signupFilled": {
+    "message": "Mot de passe fort rempli. Enregistrez la connexion après validation."
+  },
   "menu_alias": {
     "message": "Créer un alias e-mail"
   },
