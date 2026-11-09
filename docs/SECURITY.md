@@ -1047,8 +1047,9 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   rôle. Le paquet complet contient en plus les enregistrements déjà chiffrés
   (éléments, pièces jointes, versions) ; l’échange reste manuel, sans
   synchronisation automatique. L’import fusionne par identifiant et date de
-  mise à jour, avec un plafond de 20 000 éléments. Les suppressions ne sont pas
-  encore propagées par le paquet ;
+  mise à jour, avec un plafond de 20 000 éléments. Les pierres tombales des
+  éléments supprimés sont incluses et appliquées si elles sont plus récentes ;
+  l’échange reste manuel ;
 - les mutations d’éléments vérifient le rôle local : un coffre `read` refuse
   création, modification, déplacement, corbeille, pièces jointes et suppression.
   Cette restriction est appliquée par l’application ; un membre qui modifie son

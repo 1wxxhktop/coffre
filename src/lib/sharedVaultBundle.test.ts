@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createItem,
   createVaultFile,
+  deleteItem,
   signVaultFile,
   unlockVaultFile,
   updateItem,
@@ -82,6 +83,43 @@ describe('paquet de contenu partagé', () => {
       } as ItemDraft),
     ).rejects.toThrow()
     opened.session.lock()
+    member.session.lock()
+  })
+
+  it('propage la suppression d’un élément', async () => {
+    const { admin, member, memberIdentity, vaultId, pkg, created } = await setup()
+    const first = await importSharedVaultBundle(
+      createSharedVaultBundle(created.file, vaultId, pkg),
+      memberIdentity,
+      member.file,
+      member.session,
+    )
+    const firstSigned = await signVaultFile(first.file, member.session, member.file)
+    const firstOpened = await unlockVaultFile(firstSigned, memberPassword)
+    expect(firstOpened.items.some((item) => item.id === created.item.id)).toBe(true)
+
+    const withoutItem = await deleteItem(created.file, created.item.id)
+    const signedAdmin = await signVaultFile(withoutItem, admin.session, created.file)
+    const deletionBundle = createSharedVaultBundle(signedAdmin, vaultId, pkg)
+    expect(deletionBundle.items).toHaveLength(0)
+    expect(deletionBundle.tombstones.length).toBeGreaterThan(0)
+    const second = await importSharedVaultBundle(
+      deletionBundle,
+      memberIdentity,
+      firstOpened.file,
+      firstOpened.session,
+    )
+    expect(second.deleted).toBe(1)
+    const secondSigned = await signVaultFile(
+      second.file,
+      firstOpened.session,
+      firstOpened.file,
+    )
+    const secondOpened = await unlockVaultFile(secondSigned, memberPassword)
+    expect(secondOpened.items.some((item) => item.id === created.item.id)).toBe(false)
+    secondOpened.session.lock()
+    firstOpened.session.lock()
+    admin.session.lock()
     member.session.lock()
   })
 

@@ -29,6 +29,7 @@ import type {
   Sealed,
   VaultFile,
   VaultSharingMember,
+  VaultTombstone,
 } from './types'
 import type { VaultSession } from './vault'
 
@@ -51,6 +52,7 @@ export interface SharedVaultBundle {
   items: EncryptedItemRecord[]
   attachments: EncryptedAttachmentRecord[]
   versions: EncryptedVersionRecord[]
+  tombstones: VaultTombstone[]
   exportedAt: string
 }
 
@@ -59,6 +61,7 @@ export interface SharedVaultBundleImport {
   vaultName: string
   imported: number
   updated: number
+  deleted: number
   conflicts: number
   role: 'read' | 'write'
 }
@@ -94,6 +97,7 @@ export function createSharedVaultBundle(
     items,
     attachments: file.attachments.filter((attachment) => itemIds.has(attachment.itemId)),
     versions: file.versions.filter((version) => itemIds.has(version.itemId)),
+    tombstones: (file.tombstones ?? []).filter((tombstone) => tombstone.kind === 'item'),
     exportedAt: new Date().toISOString(),
   }
 }
@@ -169,6 +173,15 @@ export async function parseSharedVaultBundle(
     items,
     attachments: record.attachments as EncryptedAttachmentRecord[],
     versions: record.versions as EncryptedVersionRecord[],
+    tombstones: Array.isArray(record.tombstones)
+      ? (record.tombstones as VaultTombstone[]).filter(
+          (tombstone) =>
+            tombstone &&
+            tombstone.kind === 'item' &&
+            typeof tombstone.id === 'string' &&
+            typeof tombstone.deletedAt === 'string',
+        )
+      : [],
     exportedAt: record.exportedAt,
   }
 }
@@ -239,10 +252,40 @@ export async function importSharedVaultBundle(
   if (nameOverride?.trim()) vaultName = nameOverride.trim().slice(0, 80)
 
   const itemsById = new Map(file.items.map((item) => [item.id, item]))
+  const attachmentsById = new Map(
+    file.attachments.map((attachment) => [attachment.id, attachment]),
+  )
+  const versionsById = new Map(file.versions.map((version) => [version.id, version]))
+  const tombstonesById = new Map(
+    (file.tombstones ?? []).map((tombstone) => [
+      `${tombstone.kind}:${tombstone.id}`,
+      tombstone,
+    ]),
+  )
   const importedIds = new Set<string>()
   let added = 0
   let updated = 0
+  let deleted = 0
   let conflicts = 0
+  for (const tombstone of bundle.tombstones) {
+    const local = itemsById.get(tombstone.id)
+    if (!local || local.vaultId !== vaultId) continue
+    const key = `item:${tombstone.id}`
+    const existing = tombstonesById.get(key)
+    if (!existing || existing.deletedAt < tombstone.deletedAt) {
+      tombstonesById.set(key, tombstone)
+    }
+    if (Date.parse(tombstone.deletedAt) >= Date.parse(local.updatedAt)) {
+      itemsById.delete(tombstone.id)
+      for (const [id, attachment] of attachmentsById) {
+        if (attachment.itemId === tombstone.id) attachmentsById.delete(id)
+      }
+      for (const [id, version] of versionsById) {
+        if (version.itemId === tombstone.id) versionsById.delete(id)
+      }
+      deleted += 1
+    }
+  }
   for (const candidate of bundle.items) {
     if (candidate.vaultId !== vaultId) continue
     let itemKey: Uint8Array | null = null
@@ -270,15 +313,11 @@ export async function importSharedVaultBundle(
     }
   }
 
-  const attachmentsById = new Map(
-    file.attachments.map((attachment) => [attachment.id, attachment]),
-  )
   for (const attachment of bundle.attachments) {
     if (!importedIds.has(attachment.itemId)) continue
     const local = attachmentsById.get(attachment.id)
     if (!local || newer(attachment, local)) attachmentsById.set(attachment.id, attachment)
   }
-  const versionsById = new Map(file.versions.map((version) => [version.id, version]))
   for (const version of bundle.versions) {
     if (!importedIds.has(version.itemId)) continue
     const local = versionsById.get(version.id)
@@ -293,10 +332,12 @@ export async function importSharedVaultBundle(
       items: Array.from(itemsById.values()),
       attachments: Array.from(attachmentsById.values()),
       versions: Array.from(versionsById.values()),
+      tombstones: Array.from(tombstonesById.values()),
     },
     vaultName,
     imported: added,
     updated,
+    deleted,
     conflicts,
     role: imported.role,
   }

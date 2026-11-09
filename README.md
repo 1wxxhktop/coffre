@@ -673,7 +673,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (461 tests) |
+| `bun run test` | Tests Vitest (462 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (124 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
