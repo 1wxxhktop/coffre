@@ -67,6 +67,12 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   distant, adoption d’une nouvelle époque de clés, archivage des conflits et
   surveillance `notify` sur desktop. Chromium utilise la File System Access API
   avec handle persistant ; Safari/Firefox restent en export/import manuel.
+- **Partage de coffres** : identités X25519/Ed25519, paquets signés et
+  bundles de contenu signés, rôles `read`/`write`, révocation par rotation,
+  accès d’urgence immédiat ou Shamir 2/3. Synchronisation par dossier commun,
+  à la demande ou toutes les 60 secondes ; les bundles restent chiffrés et
+  signés, les paquets de partage sont conservés chiffrés dans les métadonnées.
+  L’échange manuel `.coffre-shared.json` reste disponible.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
@@ -79,9 +85,9 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 463 tests unitaires (65 fichiers), 124 exécutions Playwright
+- **Tests** : 472 tests unitaires (67 fichiers), 124 exécutions Playwright
   (62 parcours sur Chromium et WebKit), 30 tests Rust desktop (1 ignoré) +
-  12 tests `coffre-core` + 1 test FFI + 9 tests `coffre-cli` + 17 tests agent
+  12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
   verrouillage), vérification HIBP interceptée, relais natif simulé et

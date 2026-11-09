@@ -14,7 +14,7 @@ const DB_NAME = 'coffre-sync'
 const DB_VERSION = 1
 const HANDLE_STORE = 'handles'
 const FILE_ID = /^[A-Za-z0-9_-]{1,80}$/
-const FILE_NAME = /^[A-Za-z0-9_-]+\.coffre$/
+const FILE_NAME = /^[A-Za-z0-9_-]+(?:\.coffre|\.coffre-shared\.json)$/
 const README_TEXT = `Coffre — synchronisation locale
 
 Ce dossier contient un fichier .coffre par appareil. Chaque appareil n’écrit
@@ -249,4 +249,106 @@ export async function clearWebSyncHandle(fileId: string): Promise<void> {
   validFileId(fileId)
   const db = await database()
   await db.delete(HANDLE_STORE, fileId)
+}
+
+/** Sélecteur dédié aux bundles de coffres partagés. */
+export async function pickWebSharedDirectory(): Promise<FileSystemDirectoryHandle> {
+  const picker = (window as unknown as DirectoryPickerWindow).showDirectoryPicker
+  if (!picker) {
+    throw new WebSyncError(
+      'Ce navigateur ne propose pas le choix d’un dossier local. Utilisez l’import manuel.',
+    )
+  }
+  return picker({ id: 'coffre-shared', mode: 'readwrite' })
+}
+
+function sharedKey(fileId: string, vaultId: string): string {
+  validFileId(fileId)
+  validFileId(vaultId)
+  return `shared:${fileId}:${vaultId}`
+}
+
+export async function saveWebSharedHandle(
+  fileId: string,
+  vaultId: string,
+  handle: FileSystemDirectoryHandle,
+): Promise<void> {
+  const db = await database()
+  await db.put(HANDLE_STORE, handle, sharedKey(fileId, vaultId))
+}
+
+export async function loadWebSharedHandle(
+  fileId: string,
+  vaultId: string,
+): Promise<FileSystemDirectoryHandle | null> {
+  const db = await database()
+  return (await db.get(HANDLE_STORE, sharedKey(fileId, vaultId))) ?? null
+}
+
+export async function clearWebSharedHandle(
+  fileId: string,
+  vaultId: string,
+): Promise<void> {
+  const db = await database()
+  await db.delete(HANDLE_STORE, sharedKey(fileId, vaultId))
+}
+
+export async function listWebSharedFiles(
+  handle: FileSystemDirectoryHandle,
+): Promise<SyncFileInfo[]> {
+  if (!(await ensureWebSyncPermission(handle))) {
+    throw new WebSyncError('L’accès au dossier choisi a été refusé.')
+  }
+  const files: SyncFileInfo[] = []
+  for await (const [name, entry] of handle.entries()) {
+    if (entry.kind !== 'file' || !FILE_NAME.test(name)) continue
+    try {
+      const file = await (entry as FileSystemFileHandle).getFile()
+      if (file.size > MAX_WEB_SYNC_BYTES) continue
+      files.push({
+        name,
+        size: file.size,
+        modifiedAt: Number.isFinite(file.lastModified) ? file.lastModified : null,
+      })
+    } catch {
+      // Un fichier supprimé entre l’énumération et la lecture est ignoré.
+    }
+  }
+  return files.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export async function readWebSharedFile(
+  handle: FileSystemDirectoryHandle,
+  name: string,
+): Promise<string | null> {
+  validFileName(name)
+  if (!(await ensureWebSyncPermission(handle))) {
+    throw new WebSyncError('L’accès au dossier choisi a été refusé.')
+  }
+  try {
+    const fileHandle = await handle.getFileHandle(name)
+    const file = await fileHandle.getFile()
+    if (file.size > MAX_WEB_SYNC_BYTES) {
+      throw new WebSyncError('Fichier de partage trop volumineux')
+    }
+    return await file.text()
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'NotFoundError') return null
+    throw error
+  }
+}
+
+export async function writeWebSharedFile(
+  handle: FileSystemDirectoryHandle,
+  name: string,
+  contents: string,
+): Promise<void> {
+  validFileName(name)
+  if (contents.length > MAX_WEB_SYNC_BYTES) {
+    throw new WebSyncError('Fichier de partage trop volumineux')
+  }
+  if (!(await ensureWebSyncPermission(handle))) {
+    throw new WebSyncError('L’accès au dossier choisi a été refusé.')
+  }
+  await writeFile(handle, name, contents)
 }

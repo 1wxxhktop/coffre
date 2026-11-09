@@ -97,13 +97,13 @@ fn validate_name(name: &str) -> Result<(), String> {
     let path = Path::new(name);
     let mut components = path.components();
     let first = components.next();
-    if components.next().is_some()
-        || !matches!(first, Some(Component::Normal(_)))
-        || !name.ends_with(".coffre")
-    {
+    if components.next().is_some() || !matches!(first, Some(Component::Normal(_))) {
         return Err("Nom de fichier de synchronisation invalide".into());
     }
-    let stem = &name[..name.len() - ".coffre".len()];
+    let stem = name
+        .strip_suffix(".coffre")
+        .or_else(|| name.strip_suffix(".coffre-shared.json"))
+        .ok_or_else(|| "Nom de fichier de synchronisation invalide".to_string())?;
     if stem.is_empty()
         || !stem
             .bytes()
@@ -384,10 +384,27 @@ mod tests {
             read(&dir, "w_device.coffre").unwrap().as_deref(),
             Some("{\"format\":\"coffre\"}")
         );
+        write(
+            &dir,
+            "shared-v_test-SHA256_abc.coffre-shared.json",
+            "{\"format\":\"coffre-shared-vault\"}",
+        )
+        .unwrap();
+        assert_eq!(
+            read(&dir, "shared-v_test-SHA256_abc.coffre-shared.json")
+                .unwrap()
+                .as_deref(),
+            Some("{\"format\":\"coffre-shared-vault\"}")
+        );
         let files = list(&dir).unwrap();
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].name, "w_device.coffre");
-        assert!(files[0].size > 0);
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().any(|file| file.name == "w_device.coffre"));
+        assert!(
+            files
+                .iter()
+                .any(|file| file.name == "shared-v_test-SHA256_abc.coffre-shared.json")
+        );
+        assert!(files.iter().all(|file| file.size > 0));
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -411,6 +428,8 @@ mod tests {
             "fichier.txt",
             ".cache.coffre",
             "nom avec espace.coffre",
+            ".coffre-shared.json",
+            "shared/evasion.coffre-shared.json",
             "",
         ] {
             assert!(write(&dir, name, "{}").is_err(), "nom accepté : {name}");
