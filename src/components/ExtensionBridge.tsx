@@ -19,7 +19,9 @@ import {
   searchIdentities,
   searchLogins,
   type CoffreExtensionBridge,
+  type ExtensionPhishingChoice,
 } from '../lib/extensionProtocol'
+import { assessPhishingForItems, type PhishingQuery } from '../lib/phishing'
 import {
   emptyDraft,
   type CardItem,
@@ -95,7 +97,9 @@ export function ExtensionBridge() {
         if (!item) return null
         if (item.type === 'login') {
           const host = options?.host ?? ''
-          if (host && !loginAllowsHost(item, host)) return null
+          if (host && !options?.allowMismatch && !loginAllowsHost(item, host)) {
+            return null
+          }
           let totp = ''
           if (item.totp && isTotpUri(item.totp)) {
             try {
@@ -172,12 +176,14 @@ export function ExtensionBridge() {
         }
         return null
       },
-      async fill(itemId, host) {
+      async fill(itemId, host, options) {
         const item = items.find(
           (candidate) => candidate.id === itemId && !candidate.deletedAt,
         )
         if (!item || item.type !== 'login') return null
-        if (host && !loginAllowsHost(item, host)) return null
+        if (host && !options?.allowMismatch && !loginAllowsHost(item, host)) {
+          return null
+        }
 
         let totp = ''
         if (item.totp && isTotpUri(item.totp)) {
@@ -197,10 +203,38 @@ export function ExtensionBridge() {
           totp,
         }
       },
+      async assessHost(query: PhishingQuery) {
+        const item = query.itemId
+          ? items.find(
+              (candidate) => candidate.id === query.itemId && !candidate.deletedAt,
+            )
+          : undefined
+        const host = query.host ?? query.url ?? ''
+        const skipDomainSignals = Boolean(
+          item && item.type === 'login' && host && loginAllowsHost(item, host),
+        )
+        return assessPhishingForItems(items, { ...query, skipDomainSignals })
+      },
+      async recordPhishingChoice(input: ExtensionPhishingChoice) {
+        await recordActivity(
+          'phishing-warning',
+          `${input.choice}:${input.signals.join(',')}`,
+          input.host,
+        )
+      },
       async saveLogin(input) {
         const host = hostFromUrl(input.host) || input.host.trim().toLowerCase()
         if (!host || !input.password) return null
         const username = input.username.trim()
+        const assessment = assessPhishingForItems(items, {
+          host,
+          url: input.host,
+          username,
+          mode: 'save',
+        })
+        if (assessment.signals.length > 0 && !input.overridePhishing) {
+          return null
+        }
         const existing = items.find(
           (item): item is LoginItem =>
             item.type === 'login' &&
