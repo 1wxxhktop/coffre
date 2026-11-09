@@ -17,7 +17,7 @@ path = "src/bin/coffre-git-sign.rs"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 coffre-core = { path = "../coffre-core" }
-hmac = "0.12"
+hmac = "0.13"
 rpassword = "7"
 serde_json = "1"
 sha1 = "0.10"
