@@ -192,6 +192,7 @@ export function VaultApp() {
     emptyTrash,
     trashItems,
     favoriteItems,
+    recordGeneratedPassword,
   } = useVault()
   const { settings } = useSettings()
   const { t, intl } = useI18n()
@@ -1669,7 +1670,10 @@ export function VaultApp() {
 
       {generatorOpen && (
         <Suspense fallback={<DialogLoading onClose={() => setGeneratorOpen(false)} />}>
-          <GeneratorDialog onClose={() => setGeneratorOpen(false)} />
+          <GeneratorDialog
+            onClose={() => setGeneratorOpen(false)}
+            onRecord={recordGeneratedPassword}
+          />
         </Suspense>
       )}
 
