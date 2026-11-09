@@ -171,6 +171,14 @@ test.describe('import et sauvegarde', () => {
     const settings = await openSettings(page, 'Sauvegarde et import')
     await expect(settings.getByLabel('Format CSV')).toHaveValue('apple')
 
+    // L’export en clair exige le mot de passe maître.
+    const csvPassword = settings.getByLabel('Mot de passe maître pour l’export CSV')
+    await expect(settings.getByRole('button', { name: 'Exporter en CSV' })).toBeDisabled()
+    await csvPassword.fill('mauvais mot de passe')
+    await settings.getByRole('button', { name: 'Exporter en CSV' }).click()
+    await expect(page.getByText('Mot de passe maître incorrect')).toBeVisible({ timeout: 45_000 })
+
+    await csvPassword.fill(PASSWORD)
     const downloadPromise = page.waitForEvent('download')
     await settings.getByRole('button', { name: 'Exporter en CSV' }).click()
     const download = await downloadPromise
@@ -184,6 +192,7 @@ test.describe('import et sauvegarde', () => {
     expect(content.endsWith('\r\n')).toBe(true)
 
     await settings.getByLabel('Format CSV').selectOption('coffre')
+    await csvPassword.fill(PASSWORD)
     const fullDownloadPromise = page.waitForEvent('download')
     await settings.getByRole('button', { name: 'Exporter en CSV' }).click()
     const fullDownload = await fullDownloadPromise

@@ -1,12 +1,24 @@
 /**
  * Presse-papiers avec effacement automatique.
- * L’effacement n’a lieu que si le contenu est toujours celui copié par Coffre.
+ *
+ * Desktop (Tauri) : la copie et l’effacement passent par des commandes natives.
+ * Le secret est marqué pour être ignoré par les historiques de presse-papiers,
+ * et l’effacement différé fonctionne sans geste de l’utilisateur.
+ *
+ * Web : l’effacement n’a lieu que si le contenu est toujours celui copié par
+ * Coffre. Si le navigateur refuse la lecture (Safari, Chromium sans
+ * permission), le presse-papiers est vidé quand la page a le focus : un
+ * secret ne doit pas y rester indéfiniment. Sans focus, le navigateur refuse
+ * aussi l’écriture et l’effacement n’est pas possible.
  */
+
+import { invoke } from '@tauri-apps/api/core'
+import { isTauriRuntime } from './external'
 
 let clearTimer: ReturnType<typeof setTimeout> | null = null
 let lastCopied: string | null = null
 
-export async function copyToClipboard(text: string): Promise<boolean> {
+async function webCopy(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text)
@@ -34,6 +46,54 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+export async function copyToClipboard(text: string): Promise<boolean> {
+  if (isTauriRuntime()) {
+    try {
+      await invoke('clipboard_copy_secret', { text })
+      return true
+    } catch {
+      // Repli sur l’API Web si la commande native échoue.
+    }
+  }
+  return webCopy(text)
+}
+
+/**
+ * Efface le presse-papiers s’il contient encore `expected`. Renvoie vrai si
+ * l’effacement a eu lieu (ou a été tenté faute de pouvoir lire).
+ */
+export async function clearClipboardIfMatches(expected: string): Promise<boolean> {
+  if (!expected) return false
+
+  if (isTauriRuntime()) {
+    try {
+      return await invoke<boolean>('clipboard_clear_if', { expected })
+    } catch {
+      // Repli sur l’API Web ci-dessous.
+    }
+  }
+
+  if (!navigator.clipboard) return false
+  try {
+    const current = await navigator.clipboard.readText()
+    if (current !== expected) return false
+    await navigator.clipboard.writeText('')
+    return true
+  } catch {
+    // Lecture refusée : on vide quand même si la page a le focus, seul cas où
+    // le navigateur autorise l’écriture sans geste.
+  }
+  try {
+    if (typeof document !== 'undefined' && document.hasFocus()) {
+      await navigator.clipboard.writeText('')
+      return true
+    }
+  } catch {
+    // Écriture refusée : rien d’autre à tenter.
+  }
+  return false
+}
+
 export function scheduleClipboardClear(
   expected: string,
   seconds: number,
@@ -44,17 +104,8 @@ export function scheduleClipboardClear(
 
   clearTimer = setTimeout(async () => {
     clearTimer = null
-    lastCopied = null
-    try {
-      if (!navigator.clipboard?.readText) return
-      const current = await navigator.clipboard.readText()
-      if (current === expected) {
-        await navigator.clipboard.writeText('')
-        onCleared?.()
-      }
-    } catch {
-      // La lecture du presse-papiers peut être refusée : on ne fait rien.
-    }
+    if (lastCopied === expected) lastCopied = null
+    if (await clearClipboardIfMatches(expected)) onCleared?.()
   }, seconds * 1000)
 }
 
@@ -73,8 +124,7 @@ export async function copySensitive(
 
 /**
  * Efface immédiatement le presse-papiers au verrouillage, si son contenu est
- * toujours celui copié par Coffre. Lecture au mieux : le navigateur peut
- * refuser l’accès.
+ * toujours celui copié par Coffre.
  */
 export async function clearClipboardIfLastCopied(): Promise<void> {
   const expected = lastCopied
@@ -84,11 +134,5 @@ export async function clearClipboardIfLastCopied(): Promise<void> {
     clearTimeout(clearTimer)
     clearTimer = null
   }
-  try {
-    if (!navigator.clipboard?.readText) return
-    const current = await navigator.clipboard.readText()
-    if (current === expected) await navigator.clipboard.writeText('')
-  } catch {
-    // Rien à faire : l’effacement est au mieux.
-  }
+  await clearClipboardIfMatches(expected)
 }

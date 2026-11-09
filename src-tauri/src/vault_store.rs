@@ -123,6 +123,14 @@ fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
 }
 
 fn rotate_backups(dir: &Path) -> Result<(), String> {
+    // Sans fichier courant, il n’y a rien à archiver : on ne décale pas les
+    // sauvegardes existantes. C’est le cas de la migration depuis IndexedDB,
+    // qui écrit les sauvegardes avant le fichier courant.
+    let current = dir.join(CURRENT_FILE);
+    if !current.exists() {
+        return Ok(());
+    }
+
     let bak1 = backup_path(dir, 1)?;
     let bak2 = backup_path(dir, 2)?;
     let bak3 = backup_path(dir, 3)?;
@@ -140,13 +148,10 @@ fn rotate_backups(dir: &Path) -> Result<(), String> {
         }
     }
 
-    let current = dir.join(CURRENT_FILE);
-    if current.exists() {
-        fs::copy(&current, &bak1).map_err(|error| error.to_string())?;
-        set_file_permissions(&bak1)?;
-        if let Ok(file) = File::open(&bak1) {
-            let _ = file.sync_all();
-        }
+    fs::copy(&current, &bak1).map_err(|error| error.to_string())?;
+    set_file_permissions(&bak1)?;
+    if let Ok(file) = File::open(&bak1) {
+        let _ = file.sync_all();
     }
     Ok(())
 }
@@ -298,6 +303,28 @@ mod tests {
         assert_eq!(read_current(&dir).unwrap(), None);
         assert_eq!(read_backup(&dir, 1).unwrap(), None);
         assert_eq!(read_state(&dir).unwrap(), None);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn migration_conserve_les_trois_sauvegardes() {
+        // Ordre suivi par la migration IndexedDB : sauvegardes, puis courant.
+        let dir = temp_dir();
+        write_backup(&dir, 1, "B1").unwrap();
+        write_backup(&dir, 2, "B2").unwrap();
+        write_backup(&dir, 3, "B3").unwrap();
+        write_current(&dir, "CUR").unwrap();
+
+        assert_eq!(read_current(&dir).unwrap().as_deref(), Some("CUR"));
+        assert_eq!(read_backup(&dir, 1).unwrap().as_deref(), Some("B1"));
+        assert_eq!(read_backup(&dir, 2).unwrap().as_deref(), Some("B2"));
+        assert_eq!(read_backup(&dir, 3).unwrap().as_deref(), Some("B3"));
+
+        // L’écriture suivante reprend la rotation normale.
+        write_current(&dir, "NEXT").unwrap();
+        assert_eq!(read_backup(&dir, 1).unwrap().as_deref(), Some("CUR"));
+        assert_eq!(read_backup(&dir, 2).unwrap().as_deref(), Some("B1"));
+        assert_eq!(read_backup(&dir, 3).unwrap().as_deref(), Some("B2"));
         let _ = fs::remove_dir_all(&dir);
     }
 }

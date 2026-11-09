@@ -1,4 +1,4 @@
-import { passwordStrength } from '../lib/crypto'
+import { passwordStrength } from '../lib/strength'
 
 interface PasswordStrengthProps {
   entropy: number
