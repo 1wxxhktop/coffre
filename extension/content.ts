@@ -37,6 +37,7 @@ interface ContentContext {
   frameId: number
   host: string
   topHost: string
+  url: string
 }
 
 type AutofillKind = 'login' | 'card' | 'identity'
@@ -169,6 +170,7 @@ function showMenu(
   url.searchParams.set('frame', String(context.frameId))
   url.searchParams.set('host', context.host)
   url.searchParams.set('top', context.topHost)
+  url.searchParams.set('url', location.href.slice(0, 2048))
   url.searchParams.set('kind', kind)
   url.searchParams.set('mode', mode)
   iframe.src = url.toString()

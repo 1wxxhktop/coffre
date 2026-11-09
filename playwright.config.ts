@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 4173)
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -8,7 +10,7 @@ export default defineConfig({
   expect: { timeout: 20_000 },
   reporter: [['list']],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -23,8 +25,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'bun run dev -- --host 127.0.0.1 --port 4173 --strictPort',
-    url: 'http://127.0.0.1:4173',
+    command: `bun run dev -- --host 127.0.0.1 --port ${PORT} --strictPort`,
+    url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

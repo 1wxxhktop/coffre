@@ -1,0 +1,134 @@
+{
+  "format": "coffre",
+  "version": 4,
+  "id": "vf_manifest_sidecars",
+  "createdAt": "2026-11-09T15:00:00.000Z",
+  "updatedAt": "2026-11-09T15:00:00.000Z",
+  "kdf": {
+    "algorithm": "argon2id",
+    "salt": "AAAAAAAAAAAAAAAAAAAAAA==",
+    "memoryKiB": 8192,
+    "iterations": 1,
+    "parallelism": 1,
+    "keyLength": 32
+  },
+  "vaults": [
+    {
+      "id": "v_manifest",
+      "key": {
+        "n": "vault-key-nonce",
+        "c": "vault-key-ciphertext"
+      },
+      "name": {
+        "n": "vault-name-nonce",
+        "c": "vault-name-ciphertext"
+      },
+      "createdAt": "2026-11-09T15:00:00.000Z",
+      "updatedAt": "2026-11-09T15:00:00.000Z",
+      "clock": {
+        "rev": 1,
+        "writer": "w_manifest_vector"
+      }
+    }
+  ],
+  "items": [],
+  "attachments": [],
+  "versions": [],
+  "templates": [
+    {
+      "id": "tpl_manifest",
+      "key": {
+        "n": "template-key-nonce",
+        "c": "template-key-ciphertext"
+      },
+      "content": {
+        "n": "template-content-nonce",
+        "c": "template-content-ciphertext"
+      },
+      "createdAt": "2026-11-09T15:00:00.000Z",
+      "updatedAt": "2026-11-09T15:00:00.000Z",
+      "clock": {
+        "rev": 2,
+        "writer": "w_manifest_vector"
+      }
+    }
+  ],
+  "activity": [
+    {
+      "id": "act_manifest",
+      "data": {
+        "n": "activity-nonce",
+        "c": "activity-ciphertext"
+      },
+      "createdAt": "2026-11-09T15:00:00.000Z",
+      "clock": {
+        "rev": 2,
+        "writer": "w_manifest_vector"
+      }
+    }
+  ],
+  "generatorHistory": [
+    {
+      "id": "gen_manifest",
+      "data": {
+        "n": "generator-nonce",
+        "c": "generator-ciphertext"
+      },
+      "createdAt": "2026-11-09T15:00:00.000Z",
+      "clock": {
+        "rev": 2,
+        "writer": "w_manifest_vector"
+      }
+    }
+  ],
+  "aliasKeys": [
+    {
+      "service": "addy",
+      "data": {
+        "n": "alias-nonce",
+        "c": "alias-ciphertext"
+      },
+      "createdAt": "2026-11-09T15:00:00.000Z",
+      "clock": {
+        "rev": 2,
+        "writer": "w_manifest_vector"
+      }
+    }
+  ],
+  "sharing": {
+    "version": 1,
+    "encryptionPublicKey": "sharing-encryption-public-key",
+    "signingPublicKey": "sharing-signing-public-key",
+    "fingerprint": "sharing-fingerprint",
+    "privateKeys": {
+      "n": "sharing-nonce",
+      "c": "sharing-ciphertext"
+    },
+    "createdAt": "2026-11-09T15:00:00.000Z"
+  },
+  "emergency": {
+    "version": 1,
+    "mode": "immediate",
+    "contact": {
+      "encryptionPublicKey": "contact-encryption-public-key",
+      "signingPublicKey": "contact-signing-public-key",
+      "fingerprint": "contact-fingerprint"
+    },
+    "sealed": {
+      "enc": "emergency-enc",
+      "ciphertext": "emergency-ciphertext"
+    },
+    "createdAt": "2026-11-09T15:00:00.000Z"
+  },
+  "writer": "w_manifest_vector",
+  "revision": 1,
+  "keyEpoch": 1,
+  "tombstones": [],
+  "integrity": {
+    "mac": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "key": {
+      "n": "integrity-nonce",
+      "c": "integrity-ciphertext"
+    }
+  }
+}

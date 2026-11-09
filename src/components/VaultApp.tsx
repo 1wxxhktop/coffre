@@ -57,6 +57,7 @@ import {
   type SecurityCategory,
 } from '../lib/security'
 import { collectExpiries } from '../lib/expiry'
+import { loadSiteSecurity, siteSecurityForHost } from '../lib/siteSecurity'
 import { scanBreaches } from '../lib/breach'
 import { notifyExpiringItems } from '../lib/notifications'
 import {
@@ -176,6 +177,8 @@ const SECURITY_CATEGORY_KEYS: Record<SecurityCategory, MessageKey> = {
   reused: 'security.category.reused',
   similar: 'security.category.similar',
   no2fa: 'security.category.no2fa',
+  passkey: 'security.category.passkey',
+  noHttps: 'security.category.noHttps',
   old: 'security.category.old',
   incomplete: 'security.category.incomplete',
   duplicates: 'security.category.duplicates',
@@ -195,6 +198,7 @@ export function VaultApp() {
     emptyTrash,
     trashItems,
     favoriteItems,
+    recordGeneratedPassword,
   } = useVault()
   const { settings } = useSettings()
   const { t, intl } = useI18n()
@@ -285,9 +289,26 @@ export function VaultApp() {
     breachScopeRef.current = breachScope
   }, [breachScope])
 
+  const [siteSecurityRevision, setSiteSecurityRevision] = useState(0)
+  useEffect(() => {
+    let active = true
+    void loadSiteSecurity().then(() => {
+      if (active) setSiteSecurityRevision((value) => value + 1)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+  const siteSecurityLookup = useCallback(
+    (host: string) => {
+      void siteSecurityRevision
+      return siteSecurityForHost(host)
+    },
+    [siteSecurityRevision],
+  )
   const securityReport = useMemo(
-    () => analyzeSecurity(items, undefined, breachedIds),
-    [items, breachedIds],
+    () => analyzeSecurity(items, undefined, breachedIds, siteSecurityLookup),
+    [items, breachedIds, siteSecurityLookup],
   )
 
   const checkBreaches = useCallback(async () => {
@@ -1702,7 +1723,10 @@ export function VaultApp() {
 
       {generatorOpen && (
         <Suspense fallback={<DialogLoading onClose={() => setGeneratorOpen(false)} />}>
-          <GeneratorDialog onClose={() => setGeneratorOpen(false)} />
+          <GeneratorDialog
+            onClose={() => setGeneratorOpen(false)}
+            onRecord={recordGeneratedPassword}
+          />
         </Suspense>
       )}
 
