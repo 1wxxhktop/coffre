@@ -186,6 +186,18 @@ export const ITEM_MODELS: ItemModel[] = [
       { label: 'Pièce jointe principale', kind: 'file' },
     ],
   },
+  {
+    type: 'recovery-codes',
+    name: 'Codes de secours',
+    icon: '🛟',
+    description: 'Codes de secours 2FA à usage unique, avec suivi des utilisations.',
+    creatable: true,
+    fields: [
+      { label: 'Codes de secours', kind: 'multiline' },
+      { label: 'Code utilisé', kind: 'boolean' },
+      { label: 'Date d’utilisation', kind: 'date' },
+    ],
+  },
 ]
 
 export function itemModel(type: ItemType): ItemModel {

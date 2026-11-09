@@ -26,6 +26,7 @@ export const FILTER_LABELS: Record<ItemFilter, string> = {
   'api-credential': 'Identifiants d’API',
   'software-license': 'Licences logicielles',
   document: 'Documents',
+  'recovery-codes': 'Codes de secours',
 }
 
 export const FILTER_MESSAGE_KEYS: Record<ItemFilter, MessageKey> = {
@@ -44,6 +45,7 @@ export const FILTER_MESSAGE_KEYS: Record<ItemFilter, MessageKey> = {
   'api-credential': 'filter.apiCredential',
   'software-license': 'filter.softwareLicense',
   document: 'filter.document',
+  'recovery-codes': 'filter.recoveryCodes',
 }
 
 export function isItemFilter(value: string): value is ItemFilter {
