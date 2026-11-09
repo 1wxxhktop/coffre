@@ -310,6 +310,32 @@ export interface EncryptedActivityRecord {
   clock?: RecordClock
 }
 
+/**
+ * Entrée déchiffrée de l’historique du générateur. Le mot de passe reste dans
+ * le contenu chiffré du coffre ; l’interface ne l’affiche que sur demande.
+ */
+export type GeneratorHistoryState = 'available' | 'used' | 'deleted'
+
+export interface GeneratorHistoryEntry {
+  id: string
+  password: string
+  /** Domaine associé, si le générateur a été ouvert depuis un site. */
+  domain?: string
+  createdAt: string
+  state: GeneratorHistoryState
+  stateAt?: string
+  /** Élément dans lequel l’entrée a été enregistrée. */
+  itemId?: string
+}
+
+/** Enregistrement chiffré d’une entrée de l’historique du générateur. */
+export interface EncryptedGeneratorRecord {
+  id: string
+  data: Sealed
+  createdAt: string
+  clock?: RecordClock
+}
+
 /** Clé API d’un service d’alias, chiffrée dans le coffre. */
 export type AliasKeyService = 'simplelogin' | 'addy'
 
@@ -503,6 +529,8 @@ export interface VaultFile {
   templates?: EncryptedTemplateRecord[]
   /** Journal d’activité local, chiffré événement par événement. */
   activity?: EncryptedActivityRecord[]
+  /** Historique chiffré du générateur, conservé selon la rétention choisie. */
+  generatorHistory?: EncryptedGeneratorRecord[]
   /** Clés API des services d’alias, chiffrées par service. */
   aliasKeys?: EncryptedAliasKeyRecord[]
   recovery?: RecoveryEnvelope
@@ -556,6 +584,8 @@ export interface AppSettings {
   lockOnFocusLoss: boolean
   /** Durée de conservation de la corbeille ; 0 = jamais purger automatiquement. */
   trashRetentionDays: number
+  /** Durée de conservation de l’historique du générateur ; 0 = désactivé. */
+  generatorHistoryRetentionDays: number
   /** Desktop : mémoriser la clé maîtresse dans le trousseau du système. */
   keychainUnlock: boolean
   /** Desktop macOS : déverrouiller par empreinte (Touch ID). */
@@ -574,6 +604,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lockOnHide: true,
   lockOnFocusLoss: false,
   trashRetentionDays: 30,
+  generatorHistoryRetentionDays: 7,
   keychainUnlock: false,
   biometricUnlock: false,
   expiryNotifications: false,
