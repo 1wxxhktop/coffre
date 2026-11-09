@@ -9,6 +9,20 @@
   méthodes de 2FA, documentation et action « Créer une passkey » dans la fiche
   d’une connexion. Le calcul du score passe en version 2 (pénalité HTTP, règle
   2FA plus juste) ; l’historique conserve les anciennes mesures et les annote.
+- Cœur natif pour extensions (S2) : ouverture par clé maîtresse sans Argon2id,
+  recherche de connexions par service avec la même règle de domaines que
+  `loginAllowsHost` (suffixes publics, IDN, ports, HTTP/HTTPS, IP, localhost),
+  révélation du seul élément demandé avec mot de passe et code TOTP, identités
+  AutoFill sans secret, et assertions/créations de passkeys ES256 en Rust.
+  Vecteurs croisés TypeScript ↔ Rust pour les domaines et les signatures de
+  passkeys ; script local de génération de `CoffreCore.xcframework`.
+- Intégration au système (S1) : verrouillage avec la session et à la mise en
+  veille sur macOS, Windows et Linux, icône de barre de menus (ouvrir, recherche
+  rapide, générateur, verrouiller) sans contenu du coffre, démarrage optionnel à
+  l’ouverture de session dans un état verrouillé et masqué, et déverrouillage
+  Windows Hello en plus de Touch ID. Le verrouillage système emprunte le même
+  chemin que le verrouillage manuel et laisse les écritures déjà en file se
+  terminer avant l’effacement des clés.
 - Modèles intégrés pour tous les types d’éléments (connexion, note, carte,
   identité, passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle,
   document), avec la liste complète de leurs champs, création directe depuis

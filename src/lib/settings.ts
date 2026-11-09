@@ -37,6 +37,22 @@ export function loadSettings(): AppSettings {
         typeof parsed.lockOnFocusLoss === 'boolean'
           ? parsed.lockOnFocusLoss
           : DEFAULT_SETTINGS.lockOnFocusLoss,
+      lockOnSystemLock:
+        typeof parsed.lockOnSystemLock === 'boolean'
+          ? parsed.lockOnSystemLock
+          : DEFAULT_SETTINGS.lockOnSystemLock,
+      lockOnSleep:
+        typeof parsed.lockOnSleep === 'boolean'
+          ? parsed.lockOnSleep
+          : DEFAULT_SETTINGS.lockOnSleep,
+      trayKeepOnClose:
+        typeof parsed.trayKeepOnClose === 'boolean'
+          ? parsed.trayKeepOnClose
+          : DEFAULT_SETTINGS.trayKeepOnClose,
+      launchAtLogin:
+        typeof parsed.launchAtLogin === 'boolean'
+          ? parsed.launchAtLogin
+          : DEFAULT_SETTINGS.launchAtLogin,
       trashRetentionDays: TRASH_RETENTION_VALUES.includes(trashRetentionDays)
         ? trashRetentionDays
         : DEFAULT_SETTINGS.trashRetentionDays,
