@@ -26,6 +26,7 @@ import { SyncSettings } from './SyncSettings'
 import { TemplateSettings } from './TemplateSettings'
 import { ActivitySettings } from './ActivitySettings'
 import { BlobStorageSettings } from './BlobStorageSettings'
+import { BackupSettings } from './BackupSettings'
 import { SshAgentSettings } from './SshAgentSettings'
 import { SharingSettings } from './SharingSettings'
 import { EmergencyAccessSettings } from './EmergencyAccessSettings'
@@ -1423,6 +1424,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                   </div>
                 </div>
 
+                <BackupSettings />
+
                 <section className="settings-section">
                   <div className="settings-section__head">
                     <span className="settings-section__icon">
@@ -1441,6 +1444,12 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                       onClick={() => {
                         try {
                           exportVault()
+                          const now = new Date().toISOString()
+                          updateSettings({
+                            backupLastRunAt: now,
+                            backupLastSuccessAt: now,
+                            backupLastError: null,
+                          })
                           void recordActivity('export', 'Fichier .coffre')
                           toast(tt('Coffre exporté'), 'success')
                         } catch (caught) {

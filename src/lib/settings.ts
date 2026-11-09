@@ -1,3 +1,4 @@
+import { BACKUP_ERROR_CODES } from './backupErrors'
 import { DEFAULT_SETTINGS, type AppSettings } from './types'
 
 const SETTINGS_KEY = 'coffre:settings:v1'
@@ -5,6 +6,17 @@ const AUTO_LOCK_VALUES = [0, 1, 5, 15, 30, 60]
 const CLIPBOARD_VALUES = [0, 15, 30, 60, 120]
 const TRASH_RETENTION_VALUES = [0, 7, 30, 90, 365]
 const GENERATOR_RETENTION_VALUES = [0, 1, 7, 30]
+const BACKUP_FREQUENCIES = ['off', 'daily', 'weekly'] as const
+
+function boundedInteger(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback
+}
+
+function optionalDate(value: unknown): string | null {
+  if (typeof value !== 'string' || !value) return null
+  return Number.isFinite(Date.parse(value)) ? value.slice(0, 40) : null
+}
 
 export function loadSettings(): AppSettings {
   try {
@@ -81,6 +93,40 @@ export function loadSettings(): AppSettings {
         typeof parsed.breachCheck === 'boolean'
           ? parsed.breachCheck
           : DEFAULT_SETTINGS.breachCheck,
+      backupFrequency: BACKUP_FREQUENCIES.includes(
+        parsed.backupFrequency as (typeof BACKUP_FREQUENCIES)[number],
+      )
+        ? (parsed.backupFrequency as (typeof BACKUP_FREQUENCIES)[number])
+        : DEFAULT_SETTINGS.backupFrequency,
+      backupFolder:
+        typeof parsed.backupFolder === 'string'
+          ? parsed.backupFolder.slice(0, 4096)
+          : DEFAULT_SETTINGS.backupFolder,
+      backupRetentionDaily: boundedInteger(
+        parsed.backupRetentionDaily,
+        DEFAULT_SETTINGS.backupRetentionDaily,
+        1,
+        30,
+      ),
+      backupRetentionWeekly: boundedInteger(
+        parsed.backupRetentionWeekly,
+        DEFAULT_SETTINGS.backupRetentionWeekly,
+        1,
+        12,
+      ),
+      backupRetentionMonthly: boundedInteger(
+        parsed.backupRetentionMonthly,
+        DEFAULT_SETTINGS.backupRetentionMonthly,
+        1,
+        24,
+      ),
+      backupLastRunAt: optionalDate(parsed.backupLastRunAt),
+      backupLastSuccessAt: optionalDate(parsed.backupLastSuccessAt),
+      backupLastError:
+        typeof parsed.backupLastError === 'string' &&
+        BACKUP_ERROR_CODES.has(parsed.backupLastError)
+          ? parsed.backupLastError
+          : DEFAULT_SETTINGS.backupLastError,
     }
   } catch {
     return { ...DEFAULT_SETTINGS }

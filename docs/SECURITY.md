@@ -1331,6 +1331,47 @@ concept minimale, sans secret réel ni donnée personnelle. Les échanges resten
 privés jusqu’à la publication d’un correctif. Le fichier est validé par
 `bun run lint` (contact, politique, langues et date d’expiration).
 
+### 2.29 Sauvegardes planifiées
+
+Sur desktop, un planificateur local copie le fichier `.coffre` **déjà chiffré**
+dans un dossier choisi par l’utilisateur. Aucun déchiffrement n’est nécessaire :
+la sauvegarde reste protégée par le mot de passe maître et peut être écrite
+pendant que le coffre est verrouillé.
+
+- La source est lue en octets par une commande Rust dédiée
+  (`backup_copy_current`) ; le contenu du coffre ne transite pas par la WebView.
+- Les noms acceptés sont strictement `coffre-daily-…`, `coffre-weekly-…` ou
+  `coffre-monthly-…` avec une date valide. Les séparateurs de chemin, `..`, les
+  octets nuls et les liens symboliques sont refusés. La liste ne remonte que
+  les fichiers réguliers correspondant à ce motif.
+- Le dossier révèle le nombre, la taille et les dates des sauvegardes, jamais
+  leur contenu : le fichier copié reste le `.coffre` chiffré.
+- Chaque copie est écrite dans un fichier temporaire `.nom.tmp`, synchronisée
+  sur disque (`fsync`), puis renommée atomiquement. Les permissions sont
+  `0600` sur Unix et la taille est plafonnée à 100 Mo. Le SHA-256 de la copie
+  est comparé à celui de la source ; une différence supprime la copie et
+  remonte `copy-verification-failed`.
+- Quand le coffre est déverrouillé, le planificateur relit immédiatement la
+  copie et vérifie son MAC global avec la clé de session. Verrouillé, ce
+  contrôle n’est pas possible sans la clé : le SHA-256 garantit alors une copie
+  identique octet pour octet, et « Tester la restauration » effectue le
+  contrôle MAC ainsi qu’une comparaison du nombre d’éléments dès que
+  l’utilisateur fournit le mot de passe ou dispose de la session ouverte.
+- La rétention supprime uniquement les noms correspondant au motif, en gardant
+  les N plus récents de chaque catégorie (7 / 4 / 12 par défaut, réglable).
+- Le mode voyage suspend le planificateur : un coffre réduit ne doit pas
+  remplacer une sauvegarde complète dans la rétention. Le planificateur ne
+  tourne que pendant l’exécution de l’application ; aucun service système n’est
+  installé.
+- Sur le Web, aucune écriture en arrière-plan n’est possible : le même réglage
+  affiche un rappel d’export manuel et l’export réussi met à jour la date de
+  dernière sauvegarde.
+- Les préférences ne contiennent que le dossier cible, la fréquence, les
+  compteurs de rétention, des dates et un code d’erreur stable. Aucun chemin
+  d’erreur système, aucun secret et aucun contenu de coffre n’est enregistré
+  dans `localStorage` ni dans le journal d’activité. Aucune requête réseau n’est
+  effectuée.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)
