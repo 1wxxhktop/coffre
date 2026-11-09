@@ -76,7 +76,29 @@ try {
     })
     await banner.close()
   }
-  console.log(`Captures du bandeau écrites dans ${output}`)
+
+  // Réglages du popup avec la liste des raccourcis.
+  const popup = await context.newPage()
+  await popup.setViewportSize({ width: 420, height: 720 })
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`)
+  for (const theme of ['dark', 'light']) {
+    await popup.evaluate((value) => chrome.storage.local.set({ theme: value }), theme)
+    await popup.reload()
+    await popup.locator('#settings').click()
+    await popup.locator('#settings-view').waitFor()
+    // La popup est ouverte dans un onglet pour la capture : on remplace
+    // l’identifiant d’extension par un site plausible.
+    await popup.evaluate(() => {
+      const site = document.getElementById('site')
+      if (site) site.textContent = 'github.com'
+    })
+    await popup.screenshot({
+      path: join(output, `popup-settings-${theme}.png`),
+      fullPage: true,
+    })
+  }
+  await popup.close()
+  console.log(`Captures du bandeau et des raccourcis écrites dans ${output}`)
 } finally {
   await context.close()
   rmSync(profile, { recursive: true, force: true })

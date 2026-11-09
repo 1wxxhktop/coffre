@@ -18,7 +18,7 @@ interface MenuQuery {
   host: string
   topHost: string
   kind: ExtensionAutofillKind
-  mode: 'badge' | 'save'
+  mode: 'badge' | 'save' | 'open'
 }
 
 interface SearchResponse {
@@ -90,7 +90,12 @@ const query: MenuQuery = {
   host: params.get('host') ?? '',
   topHost: params.get('top') ?? '',
   kind,
-  mode: params.get('mode') === 'save' ? 'save' : 'badge',
+  mode:
+    params.get('mode') === 'save'
+      ? 'save'
+      : params.get('mode') === 'open'
+        ? 'open'
+        : 'badge',
 }
 
 const ERROR_KEYS: Record<string, string> = {
@@ -405,6 +410,16 @@ async function ignore() {
   close()
 }
 
+function openPanel(): void {
+  expand()
+  tabs.hidden = false
+  searchWrap.hidden = false
+  aliasWrap.hidden = false
+  updateTabs()
+  searchInput.focus()
+  void load('')
+}
+
 function init() {
   hostLabel.textContent = query.topHost && query.topHost !== query.host
     ? `${query.host} · ${query.topHost}`
@@ -413,16 +428,8 @@ function init() {
   if (query.mode === 'save') {
     void loadSaveStatus()
   } else {
-    badge.hidden = false
-    badgeButton.addEventListener('click', () => {
-      expand()
-      tabs.hidden = false
-      searchWrap.hidden = false
-      aliasWrap.hidden = false
-      updateTabs()
-      searchInput.focus()
-      void load('')
-    })
+    badge.hidden = query.mode === 'open'
+    badgeButton.addEventListener('click', openPanel)
     searchInput.addEventListener('input', () => {
       window.clearTimeout(searchTimer)
       searchTimer = window.setTimeout(() => {
@@ -445,6 +452,7 @@ function init() {
     tabCard.addEventListener('click', () => setKind('card'))
     tabIdentity.addEventListener('click', () => setKind('identity'))
     tabCustom.addEventListener('click', () => setKind('custom'))
+    if (query.mode === 'open') openPanel()
   }
 
   closeButton.addEventListener('click', close)

@@ -23,6 +23,15 @@ const welcome = `<!doctype html><html lang="fr"><body>
     <p>Compte créé sur le site de test.</p>
   </body></html>`
 
+const shortcut = `<!doctype html><html lang="fr"><body>
+    <form onsubmit="event.preventDefault()">
+      <input id="username" name="username" autocomplete="username" />
+      <input id="password" name="password" type="password" autocomplete="current-password" />
+      <input id="otp" name="otp" autocomplete="one-time-code" inputmode="numeric" />
+      <button type="submit">Connexion</button>
+    </form>
+  </body></html>`
+
 const passkey = `<!doctype html><html lang="fr"><body>
     <h1>Passkey Coffre</h1>
     <button id="passkey-create" type="button">Créer une passkey</button>
@@ -165,6 +174,7 @@ createServer((request, response) => {
   if (url.startsWith('/passkey')) response.end(passkey)
   else if (url.startsWith('/register')) response.end(register)
   else if (url.startsWith('/welcome')) response.end(welcome)
+  else if (url.startsWith('/shortcut')) response.end(shortcut)
   else response.end(form)
 }).listen(8099, '127.0.0.1', () => {
   console.log('Formulaire et passkey de test : http://127.0.0.1:8099/')

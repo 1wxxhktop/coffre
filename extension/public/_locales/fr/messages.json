@@ -5,6 +5,15 @@
   "extDescription": {
     "message": "Complément local de Coffre : remplit les identifiants depuis l’application déverrouillée, sans serveur ni télémétrie."
   },
+  "commandFillLogin": {
+    "message": "Remplir la connexion la plus pertinente"
+  },
+  "commandGeneratePassword": {
+    "message": "Générer et remplir un mot de passe"
+  },
+  "commandFillTotp": {
+    "message": "Remplir le code de vérification (TOTP)"
+  },
   "popup_siteUnknown": {
     "message": "Site inconnu"
   },
@@ -406,6 +415,33 @@
   },
   "settings_appearance": {
     "message": "Apparence"
+  },
+  "settings_shortcuts": {
+    "message": "Raccourcis"
+  },
+  "settings_shortcutsCopy": {
+    "message": "Les raccourcis sont modifiables dans les réglages du navigateur."
+  },
+  "settings_shortcutsEdit": {
+    "message": "Modifier les raccourcis"
+  },
+  "shortcut_openPopup": {
+    "message": "Ouvrir la popup"
+  },
+  "shortcut_fillLogin": {
+    "message": "Remplir la connexion"
+  },
+  "shortcut_generatePassword": {
+    "message": "Générer un mot de passe"
+  },
+  "shortcut_fillTotp": {
+    "message": "Remplir le code TOTP"
+  },
+  "shortcut_notSet": {
+    "message": "Non défini"
+  },
+  "error_shortcutsPage": {
+    "message": "Impossible d’ouvrir la page des raccourcis du navigateur."
   },
   "settings_appAddress": {
     "message": "Adresse de l’application"

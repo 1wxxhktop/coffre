@@ -789,6 +789,15 @@ Si le coffre est verrouillé avant l’enregistrement, la proposition a été pu
 par la règle E0 et le bandeau indique qu’elle a expiré plutôt que de rejouer un
 secret disparu.
 
+**Raccourcis.** La popup s’ouvre avec `⌘⇧Y` / `Ctrl+Shift+Y` ; `⌘⇧L`
+(`Option+Shift+L` sur macOS, `Ctrl+Shift+L` sur Windows/Linux) remplit la
+connexion la plus pertinente — ou ouvre le menu du champ actif s’il y en a
+plusieurs. Les raccourcis « générer un mot de passe » et « remplir le code
+TOTP » n’ont pas de touche par défaut : assignez-les dans
+`chrome://extensions/shortcuts` ou `about:addons`. Ils utilisent `activeTab` et
+fonctionnent sur un site non autorisé au préalable, sans ouvrir la popup. La
+liste des touches effectives est affichée dans les réglages du popup.
+
 **Cartes et identités.** La détection repose sur les attributs `autocomplete`
 (`cc-number`, `cc-exp`, `cc-csc`, `given-name`, `postal-code`…), les types de
 champs et des libellés français (« Numéro de carte », « Titulaire », « Code
