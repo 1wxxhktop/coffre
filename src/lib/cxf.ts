@@ -9,6 +9,7 @@
 
 import { toBase64 } from './crypto'
 import { ImportError, type ParsedImport } from './import'
+import { recoveryCodesExportText } from './recoveryCodes'
 import {
   base64ToBase64Url,
   fromBase64Url,
@@ -171,6 +172,17 @@ function credentialsFor(item: VaultItem, warnings: string[]): CxfCredential[] {
     }
   } else if (item.type === 'note') {
     credentials.push({ type: 'note', content: field(item.notes, 'string') })
+  } else if (item.type === 'recovery-codes') {
+    credentials.push({
+      type: 'note',
+      content: field(recoveryCodesExportText(item), 'string'),
+    })
+    if (item.notes.trim()) {
+      credentials.push({ type: 'note', content: field(item.notes, 'string') })
+    }
+    const custom = customFieldsCredential(baseCustomFields(item))
+    if (custom) credentials.push(custom)
+    return credentials
   } else if (item.type === 'card') {
     credentials.push({
       type: 'credit-card',

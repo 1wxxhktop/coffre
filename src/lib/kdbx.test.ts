@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fixtureBase64 from './__fixtures__/NewDatabaseBrowser.kdbx.b64?raw'
 import { KdbxError, readKdbx, writeKdbx } from './kdbx'
-import type { LoginItem, NoteItem, VaultItem } from './types'
+import type { LoginItem, NoteItem, RecoveryCodesItem, VaultItem } from './types'
 
 const NOW = '2026-11-08T10:00:00.000Z'
 const FAST_KDF = { memoryKiB: 8_192, iterations: 1, parallelism: 1 }
@@ -31,6 +31,28 @@ function login(overrides: Partial<LoginItem> = {}): LoginItem {
   }
 }
 
+function recoveryCodes(): RecoveryCodesItem {
+  return {
+    id: 'i_recovery',
+    vaultId: 'v1',
+    type: 'recovery-codes',
+    title: 'Codes GitHub',
+    favorite: false,
+    notes: '',
+    tags: [],
+    customFields: [],
+    attachments: [],
+    deletedAt: null,
+    expiresAt: '',
+    createdAt: NOW,
+    updatedAt: NOW,
+    codes: [
+      { id: 'rc_1', code: 'AAAA-BBBB', usedAt: null },
+      { id: 'rc_2', code: 'CCCC-DDDD', usedAt: '2026-11-09T10:00:00.000Z' },
+    ],
+  }
+}
+
 function note(overrides: Partial<NoteItem> = {}): NoteItem {
   return {
     id: 'i_note',
@@ -51,6 +73,25 @@ function note(overrides: Partial<NoteItem> = {}): NoteItem {
 }
 
 describe('KDBX 4', () => {
+  it('exporte les codes de secours dans un champ protégé', async () => {
+    const bytes = await writeKdbx({
+      password: 'mot de passe KDBX',
+      items: [recoveryCodes()],
+      vaultNames: new Map([['v1', 'Personnel']]),
+      databaseName: 'Test Coffre',
+      kdf: FAST_KDF,
+    })
+    const result = await readKdbx(bytes, 'mot de passe KDBX', 'v_import')
+    const imported = result.items[0]
+    expect(imported.notes).toBe('')
+    expect(
+      imported.customFields.find((field) => field.label === 'Codes de secours'),
+    ).toMatchObject({
+      type: 'hidden',
+      value: expect.stringContaining('AAAA-BBBB'),
+    })
+  })
+
   it('exporte puis relit les éléments, champs protégés et TOTP', async () => {
     const bytes = await writeKdbx({
       password: 'mot de passe KDBX',

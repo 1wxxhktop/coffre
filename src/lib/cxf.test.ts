@@ -7,6 +7,7 @@ import type {
   LoginItem,
   NoteItem,
   PasskeyItem,
+  RecoveryCodesItem,
   VaultItem,
 } from './types'
 
@@ -51,6 +52,17 @@ function login(): LoginItem {
 
 function note(): NoteItem {
   return base({ type: 'note', title: 'Note interne', notes: 'Contenu de la note' }) as NoteItem
+}
+
+function recoveryCodes(): RecoveryCodesItem {
+  return base({
+    type: 'recovery-codes',
+    title: 'Codes GitHub',
+    codes: [
+      { id: 'rc_1', code: 'AAAA-BBBB', usedAt: null },
+      { id: 'rc_2', code: 'CCCC-DDDD', usedAt: '2026-11-09T10:00:00.000Z' },
+    ],
+  }) as RecoveryCodesItem
 }
 
 function card(): CardItem {
@@ -161,6 +173,20 @@ describe('export CXF 1.0', () => {
       userDisplayName: 'ada@example.com',
     })
     expect(typeof passkeyCredential.key).toBe('string')
+  })
+
+  it('exporte les codes de secours comme note', () => {
+    const result = exportCxf([recoveryCodes()])
+    const credentials = result.document.accounts[0].items[0].credentials
+    expect(credentials[0]).toMatchObject({
+      type: 'note',
+      content: expect.objectContaining({
+        value: expect.stringContaining('AAAA-BBBB'),
+      }),
+    })
+    expect(
+      (credentials[0].content as { value: string }).value,
+    ).toContain('CCCC-DDDD')
   })
 
   it('exclut les passkeys à compteur non nul et signale les pièces jointes', async () => {

@@ -7,6 +7,7 @@ import type {
   IdentityItem,
   LoginItem,
   NoteItem,
+  RecoveryCodesItem,
   VaultSummary,
 } from './types'
 
@@ -85,6 +86,29 @@ function card(overrides: Partial<CardItem> = {}): CardItem {
     cvc: '123',
     pin: '4567',
     brand: 'Visa',
+    ...overrides,
+  }
+}
+
+function recoveryCodes(overrides: Partial<RecoveryCodesItem> = {}): RecoveryCodesItem {
+  return {
+    id: 'i_recovery',
+    vaultId: VAULT_ID,
+    type: 'recovery-codes',
+    title: 'GitHub',
+    favorite: false,
+    notes: '',
+    tags: [],
+    customFields: [],
+    attachments: [],
+    deletedAt: null,
+    expiresAt: '',
+    createdAt: NOW,
+    updatedAt: NOW,
+    codes: [
+      { id: 'rc_1', code: 'AAAA-BBBB', usedAt: null },
+      { id: 'rc_2', code: 'CCCC-DDDD', usedAt: '2026-11-09T10:00:00.000Z' },
+    ],
     ...overrides,
   }
 }
@@ -325,6 +349,18 @@ describe('export CSV complet Coffre', () => {
       firstName: 'Ada',
       email: 'ada@example.com',
     })
+  })
+
+  it('exporte les codes de secours dans une colonne texte longue', () => {
+    const result = exportCsv([recoveryCodes()], [vault], 'coffre')
+    expect(result.content.split('\r\n')[0]).toContain('recovery_codes')
+    expect(result.content).toContain('AAAA-BBBB')
+    expect(result.content).toContain('CCCC-DDDD')
+    expect(result.content).toContain('(utilisé le 2026-11-09T10:00:00.000Z)')
+
+    const apple = exportCsv([recoveryCodes()], [vault], 'apple')
+    expect(apple.exported).toBe(0)
+    expect(apple.skipped).toBe(1)
   })
 
   it('exclut la corbeille et signale les pièces jointes', () => {
