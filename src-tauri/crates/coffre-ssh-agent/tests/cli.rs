@@ -1,5 +1,6 @@
 use coffre_core::{VaultFile, create_item, open, sign};
-use rand_core::OsRng;
+use getrandom::SysRng;
+use ssh_key::rand_core::UnwrapErr;
 use ssh_key::{Algorithm, HashAlg, LineEnding, PrivateKey};
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -19,7 +20,7 @@ fn vault_with_ssh_key() -> (String, String, String) {
     let mut opened = open(&file, PASSWORD).expect("ouverture");
     let vault_id = opened.vaults[0].id.clone();
 
-    let mut key = PrivateKey::random(&mut OsRng, Algorithm::Ed25519).expect("clé");
+    let mut key = PrivateKey::random(&mut UnwrapErr(SysRng), Algorithm::Ed25519).expect("clé");
     key.set_comment("serveur de test");
     let private_key = key.to_openssh(LineEnding::LF).expect("PEM").to_string();
     let public_key = key.public_key().to_openssh().expect("clé publique");
@@ -229,7 +230,7 @@ fn start_signing_agent() -> (
     let socket = dir.join("agent.sock");
     let public_key = dir.join("id_ed25519.pub");
     std::fs::create_dir_all(&dir).expect("dossier");
-    let mut key = PrivateKey::random(&mut OsRng, Algorithm::Ed25519).expect("clé");
+    let mut key = PrivateKey::random(&mut UnwrapErr(SysRng), Algorithm::Ed25519).expect("clé");
     key.set_comment("signature@coffre");
     let pem = key.to_openssh(LineEnding::LF).expect("PEM").to_string();
     std::fs::write(&public_key, key.public_key().to_openssh().unwrap()).expect("clé publique");

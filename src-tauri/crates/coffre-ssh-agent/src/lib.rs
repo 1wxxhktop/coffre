@@ -9,9 +9,10 @@
 //! sont journalisés.
 
 use ed25519_dalek::Signer as _;
-use rsa::RsaPrivateKey;
+use rsa::PrivateKey as RsaPrivateKey;
 use rsa::pkcs1v15::SigningKey as RsaSigningKey;
 use rsa::signature::SignatureEncoding;
+use rsa::signature::Signer as _;
 use rsa::traits::PublicKeyParts;
 use sha2::{Sha256, Sha512};
 use ssh_key::private::{KeypairData, RsaKeypair};
@@ -146,9 +147,9 @@ impl Identity {
             return Err(SshAgentError::EncryptedKey);
         }
         let material = match key.key_data() {
-            KeypairData::Ed25519(keypair) => {
-                KeyMaterial::Ed25519(ed25519_dalek::SigningKey::from(&keypair.private))
-            }
+            KeypairData::Ed25519(keypair) => KeyMaterial::Ed25519(
+                ed25519_dalek::SigningKey::from_bytes(&keypair.private.to_bytes()),
+            ),
             KeypairData::Rsa(keypair) => KeyMaterial::Rsa(rsa_private_key(keypair)?),
             other => {
                 return Err(SshAgentError::UnsupportedKey(
@@ -262,17 +263,24 @@ impl Identity {
 }
 
 fn rsa_private_key(keypair: &RsaKeypair) -> Result<RsaPrivateKey, SshAgentError> {
-    let number = |value: &ssh_key::Mpint| -> Result<rsa::BigUint, SshAgentError> {
+    let number = |value: &ssh_key::Mpint| -> Result<rsa::BoxedUint, SshAgentError> {
         let bytes = value
             .as_positive_bytes()
             .ok_or_else(|| SshAgentError::InvalidKey("entier RSA négatif".into()))?;
-        Ok(rsa::BigUint::from_bytes_be(bytes))
+        let bits = u32::try_from(bytes.len())
+            .ok()
+            .and_then(|length| length.checked_mul(8))
+            .ok_or_else(|| SshAgentError::InvalidKey("entier RSA trop grand".into()))?;
+        rsa::BoxedUint::from_be_slice(bytes, bits)
+            .map_err(|error| SshAgentError::InvalidKey(error.to_string()))
     };
+    let public = keypair.public();
+    let private = keypair.private();
     let key = RsaPrivateKey::from_components(
-        number(&keypair.public.n)?,
-        number(&keypair.public.e)?,
-        number(&keypair.private.d)?,
-        vec![number(&keypair.private.p)?, number(&keypair.private.q)?],
+        number(public.n())?,
+        number(public.e())?,
+        number(private.d())?,
+        vec![number(private.p())?, number(private.q())?],
     )
     .map_err(|error| SshAgentError::InvalidKey(error.to_string()))?;
     key.validate()
@@ -637,7 +645,8 @@ impl Drop for AgentHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_core::OsRng;
+    use getrandom::SysRng;
+    use ssh_key::rand_core::UnwrapErr;
     use ssh_key::{Algorithm, LineEnding};
 
     const RSA_TEST_KEY: &str = r#"-----BEGIN OPENSSH PRIVATE KEY-----
@@ -669,7 +678,7 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
 -----END OPENSSH PRIVATE KEY-----"#;
 
     fn key(algorithm: Algorithm) -> Identity {
-        let mut key = PrivateKey::random(&mut OsRng, algorithm).expect("clé");
+        let mut key = PrivateKey::random(&mut UnwrapErr(SysRng), algorithm).expect("clé");
         key.set_comment("test@coffre");
         let pem = key.to_openssh(LineEnding::LF).expect("PEM");
         Identity::from_openssh(&pem, "Clé de test").expect("identité")
@@ -732,7 +741,7 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
         let public = identity.public_key.key_data().ed25519().unwrap();
         let verifying = ed25519_dalek::VerifyingKey::from_bytes(&public.0).unwrap();
         let signature = ed25519_dalek::Signature::from_slice(&signature).unwrap();
-        rsa::signature::Verifier::verify(&verifying, data, &signature).unwrap();
+        ed25519_dalek::Verifier::verify(&verifying, data, &signature).unwrap();
     }
 
     #[test]
@@ -770,10 +779,10 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
         let (algorithm, signature) = signature_from_response(&response);
         assert_eq!(algorithm, "rsa-sha2-256");
         let public = identity.public_key.key_data().rsa().unwrap();
-        let n = rsa::BigUint::from_bytes_be(public.n.as_positive_bytes().unwrap());
-        let e = rsa::BigUint::from_bytes_be(public.e.as_positive_bytes().unwrap());
+        let n = rsa::BoxedUint::from_be_slice_vartime(public.n().as_positive_bytes().unwrap());
+        let e = rsa::BoxedUint::from_be_slice_vartime(public.e().as_positive_bytes().unwrap());
         let verifying =
-            rsa::pkcs1v15::VerifyingKey::<Sha256>::new(rsa::RsaPublicKey::new(n, e).unwrap());
+            rsa::pkcs1v15::VerifyingKey::<Sha256>::new(rsa::PublicKey::new(n, e).unwrap());
         let signature = rsa::pkcs1v15::Signature::try_from(signature.as_slice()).unwrap();
         rsa::signature::Verifier::verify(&verifying, data, &signature).unwrap();
     }
@@ -790,10 +799,10 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
         let (algorithm, signature) = signature_from_response(&response);
         assert_eq!(algorithm, "rsa-sha2-512");
         let public = identity.public_key.key_data().rsa().unwrap();
-        let n = rsa::BigUint::from_bytes_be(public.n.as_positive_bytes().unwrap());
-        let e = rsa::BigUint::from_bytes_be(public.e.as_positive_bytes().unwrap());
+        let n = rsa::BoxedUint::from_be_slice_vartime(public.n().as_positive_bytes().unwrap());
+        let e = rsa::BoxedUint::from_be_slice_vartime(public.e().as_positive_bytes().unwrap());
         let verifying =
-            rsa::pkcs1v15::VerifyingKey::<Sha512>::new(rsa::RsaPublicKey::new(n, e).unwrap());
+            rsa::pkcs1v15::VerifyingKey::<Sha512>::new(rsa::PublicKey::new(n, e).unwrap());
         let signature = rsa::pkcs1v15::Signature::try_from(signature.as_slice()).unwrap();
         rsa::signature::Verifier::verify(&verifying, data, &signature).unwrap();
     }
@@ -808,9 +817,11 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
 
     #[test]
     fn refuse_une_cle_chiffree() {
-        let mut key = PrivateKey::random(&mut OsRng, Algorithm::Ed25519).unwrap();
+        let mut key = PrivateKey::random(&mut UnwrapErr(SysRng), Algorithm::Ed25519).unwrap();
         key.set_comment("test");
-        let encrypted = key.encrypt(&mut OsRng, "phrase de test").unwrap();
+        let encrypted = key
+            .encrypt(&mut UnwrapErr(SysRng), "phrase de test")
+            .unwrap();
         let pem = encrypted.to_openssh(LineEnding::LF).unwrap();
         assert_eq!(
             Identity::from_openssh(&pem, "test").unwrap_err(),
@@ -820,7 +831,7 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
 
     #[test]
     fn valide_la_cle_publique_de_l_element() {
-        let mut key = PrivateKey::random(&mut OsRng, Algorithm::Ed25519).unwrap();
+        let mut key = PrivateKey::random(&mut UnwrapErr(SysRng), Algorithm::Ed25519).unwrap();
         key.set_comment("test");
         let private_key = key.to_openssh(LineEnding::LF).unwrap().to_string();
         let public_key = key.public_key().to_openssh().unwrap();
@@ -889,11 +900,12 @@ d7Sm7IoNxtsKBuK3AAAAC3Rlc3RAY29mZnJlAQIDBAUGBw==
     #[test]
     fn socket_avec_permissions_restrictives() {
         use std::os::unix::fs::PermissionsExt;
-        let dir = std::path::PathBuf::from("/tmp").join(format!(
-            "coffre-agent-test-{}-{}",
-            std::process::id(),
-            rand_core::RngCore::next_u64(&mut OsRng)
-        ));
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::path::PathBuf::from("/tmp")
+            .join(format!("coffre-agent-test-{}-{unique}", std::process::id()));
         let path = dir.join("agent.sock");
         let listener = bind_socket(&path).unwrap();
         assert_eq!(

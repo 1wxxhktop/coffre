@@ -3,7 +3,6 @@
 
 [advisories]
 ignore = [
-  { id = "RUSTSEC-2023-0071", reason = "rsa 0.9 reste requis par ssh-key 0.6 ; agent SSH local, migration vers rsa 0.10/ssh-key 0.7 à suivre" },
   { id = "RUSTSEC-2026-0370", reason = "zvariant transitoire via tauri-plugin-single-instance ; aucun correctif disponible" },
   { id = "RUSTSEC-2026-0371", reason = "zbus_names transitoire via tauri-plugin-single-instance ; aucun correctif disponible" },
   { id = "RUSTSEC-2026-0372", reason = "zvariant_derive transitoire via tauri-plugin-single-instance ; aucun correctif disponible" },
