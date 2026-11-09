@@ -338,6 +338,11 @@ export function activityAad(eventId: string): string {
   return `coffre:v1:activity:${eventId}`
 }
 
+/** AAD d’une entrée de l’historique du générateur. */
+export function generatorHistoryAad(entryId: string): string {
+  return `coffre:v1:generator-history:${entryId}`
+}
+
 export function templateKeyAad(templateId: string): string {
   return `coffre:v1:template-key:${templateId}`
 }

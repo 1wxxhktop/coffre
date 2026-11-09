@@ -56,6 +56,29 @@ fn ouvre_les_fichiers_v1_a_v4() {
 }
 
 #[test]
+fn ouvre_un_fichier_avec_historique_du_generateur() {
+    let path = format!(
+        "{}/../../../src/lib/__fixtures__/v4-generator.coffre.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let text = std::fs::read_to_string(path).expect("fixture lisible");
+    let value: serde_json::Value = serde_json::from_str(&text).expect("JSON valide");
+    assert!(
+        value
+            .get("generatorHistory")
+            .and_then(|entry| entry.as_array())
+            .is_some_and(|entries| entries.len() == 1),
+        "historique du générateur présent"
+    );
+    assert!(!text.contains("généré-pour-le-test-42!"));
+
+    let file = VaultFile::parse(&text).expect("fixture valide");
+    let opened = open(&file, PASSWORD).expect("ouverture du fichier générateur");
+    assert_eq!(opened.integrity, IntegrityState::Valid);
+    assert_eq!(opened.vaults[0].name, "Historique générateur");
+}
+
+#[test]
 fn refuse_un_mauvais_mot_de_passe() {
     let file = fixture("v4.coffre.json");
     assert!(matches!(

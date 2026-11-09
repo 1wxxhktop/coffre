@@ -30,6 +30,7 @@ import {
   itemContentAad,
   itemKeyAad,
   activityAad,
+  generatorHistoryAad,
   aliasKeyAad,
   templateContentAad,
   templateKeyAad,
@@ -66,6 +67,7 @@ import type {
   AttachmentMeta,
   EncryptedAliasKeyRecord,
   EncryptedActivityRecord,
+  EncryptedGeneratorRecord,
   EncryptedAttachmentRecord,
   EncryptedItemRecord,
   EncryptedVaultRecord,
@@ -76,6 +78,8 @@ import type {
   ItemType,
   TemplateField,
   ItemDraft,
+  GeneratorHistoryEntry,
+  GeneratorHistoryState,
   KdfParams,
   RecordClock,
   RecoveryEnvelope,
@@ -171,6 +175,7 @@ export interface OpenedVault {
   items: VaultItem[]
   templates: ItemTemplate[]
   activity: ActivityEvent[]
+  generatorHistory: GeneratorHistoryEntry[]
   aliasKeys: Partial<Record<AliasKeyService, string>>
   sharing: SharingIdentity | null
   warnings: string[]
@@ -513,6 +518,22 @@ const activityRecordSchema = z.object({
   clock: clockSchema.optional(),
 })
 
+const generatorHistoryRecordSchema = z.object({
+  id: idSchema,
+  data: sealedSchema,
+  createdAt: z.string().min(1).max(40),
+  clock: clockSchema.optional(),
+})
+
+const generatorPayloadSchema = z.object({
+  password: z.string().min(1).max(1024),
+  domain: z.string().max(253).optional(),
+  createdAt: z.string().max(40).optional(),
+  state: z.enum(['available', 'used', 'deleted']).default('available'),
+  stateAt: z.string().max(40).optional(),
+  itemId: idSchema.optional(),
+})
+
 const templateRecordSchema = z.object({
   id: idSchema,
   key: sealedSchema,
@@ -535,6 +556,7 @@ const vaultFileSchema = z.object({
   versions: z.array(versionRecordSchema).max(20_000).default([]),
   templates: z.array(templateRecordSchema).max(500).default([]),
   activity: z.array(activityRecordSchema).max(5_000).default([]),
+  generatorHistory: z.array(generatorHistoryRecordSchema).max(200).default([]),
   aliasKeys: z.array(aliasKeyRecordSchema).max(10).default([]),
   recovery: recoveryEnvelopeSchema.optional(),
   prf: prfEnvelopeSchema.optional(),
@@ -1295,6 +1317,9 @@ export async function signVaultFile(
   const previousAliasKeys = new Map(
     (previous?.aliasKeys ?? []).map((entry) => [entry.service, entry]),
   )
+  const previousGeneratorHistory = new Map(
+    (previous?.generatorHistory ?? []).map((entry) => [entry.id, entry]),
+  )
 
   let highestRev = Math.max(
     file.revision ?? 0,
@@ -1362,6 +1387,14 @@ export async function signVaultFile(
     ),
   }))
 
+  const generatorHistory = (file.generatorHistory ?? []).map((entry) => ({
+    ...entry,
+    clock: clockFor(
+      previousGeneratorHistory.get(entry.id),
+      changedRecord(previousGeneratorHistory.get(entry.id), entry),
+    ),
+  }))
+
   if (!session.hasIntegrityKey) {
     session.setIntegrityKey(randomBytes(KDF_DEFAULTS.keyLength))
   }
@@ -1377,6 +1410,7 @@ export async function signVaultFile(
     items,
     ...(templates.length > 0 ? { templates } : {}),
     ...(activity.length > 0 ? { activity } : {}),
+    ...(generatorHistory.length > 0 ? { generatorHistory } : {}),
     ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
     updatedAt: file.version === 4 ? file.updatedAt : now,
     integrity: {
@@ -1488,6 +1522,7 @@ export async function createVaultFile(
       items: [],
       templates: [],
       activity: [],
+      generatorHistory: [],
       aliasKeys: {},
       sharing: null,
       warnings: [],
@@ -1692,6 +1727,33 @@ export async function openVaultFileWithMasterKey(
   }
   activity.sort((a, b) => b.at.localeCompare(a.at))
 
+  const generatorHistory: GeneratorHistoryEntry[] = []
+  for (const record of file.generatorHistory ?? []) {
+    try {
+      const payload = generatorPayloadSchema.parse(
+        await openJson<unknown>(
+          record.data,
+          masterKey,
+          generatorHistoryAad(record.id),
+        ),
+      )
+      generatorHistory.push({
+        id: record.id,
+        password: payload.password,
+        ...(payload.domain ? { domain: payload.domain } : {}),
+        createdAt: payload.createdAt || record.createdAt,
+        state: payload.state,
+        ...(payload.stateAt ? { stateAt: payload.stateAt } : {}),
+        ...(payload.itemId ? { itemId: payload.itemId } : {}),
+      })
+    } catch {
+      warnings.push(
+        'Une entrée de l’historique du générateur n’a pas pu être déchiffrée.',
+      )
+    }
+  }
+  generatorHistory.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+
   const aliasKeys: Partial<Record<AliasKeyService, string>> = {}
   for (const record of file.aliasKeys ?? []) {
     try {
@@ -1777,6 +1839,7 @@ export async function openVaultFileWithMasterKey(
     items,
     templates,
     activity,
+    generatorHistory,
     aliasKeys,
     sharing,
     warnings,
@@ -2057,6 +2120,7 @@ export async function recoverVaultFileWithRecoveryKey(
       // Les événements du journal sont scellés par l’ancienne clé maîtresse,
       // indisponible après une récupération : le journal repart vide.
       next.activity = []
+      next.generatorHistory = []
       next.aliasKeys = []
       // L’identité de partage est scellée par l’ancienne clé maîtresse ;
       // elle est régénérée après une récupération.
@@ -4026,6 +4090,27 @@ export async function changeMasterPassword(
       }
     }
 
+    const generatorHistory: EncryptedGeneratorRecord[] = []
+    for (const record of file.generatorHistory ?? []) {
+      try {
+        const payload = await openJson<unknown>(
+          record.data,
+          session.masterKey,
+          generatorHistoryAad(record.id),
+        )
+        generatorHistory.push({
+          ...record,
+          data: await sealJson(
+            payload,
+            nextMasterKey,
+            generatorHistoryAad(record.id),
+          ),
+        })
+      } catch {
+        // Une entrée illisible ne doit pas empêcher la rotation.
+      }
+    }
+
     const aliasKeys: EncryptedAliasKeyRecord[] = []
     for (const record of file.aliasKeys ?? []) {
       try {
@@ -4068,6 +4153,7 @@ export async function changeMasterPassword(
       vaults,
       ...(templates.length > 0 ? { templates } : {}),
       ...(activity.length > 0 ? { activity } : {}),
+      ...(generatorHistory.length > 0 ? { generatorHistory } : {}),
       ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
       ...(sharing ? { sharing } : {}),
       ...(emergency ? { emergency } : {}),
@@ -4311,6 +4397,163 @@ export async function appendActivity(
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 5_000)
   return { file: { ...file, activity }, event: payload }
+}
+
+function cleanGeneratorDomain(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  const raw = value.trim().toLowerCase()
+  if (!raw) return undefined
+  try {
+    const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`)
+    const host = url.hostname.replace(/^www\./, '')
+    return /^[a-z0-9.-]+$/.test(host) && host.includes('.')
+      ? host.slice(0, 253)
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Ajoute un mot de passe généré à l’historique chiffré. Le password n’est
+ * jamais journalisé ni écrit en clair : il est scellé avec la clé maîtresse et
+ * une AAD propre à l’entrée.
+ */
+export async function appendGeneratorHistory(
+  file: VaultFile,
+  session: VaultSession,
+  input: { password: string; domain?: string; createdAt?: string },
+): Promise<{ file: VaultFile; entry: GeneratorHistoryEntry }> {
+  assertUnlocked(session)
+  if (!input.password || input.password.length > 1024) {
+    throw new VaultValidationError('Mot de passe généré invalide')
+  }
+  const id = randomId('gen')
+  const createdAt = input.createdAt ?? new Date().toISOString()
+  const domain = cleanGeneratorDomain(input.domain)
+  const payload: Omit<GeneratorHistoryEntry, 'id'> = {
+    password: input.password,
+    ...(domain ? { domain } : {}),
+    createdAt,
+    state: 'available',
+  }
+  const record: EncryptedGeneratorRecord = {
+    id,
+    data: await sealJson(payload, session.masterKey, generatorHistoryAad(id)),
+    createdAt,
+  }
+  const generatorHistory = [record, ...(file.generatorHistory ?? [])]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 50)
+  return {
+    file: { ...file, generatorHistory },
+    entry: { id, ...payload },
+  }
+}
+
+async function setGeneratorHistoryState(
+  file: VaultFile,
+  session: VaultSession,
+  id: string,
+  state: GeneratorHistoryState,
+  itemId?: string,
+): Promise<{ file: VaultFile; entry: GeneratorHistoryEntry | null }> {
+  assertUnlocked(session)
+  const record = (file.generatorHistory ?? []).find((entry) => entry.id === id)
+  if (!record) return { file, entry: null }
+  const payload = generatorPayloadSchema.parse(
+    await openJson<unknown>(record.data, session.masterKey, generatorHistoryAad(id)),
+  )
+  const stateAt = new Date().toISOString()
+  const nextPayload = {
+    ...payload,
+    state,
+    stateAt,
+    ...(itemId ? { itemId } : {}),
+  }
+  const nextRecord: EncryptedGeneratorRecord = {
+    ...record,
+    data: await sealJson(
+      nextPayload,
+      session.masterKey,
+      generatorHistoryAad(id),
+    ),
+  }
+  return {
+    file: {
+      ...file,
+      generatorHistory: (file.generatorHistory ?? []).map((entry) =>
+        entry.id === id ? nextRecord : entry,
+      ),
+    },
+    entry: {
+      id,
+      password: payload.password,
+      ...(payload.domain ? { domain: payload.domain } : {}),
+      createdAt: payload.createdAt || record.createdAt,
+      state,
+      stateAt,
+      ...(itemId ? { itemId } : {}),
+    },
+  }
+}
+
+/** Marque une entrée comme utilisée par un élément, sans la supprimer. */
+export async function markGeneratorHistoryUsed(
+  file: VaultFile,
+  session: VaultSession,
+  id: string,
+  itemId: string,
+): Promise<{ file: VaultFile; entry: GeneratorHistoryEntry | null }> {
+  return setGeneratorHistoryState(file, session, id, 'used', itemId)
+}
+
+/** Supprime réellement une entrée de l’historique. */
+export function deleteGeneratorHistoryEntry(
+  file: VaultFile,
+  id: string,
+): VaultFile {
+  return {
+    ...file,
+    generatorHistory: (file.generatorHistory ?? []).filter(
+      (entry) => entry.id !== id,
+    ),
+  }
+}
+
+/** Efface tout l’historique du générateur. */
+export function clearGeneratorHistory(file: VaultFile): VaultFile {
+  return { ...file, generatorHistory: [] }
+}
+
+/**
+ * Purge les entrées plus anciennes que la rétention. `0` désactive
+ * l’historique et efface tout. Ne nécessite pas la session : aucune donnée
+ * n’est déchiffrée.
+ */
+export function purgeGeneratorHistory(
+  file: VaultFile,
+  retentionDays: number,
+  now = Date.now(),
+): { file: VaultFile; removedIds: string[] } {
+  const records = file.generatorHistory ?? []
+  if (retentionDays <= 0) {
+    return { file: { ...file, generatorHistory: [] }, removedIds: records.map((entry) => entry.id) }
+  }
+  const cutoff = now - retentionDays * 24 * 60 * 60 * 1000
+  const removed = records.filter((entry) => {
+    const timestamp = Date.parse(entry.createdAt)
+    return Number.isFinite(timestamp) && timestamp < cutoff
+  })
+  if (removed.length === 0) return { file, removedIds: [] }
+  const removedIds = new Set(removed.map((entry) => entry.id))
+  return {
+    file: {
+      ...file,
+      generatorHistory: records.filter((entry) => !removedIds.has(entry.id)),
+    },
+    removedIds: removed.map((entry) => entry.id),
+  }
 }
 
 export async function setAliasKey(

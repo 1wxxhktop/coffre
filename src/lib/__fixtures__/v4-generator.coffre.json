@@ -1,0 +1,62 @@
+{
+  "format": "coffre",
+  "version": 4,
+  "id": "vf_18a7f742fe1b71fa19124dedd9094161",
+  "createdAt": "2026-11-09T12:57:02.126Z",
+  "updatedAt": "2026-11-09T12:57:02.151Z",
+  "kdf": {
+    "algorithm": "argon2id",
+    "salt": "7yeYQ2E2GZgWavmmFkR8lw==",
+    "memoryKiB": 8192,
+    "iterations": 1,
+    "parallelism": 1,
+    "keyLength": 32
+  },
+  "vaults": [
+    {
+      "id": "v_ac4cd83c1c56001b899b09493ce52d73",
+      "key": {
+        "n": "6bgPIqev+gwMfgA1",
+        "c": "yKEoJnRhrvhX1hMR0nFKIZLr4nUq9zgKgti+UW0MES3dEjyWcd+WNHMDXU0MzgzF"
+      },
+      "name": {
+        "n": "72eWYZHXnPlVk3YS",
+        "c": "tyWYNK8w9k4P6XQtDHmTo3s7kI/t5kDOy+k4q/z7iri+ynMB0Yde1AKbrgOiIUyg96Q="
+      },
+      "createdAt": "2026-11-09T12:57:02.148Z",
+      "updatedAt": "2026-11-09T12:57:02.148Z",
+      "clock": {
+        "rev": 1,
+        "writer": "w_e088368fdc7dd96da4fce943a652672a"
+      }
+    }
+  ],
+  "items": [],
+  "attachments": [],
+  "versions": [],
+  "writer": "w_e088368fdc7dd96da4fce943a652672a",
+  "revision": 2,
+  "keyEpoch": 1,
+  "tombstones": [],
+  "integrity": {
+    "mac": "/d3zx/YB7h5VkUqEMkYJUq5AsCM69KpjMtdDnR9SMto=",
+    "key": {
+      "n": "ZeyCg9VrlqX05JYx",
+      "c": "nFuvjqqR9+Mxs3OgiJwmMcQFalHZHRtivNM5tAnKVXGZKMUXGG01flX1VqQzd0kd"
+    }
+  },
+  "generatorHistory": [
+    {
+      "id": "gen_b8db9ff42ab3d045375f54f1ec799fdf",
+      "data": {
+        "n": "anX4a1PwHqFcjNPf",
+        "c": "3Q6rrOKRTrMP4iNDziSHgLgnSnYv7jDO2Kbvqqbq+Oip++gWw8ZNWk0b/xeQpKNOWQMEHqLnDdfxEwIsbiRUlhPZkL/25CPo0Q0FJLL/iXYNkngx7aPZ0h4Em/FT9jP6fx9Z90DedB9AF7E7Jpuy4FVkBB89UaOx0JSqcgkyyEH3fPoguBZvao1Q"
+      },
+      "createdAt": "2026-11-09T12:00:00.000Z",
+      "clock": {
+        "rev": 2,
+        "writer": "w_e088368fdc7dd96da4fce943a652672a"
+      }
+    }
+  ]
+}
