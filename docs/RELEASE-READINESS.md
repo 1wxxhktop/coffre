@@ -76,6 +76,12 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   L’échange manuel `.coffre-shared.json` reste disponible.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
+- **Sauvegardes planifiées** : copies datées du `.coffre` chiffré dans un
+  dossier choisi, écriture atomique et contrôle SHA-256, vérification du MAC
+  lorsque le coffre est déverrouillé, test de restauration en lecture seule,
+  rétention 7 / 4 / 12 réglable, alerte si le dossier disparaît ou si la
+  dernière réussite est trop ancienne, suspension en mode voyage et rappel
+  d’export sur le Web. Aucun déchiffrement ni requête réseau.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, effacement du presse-papiers au verrouillage.
 - **Récupération** : phrase EFF de 10 mots, enveloppe séparée, vérification de
@@ -86,8 +92,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 484 tests unitaires (69 fichiers), 144 exécutions Playwright
-  (72 parcours sur Chromium et WebKit), 30 tests Rust desktop (1 ignoré) +
+- **Tests** : 503 tests unitaires (71 fichiers), 146 exécutions Playwright
+  (73 parcours sur Chromium et WebKit), 32 tests Rust desktop (1 ignoré) +
   12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
