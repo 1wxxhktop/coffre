@@ -27,10 +27,17 @@ export interface DateGroup<T> extends DateGroupInfo {
   items: T[]
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
 function startOfDay(value: Date): number {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime()
+}
+
+/**
+ * Début du jour situé `days` jours calendaires avant `value`. Un jour de
+ * changement d’heure dure 23 ou 25 heures : soustraire des tranches de 24 h
+ * décalerait les limites d’une heure.
+ */
+function startOfDayBefore(value: Date, days: number): number {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate() - days).getTime()
 }
 
 function monthRank(value: Date, now: Date): number {
@@ -62,10 +69,10 @@ export function dateGroupInfo(
   if (day >= today) {
     return { key: 'today', kind: 'today', rank: 0, date: null }
   }
-  if (day === today - DAY_MS) {
+  if (day === startOfDayBefore(now, 1)) {
     return { key: 'yesterday', kind: 'yesterday', rank: 1, date: null }
   }
-  if (day > today - 7 * DAY_MS) {
+  if (day > startOfDayBefore(now, 7)) {
     return { key: 'week', kind: 'week', rank: 2, date: null }
   }
   if (
