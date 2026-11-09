@@ -18,6 +18,12 @@ const template: ItemTemplate = {
 }
 
 describe('brouillon depuis un modèle', () => {
+  it('crée le type d’élément du modèle', () => {
+    const draft = draftFromTemplate({ ...template, type: 'card' }, 'v1')
+    expect(draft.type).toBe('card')
+    expect(draft).toMatchObject({ cardholder: '', number: '', expiry: '' })
+  })
+
   it('conserve la référence et convertit les types de champs', () => {
     const draft = draftFromTemplate(template, 'v1')
     expect(draft).toMatchObject({

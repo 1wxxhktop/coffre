@@ -9,8 +9,8 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 472 tests unitaires et
-> 65 parcours Playwright exécutés sur Chromium et WebKit (130 exécutions, 6 ignorées). Une
+> La version web/PWA est fonctionnelle et couverte par 482 tests unitaires et
+> 72 parcours Playwright exécutés sur Chromium et WebKit (144 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
@@ -122,10 +122,15 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   transport TCP chiffré par Noise XX, réception à la demande et fusion avec les
   mêmes règles que la synchronisation par dossier. Aucun serveur, aucune
   connexion Internet ; le port d’écoute n’est ouvert que pendant une réception.
-- **Modèles d’éléments personnalisés** : éditeur de types avec nom, icône et
-  champs texte, secret, URL, date ou texte long ; modèles chiffrés dans le
-  coffre avec une clé et une AAD dédiées, synchronisés avec le fichier et
-  conservés lors des changements de mot de passe et de la récupération.
+- **Modèles intégrés et personnalisés** : un modèle complet pour chacun des
+  dix types d’éléments (connexion, note, carte, identité, passkey, clé SSH,
+  Wi-Fi, identifiant d’API, licence logicielle, document), avec tous leurs
+  champs ; les modèles personnalisés choisissent leur type et restent chiffrés
+  dans le coffre avec une clé et une AAD dédiées.
+- **Icônes de service locales** : les éléments affichent le glyphe du service
+  détecté depuis leur URL, leur RP ID, leur endpoint ou leur site (GitHub,
+  Google, Apple, Amazon, cartes bancaires, etc.), ou un monogramme pour les
+  domaines inconnus. Aucune requête réseau.
 - **Coffre de fichiers chiffrés en flux** : blobs hors du fichier `.coffre`,
   chiffrés par blocs de 64 Kio avec AES-256-GCM et construction STREAM,
   détection de troncature, réordonnancement et substitution. Le noyau Rust et
@@ -459,16 +464,22 @@ pas implémenté.
 
 ### Modèles d’éléments
 
-Dans **Réglages → Modèles**, créez un type d’élément avec un nom, une icône et
-jusqu’à 30 champs. Chaque champ peut être un texte, un secret, une URL, une date
-ou un texte long, et peut être marqué comme remplissable.
+Dans **Réglages → Modèles**, les **modèles intégrés** couvrent tous les types
+d’éléments du coffre et affichent la liste complète de leurs champs. Un bouton
+crée directement un élément de ce type.
 
-Les modèles sont stockés dans une section chiffrée du fichier `.coffre` avec une
-clé aléatoire par modèle et une AAD propre. Ils sont donc synchronisés et
-exportés avec le coffre, sans apparaître en clair. La clé de récupération et le
-changement de mot de passe ré-enveloppent aussi ces clés. Le bouton « Créer un
-élément » d’un modèle crée une note avec ses champs personnalisés et conserve
-la référence `templateId`. Les champs marqués `fillable` sont proposés dans l’onglet
+Vous pouvez aussi créer un modèle personnalisé avec un nom, une icône, un type
+d’élément et jusqu’à 30 champs. Chaque champ peut être un texte, un secret, une
+URL, une date ou un texte long, et peut être marqué comme remplissable.
+
+Les modèles intégrés sont des raccourcis statiques : ils ne sont pas stockés
+dans le fichier. Les modèles personnalisés, eux, sont chiffrés dans une section
+du fichier `.coffre` avec une clé aléatoire par modèle et une AAD propre. Ils
+sont donc synchronisés et exportés avec le coffre, sans apparaître en clair. La
+clé de récupération et le changement de mot de passe ré-enveloppent aussi ces
+clés. Le bouton « Créer un élément » d’un modèle crée un élément de son type,
+avec ses champs structurés et ses champs personnalisés, et conserve la référence
+`templateId`. Les champs marqués `fillable` sont proposés dans l’onglet
 **Modèles** du menu de l’extension et remplis par rapprochement de libellé.
 
 ### Coffre de fichiers chiffrés en flux
@@ -622,10 +633,11 @@ un import CSV, un cycle export/réimport, la corbeille (restauration et vidage),
 la restauration d’une version depuis l’historique, les rappels d’échéance, la
 configuration d’une phrase de récupération, la génération d’un kit d’urgence puis
 la récupération avec trois parts sur cinq, un partage hors ligne exporté puis
-réimporté avec sa clé, un scénario de sécurité (aucune requête tierce hors HIBP
-simulée, aucune adresse dangereuse rendue cliquable) et une vérification de
-fuites en k-anonymat avec interception réseau. Ils tournent sur Chromium et
-WebKit ; ce dernier sert de proxy pour le moteur des WebViews macOS/iOS.
+réimporté avec sa clé, les modèles intégrés et personnalisés, les icônes de
+service, un scénario de sécurité (aucune requête tierce hors HIBP simulée,
+aucune adresse dangereuse rendue cliquable) et une vérification de fuites en
+k-anonymat avec interception réseau. Ils tournent sur Chromium et WebKit ; ce
+dernier sert de proxy pour le moteur des WebViews macOS/iOS.
 
 ### Intégration continue
 
@@ -674,9 +686,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (472 tests) |
+| `bun run test` | Tests Vitest (482 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (124 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (144 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |

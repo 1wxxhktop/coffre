@@ -138,6 +138,18 @@ La barre latérale peut être repliée en un rail de 64 px qui ne conserve que l
 icônes, avec des infobulles et des noms accessibles. L’état replié est mémorisé.
 Sur mobile, la barre reste un tiroir complet et les poignées sont masquées.
 
+### Modèles et icônes de service
+
+Les réglages proposent un modèle intégré par type d’élément, avec la liste
+complète de ses champs. Les modèles personnalisés choisissent leur type et
+peuvent ajouter des champs propres.
+
+Les éléments affichent le glyphe local du service auquel ils sont rattachés :
+URL d’une connexion, RP ID d’une passkey, endpoint d’une API, site d’une
+licence, ou marque d’une carte. Les domaines inconnus reçoivent un monogramme.
+Les icônes viennent de Simple Icons (CC0) et sont rendues dans la couleur du
+thème, sans aucune requête réseau.
+
 ### Marque
 
 Le symbole de Coffre est plat : un carré plein et un cadenas en réserve. Le
@@ -183,7 +195,7 @@ créer en modale → lire et modifier dans le panneau de détail, la génératio
 mot de passe depuis le bandeau de sécurité, les gestes de retour et la
 navigation en pages des réglages.
 
-La régression visuelle `e2e/visual.spec.ts` capture six écrans dans les deux
+La régression visuelle `e2e/visual.spec.ts` capture sept écrans dans les deux
 thèmes. Elle est optionnelle car les baselines dépendent de la plateforme :
 
 ```bash

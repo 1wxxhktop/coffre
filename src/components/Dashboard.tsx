@@ -394,7 +394,7 @@ export function Dashboard({
                       onClick={() => onOpenItem(item.id)}
                     >
                       <span className={`item-icon item-icon--${item.type}`}>
-                        <ItemIcon type={item.type} size={17} />
+                        <ItemIcon type={item.type} item={item} size={17} />
                       </span>
                       <span className="dashboard-item__body">
                         <strong>{item.title}</strong>
@@ -482,7 +482,7 @@ export function Dashboard({
                     onClick={() => onOpenItem(item.id)}
                   >
                     <span className={`item-icon item-icon--${item.type}`}>
-                      <ItemIcon type={item.type} size={15} />
+                      <ItemIcon type={item.type} item={item} size={15} />
                     </span>
                     <span className="dashboard-item__body">
                       <strong>{item.title}</strong>
