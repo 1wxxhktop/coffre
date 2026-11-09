@@ -1200,10 +1200,12 @@ secret.
 
 Les préférences non sensibles sont dans `localStorage` sous
 `coffre:settings:v1` : langue de l’interface, thème, délai de verrouillage
-automatique, verrouillage lorsque l’onglet passe en arrière-plan, délai
-d’effacement du presse-papiers, durée de conservation de la corbeille et
-activation du trousseau ou de Touch ID. Elles ne contiennent aucun secret. Le
-choix de langue ne déclenche aucune requête réseau.
+automatique, verrouillage lorsque l’onglet passe en arrière-plan, verrouillage
+avec la session et à la mise en veille, délai d’effacement du presse-papiers,
+durée de conservation de la corbeille, conservation dans la barre de menus,
+démarrage à l’ouverture de session et activation du trousseau ou de la
+biométrie. Elles ne contiennent aucun secret. Le choix de langue ne déclenche
+aucune requête réseau.
 
 L’historique « Récents » est stocké séparément sous `coffre:usage:v1` : une
 table d’identifiants aléatoires d’éléments et d’horodatages, plafonnée à 500
@@ -1335,6 +1337,23 @@ MAC et la révision.
 - **Perte de focus (desktop)** : option dédiée qui verrouille dès que la fenêtre
   Tauri n’est plus active. Désactivée par défaut pour ne pas gêner les dialogues
   système.
+- **Verrouillage avec la session (desktop)** : deux options actives par défaut.
+  Le verrouillage de la session macOS (`com.apple.screenIsLocked`), Windows
+  (`WM_WTSSESSION_CHANGE`/`WTS_SESSION_LOCK`) ou Linux logind (`Session.Lock`),
+  ainsi que la mise en veille (notification `NSWorkspaceWillSleepNotification`,
+  `PBT_APMSUSPEND` ou `PrepareForSleep`), émettent l’événement
+  `coffre://system-lock`. Sa charge utile ne contient que `{ kind: "lock" }` ou
+  `{ kind: "sleep" }` : aucun nom d’élément, aucun secret, aucun chemin. La
+  WebView appelle le même `lock()` que le verrouillage manuel, ce qui efface le
+  presse-papiers et laisse les écritures déjà en file se terminer avant
+  d’effacer les clés.
+- **Barre de menus (desktop)** : le menu propose uniquement des actions fixes
+  (ouvrir, recherche rapide, générateur, verrouiller, quitter). Il ne liste
+  jamais un coffre, un élément, un utilisateur ou un domaine. Les libellés sont
+  français ou anglais selon la langue de l’interface.
+- **Démarrage à l’ouverture de session (desktop)** : désactivé par défaut. Quand
+  il est activé, Coffre démarre masqué et verrouillé ; le déverrouillage rapide
+  par trousseau est volontairement ignoré pour ce lancement.
 - `pagehide` et `beforeunload` verrouillent également la session.
 - Les minuteurs peuvent être ralentis par le navigateur lorsque l’onglet est en
   arrière-plan ; le verrouillage peut donc survenir au retour plutôt qu’à la
@@ -1569,7 +1588,9 @@ La WebView n’accède au système que par des commandes IPC explicites :
 | Groupe | Rôle |
 | --- | --- |
 | `keychain_store`, `keychain_load`, `keychain_delete` | trousseau de session |
-| `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS |
+| `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS et Windows Hello |
+| `autostart_enabled`, `autostart_set`, `startup_is_hidden` | démarrage à l’ouverture de session et lancement masqué |
+| `tray_set_language`, `tray_set_keep_on_close` | libellés du menu et comportement à la fermeture |
 | `vault_read`, `vault_write`, `vault_backup_read`, `vault_backup_write`, `vault_clear` | stockage natif du coffre |
 | `lan_identity`, `lan_pair_start`, `lan_pair_join`, `lan_peers`, `lan_forget_peer`, `lan_sync_serve`, `lan_sync_pull` | synchronisation locale |
 | `open_external_url` | ouverture contrôlée de liens http(s) |
@@ -1586,19 +1607,30 @@ La seule permission Tauri supplémentaire est
 sans barre de titre. Elle n’ouvre aucun accès aux fichiers, au réseau ou au
 trousseau.
 
-Le déverrouillage par empreinte (macOS) ajoute quatre commandes :
-`biometric_available`, `biometric_store`, `biometric_delete` et
-`biometric_load`. Les clés biométriques sont rangées dans le service
-`app.coffre.desktop.biometric`, distinct de `app.coffre.desktop` :
-`keychain_load` ne peut donc pas les lire. `biometric_load` exécute
-`LocalAuthentication` avec `LAPolicyDeviceOwnerAuthenticationWithBiometrics` et
-ne renvoie la clé qu’après un succès ; une annulation renvoie
-`authenticated: false`. L’écran de verrouillage déclenche ce dialogue
-automatiquement lorsque la fenêtre est activée (avec un délai de refroidissement
-pour éviter une boucle après annulation). La clé biométrique est conservée pendant le
-verrouillage — sinon le déverrouillage rapide serait impossible — et supprimée
-à la désactivation de l’option, à la réinitialisation ou au changement de
-coffre.
+Le déverrouillage biométrique desktop ajoute cinq commandes :
+`biometric_available`, `biometric_store`, `biometric_delete`,
+`biometric_confirm` et `biometric_load`. Les clés biométriques sont rangées
+dans le service `app.coffre.desktop.biometric`, distinct de
+`app.coffre.desktop` : `keychain_load` ne peut donc pas les lire.
+`biometric_load` ne renvoie la clé qu’après un succès ; une annulation renvoie
+`authenticated: false`.
+
+- **macOS** : `LocalAuthentication` avec
+  `LAPolicyDeviceOwnerAuthenticationWithBiometrics` et un texte de dialogue fixé
+  côté Rust.
+- **Windows** : `UserConsentVerifier` vérifie Windows Hello avant chaque lecture
+  de l’entrée du Credential Manager, elle-même protégée par DPAPI. Un refus, une
+  annulation ou un échec ne renvoie aucune clé. La disponibilité est vérifiée à
+  l’ouverture des réglages ; sans matériel configuré, l’option n’est pas
+  proposée.
+
+L’écran de verrouillage déclenche le dialogue automatiquement lorsque la fenêtre
+est activée (avec un délai de refroidissement pour éviter une boucle après
+annulation). La clé biométrique est conservée pendant le verrouillage — sinon le
+déverrouillage rapide serait impossible — et supprimée à la désactivation de
+l’option, à la réinitialisation ou au changement de coffre. Un changement de mot
+de passe maître remplace l’entrée par une nouvelle enveloppe scellée avec la
+nouvelle clé ; une récupération la supprime.
 
 Le trousseau du login affiche son propre dialogue d’autorisation lors du premier
 accès à l’entrée biométrique. macOS mémorise « Always Allow » en l’associant à

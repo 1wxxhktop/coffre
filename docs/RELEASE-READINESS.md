@@ -20,7 +20,7 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 | --- | --- | --- |
 | Web / PWA | Fonctionnelle, 46/46 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
 | Extension Chromium / Firefox | Fonctionnelle sur Chromium (remplissage et passkeys) ; variante Firefox lintée, non publiée ; pont natif macOS/Linux implémenté | **Bêta technique** |
-| Desktop macOS arm64 | Compile, stockage natif, se lance, Touch ID, synchronisation par dossier, signé ad hoc | **Bêta technique locale** |
+| Desktop macOS arm64 | Compile, stockage natif, se lance, Touch ID, verrouillage avec la session, barre de menus, synchronisation par dossier, signé ad hoc | **Bêta technique locale** |
 | Desktop macOS Intel | Non testé | **Non validé** |
 | Windows | Build CI, pas de test d’exécution | **Non validé** |
 | Linux | Build CI, pas de test d’exécution | **Non validé** |
@@ -77,7 +77,12 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
-  instance desktop unique, effacement du presse-papiers au verrouillage.
+  instance desktop unique, verrouillage avec la session et à la mise en veille,
+  effacement du presse-papiers au verrouillage.
+- **Intégration système desktop** : icône de barre de menus sans contenu du
+  coffre, recherche rapide, générateur et verrouillage depuis le menu, démarrage
+  à l’ouverture de session désactivé par défaut (lancement masqué et verrouillé),
+  et déverrouillage Windows Hello à côté de Touch ID.
 - **Récupération** : phrase EFF de 10 mots, enveloppe séparée, vérification de
   l’enveloppe à l’intégrité.
 - **Desktop** : Tauri v2, capability minimale, navigation externe contrôlée,
@@ -86,8 +91,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 484 tests unitaires (69 fichiers), 144 exécutions Playwright
-  (72 parcours sur Chromium et WebKit), 30 tests Rust desktop (1 ignoré) +
+- **Tests** : 490 tests unitaires (71 fichiers), 144 exécutions Playwright
+  (72 parcours sur Chromium et WebKit), 34 tests Rust desktop (1 ignoré) +
   12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
@@ -170,7 +175,10 @@ de confiance, même avec 167 tests.
 La CI compile Windows/Linux, mais aucune exécution réelle, aucun test
 d’installation, aucun test de trousseau ni de WebView n’a été réalisé. Le build
 local arm64 et le build **universel** (arm64 + x86_64) ont été validés, mais le
-binaire Intel n’a pas été exécuté sur un Mac Intel.
+binaire Intel n’a pas été exécuté sur un Mac Intel. Le code Windows Hello et la
+surveillance de session Windows (`WTSRegisterSessionNotification`,
+`WM_POWERBROADCAST`) sont présents mais n’ont pas été exécutés sur une machine
+Windows 11 ; la liste de contrôle manuelle figure dans la PR S1.
 
 ### B-09 — Portabilité des données — **traité en 0.8.0**
 
