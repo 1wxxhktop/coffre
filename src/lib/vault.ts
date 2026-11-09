@@ -3708,6 +3708,7 @@ async function sealVaultSharing(
   members: VaultSharingMember[],
   adminFingerprint: string,
   pkg?: SharedVaultPackage,
+  role?: ShareRole,
 ): Promise<VaultFile> {
   assertUnlocked(session)
   const record = file.vaults.find((vault) => vault.id === vaultId)
@@ -3720,10 +3721,12 @@ async function sealVaultSharing(
   )
   const name = typeof meta.name === 'string' ? meta.name : 'Coffre partagé'
   const packageValue = pkg ?? meta.package
+  const roleValue =
+    role ?? (meta.role === 'read' ? 'read' : 'write')
   const nameSealed = await sealJson(
     {
       name,
-      role: meta.role === 'read' ? 'read' : 'write',
+      role: roleValue,
       members,
       adminFingerprint,
       ...(packageValue !== undefined ? { package: packageValue } : {}),
@@ -3765,8 +3768,17 @@ export async function adoptVaultSharingMembers(
   members: VaultSharingMember[],
   adminFingerprint: string,
   pkg?: SharedVaultPackage,
+  role?: ShareRole,
 ): Promise<VaultFile> {
-  return sealVaultSharing(file, session, vaultId, members, adminFingerprint, pkg)
+  return sealVaultSharing(
+    file,
+    session,
+    vaultId,
+    members,
+    adminFingerprint,
+    pkg,
+    role,
+  )
 }
 
 /**
@@ -3778,9 +3790,10 @@ export async function rotateVaultKey(
   session: VaultSession,
   vaultId: string,
   nextVaultKey: Uint8Array,
+  options: { allowReadOnly?: boolean; preserveUpdatedAt?: boolean } = {},
 ): Promise<VaultFile> {
   assertUnlocked(session)
-  assertVaultWritable(session, vaultId)
+  if (!options.allowReadOnly) assertVaultWritable(session, vaultId)
   if (nextVaultKey.length !== KDF_DEFAULTS.keyLength) {
     throw new VaultValidationError('Clé de coffre partagé invalide')
   }
@@ -3802,7 +3815,9 @@ export async function rotateVaultKey(
       items.push({
         ...item,
         key: await sealBytes(itemKey, nextVaultKey, itemKeyAad(vaultId, item.id)),
-        updatedAt: new Date().toISOString(),
+        ...(options.preserveUpdatedAt
+          ? {}
+          : { updatedAt: new Date().toISOString() }),
       })
     } finally {
       if (itemKey) wipe(itemKey)
@@ -3866,6 +3881,38 @@ export async function rotateVaultKey(
     ),
     recovery,
   }
+}
+
+
+/**
+ * Adopte une rotation de clé décidée par l’administrateur.
+ * Ré-enveloppe les éléments locaux avec la nouvelle clé, puis remplace les
+ * métadonnées de partage. La signature et l’identité de l’administrateur sont
+ * vérifiées par l’appelant.
+ */
+export async function adoptVaultKey(
+  file: VaultFile,
+  session: VaultSession,
+  vaultId: string,
+  nextVaultKey: Uint8Array,
+  pkg: SharedVaultPackage,
+  members: VaultSharingMember[],
+  adminFingerprint: string,
+  role: ShareRole,
+): Promise<VaultFile> {
+  const rotated = await rotateVaultKey(file, session, vaultId, nextVaultKey, {
+    allowReadOnly: true,
+    preserveUpdatedAt: true,
+  })
+  return adoptVaultSharingMembers(
+    rotated,
+    session,
+    vaultId,
+    members,
+    adminFingerprint,
+    pkg,
+    role,
+  )
 }
 
 export async function deleteVault(
