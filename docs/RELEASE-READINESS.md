@@ -78,6 +78,21 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   L’échange manuel `.coffre-shared.json` reste disponible.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
+- **Anti-hameçonnage** : analyse locale des domaines au remplissage forcé et à
+  l’enregistrement, bandeau Annuler / Continuer quand même, journalisation
+  chiffrée du choix. Jeux de données embarqués (Apple MIT, Chrome UX Report
+  CC BY 4.0, Unicode UTS #39), aucune API de réputation ni requête réseau à
+  l’exécution.
+- **Disponibilité 2FA et passkeys** : instantanés 2FA Directory (MIT) et
+  Passkeys Directory (CC BY 4.0), chargés dans un chunk séparé, catégories
+  « Passkey disponible » et « Site sans HTTPS », méthodes de 2FA et
+  documentation dans la fiche. Aucune requête réseau, aucun ajout au bundle de
+  l’extension.
+- **Historique du générateur** : 50 entrées chiffrées avec AAD dédiée,
+  rétention configurable, purge à l’ouverture, consommation automatique lors
+  de l’enregistrement, fusion par horloges. Aucun mot de passe en clair dans le
+  fichier ; le sidecar est couvert par le manifeste 2 du MAC global, avec
+  lecture des fichiers signés en manifeste 1 et vecteur croisé TypeScript/Rust.
 - **Sauvegardes planifiées** : copies datées du `.coffre` chiffré dans un
   dossier choisi, écriture atomique et contrôle SHA-256, vérification du MAC
   lorsque le coffre est déverrouillé, test de restauration en lecture seule,
@@ -99,9 +114,8 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-
-- **Tests** : 567 tests unitaires (75 fichiers), 146 exécutions Playwright
-  (73 parcours sur Chromium et WebKit), 36 tests Rust desktop (1 ignoré) +
+- **Tests** : 647 tests unitaires (78 fichiers), 150 exécutions Playwright
+  (75 parcours sur Chromium et WebKit), 34 tests Rust desktop (1 ignoré) +
   22 tests `coffre-core` + 3 tests FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,

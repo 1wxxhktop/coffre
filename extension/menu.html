@@ -28,6 +28,15 @@
 
       <p id="message" class="message" hidden></p>
 
+      <div id="phishing" class="phishing" hidden role="alert" aria-live="assertive">
+        <strong data-i18n="phishing_title">Attention</strong>
+        <p id="phishing-text"></p>
+        <div class="phishing__actions">
+          <button id="phishing-cancel" class="button button--secondary" type="button" data-i18n="phishing_cancel">Annuler</button>
+          <button id="phishing-continue" class="button button--primary" type="button" data-i18n="phishing_continue">Continuer quand même</button>
+        </div>
+      </div>
+
       <div id="tabs" class="tabs" hidden>
         <button id="tab-login" class="tab tab--active" type="button" data-kind="login" data-i18n="menu_tabLogins">Connexions</button>
         <button id="tab-card" class="tab" type="button" data-kind="card" data-i18n="menu_tabCards">Cartes</button>

@@ -25,7 +25,12 @@ import {
   setVaultSharingMembers,
   addVault as addVaultToFile,
   appendActivity,
+  appendGeneratorHistory,
+  clearGeneratorHistory as clearGeneratorHistoryInFile,
   deleteAliasKey as deleteAliasKeyInFile,
+  deleteGeneratorHistoryEntry as deleteGeneratorHistoryEntryInFile,
+  markGeneratorHistoryUsed as markGeneratorHistoryUsedInFile,
+  purgeGeneratorHistory as purgeGeneratorHistoryInFile,
   setAliasKey as setAliasKeyInFile,
   changeMasterPassword,
   checkVaultRollback,
@@ -179,6 +184,7 @@ import {
   type VaultFile,
   type ActivityEvent,
   type EmergencyAccessRecord,
+  type GeneratorHistoryEntry,
   type ActivityKind,
   type AliasKeyService,
   type ItemTemplate,
@@ -207,6 +213,7 @@ interface ProviderState {
   items: VaultItem[]
   templates: ItemTemplate[]
   activity: ActivityEvent[]
+  generatorHistory: GeneratorHistoryEntry[]
   aliasKeys: Partial<Record<AliasKeyService, string>>
   warnings: string[]
   error: string | null
@@ -347,6 +354,14 @@ interface VaultContextValue extends ProviderState {
     detail: string,
     host?: string,
   ) => Promise<void>
+  recordGeneratedPassword: (input: {
+    password: string
+    host?: string
+  }) => Promise<void>
+  markGeneratorHistoryUsed: (id: string, itemId: string) => Promise<void>
+  deleteGeneratorHistoryEntry: (id: string) => Promise<void>
+  clearGeneratorHistory: () => Promise<void>
+  purgeGeneratorHistory: (retentionDays: number) => Promise<void>
   /** Vérifie une sauvegarde en lecture seule, sans toucher au coffre courant. */
   verifyBackup: (
     contents: string,
@@ -370,6 +385,7 @@ const initialState: ProviderState = {
   items: [],
   templates: [],
   activity: [],
+  generatorHistory: [],
   aliasKeys: {},
   warnings: [],
   error: null,
@@ -556,6 +572,47 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  /** Purge l’historique du générateur selon la rétention configurée. */
+  const applyGeneratorRetention = useCallback(
+    async (opened: OpenedVault): Promise<OpenedVault> => {
+      if (opened.readOnly) return opened
+      const days = settingsRef.current.generatorHistoryRetentionDays
+      const result = purgeGeneratorHistoryInFile(opened.file, days)
+      if (result.removedIds.length === 0) return opened
+      try {
+        const file = await signVaultFile(result.file, opened.session, opened.file, {
+          minimumRevision: revisionFloorRef.current,
+        })
+        await saveVaultFile(file)
+        const removed = new Set(result.removedIds)
+        return {
+          ...opened,
+          file,
+          generatorHistory: opened.generatorHistory.filter(
+            (entry) => !removed.has(entry.id),
+          ),
+          warnings: [
+            ...opened.warnings,
+            days <= 0
+              ? 'L’historique du générateur a été effacé (option désactivée).'
+              : `${result.removedIds.length} entrée${
+                  result.removedIds.length > 1 ? 's' : ''
+                } de l’historique du générateur ont été purgées.`,
+          ],
+        }
+      } catch {
+        return {
+          ...opened,
+          warnings: [
+            ...opened.warnings,
+            'La purge de l’historique du générateur a échoué ; les entrées ont été conservées.',
+          ],
+        }
+      }
+    },
+    [],
+  )
+
   /**
    * Contrôle anti-retour en arrière puis purge de la corbeille. Une
    * restauration volontaire (`acceptRollback`) ne déclenche pas d’alerte et
@@ -578,13 +635,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       let next = rollback
         ? { ...opened, warnings: [rollback, ...opened.warnings] }
         : opened
-      if (!rollback) next = await applyTrashRetention(next)
+      if (!rollback) {
+        next = await applyTrashRetention(next)
+        next = await applyGeneratorRetention(next)
+      }
       if (next.integrity !== 'invalid' && (!rollback || options.acceptRollback)) {
         await acceptRevision(next.file, { lower: options.acceptRollback })
       }
       return next
     },
-    [acceptRevision, applyTrashRetention],
+    [acceptRevision, applyGeneratorRetention, applyTrashRetention],
   )
 
   /**
@@ -731,6 +791,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
                 vaults: opened.vaults,
                 templates: opened.templates,
                 activity: opened.activity,
+                generatorHistory: opened.generatorHistory,
                 aliasKeys: opened.aliasKeys,
                 items: opened.items,
                 warnings: opened.warnings,
@@ -851,6 +912,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           vaults: opened.vaults,
           templates: opened.templates,
           activity: opened.activity,
+          generatorHistory: opened.generatorHistory,
           aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
@@ -888,6 +950,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           vaults: opened.vaults,
           templates: opened.templates,
           activity: opened.activity,
+          generatorHistory: opened.generatorHistory,
           aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
@@ -950,6 +1013,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             vaults: opened.vaults,
             templates: opened.templates,
             activity: opened.activity,
+            generatorHistory: opened.generatorHistory,
             aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
@@ -1022,6 +1086,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             vaults: opened.vaults,
             templates: opened.templates,
             activity: opened.activity,
+            generatorHistory: opened.generatorHistory,
             aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
@@ -1251,6 +1316,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             items: opened.items,
             templates: opened.templates,
             activity: opened.activity,
+            generatorHistory: opened.generatorHistory,
             aliasKeys: opened.aliasKeys,
             warnings: opened.warnings,
             error: null,
@@ -1678,6 +1744,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               vaults: open.vaults,
               templates: open.templates,
               activity: open.activity,
+              generatorHistory: open.generatorHistory,
               aliasKeys: open.aliasKeys,
               items: open.items,
               warnings: open.warnings,
@@ -2085,6 +2152,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           vaults: opened.vaults,
           templates: opened.templates,
           activity: opened.activity,
+          generatorHistory: opened.generatorHistory,
           aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
@@ -2102,6 +2170,32 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [apply, enqueue, lock, persistWithSession],
   )
 
+  const consumeGeneratedPassword = useCallback(
+    async (
+      file: VaultFile,
+      session: VaultSession,
+      item: VaultItem,
+    ): Promise<{ file: VaultFile; entry: GeneratorHistoryEntry | null }> => {
+      if (item.type !== 'login' || !item.password) {
+        return { file, entry: null }
+      }
+      const match = stateRef.current.generatorHistory.find(
+        (entry) =>
+          entry.state === 'available' && entry.password === item.password,
+      )
+      if (!match) return { file, entry: null }
+      const marked = await markGeneratorHistoryUsedInFile(
+        file,
+        session,
+        match.id,
+        item.id,
+      )
+      if (!marked.entry) return { file, entry: null }
+      return { file: await persist(file, marked.file), entry: marked.entry }
+    },
+    [persist],
+  )
+
   const addItem = useCallback(
     (draft: ItemDraft) =>
       enqueue(async () => {
@@ -2109,12 +2203,23 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
         const epoch = epochRef.current
         const result = await createItem(current.file, current.session, draft)
-        const file = await persist(current.file, result.file)
+        let file = await persist(current.file, result.file)
+        const consumed = await consumeGeneratedPassword(
+          file,
+          current.session,
+          result.item,
+        )
+        file = consumed.file
         if (epochRef.current !== epoch) return result.item
         apply((previous) => ({
           ...previous,
           file,
           items: [...previous.items, result.item],
+          generatorHistory: consumed.entry
+            ? previous.generatorHistory.map((entry) =>
+                entry.id === consumed.entry!.id ? consumed.entry! : entry,
+              )
+            : previous.generatorHistory,
           vaults: previous.vaults.map((vault) =>
             vault.id === result.item.vaultId
               ? { ...vault, itemCount: vault.itemCount + 1 }
@@ -2123,7 +2228,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
         return result.item
       }),
-    [apply, enqueue, persist],
+    [apply, consumeGeneratedPassword, enqueue, persist],
   )
 
   const updateItem = useCallback(
@@ -2133,7 +2238,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!current.file || !current.session) throw new Error('Coffre verrouillé')
         const epoch = epochRef.current
         const result = await updateItemInFile(current.file, current.session, item)
-        const file = await persist(current.file, result.file)
+        let file = await persist(current.file, result.file)
+        const consumed = await consumeGeneratedPassword(
+          file,
+          current.session,
+          result.item,
+        )
+        file = consumed.file
         if (epochRef.current !== epoch) return result.item
         apply((previous) => ({
           ...previous,
@@ -2141,10 +2252,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           items: previous.items.map((candidate) =>
             candidate.id === result.item.id ? result.item : candidate,
           ),
+          generatorHistory: consumed.entry
+            ? previous.generatorHistory.map((entry) =>
+                entry.id === consumed.entry!.id ? consumed.entry! : entry,
+              )
+            : previous.generatorHistory,
         }))
         return result.item
       }),
-    [apply, enqueue, persist],
+    [apply, consumeGeneratedPassword, enqueue, persist],
   )
 
   const moveItem = useCallback(
@@ -2659,6 +2775,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           vaults: opened.vaults,
           templates: opened.templates,
           activity: opened.activity,
+          generatorHistory: opened.generatorHistory,
           aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
@@ -2749,6 +2866,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             vaults: opened.vaults,
             templates: opened.templates,
             activity: opened.activity,
+            generatorHistory: opened.generatorHistory,
             aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
@@ -2806,6 +2924,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           vaults: opened.vaults,
           templates: opened.templates,
           activity: opened.activity,
+          generatorHistory: opened.generatorHistory,
           aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
@@ -2899,6 +3018,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           vaults: opened.vaults,
           templates: opened.templates,
           activity: opened.activity,
+          generatorHistory: opened.generatorHistory,
           aliasKeys: opened.aliasKeys,
           items: opened.items,
           warnings: opened.warnings,
@@ -3177,6 +3297,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             vaults: opened.vaults,
             templates: opened.templates,
             activity: opened.activity,
+            generatorHistory: opened.generatorHistory,
             aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
@@ -3265,6 +3386,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             vaults: opened.vaults,
             templates: opened.templates,
             activity: opened.activity,
+            generatorHistory: opened.generatorHistory,
             aliasKeys: opened.aliasKeys,
             items: opened.items,
             warnings: opened.warnings,
@@ -3325,6 +3447,114 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         } catch {
           // Le journal est accessoire : une erreur ne doit pas bloquer l’action.
         }
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const recordGeneratedPassword = useCallback(
+    (input: { password: string; host?: string }) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session || current.readOnly) return
+        try {
+          const result = await appendGeneratorHistory(
+            current.file,
+            current.session,
+            { password: input.password, domain: input.host },
+          )
+          const file = await persist(current.file, result.file)
+          apply((previous) => ({
+            ...previous,
+            file,
+            generatorHistory: [
+              result.entry,
+              ...previous.generatorHistory.filter(
+                (entry) => entry.id !== result.entry.id,
+              ),
+            ]
+              .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+              .slice(0, 50),
+          }))
+        } catch {
+          // L’historique est accessoire : une erreur ne bloque pas le générateur.
+        }
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const markGeneratorHistoryUsed = useCallback(
+    (id: string, itemId: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session || current.readOnly) return
+        const result = await markGeneratorHistoryUsedInFile(
+          current.file,
+          current.session,
+          id,
+          itemId,
+        )
+        if (!result.entry) return
+        const file = await persist(current.file, result.file)
+        apply((previous) => ({
+          ...previous,
+          file,
+          generatorHistory: previous.generatorHistory.map((entry) =>
+            entry.id === id ? result.entry! : entry,
+          ),
+        }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const deleteGeneratorHistoryEntry = useCallback(
+    (id: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session || current.readOnly) return
+        const next = deleteGeneratorHistoryEntryInFile(current.file, id)
+        const file = await persist(current.file, next)
+        apply((previous) => ({
+          ...previous,
+          file,
+          generatorHistory: previous.generatorHistory.filter(
+            (entry) => entry.id !== id,
+          ),
+        }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const clearGeneratorHistory = useCallback(
+    () =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session || current.readOnly) return
+        if ((current.file.generatorHistory ?? []).length === 0) return
+        const file = await persist(
+          current.file,
+          clearGeneratorHistoryInFile(current.file),
+        )
+        apply((previous) => ({ ...previous, file, generatorHistory: [] }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const purgeGeneratorHistory = useCallback(
+    (retentionDays: number) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session || current.readOnly) return
+        const result = purgeGeneratorHistoryInFile(current.file, retentionDays)
+        if (result.removedIds.length === 0) return
+        const file = await persist(current.file, result.file)
+        const removed = new Set(result.removedIds)
+        apply((previous) => ({
+          ...previous,
+          file,
+          generatorHistory: previous.generatorHistory.filter(
+            (entry) => !removed.has(entry.id),
+          ),
+        }))
       }),
     [apply, enqueue, persist],
   )
@@ -3470,6 +3700,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     lanSync,
     confirmMasterPassword,
     recordActivity,
+    recordGeneratedPassword,
+    markGeneratorHistoryUsed,
+    deleteGeneratorHistoryEntry,
+    clearGeneratorHistory,
+    purgeGeneratorHistory,
     verifyBackup,
     setAliasKey,
     deleteAliasKey,

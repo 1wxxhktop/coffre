@@ -5,6 +5,7 @@ const SETTINGS_KEY = 'coffre:settings:v1'
 const AUTO_LOCK_VALUES = [0, 1, 5, 15, 30, 60]
 const CLIPBOARD_VALUES = [0, 15, 30, 60, 120]
 const TRASH_RETENTION_VALUES = [0, 7, 30, 90, 365]
+const GENERATOR_RETENTION_VALUES = [0, 1, 7, 30]
 const BACKUP_FREQUENCIES = ['off', 'daily', 'weekly'] as const
 
 function boundedInteger(value: unknown, fallback: number, min: number, max: number): number {
@@ -25,6 +26,9 @@ export function loadSettings(): AppSettings {
     const autoLockMinutes = Number(parsed.autoLockMinutes)
     const clipboardClearSeconds = Number(parsed.clipboardClearSeconds)
     const trashRetentionDays = Number(parsed.trashRetentionDays)
+    const generatorHistoryRetentionDays = Number(
+      parsed.generatorHistoryRetentionDays,
+    )
 
     return {
       language:
@@ -68,6 +72,11 @@ export function loadSettings(): AppSettings {
       trashRetentionDays: TRASH_RETENTION_VALUES.includes(trashRetentionDays)
         ? trashRetentionDays
         : DEFAULT_SETTINGS.trashRetentionDays,
+      generatorHistoryRetentionDays: GENERATOR_RETENTION_VALUES.includes(
+        generatorHistoryRetentionDays,
+      )
+        ? generatorHistoryRetentionDays
+        : DEFAULT_SETTINGS.generatorHistoryRetentionDays,
       keychainUnlock:
         typeof parsed.keychainUnlock === 'boolean'
           ? parsed.keychainUnlock

@@ -28,6 +28,36 @@
   Windows Hello en plus de Touch ID. Le verrouillage système emprunte le même
   chemin que le verrouillage manuel et laisse les écritures déjà en file se
   terminer avant l’effacement des clés.
+- Protection anti-hameçonnage au remplissage forcé et à l’enregistrement :
+  analyse locale des domaines du coffre et de deux listes populaires embarquées
+  (Apple MIT et Chrome UX Report CC BY 4.0, 1 000 origines), avec confusables
+  Unicode TR39, distance de Damerau-Levenshtein, marque en sous-domaine, IP
+  brute, HTTP, port inhabituel et identifiant déjà vu ailleurs. Bandeau
+  Annuler / Continuer quand même dans l’extension et journalisation chiffrée du
+  choix. Jeux de données datés (`popular-domains.json`,
+  `popular-domains-crux.json`, `confusables.json`,
+  `domain-equivalences.json`), scripts de mise à jour et aucune requête réseau
+  à l’exécution.
+- Disponibilité de la 2FA et des passkeys par site : instantanés datés de
+  2FA Directory (MIT) et Passkeys Directory (CC BY 4.0), chargés dans un chunk
+  séparé. « Sans 2FA » n’est plus affiché pour un site inconnu ou sans 2FA
+  connue ; nouvelles catégories « Passkey disponible » et « Site sans HTTPS » ;
+  méthodes de 2FA, documentation et action « Créer une passkey » dans la fiche
+  d’une connexion. Le calcul du score passe en version 2 (pénalité HTTP, règle
+  2FA plus juste) ; l’historique conserve les anciennes mesures et les annote.
+- Historique chiffré du générateur : 50 derniers secrets générés par
+  l’application ou l’extension, scellés par la clé maîtresse avec une AAD
+  dédiée, dates et domaines compris, fusion par horloges, rétention de 1, 7 ou
+  30 jours (ou désactivé), purge à l’ouverture et suppression automatique
+  lorsqu’une entrée est enregistrée dans un élément. Écran « Historique » dans
+  le générateur avec copie, création de connexion, suppression et effacement
+  global. Aucun mot de passe en clair dans le fichier `.coffre` ni requête
+  réseau.
+- Manifeste d’intégrité 2 : l’historique du générateur et tous les sidecars
+  (activité, modèles, alias, partage, urgence) sont couverts par le MAC global.
+  Les fichiers signés avec le manifeste 1 restent lisibles et sont réécrits en
+  manifeste 2 à la première mutation. Le cœur Rust et TypeScript partagent un
+  vecteur croisé du manifeste canonique.
 - Modèles intégrés pour tous les types d’éléments (connexion, note, carte,
   identité, passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle,
   document), avec la liste complète de leurs champs, création directe depuis

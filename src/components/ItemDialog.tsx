@@ -66,6 +66,9 @@ import {
 } from '../lib/security'
 import { changePasswordUrl, safeExternalUrl as safeUrl } from '../lib/url'
 import { handleExternalClick, isTauriRuntime, openExternal } from '../lib/external'
+import { hostFromUrl } from '../lib/extensionProtocol'
+import { normalizeHostname, registrableDomain } from '../lib/domains'
+import { siteSecurityForHost } from '../lib/siteSecurity'
 import { isTotpUri } from '../lib/totp'
 import { qrDataUrl } from '../lib/qr'
 import { wifiQrPayload } from '../lib/wifi'
@@ -89,6 +92,16 @@ import {
   type VaultItem,
   type VaultSummary,
 } from '../lib/types'
+
+const TWO_FACTOR_LABELS: Record<string, string> = {
+  totp: 'TOTP',
+  sms: 'SMS',
+  call: 'Appel',
+  email: 'E-mail',
+  u2f: 'Clé matérielle',
+  'custom-software': 'Application',
+  'custom-hardware': 'Matériel',
+}
 
 interface ItemDialogProps {
   item?: VaultItem
@@ -260,6 +273,7 @@ export function ItemDialog({
     addAttachment,
     removeAttachment,
     downloadAttachment,
+    recordGeneratedPassword,
   } = useVault()
   const { settings } = useSettings()
   const { tt } = useI18n()
@@ -298,6 +312,22 @@ export function ItemDialog({
     [securityReport, items],
   )
   const issue = current ? itemSecurityIssue(current, report) : null
+  const hasPasskeyForItem = useMemo(() => {
+    if (!current || current.type !== 'login') return false
+    const domains = new Set(
+      current.urls
+        .map(hostFromUrl)
+        .filter(Boolean)
+        .map((host) => registrableDomain(host)),
+    )
+    if (domains.size === 0) return false
+    return items.some(
+      (candidate) =>
+        candidate.type === 'passkey' &&
+        !candidate.deletedAt &&
+        domains.has(registrableDomain(normalizeHostname(candidate.rpId))),
+    )
+  }, [current, items])
 
   const patch = (partial: Record<string, unknown>) => {
     setDraft((previous) => ({ ...previous, ...partial }) as ItemDraft)
@@ -1768,6 +1798,7 @@ export function ItemDialog({
                 readOnly={trashed || vault?.role === 'read'}
                 vaultReadOnly={vault?.role === 'read'}
                 issue={issue}
+                hasPasskeyForItem={hasPasskeyForItem}
                 onGeneratePassword={() => setShowGenerator(true)}
                 onEditItem={startEditing}
                 attachmentBusy={attachmentBusy}
@@ -1868,6 +1899,7 @@ export function ItemDialog({
           onClose={() => setShowGenerator(false)}
           onUse={(value) => void applyGeneratedPassword(value)}
           url={draft.type === 'login' ? draft.urls[0] : undefined}
+          onRecord={recordGeneratedPassword}
         />
       )}
 
@@ -1969,6 +2001,7 @@ interface ItemDetailsProps {
   readOnly?: boolean
   vaultReadOnly?: boolean
   issue: ItemSecurityIssue | null
+  hasPasskeyForItem: boolean
   onGeneratePassword: () => void
   onEditItem: () => void
   attachmentBusy: boolean
@@ -1989,6 +2022,7 @@ function ItemDetails({
   readOnly = false,
   vaultReadOnly = false,
   issue,
+  hasPasskeyForItem,
   onGeneratePassword,
   onEditItem,
   attachmentBusy,
@@ -2000,6 +2034,20 @@ function ItemDetails({
   const { tt } = useI18n()
   const [showWifiQr, setShowWifiQr] = useState(false)
   const changeUrl = item.type === 'login' ? changePasswordUrl(item.urls) : null
+  const siteInfo =
+    item.type === 'login'
+      ? item.urls
+          .map(hostFromUrl)
+          .map((host) => (host ? siteSecurityForHost(host) : null))
+          .find((info) => info !== null) ?? null
+      : null
+  const documentationUrl = siteInfo?.documentation
+    ? safeUrl(siteInfo.documentation)
+    : null
+  const passkeyUrl =
+    item.type === 'login'
+      ? item.urls.map((url) => safeUrl(url)).find((url) => Boolean(url)) ?? null
+      : null
 
   return (
     <div className="item-detail">
@@ -2126,6 +2174,45 @@ function ItemDetails({
               <span className="detail-row__label">{tt("Code 2FA")}</span>
               <div className="detail-row__value">
                 <TotpCode uri={item.totp} />
+              </div>
+            </div>
+          )}
+          {siteInfo && siteInfo.twoFactor.length > 0 && (
+            <div className="detail-row">
+              <span className="detail-row__label">{tt("2FA disponible")}</span>
+              <div className="detail-row__value detail-row__links">
+                <span>
+                  {siteInfo.twoFactor
+                    .map((method) => tt(TWO_FACTOR_LABELS[method] ?? method))
+                    .join(' · ')}
+                </span>
+                {documentationUrl && (
+                  <a
+                    href={documentationUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    onClick={(event) => handleExternalClick(event, documentationUrl)}
+                  >
+                    {tt("Documentation")}
+                    <ExternalLink size={12} />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+          {siteInfo?.passkeys && !hasPasskeyForItem && passkeyUrl && !readOnly && (
+            <div className="detail-row">
+              <span className="detail-row__label">{tt("Passkey disponible")}</span>
+              <div className="detail-row__value">
+                <span>{tt("Ce site accepte les passkeys.")}</span>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => void openExternal(passkeyUrl)}
+                >
+                  {tt("Créer une passkey")}
+                  <ExternalLink size={12} />
+                </button>
               </div>
             </div>
           )}
