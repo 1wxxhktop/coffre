@@ -17,6 +17,7 @@ export default defineConfig({
         popup: resolve(root, 'popup.html'),
         options: resolve(root, 'options.html'),
         menu: resolve(root, 'menu.html'),
+        'save-banner': resolve(root, 'save-banner.html'),
         passkey: resolve(root, 'passkey.html'),
         background: resolve(root, 'background.ts'),
       },

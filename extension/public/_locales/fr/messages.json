@@ -113,6 +113,48 @@
   "options_permissionsCopy": {
     "message": "L’extension demande l’accès à l’onglet actif au moment du remplissage, et à l’adresse de Coffre configurée ci-dessus. Elle n’a pas accès aux autres onglets en dehors de votre action."
   },
+  "saveBanner_pageTitle": {
+    "message": "Enregistrer dans Coffre"
+  },
+  "saveBanner_titleLogin": {
+    "message": "Enregistrer le mot de passe pour $1 ?"
+  },
+  "saveBanner_titleUpdate": {
+    "message": "Mettre à jour le mot de passe de $1 ?"
+  },
+  "saveBanner_titleCard": {
+    "message": "Enregistrer cette carte pour $1 ?"
+  },
+  "saveBanner_titleIdentity": {
+    "message": "Enregistrer cette identité pour $1 ?"
+  },
+  "saveBanner_username": {
+    "message": "Identifiant"
+  },
+  "saveBanner_save": {
+    "message": "Enregistrer"
+  },
+  "saveBanner_later": {
+    "message": "Plus tard"
+  },
+  "saveBanner_close": {
+    "message": "Fermer"
+  },
+  "saveBanner_saved": {
+    "message": "Enregistré dans Coffre."
+  },
+  "saveBanner_updated": {
+    "message": "Mis à jour dans Coffre."
+  },
+  "saveBanner_errorNoPending": {
+    "message": "Cette proposition a expiré."
+  },
+  "saveBanner_errorSave": {
+    "message": "Enregistrement impossible dans Coffre."
+  },
+  "saveBanner_phishingWarning": {
+    "message": "Attention : cette page ne correspond pas au site d’origine. Vérifiez l’adresse avant d’enregistrer."
+  },
   "menu_open": {
     "message": "Ouvrir Coffre"
   },

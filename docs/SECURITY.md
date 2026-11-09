@@ -356,6 +356,20 @@ appairage) est conservée dans `chrome.storage.local`.
   shadow root fermé. La page ne peut ni lire son DOM, ni envoyer un message
   valide : le content script vérifie `event.source` et `event.origin`. Aucun
   identifiant n’est transmis au content script avant un clic dans ce menu.
+- Après une soumission, le **bandeau d’enregistrement** suit les mêmes règles :
+  iframe `save-banner.html` dans un shadow root fermé, URL ne contenant qu’un
+  identifiant d’offre aléatoire. Le content script ne reçoit jamais le nom
+  d’utilisateur, le mot de passe ni le domaine de l’offre : il demande
+  seulement l’identifiant à afficher. L’iframe interroge elle-même le service
+  worker et ne reçoit qu’une vue non sensible (domaine, libellé, type, mode
+  mise à jour) ; le mot de passe reste dans `storage.session`. Le bandeau ne
+  s’affiche que dans le cadre principal et se ferme après 30 secondes sans
+  interaction ; « Plus tard » conserve la proposition dans le popup. Aucune
+  permission supplémentaire n’est demandée : le bandeau n’existe que là où le
+  content script est déjà autorisé.
+- Un champ `risk` est réservé au signal anti-hameçonnage (Q1) ; tant que Q1
+  n’est pas livré, il reste absent et le bouton « Enregistrer » n’est pas
+  prioritaire par défaut en cas de signal.
 - Le remplissage vérifie l’hôte de la frame dans le content script **et** dans
   l’application (`loginAllowsHost`) ; les iframes ne sont remplies que si leur
   origine correspond à l’URL de l’élément.
