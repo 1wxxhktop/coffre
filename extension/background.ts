@@ -12,7 +12,15 @@ import type {
   ExtensionPasskeyGetResult,
 } from '../src/lib/extensionProtocol'
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
+import {
+  DEFAULT_PASSWORD_OPTIONS,
+  generatePassword,
+} from '../src/lib/password'
 import { isValidRpId } from '../src/lib/passkeys'
+import {
+  matchingLoginSummaries,
+  totpLoginSummary,
+} from './commandHelpers'
 import { submitLoginForm } from './loginSubmit'
 import { saveBannerView } from './saveBannerState'
 import {
@@ -121,6 +129,7 @@ interface ExtensionMessage {
   password?: string
   url?: string
   appUrl?: string
+  command?: string
   kind?: string
   formKind?: string
   includeSensitive?: boolean
@@ -542,6 +551,198 @@ async function injectCredentials(
   } catch {
     return { error: 'no-tab' }
   }
+}
+
+function flashActionBadge(): void {
+  void api.action
+    .setBadgeText({ text: '!' })
+    .catch(() => undefined)
+  setTimeout(() => void updateActionBadge(), 2_000)
+}
+
+async function activeTab(): Promise<chrome.tabs.Tab | undefined> {
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+  return tab
+}
+
+async function pingContentScript(tabId: number): Promise<boolean> {
+  try {
+    const response = (await api.tabs.sendMessage(tabId, {
+      type: 'COFFRE_PING',
+    })) as { ok?: boolean } | undefined
+    return response?.ok === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Les raccourcis accordent `activeTab` : le content script peut être injecté
+ * à la demande sur un site qui n’a pas encore reçu la permission durable.
+ */
+async function ensureContentScript(tabId: number): Promise<boolean> {
+  if (await pingContentScript(tabId)) return true
+  try {
+    await api.scripting.executeScript({
+      target: { tabId },
+      files: ['content.js'],
+    })
+  } catch {
+    return false
+  }
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    if (await pingContentScript(tabId)) return true
+  }
+  return false
+}
+
+async function openMenuInTab(
+  tabId: number,
+  kind: ExtensionAutofillKind,
+): Promise<boolean> {
+  if (!(await ensureContentScript(tabId))) return false
+  try {
+    const response = (await api.tabs.sendMessage(tabId, {
+      type: 'COFFRE_OPEN_MENU',
+      kind,
+    })) as { ok?: boolean } | undefined
+    return response?.ok === true
+  } catch {
+    return false
+  }
+}
+
+async function commandFillLogin(): Promise<boolean> {
+  const tab = await activeTab()
+  if (!tab?.id) {
+    flashActionBadge()
+    return false
+  }
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+  if (!host) {
+    flashActionBadge()
+    return false
+  }
+  const status = await readStatus()
+  if (!status.unlocked || (status.mode === 'native' && !status.paired)) {
+    flashActionBadge()
+    return false
+  }
+  const result = await search(host, 'login')
+  if (result.error) {
+    flashActionBadge()
+    return false
+  }
+  const matches = matchingLoginSummaries(result.items ?? [], host)
+  if (matches.length === 0) {
+    flashActionBadge()
+    return false
+  }
+  if (matches.length > 1) {
+    if (await openMenuInTab(tab.id, 'login')) return true
+    flashActionBadge()
+    return false
+  }
+  const filled = await fill(matches[0].id, tab.id)
+  if (filled.ok) return true
+  flashActionBadge()
+  return false
+}
+
+async function commandGeneratePassword(): Promise<boolean> {
+  const tab = await activeTab()
+  if (!tab?.id) {
+    flashActionBadge()
+    return false
+  }
+  let password = ''
+  try {
+    const { generatePasswordForRules, passwordRulesForUrl } = await import(
+      '../src/lib/passwordRules'
+    )
+    const site = tab.url ? passwordRulesForUrl(tab.url) : null
+    password = site
+      ? generatePasswordForRules(site.rules, DEFAULT_PASSWORD_OPTIONS.length)
+      : generatePassword(DEFAULT_PASSWORD_OPTIONS)
+  } catch {
+    password = generatePassword(DEFAULT_PASSWORD_OPTIONS)
+  }
+  if (!(await ensureContentScript(tab.id))) {
+    flashActionBadge()
+    return false
+  }
+  try {
+    const response = (await api.tabs.sendMessage(tab.id, {
+      type: 'COFFRE_FILL_GENERATED',
+      password,
+    })) as { ok?: boolean } | undefined
+    if (response?.ok) return true
+  } catch {
+    // Le badge ci-dessous signale l’échec.
+  }
+  flashActionBadge()
+  return false
+}
+
+async function commandFillTotp(): Promise<boolean> {
+  const tab = await activeTab()
+  if (!tab?.id) {
+    flashActionBadge()
+    return false
+  }
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+  if (!host) {
+    flashActionBadge()
+    return false
+  }
+  const status = await readStatus()
+  if (!status.unlocked || (status.mode === 'native' && !status.paired)) {
+    flashActionBadge()
+    return false
+  }
+  const result = await search(host, 'login')
+  if (result.error) {
+    flashActionBadge()
+    return false
+  }
+  const match = totpLoginSummary(result.items ?? [], host)
+  if (!match) {
+    flashActionBadge()
+    return false
+  }
+  const fetched = await fetchCredentials(match.id, host, status)
+  if (fetched.error || !fetched.credentials) {
+    flashActionBadge()
+    return false
+  }
+  const credentials = fetched.credentials
+  if (credentials.kind !== 'login' || !credentials.totp) {
+    flashActionBadge()
+    return false
+  }
+  if (!(await ensureContentScript(tab.id))) {
+    flashActionBadge()
+    return false
+  }
+  try {
+    const response = (await api.tabs.sendMessage(tab.id, {
+      type: 'COFFRE_FILL_TOTP',
+      code: credentials.totp,
+    })) as { ok?: boolean } | undefined
+    if (response?.ok) return true
+  } catch {
+    // Le badge ci-dessous signale l’échec.
+  }
+  flashActionBadge()
+  return false
+}
+
+async function handleCommand(command: string): Promise<boolean> {
+  if (command === 'fill-login') return commandFillLogin()
+  if (command === 'generate-password') return commandGeneratePassword()
+  if (command === 'fill-totp') return commandFillTotp()
+  return false
 }
 
 /**
@@ -1223,6 +1424,13 @@ function isPasskeyPage(sender: chrome.runtime.MessageSender): boolean {
   )
 }
 
+function isExtensionPage(sender: chrome.runtime.MessageSender): boolean {
+  return (
+    typeof sender.url === 'string' &&
+    sender.url.startsWith(api.runtime.getURL(''))
+  )
+}
+
 function isSaveBannerPage(sender: chrome.runtime.MessageSender): boolean {
   const page = api.runtime.getURL('save-banner.html')
   return (
@@ -1586,6 +1794,34 @@ async function handle(
       return openApp()
     case 'UNLOCK_REQUEST':
       return requestUnlock()
+    case 'OPEN_SHORTCUTS': {
+      const firefox = /Firefox/i.test(navigator.userAgent)
+      const url = firefox
+        ? 'about:addons'
+        : 'chrome://extensions/shortcuts'
+      try {
+        await api.tabs.create({ url })
+        return { ok: true }
+      } catch {
+        return { error: 'shortcuts-page' }
+      }
+    }
+    case 'RUN_COMMAND': {
+      // Canal interne des tests de bout en bout : l’API `commands` ne permet
+      // pas de déclencher une commande depuis Playwright. Il reste limité aux
+      // pages d’extension et n’expose aucune opération nouvelle.
+      if (!isExtensionPage(sender)) return { error: 'forbidden' }
+      const command =
+        typeof message.command === 'string' ? message.command : ''
+      if (
+        command !== 'fill-login' &&
+        command !== 'generate-password' &&
+        command !== 'fill-totp'
+      ) {
+        return { error: 'invalid' }
+      }
+      return { ok: await handleCommand(command) }
+    }
     case 'PAIR':
       return nativePair()
     case 'ENABLE_INLINE':
@@ -1789,6 +2025,10 @@ async function handle(
       return { error: 'unknown-message' }
   }
 }
+
+api.commands?.onCommand.addListener((command) => {
+  void handleCommand(command).catch(() => flashActionBadge())
+})
 
 api.windows.onRemoved.addListener((windowId) => {
   for (const request of [...pendingPasskeys.values()]) {

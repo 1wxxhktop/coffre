@@ -5,6 +5,15 @@
   "extDescription": {
     "message": "Coffre’s local companion: fills logins from the unlocked app, with no server or telemetry."
   },
+  "commandFillLogin": {
+    "message": "Fill the most relevant login"
+  },
+  "commandGeneratePassword": {
+    "message": "Generate and fill a password"
+  },
+  "commandFillTotp": {
+    "message": "Fill the verification code (TOTP)"
+  },
   "popup_siteUnknown": {
     "message": "Unknown site"
   },
@@ -406,6 +415,33 @@
   },
   "settings_appearance": {
     "message": "Appearance"
+  },
+  "settings_shortcuts": {
+    "message": "Shortcuts"
+  },
+  "settings_shortcutsCopy": {
+    "message": "Shortcuts can be changed in the browser settings."
+  },
+  "settings_shortcutsEdit": {
+    "message": "Change shortcuts"
+  },
+  "shortcut_openPopup": {
+    "message": "Open the popup"
+  },
+  "shortcut_fillLogin": {
+    "message": "Fill the login"
+  },
+  "shortcut_generatePassword": {
+    "message": "Generate a password"
+  },
+  "shortcut_fillTotp": {
+    "message": "Fill the TOTP code"
+  },
+  "shortcut_notSet": {
+    "message": "Not set"
+  },
+  "error_shortcutsPage": {
+    "message": "Could not open the browser shortcut settings."
   },
   "settings_appAddress": {
     "message": "App address"

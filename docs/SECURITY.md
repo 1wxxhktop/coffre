@@ -370,6 +370,24 @@ appairage) est conservée dans `chrome.storage.local`.
 - Un champ `risk` est réservé au signal anti-hameçonnage (Q1) ; tant que Q1
   n’est pas livré, il reste absent et le bouton « Enregistrer » n’est pas
   prioritaire par défaut en cas de signal.
+- **Raccourcis clavier** : la section `commands` du manifeste n’ajoute aucune
+  permission ; l’API `commands` est disponible sans permission et les
+  commandes accordent `activeTab` lorsqu’elles sont invoquées par l’utilisateur.
+  `fill-login` cherche la connexion du site actif, remplit directement s’il n’y
+  en a qu’une, sinon ouvre le menu du champ actif. `generate-password` génère
+  localement (règles de site chargées à la demande) et remplit le champ de mot
+  de passe actif sans soumettre. `fill-totp` ne transmet que le code TOTP au
+  content script. Aucune commande ne stocke de secret.
+- Choix des touches par défaut : `⌘⇧Y` / `Ctrl+Shift+Y` pour la popup (au lieu
+  de `Ctrl+Shift+K`, réservé à la console Web de Firefox) ; `⌘⇧L` est refusé
+  par Chromium sur macOS, donc `Option+Shift+L` y est utilisé et
+  `Ctrl+Shift+L` sur Windows/Linux. `generate-password` et `fill-totp` n’ont
+  aucune touche par défaut et restent assignables dans les réglages du
+  navigateur.
+- Le canal interne `RUN_COMMAND` sert uniquement aux tests Playwright (l’API
+  `commands` ne permet pas de déclencher une commande) ; il est refusé à toute
+  page qui n’est pas une page d’extension et n’expose aucune opération
+  supplémentaire.
 - Le remplissage vérifie l’hôte de la frame dans le content script **et** dans
   l’application (`loginAllowsHost`) ; les iframes ne sont remplies que si leur
   origine correspond à l’URL de l’élément.

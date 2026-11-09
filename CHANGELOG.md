@@ -70,6 +70,11 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : raccourcis clavier pour ouvrir la popup (`⌘⇧Y` / `Ctrl+Shift+Y`),
+  remplir la connexion (`⌘⇧L`, ou `Option+Shift+L` sur macOS), générer un mot
+  de passe et remplir un code TOTP (sans touche par défaut). Le remplissage
+  utilise `activeTab`, ouvre le menu du champ si plusieurs connexions
+  correspondent, et la liste des raccourcis est visible dans le popup.
 - Extension : bandeau d’enregistrement après une soumission, y compris après
   redirection. Il vit dans une iframe d’extension fermée et ne reçoit qu’un
   identifiant d’offre ; le mot de passe reste dans `storage.session`. L’identifiant

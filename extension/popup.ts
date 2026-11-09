@@ -85,6 +85,8 @@ const settingsSaveButton = $<HTMLButtonElement>('settings-save')
 const settingsTestButton = $<HTMLButtonElement>('settings-test')
 const settingsStatus = $<HTMLParagraphElement>('settings-status')
 const settingsOpenAppButton = $<HTMLButtonElement>('settings-open-app')
+const shortcutsList = $<HTMLUListElement>('shortcuts-list')
+const settingsShortcutsButton = $<HTMLButtonElement>('settings-shortcuts')
 const themeChoices = Array.from(
   document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]'),
 )
@@ -148,6 +150,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   'invalid-url': 'error_invalidUrl',
   'native-timeout': 'error_nativeTimeout',
   'native-unavailable': 'error_nativeUnavailable',
+  'shortcuts-page': 'error_shortcutsPage',
 }
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -220,6 +223,33 @@ function setSettingsStatus(text: string, tone: 'info' | 'ok' | 'error' = 'info')
     tone === 'info' ? 'settings-status' : `settings-status settings-status--${tone}`
 }
 
+const SHORTCUT_LABELS: Record<string, string> = {
+  _execute_action: 'shortcut_openPopup',
+  'fill-login': 'shortcut_fillLogin',
+  'generate-password': 'shortcut_generatePassword',
+  'fill-totp': 'shortcut_fillTotp',
+}
+
+async function loadShortcuts(): Promise<void> {
+  shortcutsList.replaceChildren()
+  let commands: chrome.commands.Command[] = []
+  try {
+    commands = await api.commands.getAll()
+  } catch {
+    // L’API peut manquer sur un navigateur ancien : la liste reste vide.
+  }
+  for (const [name, label] of Object.entries(SHORTCUT_LABELS)) {
+    const command = commands.find((entry) => entry.name === name)
+    const item = document.createElement('li')
+    const text = document.createElement('span')
+    text.textContent = t(label)
+    const key = document.createElement('kbd')
+    key.textContent = command?.shortcut || t('shortcut_notSet')
+    item.append(text, key)
+    shortcutsList.append(item)
+  }
+}
+
 async function loadSettings(): Promise<void> {
   try {
     const response = await send<{ appUrl: string }>({ type: 'GET_APP_URL' })
@@ -227,6 +257,7 @@ async function loadSettings(): Promise<void> {
   } catch {
     settingsAppUrl.value = status.appUrl || ''
   }
+  await loadShortcuts()
 }
 
 function openSettings(): void {
@@ -1064,6 +1095,14 @@ settingsTestButton.addEventListener('click', () => {
 
 settingsOpenAppButton.addEventListener('click', () => {
   void send({ type: 'OPEN_APP' }).then(() => window.close())
+})
+
+settingsShortcutsButton.addEventListener('click', () => {
+  void send<{ ok?: boolean; error?: string }>({ type: 'OPEN_SHORTCUTS' }).then(
+    (response) => {
+      if (response.error) setSettingsStatus(errorText(response.error), 'error')
+    },
+  )
 })
 
 for (const button of themeChoices) {

@@ -16,6 +16,8 @@ import {
   fillDetectedIdentity,
   fillDetectedLogin,
   fillFieldsByLabel,
+  fillOtpField,
+  fillPasswordField,
   canFillCard,
   isVisible,
   readCardValues,
@@ -44,7 +46,7 @@ type AutofillKind = 'login' | 'card' | 'identity'
 interface MenuHandle {
   host: HTMLDivElement
   iframe: HTMLIFrameElement
-  mode: 'badge' | 'save'
+  mode: 'badge' | 'save' | 'open'
   kind: AutofillKind
   anchor: HTMLInputElement
   width: number
@@ -75,6 +77,7 @@ const PASSKEY_REQUEST_PATTERN = /^[A-Za-z0-9_-]{8,64}$/
 let context: ContentContext | null = null
 let menu: MenuHandle | null = null
 let saveBanner: SaveBannerHandle | null = null
+let lastFocusedInput: HTMLInputElement | null = null
 let detectTimer: number | undefined
 let dismissedUntil = 0
 const dismissedBanners = new Set<string>()
@@ -233,10 +236,26 @@ async function refreshSaveBanner(): Promise<void> {
   }
 }
 
+function commandKind(value: unknown): AutofillKind {
+  return value === 'card' || value === 'identity' ? value : 'login'
+}
+
+function openMenuAtActiveField(kind: AutofillKind): boolean {
+  if (!context) return false
+  const detected = detectAutofillFields(document)
+  const anchor =
+    lastFocusedInput && isVisible(lastFocusedInput)
+      ? lastFocusedInput
+      : detected?.anchor
+  if (!anchor) return false
+  showMenu(anchor, kind || detected?.kind || 'login', 'open')
+  return true
+}
+
 function showMenu(
   anchor: HTMLInputElement,
   kind: AutofillKind,
-  mode: 'badge' | 'save' = 'badge',
+  mode: 'badge' | 'save' | 'open' = 'badge',
 ): void {
   if (!context) return
   removeMenu()
@@ -333,6 +352,7 @@ function handleFocus(event: FocusEvent) {
   ) {
     return
   }
+  lastFocusedInput = target
   scheduleDetection()
 }
 
@@ -417,6 +437,9 @@ api.runtime.onMessage.addListener(
     message: {
       type?: string
       host?: string
+      kind?: string
+      password?: string
+      code?: string
       values?: {
         kind?: string
         username?: string
@@ -444,6 +467,31 @@ api.runtime.onMessage.addListener(
   ) => {
     if (message?.type === 'COFFRE_PING') {
       sendResponse({ ok: true })
+      return
+    }
+    if (message?.type === 'COFFRE_OPEN_MENU') {
+      const opened = openMenuAtActiveField(commandKind(message.kind))
+      sendResponse(opened ? { ok: true } : { ok: false, error: 'no-fields' })
+      return
+    }
+    if (message?.type === 'COFFRE_FILL_GENERATED') {
+      const filled = fillPasswordField(
+        document,
+        typeof message.password === 'string' ? message.password : '',
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+    if (message?.type === 'COFFRE_FILL_TOTP') {
+      const filled = fillOtpField(
+        document,
+        typeof message.code === 'string' ? message.code : '',
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
       return
     }
     if (message?.type !== 'COFFRE_FILL_ITEM') return

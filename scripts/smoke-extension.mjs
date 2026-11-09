@@ -147,6 +147,9 @@ try {
   await form.getByLabel('Titre', { exact: true }).fill('Example')
   await form.getByLabel('Identifiant', { exact: true }).fill('ada')
   await form.getByLabel('Mot de passe', { exact: true }).fill('s3cret!')
+  await form
+    .getByLabel(/Code TOTP/)
+    .fill('otpauth://totp/Coffre:ada?secret=JBSWY3DPEHPK3PXP&issuer=Coffre')
   await form.getByPlaceholder('https://exemple.com').fill(TARGET_URL)
   await form.getByRole('button', { name: 'Enregistrer' }).click()
   await app
@@ -365,6 +368,63 @@ try {
     return chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId })
   }, targetTab.id)
   assert.equal(expiredPending.pending, null)
+
+  // E3 : le gestionnaire de commande remplit sans ouvrir la popup. Playwright
+  // ne peut pas déclencher un raccourci de navigateur ; le canal RUN_COMMAND
+  // appelle exactement le même gestionnaire que `commands.onCommand`.
+  const commands = await extensionPage.evaluate(() => chrome.commands.getAll())
+  assert.ok(
+    commands.find((command) => command.name === '_execute_action')?.shortcut,
+    'raccourci popup non enregistré',
+  )
+  assert.ok(
+    commands.find((command) => command.name === 'fill-login')?.shortcut,
+    'raccourci fill-login non enregistré',
+  )
+  const shortcutPage = await context.newPage()
+  await shortcutPage.goto(new URL('/shortcut', TARGET_URL).toString())
+  await shortcutPage.bringToFront()
+  const commandResult = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'RUN_COMMAND', command: 'fill-login' }),
+  )
+  assert.equal(commandResult.ok, true)
+  await shortcutPage.waitForFunction(
+    () =>
+      document.querySelector('#username')?.value === 'ada' &&
+      document.querySelector('#password')?.value === 's3cret!',
+    null,
+    { timeout: 10_000 },
+  )
+
+  await shortcutPage.locator('#password').fill('')
+  const generated = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({
+      type: 'RUN_COMMAND',
+      command: 'generate-password',
+    }),
+  )
+  assert.equal(generated.ok, true)
+  await shortcutPage.waitForFunction(
+    () => (document.querySelector('#password')?.value.length ?? 0) >= 8,
+    null,
+    { timeout: 10_000 },
+  )
+  assert.notEqual(
+    await shortcutPage.locator('#password').inputValue(),
+    's3cret!',
+  )
+
+  const totp = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'RUN_COMMAND', command: 'fill-totp' }),
+  )
+  assert.equal(totp.ok, true)
+  await shortcutPage.waitForFunction(
+    () => /^\d{6}$/.test(document.querySelector('#otp')?.value ?? ''),
+    null,
+    { timeout: 10_000 },
+  )
+  await shortcutPage.close()
+  await extensionPage.bringToFront()
 
   // E2 : bandeau après une inscription avec redirection.
   await target.goto(new URL('/register', TARGET_URL).toString())

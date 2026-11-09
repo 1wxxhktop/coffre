@@ -231,6 +231,64 @@ export function fillDetectedLogin(
   return filled
 }
 
+/**
+ * Remplit le champ de mot de passe actif (ou le premier champ visible).
+ * Utilisé par le raccourci « générer un mot de passe », y compris sur les
+ * formulaires d’inscription à plusieurs champs.
+ */
+export function fillPasswordField(document: Document, value: string): number {
+  if (!value) return 0
+  const active = document.activeElement
+  if (
+    active instanceof HTMLInputElement &&
+    active.type === 'password' &&
+    isVisible(active)
+  ) {
+    setNativeValue(active, value)
+    active.focus()
+    return 1
+  }
+  const detected = detectLoginFields(document)
+  const fallback = visiblePasswords(document)[0]
+  const input = detected.password ?? fallback
+  if (!input) return 0
+  setNativeValue(input, value)
+  input.focus()
+  return 1
+}
+
+/** Remplit le champ TOTP actif ou détecté. */
+export function fillOtpField(document: Document, value: string): number {
+  if (!value) return 0
+  const active = document.activeElement
+  if (
+    active instanceof HTMLInputElement &&
+    isVisible(active) &&
+    (active.getAttribute('autocomplete') === 'one-time-code' ||
+      OTP_PATTERN.test(descriptors(active)))
+  ) {
+    setNativeValue(active, value)
+    active.focus()
+    return 1
+  }
+  const detected = detectLoginFields(document).otp
+  const fallback = Array.from(
+    document.querySelectorAll<HTMLInputElement>('input'),
+  ).find(
+    (input) =>
+      isVisible(input) &&
+      !input.disabled &&
+      !input.readOnly &&
+      (input.getAttribute('autocomplete') === 'one-time-code' ||
+        OTP_PATTERN.test(descriptors(input))),
+  )
+  const input = detected ?? fallback
+  if (!input) return 0
+  setNativeValue(input, value)
+  input.focus()
+  return 1
+}
+
 /* ------------------------------------------------------------------ */
 /* Cartes bancaires et identités                                       */
 /* ------------------------------------------------------------------ */
