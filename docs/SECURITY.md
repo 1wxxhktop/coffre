@@ -1,7 +1,7 @@
 # Sécurité de Coffre
 
 Ce document décrit le modèle de menace, la conception cryptographique, le
-stockage local et les limites connues de Coffre 0.8.0.
+stockage local et les limites connues de Coffre 0.9.0.
 
 > **Avertissement.** Coffre n’a pas fait l’objet d’un audit de sécurité
 > indépendant. Ne l’utilisez pas comme unique copie de secrets critiques sans
@@ -1494,7 +1494,7 @@ ou de la chaîne de build peut compromettre l’application. Verrouillez les
 versions (`bun.lock`) et auditez les mises à jour avant de publier.
 
 La CI exécute `bun audit --audit-level=high` à chaque poussée et Dependabot
-propose les mises à jour chaque semaine. Dernier état connu (0.8.0) : aucune
+propose les mises à jour chaque semaine. Dernier état connu (0.9.0) : aucune
 vulnérabilité `high` ou `critical`, mais trois alertes de gravité inférieure,
 toutes transitives et limitées à la chaîne de build
 `vite-plugin-pwa > workbox-build` : `deepmerge@4.3.1` (faible),

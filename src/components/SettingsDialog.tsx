@@ -835,7 +835,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                 </section>
 
                 <p className="settings__about">
-                  Coffre v0.8.0 · GPL-3.0 · format de coffre v{file?.version ?? '—'}.
+                  Coffre v{__APP_VERSION__} · GPL-3.0 · format de coffre v{file?.version ?? '—'}.
                   Aucune donnée n’est transmise. Le modèle de sécurité est décrit dans{' '}
                   <code>docs/SECURITY.md</code>.
                 </p>
