@@ -609,9 +609,39 @@ reste sur l’implémentation TypeScript.
   avec re-enveloppe des clés et incrément de `keyEpoch` ;
 - fusion L3 pure et déterministe : horloges, empreintes de ciphertexts,
   tombstones, unions de versions/pièces jointes et conflits signalés ;
-- façade `coffre-core-ffi` pour UniFFI, en JSON sans état (le mot de passe est
-  fourni à chaque appel, aucune session Rust n’est conservée), et commande
-  Tauri `core_merge_files` qui fusionne des fichiers chiffrés sans mot de passe ;
+- correspondance de domaines partagée : `coffre-core` lit la même liste
+  `src/lib/public-suffixes.json` que TypeScript. La règle vérifie le schéma,
+  les ports explicites, les suffixes publics, les IP, `localhost`, les hôtes
+  d’une étiquette et la relation parent/sous-domaine. Les vecteurs
+  `test-vectors/domain-matching.json` (plus de 40 cas, dont IDN, ports, IP,
+  localhost et identifiants d’app) sont relus par les deux implémentations ;
+- API AutoFill native : `core_open_vault_with_key` ouvre avec une clé maîtresse
+  déjà libérée (sans Argon2id) et ne renvoie qu’un résumé ; les métadonnées
+  `core_logins_for_service` et `core_credential_identities` ne contiennent
+  jamais mot de passe, TOTP ni clé privée ; `core_reveal_login` ne renvoie le
+  mot de passe et le code TOTP que pour l’élément explicitement demandé ;
+- un fichier en lecture seule (MAC invalide ou retour en arrière) fait échouer
+  ces opérations : l’extension doit renvoyer vers l’application ;
+- passkeys natives : `core_passkey_assert` et `core_passkey_create` partagent
+  les validations de `src/lib/passkeys.ts` (RP ID, origine sécurisée, challenge
+  base64url, PKCS#8, ES256 DER). Les clés privées restent dans des buffers
+  effacés ; les vecteurs `test-vectors/passkeys.json` vérifient une signature
+  Rust côté TypeScript et inversement ;
+- TOTP RFC 6238 : le secret reste dans un `Zeroizing`, le code est calculé dans
+  `coffre-core` et seul le code (jamais le secret) accompagne le mot de passe
+  dans la réponse AutoFill ;
+- façade `coffre-core-ffi` pour UniFFI, en JSON sans état (le mot de passe ou la
+  clé maîtresse est fourni à chaque appel, aucune session Rust n’est
+  conservée), et commande Tauri `core_merge_files` qui fusionne des fichiers
+  chiffrés sans mot de passe ;
+- bindings Apple : `scripts/build-coffre-core-apple.sh` construit localement
+  `CoffreCore.xcframework` (arm64 + x86_64) et les bindings Swift ; le script
+  exige Xcode, n’est pas exécuté par la CI et les artefacts restent hors du
+  dépôt ;
+- limites : un identifiant d’app sans domaine associé ne correspond à aucun
+  élément tant qu’un champ dédié n’existe pas ; la liste de suffixes publics
+  embarquée est volontairement partielle ; les buffers JSON déchiffrés vivent
+  jusqu’à la fin de l’appel FFI ;
 - aucune dépendance réseau dans ce crate ;
 - vecteurs croisés : les fixtures TypeScript `v1..v4` sont relues par Rust, et
   `test-vectors/rust-v4.coffre.json` est relu par le test TypeScript de

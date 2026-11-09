@@ -57,8 +57,10 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   des rotations. Validation matérielle YubiKey encore à faire.
 - **Cœur Rust partagé** : crate `coffre-core` v1 à v4, crypto identique,
   manifeste/MAC v4, mutations, signature v4, rotation de mot de passe et fusion
-  L3 ; façade UniFFI JSON, CLI `list`/`get`/`totp`/`run --env`, commande Tauri
-  de fusion, buffers `Zeroizing`, vecteurs croisés TypeScript ↔ Rust et CI
+  L3 ; façade UniFFI JSON, ouverture par clé maîtresse, recherche AutoFill par
+  domaine, révélation du seul élément, identités sans secret, passkeys
+  ES256, CLI `list`/`get`/`totp`/`run --env`, commande Tauri de fusion, buffers
+  `Zeroizing`, vecteurs croisés TypeScript ↔ Rust (domaines et passkeys) et CI
   Linux/macOS/Windows, builds Web/extension reproductibles, bundle macOS
   reproductible après recompilation de la caisse applicative, SBOM CycloneDX et
   contrôle cargo-deny.
@@ -91,9 +93,9 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 490 tests unitaires (71 fichiers), 144 exécutions Playwright
+- **Tests** : 548 tests unitaires (73 fichiers), 144 exécutions Playwright
   (72 parcours sur Chromium et WebKit), 34 tests Rust desktop (1 ignoré) +
-  12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
+  22 tests `coffre-core` + 3 tests FFI + 13 tests `coffre-cli` + 17 tests agent
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
   verrouillage), vérification HIBP interceptée, relais natif simulé et
