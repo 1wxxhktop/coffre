@@ -231,6 +231,13 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   générations de copie locale de secours, restaurables depuis l’écran de
   récupération. Export CSV en clair au format **Mots de passe (Apple)** pour les
   connexions, ou au format **Coffre complet** pour tous les types d’éléments.
+- **Sauvegardes planifiées** (desktop) : copies chiffrées et datées dans un
+  dossier choisi, quotidiennes ou hebdomadaires, avec rétention réglable de
+  7 quotidiennes, 4 hebdomadaires et 12 mensuelles. Écriture atomique,
+  vérification SHA-256, test de restauration en lecture seule et alerte si le
+  disque cible disparaît. Sur le Web, un rappel d’export manuel remplace la
+  copie en arrière-plan ; le mode voyage suspend les écritures. Aucune requête
+  réseau.
 - **Partage de coffres (L10)** : identité depuis les réglages, paquets signés
   avec la clé du coffre enveloppée pour chaque membre, import d’un coffre
   partagé avec paquet complet des éléments chiffrés. Les rôles sont vérifiés et
@@ -324,7 +331,13 @@ chiffré et aucune clé n’est conservée en clair.
 
 Ces copies vivent sur le même appareil : elles protègent d’une corruption
 logique, **pas** d’une perte de l’appareil, d’un disque défaillant, d’une
-éviction du stockage ni d’un profil effacé. Exportez régulièrement un fichier
+éviction du stockage ni d’un profil effacé. Depuis « Réglages → Sauvegarde et
+import », les sauvegardes planifiées écrivent en plus des copies datées dans un
+dossier choisi, ce qui les met hors de l’appareil si ce dossier est sur un
+disque externe ou un NAS. Le fichier reste chiffré ; le test de restauration
+compare le nombre d’éléments et vérifie le MAC sans modifier le coffre courant.
+Sur le Web, le navigateur ne peut pas écrire en arrière-plan : un rappel invite
+à exporter à la même fréquence. Exportez régulièrement un fichier
 `.coffre` vers un support distinct.
 
 ### Phrase de récupération
@@ -733,9 +746,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (548 tests) |
+| `bun run test` | Tests Vitest (647 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (144 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (146 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |

@@ -670,3 +670,44 @@
     display: none;
   }
 }
+
+/* Alerte de sauvegarde planifiée */
+.dashboard-backup-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--state-warn-line);
+  border-radius: var(--radius-lg);
+  background: var(--state-warn-soft);
+  color: var(--state-warn-text);
+}
+
+.dashboard-backup-alert--danger {
+  border-color: var(--state-danger-line);
+  background: var(--state-danger-soft);
+  color: var(--state-danger-text);
+}
+
+.dashboard-backup-alert > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.dashboard-backup-alert__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.dashboard-backup-alert__body strong {
+  display: block;
+  color: var(--text-1);
+  font-size: var(--text-sm);
+}
+
+.dashboard-backup-alert__body p {
+  margin-top: 2px;
+  color: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}

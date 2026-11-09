@@ -2,6 +2,18 @@
 
 ## Non publié
 
+- Sauvegardes planifiées : copies datées du fichier `.coffre` déjà chiffré dans
+  un dossier choisi (disque externe, NAS, dossier synchronisé), quotidiennes ou
+  hebdomadaires, au démarrage puis toutes les heures tant que l’application
+  tourne. Rétention réglable de 7 quotidiennes, 4 hebdomadaires et 12
+  mensuelles, écriture atomique et contrôle SHA-256 de chaque copie ; quand le
+  coffre est déverrouillé, la copie est immédiatement rouverte et son MAC
+  vérifié. « Tester la restauration » rouvre une sauvegarde en lecture seule,
+  vérifie son intégrité et compare le nombre d’éléments sans toucher au coffre
+  courant. Alerte au tableau de bord si le dossier a disparu, si la dernière
+  sauvegarde a échoué ou si elle date de plus de deux périodes. Le mode voyage
+  suspend les écritures ; sur le Web, un rappel d’export manuel remplace la
+  copie en arrière-plan. Aucune requête réseau.
 - Cœur natif pour extensions (S2) : ouverture par clé maîtresse sans Argon2id,
   recherche de connexions par service avec la même règle de domaines que
   `loginAllowsHost` (suffixes publics, IDN, ports, HTTP/HTTPS, IP, localhost),

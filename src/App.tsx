@@ -5,6 +5,7 @@ import { VaultApp } from './components/VaultApp'
 import { Brand } from './components/Brand'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { NativeBridge } from './components/NativeBridge'
+import { BackupScheduler } from './components/BackupScheduler'
 import { VaultProvider, useVault } from './state/VaultProvider'
 import { I18nProvider, useI18n } from './state/I18nProvider'
 import { SettingsProvider } from './state/SettingsProvider'
@@ -25,6 +26,7 @@ export default function App() {
               aria-hidden="true"
             />
             <NativeBridge />
+            <BackupScheduler />
             <Root />
           </VaultProvider>
         </ToastProvider>
