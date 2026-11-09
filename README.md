@@ -749,7 +749,11 @@ connexion puis valide automatiquement le formulaire de connexion ; les cartes
 et identités ne sont jamais soumises automatiquement.
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
-propose une mise à jour.
+propose une mise à jour. La proposition survit à l’arrêt du service worker :
+elle est conservée dix minutes au maximum dans `storage.session`, purgée à la
+fermeture de l’onglet et au verrouillage du coffre, et reste invisible des
+content scripts (`setAccessLevel`). Le badge est recalculé au réveil du service
+worker.
 
 ```bash
 bun run extension:build
