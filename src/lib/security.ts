@@ -6,7 +6,7 @@
  * résultats ne contiennent que des références d’éléments et des compteurs.
  */
 
-import { estimateEntropy } from './crypto'
+import { estimateEntropy } from './strength'
 import type { LoginItem, VaultItem } from './types'
 
 const WEAK_ENTROPY = 50

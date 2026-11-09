@@ -5,8 +5,9 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
+# Aucun droit par défaut ; le job de release demande seulement l’écriture
+# nécessaire à la création du brouillon de release.
+permissions: {}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -21,24 +22,26 @@ jobs:
     name: Bundle signé et notarié
     runs-on: macos-latest
     timeout-minutes: 90
+    permissions:
+      contents: write
     steps:
       - name: Récupérer le dépôt
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Installer Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Installer Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
-      - name: Mettre en cache Cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
+      # Pas de cache Cargo ici : un cache partagé avec d’autres workflows
+      # pourrait injecter des artefacts dans un build signé.
 
       - name: Vérifier que le tag correspond à la version
         run: |
@@ -50,6 +53,14 @@ jobs:
 
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
+
+      - name: Vérifier avant de signer
+        run: |
+          bun audit --audit-level=high
+          bun run lint
+          bun run typecheck
+          bun run test
+          cargo test --manifest-path src-tauri/Cargo.toml --lib
 
       - name: Importer le certificat Developer ID
         env:

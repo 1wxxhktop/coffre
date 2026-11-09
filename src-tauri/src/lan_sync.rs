@@ -121,21 +121,13 @@ fn clean_blob_ids(ids: &[String]) -> Result<Vec<String>, String> {
     if ids.len() > 500 {
         return Err("Trop de blobs à transférer".into());
     }
-    let mut clean: Vec<String> = ids
-        .iter()
-        .filter(|id| valid_id(id))
-        .cloned()
-        .collect();
+    let mut clean: Vec<String> = ids.iter().filter(|id| valid_id(id)).cloned().collect();
     clean.sort();
     clean.dedup();
     Ok(clean)
 }
 
-fn send_blobs(
-    stream: &mut TcpStream,
-    dir: &std::path::Path,
-    ids: &[String],
-) -> Result<(), String> {
+fn send_blobs(stream: &mut TcpStream, dir: &std::path::Path, ids: &[String]) -> Result<(), String> {
     for id in ids {
         let path = dir.join(id);
         if !path.is_file() {
@@ -221,8 +213,7 @@ fn receive_blobs(
         if chunk.last {
             file.flush().map_err(|error| error.to_string())?;
             files.remove(&chunk.id);
-            std::fs::rename(&part, dir.join(&chunk.id))
-                .map_err(|error| error.to_string())?;
+            std::fs::rename(&part, dir.join(&chunk.id)).map_err(|error| error.to_string())?;
             pending.remove(&chunk.id);
             received += 1;
         }
@@ -245,7 +236,12 @@ fn exchange_blobs_initiator(
         .filter(|id| !local_set.contains(id))
         .cloned()
         .collect();
-    write_json(stream, &BlobRequest { ids: wanted.clone() })?;
+    write_json(
+        stream,
+        &BlobRequest {
+            ids: wanted.clone(),
+        },
+    )?;
     let received = receive_blobs(stream, dir, &wanted)?;
     let request: BlobRequest = read_json(stream)?;
     let request = clean_blob_ids(&request.ids)?;
@@ -271,7 +267,12 @@ fn exchange_blobs_responder(
         .filter(|id| !local_set.contains(id))
         .cloned()
         .collect();
-    write_json(stream, &BlobRequest { ids: wanted.clone() })?;
+    write_json(
+        stream,
+        &BlobRequest {
+            ids: wanted.clone(),
+        },
+    )?;
     receive_blobs(stream, dir, &wanted)
 }
 

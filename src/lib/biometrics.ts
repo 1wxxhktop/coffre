@@ -31,15 +31,20 @@ export async function biometricAvailable(): Promise<boolean> {
   }
 }
 
-/** Authentifie puis relit la clé biométrique d’un coffre. */
-export async function loadBiometricKey(
-  account: string,
-  reason = 'Déverrouiller Coffre',
-): Promise<BiometricLoad> {
+/**
+ * Authentifie puis relit la clé biométrique d’un coffre. Le texte du dialogue
+ * Touch ID est fixé côté natif.
+ *
+ * Touch ID est une barrière applicative : la clé est rangée dans le trousseau
+ * de session, sans contrôle d’accès biométrique au niveau du système. Un
+ * programme qui obtient l’accès au trousseau (avec le mot de passe de session)
+ * peut la lire sans empreinte. Voir docs/SECURITY.md.
+ */
+export async function loadBiometricKey(account: string): Promise<BiometricLoad> {
   if (!account || !biometricSupported()) {
     return { authenticated: false, secret: null }
   }
-  return invoke<BiometricLoad>('biometric_load', { account, reason })
+  return invoke<BiometricLoad>('biometric_load', { account })
 }
 
 /** Enregistre la clé dans le trousseau biométrique. */

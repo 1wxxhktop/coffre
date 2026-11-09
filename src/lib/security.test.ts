@@ -61,13 +61,13 @@ describe('analyse de sécurité', () => {
       login({
         id: 'a',
         title: 'Compte A',
-        password: 'same-password',
+        password: 'tR8!wZq4@nB1-réutilisé',
         urls: ['https://example.com/login'],
       }),
       login({
         id: 'b',
         title: 'Compte B',
-        password: 'same-password',
+        password: 'tR8!wZq4@nB1-réutilisé',
         urls: ['example.com/login'],
         totp: '',
       }),

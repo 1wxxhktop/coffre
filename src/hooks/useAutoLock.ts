@@ -53,7 +53,6 @@ export function useAutoLock(
       lastActivity = Date.now()
     }
 
-    const onPageHide = () => lock()
     const onBlur = () => {
       if (lockOnFocusLoss) lock()
     }
@@ -71,7 +70,8 @@ export function useAutoLock(
       window.addEventListener(event, touch, { passive: true })
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
-    window.addEventListener('pagehide', onPageHide)
+    // La fermeture de page (`pagehide`) est gérée par VaultProvider : elle
+    // verrouille sans retirer la clé du déverrouillage rapide.
     if (lockOnFocusLoss) window.addEventListener('blur', onBlur)
 
     const interval =
@@ -86,7 +86,6 @@ export function useAutoLock(
     return () => {
       for (const event of events) window.removeEventListener(event, touch)
       document.removeEventListener('visibilitychange', onVisibilityChange)
-      window.removeEventListener('pagehide', onPageHide)
       window.removeEventListener('blur', onBlur)
       if (interval !== null) window.clearInterval(interval)
     }
