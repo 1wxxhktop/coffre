@@ -463,6 +463,22 @@ longueur entre stdin/stdout et un socket local.
   déverrouillée. Une demande alors qu’elle est verrouillée ramène la fenêtre au
   premier plan — et déclenche Touch ID si l’option est active — puis renvoie
   `locked` sans aucun secret.
+- Le popup peut demander explicitement le déverrouillage (`UNLOCK_REQUEST`).
+  Le message natif `unlock-request` reste en clair car l’application est encore
+  verrouillée ; il ne contient aucun secret et ne libère aucune clé. La fenêtre
+  de Coffre est affichée et Touch ID n’est déclenché que si l’extension est
+  appairée et que l’option biométrique est active. Un refus ou une annulation
+  laisse le coffre verrouillé ; l’extension se contente d’interroger l’état.
+  Le mot de passe maître n’est jamais saisi dans la popup ni transmis par le
+  pont.
+- Si l’application est fermée, l’hôte natif peut la démarrer **uniquement**
+  lorsque le premier message est un `hello` portant `launch: true`, envoyé par
+  ce clic explicite. Un `hello` ordinaire (lecture d’état, recherche,
+  remplissage) ne démarre jamais l’application. L’hôte attend ensuite le
+  socket local et relaie le message initial ; il ne voit aucun secret.
+- Limite : selon le navigateur et le système, la popup peut se fermer quand
+  l’application prend le focus. Le déverrouillage continue dans Coffre ; à la
+  réouverture, la popup affiche l’état déverrouillé.
 - Le remplissage vérifie **dans l’application** que l’hôte de la page figure
   parmi les URL de l’élément (`loginAllowsHost`) ; l’extension ne peut pas
   demander les identifiants d’un autre domaine.

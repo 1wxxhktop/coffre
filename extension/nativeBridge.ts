@@ -144,7 +144,7 @@ function attach(instance: chrome.runtime.Port): void {
   })
 }
 
-async function connect(): Promise<NativeHello> {
+async function connect(launch = false): Promise<NativeHello> {
   if (port && hello) return hello
   if (connecting) return connecting
 
@@ -161,9 +161,15 @@ async function connect(): Promise<NativeHello> {
     attach(instance)
 
     const id = nextId()
-    const waiting = waitFor(id, 1500)
+    // Un lancement explicite laisse au système le temps de démarrer
+    // l’application ; une simple lecture d’état reste rapide.
+    const waiting = waitFor(id, launch ? 20_000 : 1500)
     try {
-      instance.postMessage({ id, type: 'hello' })
+      instance.postMessage(
+        launch
+          ? { id, type: 'hello', launch: true }
+          : { id, type: 'hello' },
+      )
     } catch {
       resetConnection()
       reject(nativeError('native-unavailable'))
@@ -625,6 +631,41 @@ export async function nativePasskeyGet(
   } catch (error) {
     resetConnection()
     return { error: error instanceof Error ? error.message : 'native-unavailable' }
+  }
+}
+
+/**
+ * Demande explicite de déverrouillage.
+ *
+ * Le message `unlock-request` reste en clair : l’application est verrouillée et
+ * ne peut pas encore déchiffrer une trame. Le drapeau `launch` permet à l’hôte
+ * natif de démarrer l’application si elle est fermée ; il n’est jamais utilisé
+ * pour une simple lecture d’état.
+ */
+export async function nativeUnlock(): Promise<{
+  ok?: true
+  pending?: true
+  error?: string
+}> {
+  try {
+    // Une lecture d’état a pu laisser une tentative en cours : le clic
+    // explicite repart d’une connexion propre.
+    resetConnection()
+    await connect(true)
+    const status = await plainStatus()
+    if (!status.paired) return { error: 'needs-pairing' }
+    if (status.unlocked) return { ok: true }
+
+    const id = nextId()
+    const waiting = waitFor(id, 10_000)
+    await send({ id, type: 'unlock-request' })
+    await waiting.catch(() => undefined)
+    return { ok: true, pending: true }
+  } catch (error) {
+    resetConnection()
+    return {
+      error: error instanceof Error ? error.message : 'native-unavailable',
+    }
   }
 }
 

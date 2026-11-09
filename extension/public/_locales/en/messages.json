@@ -38,6 +38,30 @@
   "popup_unlockApp": {
     "message": "Unlock Coffre"
   },
+  "popup_openUnlock": {
+    "message": "Open Coffre to unlock"
+  },
+  "popup_unlocking": {
+    "message": "Unlocking… Confirm in Coffre."
+  },
+  "popup_unlockCancel": {
+    "message": "Cancel unlocking"
+  },
+  "popup_unlockHint": {
+    "message": "Coffre is still locked. Confirm Touch ID or enter the master password in the app."
+  },
+  "popup_unlockTimeout": {
+    "message": "Unlock was not confirmed. Try again from Coffre."
+  },
+  "popup_unlockCancelled": {
+    "message": "Unlock cancelled in the extension."
+  },
+  "popup_unlocked": {
+    "message": "Coffre unlocked."
+  },
+  "popup_unlockTab": {
+    "message": "Coffre is opening in a tab. Unlock it and the popup will update."
+  },
   "popup_footer": {
     "message": "Local · no server"
   },

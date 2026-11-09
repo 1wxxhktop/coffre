@@ -116,6 +116,9 @@ let themePreference: ThemePreference = 'system'
 let themeInitialized = false
 let settingsOpen = false
 let inlineReady = false
+let unlocking = false
+let unlockPoll: number | undefined
+let unlockHintTimer: number | undefined
 
 const THEME_ICONS: Record<ThemePreference, string> = {
   system:
@@ -306,11 +309,96 @@ async function testSettings(): Promise<void> {
   }
 }
 
+function unlockButtonLabel(): string {
+  return status.mode === 'native'
+    ? t('popup_unlockApp')
+    : t('popup_openUnlock')
+}
+
+function stopUnlock(cancelled = false): void {
+  unlocking = false
+  if (unlockPoll !== undefined) window.clearInterval(unlockPoll)
+  unlockPoll = undefined
+  if (unlockHintTimer !== undefined) window.clearTimeout(unlockHintTimer)
+  unlockHintTimer = undefined
+  focusAppButton.textContent = unlockButtonLabel()
+  openAppButton.disabled = false
+  if (cancelled) showMessage(t('popup_unlockCancelled'), 'info')
+}
+
+async function pollUnlock(deadline: number): Promise<void> {
+  if (!unlocking) return
+  let response: AppStatus | null = null
+  try {
+    response = await send<AppStatus>({ type: 'GET_STATUS' })
+  } catch {
+    response = null
+  }
+  if (!unlocking) return
+  if (
+    response?.unlocked &&
+    (response.mode !== 'native' || response.paired !== false)
+  ) {
+    stopUnlock()
+    await init()
+    showMessage(t('popup_unlocked'), 'success')
+    return
+  }
+  if (Date.now() >= deadline) {
+    stopUnlock()
+    showMessage(t('popup_unlockTimeout'), 'error')
+  }
+}
+
+async function startUnlock(): Promise<void> {
+  if (unlocking) return
+  unlocking = true
+  focusAppButton.textContent = t('popup_unlockCancel')
+  openAppButton.disabled = true
+  showMessage(t('popup_unlocking'), 'info')
+  const deadline = Date.now() + 120_000
+  unlockHintTimer = window.setTimeout(() => {
+    if (unlocking) showMessage(t('popup_unlockHint'), 'info')
+  }, 12_000)
+  unlockPoll = window.setInterval(() => {
+    void pollUnlock(deadline)
+  }, 1_200)
+  void pollUnlock(deadline)
+  try {
+    const response = await send<{
+      ok?: boolean
+      pending?: boolean
+      mode?: 'native' | 'tab'
+      error?: string
+    }>({ type: 'UNLOCK_REQUEST' })
+    if (!unlocking) return
+    if (response.error) {
+      stopUnlock()
+      showMessage(errorText(response.error), 'error')
+      await init()
+      return
+    }
+    if (response.ok && !response.pending) {
+      stopUnlock()
+      await init()
+      showMessage(t('popup_unlocked'), 'success')
+      return
+    }
+    if (response.mode === 'tab') {
+      showMessage(t('popup_unlockTab'), 'info')
+    }
+  } catch {
+    stopUnlock()
+    showMessage(t('error_generic'), 'error')
+  }
+}
+
 function renderStatus() {
   actions.hidden = true
   pairButton.hidden = true
   activateInlineButton.hidden = true
   focusAppButton.hidden = true
+  focusAppButton.textContent = unlockButtonLabel()
   inlineStatusDot.hidden = true
   searchWrap.hidden = false
   searchInput.disabled = true
@@ -792,11 +880,12 @@ copyGeneratedButton.addEventListener('click', () => {
 })
 
 openAppButton.addEventListener('click', () => {
-  void send({ type: 'OPEN_APP' }).then(() => window.close())
+  void startUnlock()
 })
 
 focusAppButton.addEventListener('click', () => {
-  void send({ type: 'FOCUS_APP' }).then(() => window.close())
+  if (unlocking) stopUnlock(true)
+  else void startUnlock()
 })
 
 async function requestHostPermission(
