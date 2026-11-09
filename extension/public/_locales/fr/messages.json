@@ -8,6 +8,42 @@
   "commandFillLogin": {
     "message": "Remplir la connexion la plus pertinente"
   },
+  "context_fillLogin": {
+    "message": "Remplir avec Coffre"
+  },
+  "context_chooseLogin": {
+    "message": "Choisir une connexion…"
+  },
+  "context_noLogin": {
+    "message": "Aucune connexion pour ce site"
+  },
+  "context_generate": {
+    "message": "Générer un mot de passe"
+  },
+  "context_alias": {
+    "message": "Insérer un alias e-mail"
+  },
+  "context_fillCard": {
+    "message": "Remplir une carte"
+  },
+  "context_noCard": {
+    "message": "Aucune carte"
+  },
+  "context_fillIdentity": {
+    "message": "Remplir une identité"
+  },
+  "context_noIdentity": {
+    "message": "Aucune identité"
+  },
+  "context_openApp": {
+    "message": "Ouvrir Coffre"
+  },
+  "context_addSite": {
+    "message": "Ajouter ce site à Coffre"
+  },
+  "context_unlock": {
+    "message": "Déverrouiller Coffre"
+  },
   "commandGeneratePassword": {
     "message": "Générer et remplir un mot de passe"
   },

@@ -21,6 +21,11 @@ import {
   matchingLoginSummaries,
   totpLoginSummary,
 } from './commandHelpers'
+import {
+  buildContextMenuModel,
+  type ContextMenuEntry,
+} from './contextMenuModel'
+import { t } from './i18n'
 import { submitLoginForm } from './loginSubmit'
 import { saveBannerView } from './saveBannerState'
 import {
@@ -130,6 +135,7 @@ interface ExtensionMessage {
   url?: string
   appUrl?: string
   command?: string
+  menuItemId?: string
   kind?: string
   formKind?: string
   includeSensitive?: boolean
@@ -283,6 +289,9 @@ async function syncContentScriptRegistration(): Promise<void> {
 
 void syncContentScriptRegistration()
 void updateActionBadge()
+// Le menu contextuel est construit au premier onglet activé : certains
+// navigateurs n’aiment pas les appels à `contextMenus` avant la fin de
+// l’initialisation du service worker.
 
 async function readStatus(): Promise<AppStatus> {
   const hostAccess = await hasHostAccess()
@@ -565,11 +574,16 @@ async function activeTab(): Promise<chrome.tabs.Tab | undefined> {
   return tab
 }
 
-async function pingContentScript(tabId: number): Promise<boolean> {
+async function pingContentScript(
+  tabId: number,
+  frameId = 0,
+): Promise<boolean> {
   try {
-    const response = (await api.tabs.sendMessage(tabId, {
-      type: 'COFFRE_PING',
-    })) as { ok?: boolean } | undefined
+    const response = (await api.tabs.sendMessage(
+      tabId,
+      { type: 'COFFRE_PING' },
+      { frameId },
+    )) as { ok?: boolean } | undefined
     return response?.ok === true
   } catch {
     return false
@@ -577,14 +591,18 @@ async function pingContentScript(tabId: number): Promise<boolean> {
 }
 
 /**
- * Les raccourcis accordent `activeTab` : le content script peut être injecté
- * à la demande sur un site qui n’a pas encore reçu la permission durable.
+ * Les raccourcis et le menu contextuel accordent `activeTab` : le content
+ * script peut être injecté à la demande sur un site qui n’a pas encore reçu la
+ * permission durable.
  */
-async function ensureContentScript(tabId: number): Promise<boolean> {
-  if (await pingContentScript(tabId)) return true
+async function ensureContentScript(
+  tabId: number,
+  frameId = 0,
+): Promise<boolean> {
+  if (await pingContentScript(tabId, frameId)) return true
   try {
     await api.scripting.executeScript({
-      target: { tabId },
+      target: { tabId, frameIds: [frameId] },
       files: ['content.js'],
     })
   } catch {
@@ -592,7 +610,7 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
   }
   for (let attempt = 0; attempt < 4; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 150))
-    if (await pingContentScript(tabId)) return true
+    if (await pingContentScript(tabId, frameId)) return true
   }
   return false
 }
@@ -600,13 +618,15 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
 async function openMenuInTab(
   tabId: number,
   kind: ExtensionAutofillKind,
+  frameId = 0,
 ): Promise<boolean> {
-  if (!(await ensureContentScript(tabId))) return false
+  if (!(await ensureContentScript(tabId, frameId))) return false
   try {
-    const response = (await api.tabs.sendMessage(tabId, {
-      type: 'COFFRE_OPEN_MENU',
-      kind,
-    })) as { ok?: boolean } | undefined
+    const response = (await api.tabs.sendMessage(
+      tabId,
+      { type: 'COFFRE_OPEN_MENU', kind },
+      { frameId },
+    )) as { ok?: boolean } | undefined
     return response?.ok === true
   } catch {
     return false
@@ -650,39 +670,48 @@ async function commandFillLogin(): Promise<boolean> {
   return false
 }
 
-async function commandGeneratePassword(): Promise<boolean> {
-  const tab = await activeTab()
-  if (!tab?.id) {
-    flashActionBadge()
-    return false
-  }
+async function generateAndFillPassword(
+  tabId: number,
+  url: string,
+  frameId = 0,
+): Promise<boolean> {
   let password = ''
   try {
     const { generatePasswordForRules, passwordRulesForUrl } = await import(
       '../src/lib/passwordRules'
     )
-    const site = tab.url ? passwordRulesForUrl(tab.url) : null
+    const site = url ? passwordRulesForUrl(url) : null
     password = site
       ? generatePasswordForRules(site.rules, DEFAULT_PASSWORD_OPTIONS.length)
       : generatePassword(DEFAULT_PASSWORD_OPTIONS)
   } catch {
     password = generatePassword(DEFAULT_PASSWORD_OPTIONS)
   }
-  if (!(await ensureContentScript(tab.id))) {
+  if (!(await ensureContentScript(tabId, frameId))) {
     flashActionBadge()
     return false
   }
   try {
-    const response = (await api.tabs.sendMessage(tab.id, {
-      type: 'COFFRE_FILL_GENERATED',
-      password,
-    })) as { ok?: boolean } | undefined
+    const response = (await api.tabs.sendMessage(
+      tabId,
+      { type: 'COFFRE_FILL_GENERATED', password },
+      { frameId },
+    )) as { ok?: boolean } | undefined
     if (response?.ok) return true
   } catch {
     // Le badge ci-dessous signale l’échec.
   }
   flashActionBadge()
   return false
+}
+
+async function commandGeneratePassword(): Promise<boolean> {
+  const tab = await activeTab()
+  if (!tab?.id) {
+    flashActionBadge()
+    return false
+  }
+  return generateAndFillPassword(tab.id, tab.url ?? '')
 }
 
 async function commandFillTotp(): Promise<boolean> {
@@ -1776,6 +1805,239 @@ async function openApp(): Promise<{ ok: boolean }> {
   return { ok: true }
 }
 
+async function aliasForHost(
+  host: string,
+): Promise<{ alias?: string; error?: string }> {
+  const status = await readStatus()
+  if (status.mode === 'native') return { error: 'unsupported' }
+  if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
+  if (!status.unlocked) return { error: 'locked' }
+  try {
+    const [result] = await api.scripting.executeScript({
+      target: { tabId: status.tabId },
+      world: 'MAIN',
+      func: async (site: string) => {
+        const bridge = (
+          window as unknown as {
+            __coffreExtension?: {
+              generateAlias?: (site: string) => Promise<string | null>
+            }
+          }
+        ).__coffreExtension
+        return bridge?.generateAlias ? bridge.generateAlias(site) : null
+      },
+      args: [host],
+    })
+    const alias = result?.result as string | null | undefined
+    return alias ? { alias } : { error: 'alias' }
+  } catch {
+    return { error: 'permission' }
+  }
+}
+
+let contextMenuQueue: Promise<void> = Promise.resolve()
+let lastContextMenuModel: ContextMenuEntry[] = []
+
+function contextMenuTitle(entry: ContextMenuEntry): string {
+  return entry.title || (entry.titleKey ? t(entry.titleKey) : '')
+}
+
+async function rebuildContextMenus(): Promise<void> {
+  try {
+    await api.contextMenus.removeAll()
+  } catch {
+    // Le navigateur peut ne pas exposer l’API malgré la permission.
+    return
+  }
+  const status = await readStatus()
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+  const host = tab?.url ? hostFromUrl(tab.url) : ''
+  const available =
+    status.unlocked &&
+    !(status.mode === 'native' && status.paired === false)
+
+  let logins: ExtensionAutofillSummary[] = []
+  let cards: ExtensionAutofillSummary[] = []
+  let identities: ExtensionAutofillSummary[] = []
+  if (available) {
+    if (host) {
+      const result = await search(host, 'login')
+      logins = result.items ?? []
+    }
+    const cardResult = await search('', 'card')
+    cards = cardResult.items ?? []
+    const identityResult = await search('', 'identity')
+    identities = identityResult.items ?? []
+  }
+
+  const model = buildContextMenuModel({
+    unlocked: available,
+    host,
+    logins,
+    cards,
+    identities,
+  })
+  lastContextMenuModel = model
+  for (const entry of model) {
+    try {
+      const properties = {
+        id: entry.id,
+        title: contextMenuTitle(entry),
+        ...(entry.parentId
+          ? { parentId: entry.parentId }
+          : { contexts: entry.contexts ?? ['all'] }),
+        enabled: entry.enabled !== false,
+      } as unknown as chrome.contextMenus.CreateProperties
+      api.contextMenus.create(properties)
+    } catch {
+      // Un identifiant en double ne doit pas interrompre tout le menu.
+    }
+  }
+}
+
+function scheduleContextMenus(): void {
+  contextMenuQueue = contextMenuQueue
+    .then(() => rebuildContextMenus())
+    .catch(() => undefined)
+}
+
+const CONTEXT_ITEM_ID = /^[A-Za-z0-9_-]{1,128}$/
+
+async function contextMenuFill(
+  tab: chrome.tabs.Tab,
+  frameId: number,
+  host: string,
+  itemId: string,
+  kind: ExtensionAutofillKind,
+): Promise<boolean> {
+  if (!tab.id || !host || !CONTEXT_ITEM_ID.test(itemId)) {
+    flashActionBadge()
+    return false
+  }
+  if (!(await ensureContentScript(tab.id, frameId))) {
+    flashActionBadge()
+    return false
+  }
+  const response = await menuFill(tab.id, frameId, host, itemId, kind)
+  if (response.ok) return true
+  flashActionBadge()
+  return false
+}
+
+async function insertAliasInTab(
+  tab: chrome.tabs.Tab,
+  frameId: number,
+): Promise<boolean> {
+  if (!tab.id) {
+    flashActionBadge()
+    return false
+  }
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+  if (!host) {
+    flashActionBadge()
+    return false
+  }
+  const result = await aliasForHost(host)
+  if (!result.alias) {
+    flashActionBadge()
+    return false
+  }
+  if (!(await ensureContentScript(tab.id, frameId))) {
+    flashActionBadge()
+    return false
+  }
+  try {
+    const response = (await api.tabs.sendMessage(
+      tab.id,
+      { type: 'COFFRE_FILL_TEXT', text: result.alias },
+      { frameId },
+    )) as { ok?: boolean } | undefined
+    if (response?.ok) return true
+  } catch {
+    // Le badge ci-dessous signale l’échec.
+  }
+  flashActionBadge()
+  return false
+}
+
+async function onContextMenuClicked(
+  info: chrome.contextMenus.OnClickData,
+  tab?: chrome.tabs.Tab,
+): Promise<void> {
+  const id = String(info.menuItemId)
+  const frameId = info.frameId ?? 0
+  if (id === 'unlock') {
+    const result = await requestUnlock()
+    if (result.error) flashActionBadge()
+    scheduleContextMenus()
+    return
+  }
+  if (id === 'open-app' || id === 'add-site') {
+    await openApp()
+    return
+  }
+  if (!tab) return flashActionBadge()
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+
+  if (id === 'fill-login-choose') {
+    if (!(await openMenuInTab(tab.id ?? -1, 'login', frameId))) {
+      flashActionBadge()
+    }
+    return
+  }
+  if (id === 'fill-card') {
+    if (!(await openMenuInTab(tab.id ?? -1, 'card', frameId))) {
+      flashActionBadge()
+    }
+    return
+  }
+  if (id === 'fill-identity') {
+    if (!(await openMenuInTab(tab.id ?? -1, 'identity', frameId))) {
+      flashActionBadge()
+    }
+    return
+  }
+  if (id === 'generate-password') {
+    if (tab.id) {
+      await generateAndFillPassword(tab.id, tab.url ?? '', frameId)
+    }
+    return
+  }
+  if (id === 'insert-alias') {
+    await insertAliasInTab(tab, frameId)
+    return
+  }
+  if (id.startsWith('fill-login:')) {
+    await contextMenuFill(
+      tab,
+      frameId,
+      host,
+      id.slice('fill-login:'.length),
+      'login',
+    )
+    return
+  }
+  if (id.startsWith('fill-card:')) {
+    await contextMenuFill(
+      tab,
+      frameId,
+      host,
+      id.slice('fill-card:'.length),
+      'card',
+    )
+    return
+  }
+  if (id.startsWith('fill-identity:')) {
+    await contextMenuFill(
+      tab,
+      frameId,
+      host,
+      id.slice('fill-identity:'.length),
+      'identity',
+    )
+  }
+}
+
 async function handle(
   message: ExtensionMessage,
   sender: chrome.runtime.MessageSender,
@@ -1793,7 +2055,7 @@ async function handle(
     case 'FOCUS_APP':
       return openApp()
     case 'UNLOCK_REQUEST':
-      return requestUnlock()
+      return requestUnlock().finally(() => scheduleContextMenus())
     case 'OPEN_SHORTCUTS': {
       const firefox = /Firefox/i.test(navigator.userAgent)
       const url = firefox
@@ -1821,6 +2083,34 @@ async function handle(
         return { error: 'invalid' }
       }
       return { ok: await handleCommand(command) }
+    }
+    case 'CONTEXT_MENU_SNAPSHOT': {
+      if (!isExtensionPage(sender)) return { error: 'forbidden' }
+      await rebuildContextMenus()
+      return { model: lastContextMenuModel }
+    }
+    case 'RUN_CONTEXT_MENU': {
+      // Même limite que RUN_COMMAND : les menus natifs ne sont pas
+      // cliquables depuis Playwright. Ce canal reste réservé aux pages
+      // d’extension et appelle le gestionnaire réel.
+      if (!isExtensionPage(sender)) return { error: 'forbidden' }
+      const menuItemId =
+        typeof message.menuItemId === 'string' ? message.menuItemId : ''
+      const tabId = Number(message.tabId)
+      const frameId = Number(message.frameId)
+      if (!menuItemId || !Number.isInteger(tabId) || tabId < 0) {
+        return { error: 'invalid' }
+      }
+      const tab = await api.tabs.get(tabId).catch(() => undefined)
+      if (!tab) return { error: 'no-tab' }
+      await onContextMenuClicked(
+        {
+          menuItemId,
+          frameId: Number.isInteger(frameId) && frameId >= 0 ? frameId : 0,
+        } as unknown as chrome.contextMenus.OnClickData,
+        tab,
+      )
+      return { ok: true }
     }
     case 'PAIR':
       return nativePair()
@@ -1870,34 +2160,8 @@ async function handle(
         ? { ok: true }
         : { error: 'expired' }
     }
-    case 'ALIAS_GENERATE': {
-      const host = message.host ?? ''
-      const status = await readStatus()
-      if (status.mode === 'native') return { error: 'unsupported' }
-      if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
-      if (!status.unlocked) return { error: 'locked' }
-      try {
-        const [result] = await api.scripting.executeScript({
-          target: { tabId: status.tabId },
-          world: 'MAIN',
-          func: async (site: string) => {
-            const bridge = (
-              window as unknown as {
-                __coffreExtension?: {
-                  generateAlias?: (site: string) => Promise<string | null>
-                }
-              }
-            ).__coffreExtension
-            return bridge?.generateAlias ? bridge.generateAlias(site) : null
-          },
-          args: [host],
-        })
-        const alias = result?.result as string | null | undefined
-        return alias ? { alias } : { error: 'alias' }
-      } catch {
-        return { error: 'permission' }
-      }
-    }
+    case 'ALIAS_GENERATE':
+      return aliasForHost(message.host ?? '')
     case 'MENU_SEARCH':
       return menuSearch(
         Number(message.tabId),
@@ -2029,6 +2293,15 @@ async function handle(
 api.commands?.onCommand.addListener((command) => {
   void handleCommand(command).catch(() => flashActionBadge())
 })
+
+api.contextMenus?.onClicked.addListener((info, tab) => {
+  void onContextMenuClicked(info, tab).catch(() => flashActionBadge())
+})
+
+api.runtime.onInstalled.addListener(() => scheduleContextMenus())
+api.runtime.onStartup.addListener(() => scheduleContextMenus())
+api.tabs.onActivated.addListener(() => scheduleContextMenus())
+api.windows.onFocusChanged.addListener(() => scheduleContextMenus())
 
 api.windows.onRemoved.addListener((windowId) => {
   for (const request of [...pendingPasskeys.values()]) {

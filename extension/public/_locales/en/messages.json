@@ -8,6 +8,42 @@
   "commandFillLogin": {
     "message": "Fill the most relevant login"
   },
+  "context_fillLogin": {
+    "message": "Fill with Coffre"
+  },
+  "context_chooseLogin": {
+    "message": "Choose a login…"
+  },
+  "context_noLogin": {
+    "message": "No login for this site"
+  },
+  "context_generate": {
+    "message": "Generate a password"
+  },
+  "context_alias": {
+    "message": "Insert an email alias"
+  },
+  "context_fillCard": {
+    "message": "Fill a card"
+  },
+  "context_noCard": {
+    "message": "No cards"
+  },
+  "context_fillIdentity": {
+    "message": "Fill an identity"
+  },
+  "context_noIdentity": {
+    "message": "No identities"
+  },
+  "context_openApp": {
+    "message": "Open Coffre"
+  },
+  "context_addSite": {
+    "message": "Add this site to Coffre"
+  },
+  "context_unlock": {
+    "message": "Unlock Coffre"
+  },
   "commandGeneratePassword": {
     "message": "Generate and fill a password"
   },

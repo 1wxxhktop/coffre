@@ -70,6 +70,12 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : menu contextuel dans les champs (remplir une connexion du site,
+  générer un mot de passe, insérer un alias, remplir une carte ou une
+  identité) et sur la page (ouvrir Coffre, ajouter le site). Les connexions
+  sont filtrées par domaine, le menu est reconstruit à l’activation d’un
+  onglet et une seule entrée « Déverrouiller Coffre » reste disponible quand
+  le coffre est verrouillé.
 - Extension : raccourcis clavier pour ouvrir la popup (`⌘⇧Y` / `Ctrl+Shift+Y`),
   remplir la connexion (`⌘⇧L`, ou `Option+Shift+L` sur macOS), générer un mot
   de passe et remplir un code TOTP (sans touche par défaut). Le remplissage
