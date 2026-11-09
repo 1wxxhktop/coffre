@@ -8,7 +8,8 @@ import {
   securityTone,
   weakPasswordReason,
 } from './security'
-import type { LoginItem, NoteItem, VaultItem } from './types'
+import type { LoginItem, NoteItem, PasskeyItem, VaultItem } from './types'
+import type { SiteSecurityInfo } from './siteSecurity'
 
 const NOW = '2026-11-08T12:00:00.000Z'
 const NOW_MS = Date.parse(NOW)
@@ -34,6 +35,39 @@ function login(overrides: Partial<LoginItem> = {}): LoginItem {
     totp: 'otpauth://totp/Compte?secret=JBSWY3DPEHPK3PXP',
     ...overrides,
   }
+}
+
+function passkey(overrides: Partial<PasskeyItem> = {}): PasskeyItem {
+  return {
+    id: 'i_passkey',
+    vaultId: 'v1',
+    type: 'passkey',
+    title: 'Passkey GitHub',
+    favorite: false,
+    notes: '',
+    tags: [],
+    customFields: [],
+    attachments: [],
+    deletedAt: null,
+    expiresAt: '',
+    createdAt: NOW,
+    updatedAt: NOW,
+    rpId: 'github.com',
+    userHandle: 'ada',
+    userName: 'ada',
+    credentialId: 'credential',
+    privateKey: '',
+    publicKeyCose: '',
+    signCount: 0,
+    ...overrides,
+  }
+}
+
+function site(
+  twoFactor: string[] = [],
+  passkeys = false,
+): SiteSecurityInfo {
+  return { twoFactor, passkeys }
 }
 
 function note(overrides: Partial<NoteItem> = {}): NoteItem {
@@ -95,7 +129,10 @@ describe('analyse de sécurité', () => {
       note(),
     ]
 
-    const report = analyzeSecurity(items, NOW_MS)
+    const twoFactorSites = new Set(['example.com', 'old.example.com'])
+    const report = analyzeSecurity(items, NOW_MS, new Set(), (host) =>
+      twoFactorSites.has(host) ? site(['totp']) : null,
+    )
 
     expect(report.total).toBe(4)
     expect(report.weak.map((item) => item.id)).toEqual(['c'])
@@ -188,6 +225,107 @@ describe('analyse de sécurité', () => {
   })
 })
 
+
+describe('disponibilité 2FA et passkeys', () => {
+  it('ne signale pas « Sans 2FA » pour un site inconnu ou sans 2FA', () => {
+    const items = [
+      login({ id: 'inconnu', urls: ['https://inconnu.example'], totp: '' }),
+      login({ id: 'sans', urls: ['https://sans.example'], totp: '' }),
+    ]
+    const report = analyzeSecurity(items, NOW_MS, new Set(), (host) =>
+      host === 'sans.example' ? site([]) : null,
+    )
+    expect(report.no2fa).toEqual([])
+  })
+
+  it('signale « Sans 2FA » seulement quand le site propose une 2FA', () => {
+    const items = [
+      login({ id: 'github', urls: ['https://github.com'], totp: '' }),
+      login({
+        id: 'configuré',
+        urls: ['https://gitlab.com'],
+        totp: 'otpauth://totp/Compte?secret=JBSWY3DPEHPK3PXP',
+      }),
+    ]
+    const report = analyzeSecurity(items, NOW_MS, new Set(), (host) =>
+      host === 'github.com' || host === 'gitlab.com'
+        ? site(['totp', 'sms'])
+        : null,
+    )
+    expect(report.no2fa.map((item) => item.id)).toEqual(['github'])
+  })
+
+  it('propose une passkey sur un site compatible sans passkey existante', () => {
+    const items = [
+      login({ id: 'github', urls: ['https://github.com'], totp: '' }),
+      passkey({ id: 'autre-passkey', rpId: 'gitlab.com' }),
+    ]
+    const report = analyzeSecurity(items, NOW_MS, new Set(), (host) =>
+      host === 'github.com' || host === 'gitlab.com'
+        ? site(['totp'], true)
+        : null,
+    )
+    expect(report.passkeyAvailable.map((item) => item.id)).toEqual(['github'])
+    expect(securityCategoryItems(report, 'passkey').map((item) => item.id)).toEqual([
+      'github',
+    ])
+  })
+
+  it('ne propose pas de passkey si le domaine en possède déjà une', () => {
+    const items = [
+      login({ id: 'github', urls: ['https://accounts.github.com'] }),
+      passkey({ id: 'github-passkey', rpId: 'github.com' }),
+    ]
+    const report = analyzeSecurity(items, NOW_MS, new Set(), () =>
+      site(['totp'], true),
+    )
+    expect(report.passkeyAvailable).toEqual([])
+  })
+
+  it('ne considère pas « Passkey disponible » comme un problème', () => {
+    const item = login({
+      id: 'github',
+      password: 'Très-long-mot-de-passe-aléatoire-42!',
+      urls: ['https://github.com'],
+    })
+    const report = analyzeSecurity([item], NOW_MS, new Set(), () =>
+      site(['totp'], true),
+    )
+    expect(report.passkeyAvailable).toHaveLength(1)
+    expect(itemSecurityIssue(item, report)).toBeNull()
+  })
+
+  it('signale les URL HTTP et les compte dans le score', () => {
+    const http = login({
+      id: 'http',
+      password: 'Très-long-mot-de-passe-aléatoire-42!',
+      urls: ['http://example.com'],
+      totp: 'otpauth://totp/Compte?secret=JBSWY3DPEHPK3PXP',
+    })
+    const https = { ...http, id: 'https', urls: ['https://example.com'] }
+    const report = analyzeSecurity([http], NOW_MS, new Set(), () => null)
+    const safe = analyzeSecurity([https], NOW_MS, new Set(), () => null)
+    expect(report.noHttps.map((item) => item.id)).toEqual(['http'])
+    expect(report.score).toBeLessThan(safe.score)
+    expect(securityCategoryItems(report, 'noHttps').map((item) => item.id)).toEqual([
+      'http',
+    ])
+    expect(itemSecurityIssue(http, report)).toMatchObject({
+      category: 'noHttps',
+      label: 'Site sans HTTPS',
+    })
+  })
+
+  it('ignore le HTTP sur une adresse de bouclage', () => {
+    const report = analyzeSecurity(
+      [login({ id: 'local', urls: ['http://127.0.0.1:4173'] })],
+      NOW_MS,
+      new Set(),
+      () => null,
+    )
+    expect(report.noHttps).toEqual([])
+  })
+})
 
 describe('score honnête et catégories', () => {
   it('plafonne le score à 40 quand la majorité des connexions sont faibles ou réutilisées', () => {

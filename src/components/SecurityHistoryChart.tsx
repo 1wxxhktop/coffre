@@ -3,6 +3,7 @@ import { TrendingDown, TrendingUp } from 'lucide-react'
 import { useI18n } from '../state/I18nProvider'
 import { pluralKey, type MessageKey } from '../lib/i18n'
 import {
+  SECURITY_SCORE_VERSION,
   summarizeSecurityHistory,
   type SecuritySnapshot,
 } from '../lib/securityHistory'
@@ -45,6 +46,9 @@ export function SecurityHistoryChart({ history }: SecurityHistoryChartProps) {
   const { t, intl } = useI18n()
   const points = useMemo(() => history.slice(-90), [history])
   const summary = useMemo(() => summarizeSecurityHistory(points), [points])
+  const scoringChanged = points.some(
+    (snapshot) => (snapshot.scoreVersion ?? 1) !== SECURITY_SCORE_VERSION,
+  )
 
   if (!summary || points.length < 2) {
     return (
@@ -94,6 +98,9 @@ export function SecurityHistoryChart({ history }: SecurityHistoryChartProps) {
           {summary.delta} pts
         </span>
       </div>
+      {scoringChanged && (
+        <p className="security-history__hint">{t('security.history.scoringChanged')}</p>
+      )}
 
       <svg
         className="security-history__chart"

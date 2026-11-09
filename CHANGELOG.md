@@ -2,6 +2,13 @@
 
 ## Non publié
 
+- Disponibilité de la 2FA et des passkeys par site : instantanés datés de
+  2FA Directory (MIT) et Passkeys Directory (CC BY 4.0), chargés dans un chunk
+  séparé. « Sans 2FA » n’est plus affiché pour un site inconnu ou sans 2FA
+  connue ; nouvelles catégories « Passkey disponible » et « Site sans HTTPS » ;
+  méthodes de 2FA, documentation et action « Créer une passkey » dans la fiche
+  d’une connexion. Le calcul du score passe en version 2 (pénalité HTTP, règle
+  2FA plus juste) ; l’historique conserve les anciennes mesures et les annote.
 - Cœur natif pour extensions (S2) : ouverture par clé maîtresse sans Argon2id,
   recherche de connexions par service avec la même règle de domaines que
   `loginAllowsHost` (suffixes publics, IDN, ports, HTTP/HTTPS, IP, localhost),

@@ -20,6 +20,8 @@ const ISSUE_KEYS: Record<ItemSecurityIssue['category'], MessageKey> = {
   reused: 'security.issue.reused',
   similar: 'security.issue.similar',
   no2fa: 'security.issue.no2fa',
+  passkey: 'security.issue.passkey',
+  noHttps: 'security.issue.noHttps',
   old: 'security.issue.old',
   incomplete: 'security.issue.incomplete',
   duplicates: 'security.issue.duplicates',
