@@ -1,4 +1,4 @@
-use coffre_core::{CoreError, IntegrityState, VaultFile, open};
+use coffre_core::{CoreError, IntegrityState, Manifest, VaultFile, open, sign};
 
 const PASSWORD: &str = "phrase de passe de test solide";
 
@@ -76,6 +76,71 @@ fn ouvre_un_fichier_avec_historique_du_generateur() {
     let opened = open(&file, PASSWORD).expect("ouverture du fichier générateur");
     assert_eq!(opened.integrity, IntegrityState::Valid);
     assert_eq!(opened.vaults[0].name, "Historique générateur");
+}
+
+#[test]
+fn manifeste_croise_les_sidecars_avec_typescript() {
+    let root = format!("{}/../../../test-vectors", env!("CARGO_MANIFEST_DIR"));
+    let text = std::fs::read_to_string(format!("{root}/manifest-v2-sidecars.file.json"))
+        .expect("fichier vecteur");
+    let expected = std::fs::read_to_string(format!("{root}/manifest-v2-sidecars.manifest.json"))
+        .expect("manifeste attendu");
+    let expected_v1 = std::fs::read_to_string(format!("{root}/manifest-v1-sidecars.manifest.json"))
+        .expect("manifeste v1 attendu");
+    let file = VaultFile::parse(&text).expect("vecteur valide");
+    let manifest = Manifest::compute_version(&file, 2).expect("manifeste v2");
+    assert_eq!(
+        coffre_core::canonical_json(&manifest.to_json()),
+        expected.trim()
+    );
+    let legacy = Manifest::compute_version(&file, 1).expect("manifeste v1");
+    assert_eq!(
+        coffre_core::canonical_json(&legacy.to_json()),
+        expected_v1.trim()
+    );
+}
+
+#[test]
+fn couvre_les_sidecars_dans_le_manifeste_v2() {
+    let file = fixture("v4-generator.coffre.json");
+    let v1 = Manifest::compute_version(&file, 1).expect("manifeste 1");
+    let v2 = Manifest::compute_version(&file, 2).expect("manifeste 2");
+    assert_eq!(v1.manifest, 1);
+    assert_eq!(v2.manifest, 2);
+    assert!(
+        !v1.records
+            .iter()
+            .any(|record| record.kind == "generator-history")
+    );
+    assert!(
+        v2.records
+            .iter()
+            .any(|record| record.kind == "generator-history")
+    );
+}
+
+#[test]
+fn signe_et_verifie_le_manifeste_v2_avec_historique() {
+    let base = fixture("v4-generator.coffre.json");
+    let mut opened = open(&base, PASSWORD).expect("ouverture");
+    let signed = sign(
+        opened.file,
+        &mut opened.session,
+        Some(&base),
+        "w_manifest_v2",
+        "2026-11-09T15:00:00.000Z",
+    )
+    .expect("signature v2");
+    assert_eq!(signed.generator_history.len(), 1);
+
+    let reopened = open(&signed, PASSWORD).expect("réouverture v2");
+    assert_eq!(reopened.integrity, IntegrityState::Valid);
+
+    let mut tampered = signed;
+    tampered.generator_history[0]["data"]["c"] = serde_json::json!("AAAA");
+    let invalid = open(&tampered, PASSWORD).expect("ouverture altérée");
+    assert_eq!(invalid.integrity, IntegrityState::Invalid);
+    assert!(invalid.read_only);
 }
 
 #[test]
