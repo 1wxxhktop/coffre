@@ -1,4 +1,4 @@
-import { BadgeCheck, Code2, CreditCard, FileCheck2, FileText, Fingerprint, KeyRound, Terminal, UserRound, Wifi } from 'lucide-react'
+import { BadgeCheck, Code2, CreditCard, FileCheck2, FileText, Fingerprint, KeyRound, ListChecks, Terminal, UserRound, Wifi } from 'lucide-react'
 import { serviceForItem } from '../lib/serviceIcons'
 import type { ItemType, VaultItem } from '../lib/types'
 
@@ -65,5 +65,7 @@ export function ItemIcon({ type, item, size = 18 }: ItemIconProps) {
       return <BadgeCheck size={size} />
     case 'document':
       return <FileCheck2 size={size} />
+    case 'recovery-codes':
+      return <ListChecks size={size} />
   }
 }

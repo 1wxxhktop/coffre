@@ -4,6 +4,7 @@ import {
   CreditCard,
   FileText,
   Fingerprint,
+  ListChecks,
   KeySquare,
   Wifi,
   Code2,
@@ -77,6 +78,7 @@ const FILTER_KEYS: Record<ItemFilter, MessageKey> = {
   'api-credential': 'filter.apiCredential',
   'software-license': 'filter.softwareLicense',
   document: 'filter.document',
+  'recovery-codes': 'filter.recoveryCodes',
   trash: 'filter.trash',
 }
 
@@ -95,6 +97,7 @@ const FILTERS: Array<{ id: ItemFilter; icon: LucideIcon }> = [
   { id: 'api-credential', icon: Code2 },
   { id: 'software-license', icon: BadgeCheck },
   { id: 'document', icon: FileCheck2 },
+  { id: 'recovery-codes', icon: ListChecks },
   { id: 'trash', icon: Trash2 },
 ]
 

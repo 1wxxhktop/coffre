@@ -702,6 +702,18 @@ const documentContentSchema = z.object({
   issuedAt: z.string().max(40),
 })
 
+const recoveryCodeSchema = z.object({
+  id: z.string().min(1).max(80),
+  code: z.string().min(1).max(200),
+  usedAt: z.string().max(40).nullable().default(null),
+})
+
+const recoveryCodesContentSchema = z.object({
+  ...itemBaseSchema,
+  type: z.literal('recovery-codes'),
+  codes: z.array(recoveryCodeSchema).max(100).default([]),
+})
+
 const itemContentSchema = z.discriminatedUnion('type', [
   loginContentSchema,
   noteContentSchema,
@@ -713,6 +725,7 @@ const itemContentSchema = z.discriminatedUnion('type', [
   apiCredentialContentSchema,
   softwareLicenseContentSchema,
   documentContentSchema,
+  recoveryCodesContentSchema,
 ])
 
 /** Valide le contenu déchiffré d’un élément (imports, partages hors ligne). */
@@ -2362,6 +2375,22 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         issuer: cleanText(draft.issuer, 500),
         documentNumber: cleanText(draft.documentNumber, 500),
         issuedAt: normalizeDateOnly(draft.issuedAt ?? ''),
+      }
+    case 'recovery-codes':
+      return {
+        ...common,
+        type: 'recovery-codes',
+        codes: (draft.codes ?? [])
+          .map((entry) => ({
+            id: cleanText(entry.id, 80) || randomId('rc'),
+            code: (entry.code ?? '').trim().slice(0, 200),
+            usedAt:
+              entry.usedAt && Number.isFinite(Date.parse(entry.usedAt))
+                ? entry.usedAt.slice(0, 40)
+                : null,
+          }))
+          .filter((entry) => entry.code)
+          .slice(0, 100),
       }
   }
 }
