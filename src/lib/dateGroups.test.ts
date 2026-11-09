@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { dateGroupInfo, groupItemsByDate } from './dateGroups'
 import { formatMonthYear } from './settings'
 
@@ -66,5 +66,35 @@ describe('regroupement par date', () => {
     const label = formatMonthYear(new Date(2026, 9, 15, 12).toISOString(), 'fr-FR')
     expect(label).toContain('2026')
     expect(label.charAt(0)).toBe(label.charAt(0).toUpperCase())
+  })
+})
+
+describe('regroupement par date autour d’un changement d’heure', () => {
+  // Un jour de changement d’heure dure 23 ou 25 heures : « Hier » et
+  // « 7 derniers jours » doivent suivre le calendrier, pas des tranches de 24 h.
+  const previousTz = process.env.TZ
+  beforeAll(() => {
+    process.env.TZ = 'Europe/Paris'
+  })
+  afterAll(() => {
+    process.env.TZ = previousTz
+  })
+
+  it('reconnaît la veille après le passage à l’heure d’été', () => {
+    const now = new Date(2026, 2, 30, 12) // lundi 30 mars : la veille dure 23 h
+    expect(dateGroupInfo(new Date(2026, 2, 29, 10).toISOString(), now).kind).toBe('yesterday')
+    expect(dateGroupInfo(new Date(2026, 2, 28, 10).toISOString(), now).kind).toBe('week')
+  })
+
+  it('reconnaît la veille après le passage à l’heure d’hiver', () => {
+    const now = new Date(2026, 9, 26, 12) // lundi 26 octobre : la veille dure 25 h
+    expect(dateGroupInfo(new Date(2026, 9, 25, 10).toISOString(), now).kind).toBe('yesterday')
+    expect(dateGroupInfo(new Date(2026, 9, 24, 10).toISOString(), now).kind).toBe('week')
+  })
+
+  it('arrête « 7 derniers jours » au septième jour calendaire', () => {
+    const now = new Date(2026, 2, 31, 12) // la semaine écoulée contient le jour de 23 h
+    expect(dateGroupInfo(new Date(2026, 2, 25, 0, 30).toISOString(), now).kind).toBe('week')
+    expect(dateGroupInfo(new Date(2026, 2, 24, 23, 30).toISOString(), now).kind).not.toBe('week')
   })
 })
