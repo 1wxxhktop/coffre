@@ -415,11 +415,19 @@ pub fn verify_file_mac(file: &VaultFile, integrity_key: &[u8]) -> Result<bool, C
     let Some(integrity) = &file.integrity else {
         return Ok(false);
     };
-    let manifest = Manifest::compute(file)?;
-    let bytes = canonical_json(&manifest.to_json());
-    let expected = hmac_sha256(integrity_key, bytes.as_bytes())?;
     let actual = from_base64(&integrity.mac)?;
-    Ok(constant_time_eq(&expected, &actual))
+    // Le manifeste 2 couvre l’historique du générateur. Les fichiers signés
+    // avec le manifeste 1 restent valides et sont réécrits en version 2 à la
+    // première mutation.
+    for manifest_version in [2u8, 1u8] {
+        let manifest = Manifest::compute_version(file, manifest_version)?;
+        let bytes = canonical_json(&manifest.to_json());
+        let expected = hmac_sha256(integrity_key, bytes.as_bytes())?;
+        if constant_time_eq(&expected, &actual) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn item_key_for(
@@ -730,7 +738,7 @@ pub fn sign(
         mac: String::new(),
         key: sealed_integrity_key,
     });
-    let manifest = Manifest::compute(&file)?;
+    let manifest = Manifest::compute_version(&file, 2)?;
     let mac = crypto::hmac_sha256(
         integrity_key,
         canonical_json(&manifest.to_json()).as_bytes(),

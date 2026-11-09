@@ -925,6 +925,7 @@ interface ManifestRecord {
     | 'alias-key'
     | 'sharing'
     | 'emergency'
+    | 'generator-history'
   id: string
   vaultId: string
   /** Élément parent pour une pièce jointe ou une version. */
@@ -936,7 +937,7 @@ interface ManifestRecord {
 }
 
 interface VaultManifest {
-  manifest: 1
+  manifest: 1 | 2
   file: string
   writer: string
   revision: number
@@ -983,13 +984,17 @@ const RECORD_TYPE_ORDER: Record<ManifestRecord['type'], number> = {
   'alias-key': 6,
   sharing: 7,
   emergency: 8,
+  'generator-history': 9,
 }
 
 /**
  * Manifeste couvert par le MAC. Il ne contient aucun contenu déchiffré : seuls
  * les identifiants, les horloges et l’empreinte des ciphertexts.
  */
-export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
+export async function computeManifest(
+  file: VaultFile,
+  manifestVersion: 1 | 2 = 2,
+): Promise<VaultManifest> {
   if (
     file.version !== 4 ||
     file.revision === undefined ||
@@ -1139,6 +1144,19 @@ export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
     })
   }
 
+  if (manifestVersion >= 2) {
+    for (const entry of file.generatorHistory ?? []) {
+      records.push({
+        type: 'generator-history',
+        id: entry.id,
+        vaultId: '',
+        rev: entry.clock?.rev ?? 0,
+        writer: entry.clock?.writer ?? '',
+        ciphertext: await sealedDigest(entry.data),
+      })
+    }
+  }
+
   for (const version of file.versions) {
     records.push({
       type: 'version',
@@ -1162,7 +1180,7 @@ export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
   )
 
   return {
-    manifest: 1,
+    manifest: manifestVersion,
     file: file.id,
     writer: file.writer ?? '',
     revision: file.revision,
@@ -1172,8 +1190,12 @@ export async function computeManifest(file: VaultFile): Promise<VaultManifest> {
   }
 }
 
-async function computeMac(file: VaultFile, key: Uint8Array): Promise<Uint8Array> {
-  const manifest = await computeManifest(file)
+async function computeMac(
+  file: VaultFile,
+  key: Uint8Array,
+  manifestVersion: 1 | 2 = 2,
+): Promise<Uint8Array> {
+  const manifest = await computeManifest(file, manifestVersion)
   const bytes = new TextEncoder().encode(canonicalJson(manifest))
   try {
     return await hmacSha256(key, bytes)
@@ -1182,7 +1204,13 @@ async function computeMac(file: VaultFile, key: Uint8Array): Promise<Uint8Array>
   }
 }
 
-/** Vérifie le MAC global d’un fichier v4 avec la clé d’intégrité en clair. */
+/**
+ * Vérifie le MAC global d’un fichier v4 avec la clé d’intégrité en clair.
+ *
+ * Le manifeste 2 couvre l’historique du générateur. Les fichiers signés avant
+ * cette couverture restent lisibles grâce au manifeste 1 ; ils sont réécrits
+ * en manifeste 2 à la première mutation.
+ */
 export async function verifyFileMac(
   file: VaultFile,
   integrityKey: Uint8Array,
@@ -1190,8 +1218,11 @@ export async function verifyFileMac(
   if (file.version !== 4 || !file.integrity) return false
   try {
     const expected = fromBase64(file.integrity.mac)
-    const actual = await computeMac(file, integrityKey)
-    return equalBytes(expected, actual)
+    for (const manifestVersion of [2, 1] as const) {
+      const actual = await computeMac(file, integrityKey, manifestVersion)
+      if (equalBytes(expected, actual)) return true
+    }
+    return false
   } catch {
     return false
   }
