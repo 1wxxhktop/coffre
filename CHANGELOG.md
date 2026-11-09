@@ -65,6 +65,9 @@
   pendant la fenêtre de réception, mobile restant à faire.
 - Extension : options du générateur (longueur, classes de caractères,
   caractères ambigus, entropie estimée) mémorisées localement.
+- Extension : la liste des connexions utilise toute la hauteur disponible ;
+  l’indicateur de remplissage actif est réduit à une pastille verte dans le
+  pied de page.
 - Extension : plus de demande d’enregistrement quand les identifiants soumis
   correspondent déjà à une connexion du coffre ; une mise à jour est proposée
   uniquement si le mot de passe a changé.

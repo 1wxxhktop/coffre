@@ -730,8 +730,10 @@ code TOTP) avec copie champ par champ, y compris lorsque le remplissage
 automatique échoue. Les réglages (thème, adresse de Coffre, test de connexion)
 s’ouvrent directement dans le popup, sans nouvel onglet. La barre d’action et le
 statut restent ancrés en bas de la fenêtre, même lorsque celle-ci ne s’ajuste
-pas automatiquement à son contenu. Une fois le remplissage actif dans l’onglet,
-le bouton d’activation laisse place à l’indicateur « Remplissage actif ».
+pas automatiquement à son contenu. La liste des connexions occupe toute la
+hauteur disponible et défile avec le reste du panneau. Une fois le remplissage
+actif dans l’onglet, le bouton d’activation laisse place à une pastille verte
+dans le pied de page.
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
 propose une mise à jour.

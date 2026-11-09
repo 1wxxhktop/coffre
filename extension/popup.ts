@@ -98,7 +98,7 @@ const themeButton = $<HTMLButtonElement>('theme')
 const themeIcon = $<HTMLSpanElement>('theme-icon')
 const footerStatus = $<HTMLSpanElement>('footer-status')
 const bottomDock = $<HTMLDivElement>('bottom-dock')
-const inlineStatus = $<HTMLParagraphElement>('inline-status')
+const inlineStatusDot = $<HTMLSpanElement>('inline-status-dot')
 
 let currentTab: chrome.tabs.Tab | null = null
 let status: AppStatus = { appOpen: false, unlocked: false, appUrl: '' }
@@ -308,7 +308,7 @@ function renderStatus() {
   pairButton.hidden = true
   activateInlineButton.hidden = true
   focusAppButton.hidden = true
-  inlineStatus.hidden = true
+  inlineStatusDot.hidden = true
   searchWrap.hidden = false
   searchInput.disabled = true
   results.replaceChildren()
@@ -366,7 +366,7 @@ function renderStatus() {
   actions.hidden = inlineReady
   openAppButton.hidden = true
   activateInlineButton.hidden = inlineReady
-  inlineStatus.hidden = !inlineReady
+  inlineStatusDot.hidden = !inlineReady
   footerStatus.textContent =
     status.mode === 'native'
       ? 'Coffre desktop · pont natif local'
