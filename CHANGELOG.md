@@ -9,6 +9,10 @@
   chiffrés dans le contenu de l’élément ; l’export `.coffre` les conserve. Le
   CSV complet ajoute une colonne `recovery_codes`, CXF et KDBX les placent dans
   un champ texte long documenté, en clair comme le reste de ces exports.
+- Extensions macOS : `scripts/build-coffre-core-apple.sh` assemble désormais
+  `CoffreCore.xcframework` sans Xcode complet, à partir des bibliothèques
+  statiques arm64/x86_64 et des en-têtes générés par UniFFI. Le xcframework a
+  été importé et lié dans un test Swift avec `swiftc`.
 - Sauvegardes planifiées : copies datées du fichier `.coffre` déjà chiffré dans
   un dossier choisi (disque externe, NAS, dossier synchronisé), quotidiennes ou
   hebdomadaires, au démarrage puis toutes les heures tant que l’application
