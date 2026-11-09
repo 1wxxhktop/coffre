@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 548 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 567 tests unitaires et
 > 73 parcours Playwright exécutés sur Chromium et WebKit (146 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop
 > sont compilés à la demande. Le
@@ -720,7 +720,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 <<<<<<< HEAD
 | `bun run test` | Tests Vitest (503 tests) |
 =======
-| `bun run test` | Tests Vitest (548 tests) |
+| `bun run test` | Tests Vitest (567 tests) |
 >>>>>>> origin/main
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (146 exécutions) |
@@ -915,12 +915,12 @@ trousseau et de la nouvelle interface) :
   (`app_data_dir()/vault/vault.coffre`), migre automatiquement un ancien coffre
   IndexedDB et reste stable ; hors vérification optionnelle des fuites, elle
   n’ouvre aucune connexion réseau ;
-- les 144 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
+- les 146 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
 <<<<<<< HEAD
 - `cargo test --lib` exécute 32 tests (1 ignoré) : stockage natif (rotation, permissions,
 =======
-- `cargo test --lib` exécute 34 tests (1 ignoré) : stockage natif (rotation, permissions,
+- `cargo test --lib` exécute 36 tests (1 ignoré) : stockage natif (rotation, permissions,
 >>>>>>> origin/main
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP,
