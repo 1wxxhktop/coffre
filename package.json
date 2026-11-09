@@ -20,6 +20,7 @@
     "test:e2e:webkit": "playwright test --project=webkit",
     "test:e2e:install": "playwright install chromium webkit",
     "core:test": "cargo test --manifest-path src-tauri/Cargo.toml -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent",
+    "deny": "cargo deny --manifest-path src-tauri/Cargo.toml --config src-tauri/deny.toml --workspace check",
     "core:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml -p coffre-core -p coffre-core-ffi -p coffre-cli -p coffre-ssh-agent --all-targets -- -D warnings",
     "cli:build": "cargo build --manifest-path src-tauri/Cargo.toml -p coffre-cli --release",
     "ssh:build": "cargo build --manifest-path src-tauri/Cargo.toml -p coffre-ssh-agent --release",
