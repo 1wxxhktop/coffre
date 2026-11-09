@@ -1106,6 +1106,23 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
 - les builds desktop ne sont pas encore comparés de façon reproductible, et
   l’audit externe reste à intégrer.
 
+### 2.28 Divulgation responsable
+
+Le canal de signalement est public dans
+`public/.well-known/security.txt` :
+
+- **Contact** : avis de sécurité privés GitHub
+  (`https://github.com/1wxxhktop/coffre/security/advisories/new`) ;
+- **Policy** : ce document ;
+- **Preferred-Languages** : français, anglais ;
+- **Expires** : 9 novembre 2027.
+
+Le projet ne propose pas encore de prime financière. Les signalements doivent
+inclure la version, la plateforme, les étapes de reproduction et une preuve de
+concept minimale, sans secret réel ni donnée personnelle. Les échanges restent
+privés jusqu’à la publication d’un correctif. Le fichier est validé par
+`bun run lint` (contact, politique, langues et date d’expiration).
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)

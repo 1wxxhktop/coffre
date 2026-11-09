@@ -1,0 +1,4 @@
+Contact: https://github.com/1wxxhktop/coffre/security/advisories/new
+Expires: 2027-11-09T00:00:00Z
+Preferred-Languages: fr, en
+Policy: https://github.com/1wxxhktop/coffre/blob/main/docs/SECURITY.md
