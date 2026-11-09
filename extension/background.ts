@@ -13,6 +13,7 @@ import type {
 } from '../src/lib/extensionProtocol'
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
 import { isValidRpId } from '../src/lib/passkeys'
+import { submitLoginForm } from './loginSubmit'
 import {
   nativeCheckLogin,
   nativeFill,
@@ -444,6 +445,16 @@ async function injectCredentials(
     const filled = Number(
       (result?.result as { filled?: number } | undefined)?.filled ?? 0,
     )
+    if (filled > 0) {
+      try {
+        await api.scripting.executeScript({
+          target: { tabId: targetId },
+          func: submitLoginForm,
+        })
+      } catch {
+        // Le remplissage reste valide même si la validation automatique échoue.
+      }
+    }
     return filled > 0 ? { ok: true, filled } : { error: 'no-fields' }
   } catch {
     return { error: 'no-tab' }

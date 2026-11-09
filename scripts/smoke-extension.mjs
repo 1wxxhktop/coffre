@@ -151,6 +151,17 @@ try {
 
   const target = await context.newPage()
   await target.goto(TARGET_URL)
+  await target.evaluate(() => {
+    window.__coffreSubmitCount = 0
+    document.querySelector('form')?.addEventListener(
+      'submit',
+      (event) => {
+        window.__coffreSubmitCount += 1
+        event.preventDefault()
+      },
+      { once: true },
+    )
+  })
 
   const extensionPage = await context.newPage()
   await extensionPage.goto(`chrome-extension://${extensionId}/popup.html`)
@@ -205,6 +216,8 @@ try {
     { id: itemId, tabId: targetTab.id },
   )
   assert.equal(fill.ok, true)
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  assert.equal(await target.evaluate(() => window.__coffreSubmitCount), 1)
 
   const values = await target.evaluate(() => ({
     username: document.querySelector('#username').value,
