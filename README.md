@@ -105,6 +105,15 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   choix est journalisé dans le journal d’activité chiffré, sans URL complète.
   Aucune requête réseau, aucune API de réputation.
   [Capture du bandeau](docs/screenshots/phishing-warning.png).
+- **Disponibilité de la 2FA et des passkeys** : le tableau de bord ne signale
+  « Sans 2FA » que pour les sites dont une méthode est connue (2FA Directory,
+  MIT) et propose les connexions qui peuvent utiliser une passkey (Passkeys
+  Directory, CC BY 4.0). Une catégorie « Site sans HTTPS » repère les URL
+  `http://`. La fiche d’une connexion affiche les méthodes possibles (TOTP, SMS,
+  clé matérielle, etc.), la documentation du site et l’action « Créer une
+  passkey ». Les jeux de données sont embarqués, datés et chargés dans un chunk
+  séparé ; ils ne sont pas inclus dans l’extension et aucune requête réseau
+  n’est effectuée. [Capture de la fiche](docs/screenshots/site-security.png).
 - **Recherche** insensible aux accents, filtres par type et favoris, étiquettes ;
   elle inclut les champs personnalisés et les noms de pièces jointes.
 - **Tri de la liste** : utilisation récente, nom, date de création, date de

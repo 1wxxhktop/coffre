@@ -7,7 +7,13 @@
  */
 
 import { estimateEntropy } from './strength'
-import type { LoginItem, VaultItem } from './types'
+import { isLoopbackHost, normalizeHostname, registrableDomain } from './domains'
+import { hostFromUrl } from './extensionProtocol'
+import { siteSecurityForHost, type SiteSecurityInfo } from './siteSecurity'
+import type { LoginItem, PasskeyItem, VaultItem } from './types'
+
+/** Recherche des disponibilités 2FA/passkeys pour un hôte. */
+export type SiteSecurityLookup = (host: string) => SiteSecurityInfo | null
 
 const WEAK_ENTROPY = 50
 const STRONG_ENTROPY = 70
@@ -38,7 +44,12 @@ export interface SecurityReport {
   reused: ReusedPasswordGroup[]
   similar: SimilarPasswordGroup[]
   old: VaultItem[]
+  /** Connexions sur un site dont une 2FA est connue mais non configurée. */
   no2fa: VaultItem[]
+  /** Connexions sans passkey sur un site qui accepte les passkeys. */
+  passkeyAvailable: VaultItem[]
+  /** Connexions dont une URL utilise HTTP hors bouclage. */
+  noHttps: VaultItem[]
   duplicates: DuplicateUrlGroup[]
   incomplete: VaultItem[]
   /** Connexions dont le mot de passe apparaît dans une fuite connue. */
@@ -60,6 +71,8 @@ export type SecurityCategory =
   | 'reused'
   | 'similar'
   | 'no2fa'
+  | 'passkey'
+  | 'noHttps'
   | 'old'
   | 'incomplete'
   | 'duplicates'
@@ -96,6 +109,43 @@ function normalizeUrl(value: string): string {
   } catch {
     return ''
   }
+}
+
+function loginHosts(item: LoginItem): string[] {
+  return item.urls.map(hostFromUrl).filter(Boolean)
+}
+
+function siteInfoForLogin(
+  item: LoginItem,
+  lookup: SiteSecurityLookup,
+): SiteSecurityInfo | null {
+  for (const host of loginHosts(item)) {
+    const info = lookup(host)
+    if (info) return info
+  }
+  return null
+}
+
+function insecureHttpUrl(value: string): boolean {
+  const raw = value.trim()
+  if (!raw) return false
+  try {
+    const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`)
+    return url.protocol === 'http:' && !isLoopbackHost(url.hostname)
+  } catch {
+    return false
+  }
+}
+
+function activePasskeyDomains(items: VaultItem[]): Set<string> {
+  const domains = new Set<string>()
+  for (const item of items) {
+    if (item.deletedAt || item.type !== 'passkey') continue
+    const passkey = item as PasskeyItem
+    const domain = registrableDomain(normalizeHostname(passkey.rpId))
+    if (domain) domains.add(domain)
+  }
+  return domains
 }
 
 function passwordWords(item: LoginItem): string[] {
@@ -150,6 +200,7 @@ export function analyzeSecurity(
   items: VaultItem[],
   now = Date.now(),
   breachedIds: ReadonlySet<string> = new Set(),
+  lookup: SiteSecurityLookup = siteSecurityForHost,
 ): SecurityReport {
   const logins = activeLogins(items)
   const total = logins.length
@@ -187,7 +238,19 @@ export function analyzeSecurity(
     .sort((a, b) => b.items.length - a.items.length)
 
   const old = logins.filter((item) => oldEnough(item, now))
-  const no2fa = logins.filter((item) => item.password.length > 0 && !item.totp.trim())
+  const no2fa = logins.filter((item) => {
+    if (!item.password || item.totp.trim()) return false
+    const info = siteInfoForLogin(item, lookup)
+    return Boolean(info && info.twoFactor.length > 0)
+  })
+  const knownPasskeys = activePasskeyDomains(items)
+  const passkeyAvailable = logins.filter((item) => {
+    if (!item.password) return false
+    const host = loginHosts(item).find((candidate) => lookup(candidate)?.passkeys)
+    if (!host) return false
+    return !knownPasskeys.has(registrableDomain(host))
+  })
+  const noHttps = logins.filter((item) => item.urls.some(insecureHttpUrl))
   const incomplete = logins.filter((item) => incompleteReason(item) !== '')
 
   const byUrl = new Map<string, VaultItem[]>()
@@ -209,7 +272,14 @@ export function analyzeSecurity(
     .sort((a, b) => b.items.length - a.items.length)
 
   const affectedIds = new Set<string>()
-  for (const item of [...breached, ...weak, ...old, ...no2fa, ...incomplete]) {
+  for (const item of [
+    ...breached,
+    ...weak,
+    ...old,
+    ...no2fa,
+    ...noHttps,
+    ...incomplete,
+  ]) {
     affectedIds.add(item.id)
   }
   for (const group of reused) for (const item of group.items) affectedIds.add(item.id)
@@ -246,6 +316,7 @@ export function analyzeSecurity(
     score -= (weak.length / total) * 35
     score -= (reusedIds.size / total) * 25
     score -= (no2fa.length / total) * 15
+    score -= (noHttps.length / total) * 10
     score -= (old.length / total) * 10
     score -= (duplicateIds.size / total) * 10
     score -= (incomplete.length / total) * 5
@@ -287,6 +358,8 @@ export function analyzeSecurity(
     similar,
     old,
     no2fa,
+    passkeyAvailable,
+    noHttps,
     duplicates,
     incomplete,
     breached,
@@ -325,6 +398,10 @@ export function securityCategoryItems(
       return uniqueItems(report.similar.flatMap((group) => group.items))
     case 'no2fa':
       return report.no2fa
+    case 'passkey':
+      return report.passkeyAvailable
+    case 'noHttps':
+      return report.noHttps
     case 'old':
       return report.old
     case 'incomplete':
@@ -340,6 +417,8 @@ export const SECURITY_CATEGORY_LABELS: Record<SecurityCategory, string> = {
   reused: 'Mots de passe réutilisés',
   similar: 'Variantes proches',
   no2fa: 'Sans double authentification',
+  passkey: 'Passkey disponible',
+  noHttps: 'Sites sans HTTPS',
   old: 'Non modifiés depuis un an',
   incomplete: 'Connexions incomplètes',
   duplicates: 'Sites en doublon',
@@ -352,6 +431,10 @@ const ISSUE_DESCRIPTIONS: Record<SecurityCategory, string> = {
   reused: 'Le même mot de passe protège plusieurs comptes. Une fuite sur l’un ouvrirait les autres.',
   similar: 'Ce mot de passe ne diffère que légèrement d’un autre. Les variantes se devinent ensemble.',
   no2fa: 'Aucun code TOTP n’est configuré : le compte dépend uniquement du mot de passe.',
+  passkey:
+    'Ce site accepte les passkeys. Une passkey peut remplacer le mot de passe à la connexion.',
+  noHttps:
+    'Cette adresse utilise HTTP : le mot de passe peut être lu sur le réseau. Préférez HTTPS.',
   old: 'Ce mot de passe n’a pas été modifié depuis plus d’un an. Vérifiez s’il a été exposé.',
   incomplete: 'Il manque un identifiant, un mot de passe ou une adresse pour analyser ce compte.',
   duplicates: 'Plusieurs éléments pointent vers le même site. Vérifiez s’il s’agit de comptes distincts.',
@@ -363,6 +446,8 @@ const ISSUE_LABELS: Record<SecurityCategory, string> = {
   reused: 'Mot de passe réutilisé',
   similar: 'Variante proche',
   no2fa: 'Sans 2FA',
+  passkey: 'Passkey disponible',
+  noHttps: 'Site sans HTTPS',
   old: 'Mot de passe ancien',
   incomplete: 'Connexion incomplète',
   duplicates: 'Site en doublon',
@@ -374,6 +459,8 @@ const ISSUE_SHORT_LABELS: Record<SecurityCategory, string> = {
   reused: 'Réutilisé',
   similar: 'Variante',
   no2fa: 'Sans 2FA',
+  passkey: 'Passkey',
+  noHttps: 'HTTP',
   old: 'Ancien',
   incomplete: 'Incomplet',
   duplicates: 'Doublon',
@@ -394,6 +481,7 @@ export function itemSecurityIssue(
     'reused',
     'similar',
     'no2fa',
+    'noHttps',
     'old',
     'incomplete',
     'duplicates',

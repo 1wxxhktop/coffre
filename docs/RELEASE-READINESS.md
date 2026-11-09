@@ -83,6 +83,11 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   chiffrée du choix. Jeux de données embarqués (Apple MIT, Chrome UX Report
   CC BY 4.0, Unicode UTS #39), aucune API de réputation ni requête réseau à
   l’exécution.
+- **Disponibilité 2FA et passkeys** : instantanés 2FA Directory (MIT) et
+  Passkeys Directory (CC BY 4.0), chargés dans un chunk séparé, catégories
+  « Passkey disponible » et « Site sans HTTPS », méthodes de 2FA et
+  documentation dans la fiche. Aucune requête réseau, aucun ajout au bundle de
+  l’extension.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, verrouillage avec la session et à la mise en veille,
   effacement du presse-papiers au verrouillage.
