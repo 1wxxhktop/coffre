@@ -126,17 +126,21 @@ test('les poignées sont masquées sur mobile et le menu reste lisible', async (
 test('le titre de la ligne reste lisible à la largeur par défaut', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await createVault(page)
-  await addLogin(page, 'Exemple faible', 'ada', 'abc123')
+  const longTitle = 'Compte professionnel GitHub avec un titre assez long'
+  await addLogin(page, longTitle, 'ada', 'abc123')
   await closeDialog(page)
 
   const metrics = await page
-    .locator('.item-row__title')
+    .locator('.item-row__title-text')
     .first()
     .evaluate((element) => ({
       scrollWidth: element.scrollWidth,
       clientWidth: element.clientWidth,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
       text: element.textContent,
     }))
-  expect(metrics.text).toContain('Exemple faible')
+  expect(metrics.text).toContain(longTitle)
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1)
+  expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.clientHeight + 1)
 })
