@@ -26,6 +26,7 @@ import {
 } from './detect'
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
 import { submitLoginForm } from './loginSubmit'
+import { loadSettings } from './settings'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 const MENU_ORIGIN = new URL(api.runtime.getURL('menu.html')).origin
@@ -80,6 +81,8 @@ let saveBanner: SaveBannerHandle | null = null
 let lastFocusedInput: HTMLInputElement | null = null
 let detectTimer: number | undefined
 let dismissedUntil = 0
+let inlineMenuEnabled = true
+let saveBannerEnabled = true
 const dismissedBanners = new Set<string>()
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -183,7 +186,14 @@ function setSaveBannerSize(width: number, height: number): void {
  * shadow root fermé. La page ne reçoit que l’identifiant opaque de l’offre.
  */
 function showSaveBanner(offerId: string): void {
-  if (!context || !isTopFrame() || dismissedBanners.has(offerId)) return
+  if (
+    !context ||
+    !isTopFrame() ||
+    !saveBannerEnabled ||
+    dismissedBanners.has(offerId)
+  ) {
+    return
+  }
   if (saveBanner?.offerId === offerId) return
   removeSaveBanner()
 
@@ -222,7 +232,10 @@ function showSaveBanner(offerId: string): void {
 }
 
 async function refreshSaveBanner(): Promise<void> {
-  if (!context || !isTopFrame()) return
+  if (!context || !isTopFrame() || !saveBannerEnabled) {
+    removeSaveBanner()
+    return
+  }
   try {
     const response = await send<{ offer?: { id?: string } | null }>({
       type: 'GET_PENDING_BANNER',
@@ -344,7 +357,7 @@ function showMenu(
 }
 
 function refreshDetection(): void {
-  if (Date.now() < dismissedUntil) return
+  if (!inlineMenuEnabled || Date.now() < dismissedUntil) return
   const detected = detectAutofillFields(document)
   if (!detected) {
     removeMenu()
@@ -366,6 +379,16 @@ function refreshDetection(): void {
 function scheduleDetection() {
   window.clearTimeout(detectTimer)
   detectTimer = window.setTimeout(refreshDetection, 250)
+}
+
+async function loadContentSettings(): Promise<void> {
+  const settings = await loadSettings()
+  inlineMenuEnabled = settings.inlineMenu
+  saveBannerEnabled = settings.saveBanner
+  if (!inlineMenuEnabled) removeMenu()
+  else scheduleDetection()
+  if (!saveBannerEnabled) removeSaveBanner()
+  else void refreshSaveBanner()
 }
 
 function handleFocus(event: FocusEvent) {
@@ -758,7 +781,13 @@ window.addEventListener('scroll', positionMenu, true)
 window.addEventListener('resize', positionMenu)
 window.addEventListener('resize', positionSaveBanner)
 window.addEventListener('focus', () => void refreshSaveBanner())
-scheduleDetection()
+void loadContentSettings()
+api.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return
+  if (changes.inlineMenu || changes.saveBanner) {
+    void loadContentSettings()
+  }
+})
 
 const observer = new MutationObserver(scheduleDetection)
 observer.observe(document.documentElement, { childList: true, subtree: true })

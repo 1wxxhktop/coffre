@@ -178,12 +178,14 @@ try {
     (appUrl) => chrome.storage.local.set({ appUrl }),
     APP_URL,
   )
+  await target.bringToFront()
 
   const status = await extensionPage.evaluate(() =>
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }),
   )
   assert.equal(status.appOpen, true)
   assert.equal(status.unlocked, true)
+  assert.equal(status.siteAccess, true)
   const unlockRequest = await extensionPage.evaluate(() =>
     chrome.runtime.sendMessage({ type: 'UNLOCK_REQUEST' }),
   )
@@ -641,6 +643,56 @@ try {
   assert.equal(tabUnlock.ok, true)
   assert.equal(tabUnlock.pending, true)
   assert.equal(tabUnlock.mode, 'tab')
+
+  // E5 : l’accueil s’ouvre à l’installation et les réglages complets
+  // persistent bien les choix.
+  const installedTabs = await extensionPage.evaluate(() => chrome.tabs.query({}))
+  assert.ok(
+    installedTabs.some((tab) => tab.url?.includes('/welcome.html')),
+    'welcome.html n’a pas été ouvert à l’installation',
+  )
+  const welcome = await context.newPage()
+  await welcome.goto(
+    `chrome-extension://${extensionId}/welcome.html?mode=install`,
+  )
+  await welcome
+    .locator('h1')
+    .filter({ hasText: /Bienvenue|Welcome/ })
+    .waitFor()
+  assert.ok((await welcome.locator('#welcome-shortcuts li').count()) >= 4)
+  await welcome.locator('input[name="app-mode"][value="web"]').check()
+  await welcome.locator('input[name="activation"][value="all"]').check()
+  const welcomeClosed = welcome.waitForEvent('close', { timeout: 5000 }).catch(
+    () => null,
+  )
+  await welcome.locator('#finish').click()
+  await welcomeClosed
+  const welcomeSettings = await extensionPage.evaluate(() =>
+    chrome.storage.local.get(['appMode', 'activationMode']),
+  )
+  assert.equal(welcomeSettings.appMode, 'web')
+  assert.equal(welcomeSettings.activationMode, 'all')
+
+  const updatePage = await context.newPage()
+  await updatePage.goto(
+    `chrome-extension://${extensionId}/welcome.html?mode=update`,
+  )
+  await updatePage.locator('#update-note').waitFor()
+  assert.equal(await updatePage.locator('#install-flow').isVisible(), false)
+  await updatePage.close()
+
+  const options = await context.newPage()
+  await options.goto(`chrome-extension://${extensionId}/options.html`)
+  await options.locator('h1').waitFor()
+  await options.locator('#inline-menu').uncheck()
+  await options.locator('#save-banner').uncheck()
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  const optionSettings = await extensionPage.evaluate(() =>
+    chrome.storage.local.get(['inlineMenu', 'saveBanner']),
+  )
+  assert.equal(optionSettings.inlineMenu, false)
+  assert.equal(optionSettings.saveBanner, false)
+  await options.close()
 
   console.log('Extension : recherche, remplissage et verrouillage validés.')
 } finally {

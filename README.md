@@ -807,6 +807,16 @@ verrouillé, une seule entrée « Déverrouiller Coffre » est affichée. Les no
 d’éléments sont filtrés sur le domaine de l’onglet actif ; le menu est
 reconstruit à l’activation d’un onglet et au changement de fenêtre.
 
+**Accueil et réglages.** À l’installation, `welcome.html` guide le choix entre
+application desktop (recommandée) et application Web, l’appairage ou l’adresse
+Web, l’activation site par site (défaut) ou tous les sites, puis rappelle les
+raccourcis et l’épinglage. Une note de mise à jour n’apparaît que lorsqu’une
+version change réellement le comportement ou les permissions. La page
+d’options (`chrome-extension://…/options.html`, aussi accessible depuis le
+popup) regroupe la connexion, le remplissage, l’enregistrement, les raccourcis,
+le thème et les permissions. Les réglages sont locaux : aucun secret, aucun
+nom d’élément, aucune télémétrie.
+
 **Cartes et identités.** La détection repose sur les attributs `autocomplete`
 (`cc-number`, `cc-exp`, `cc-csc`, `given-name`, `postal-code`…), les types de
 champs et des libellés français (« Numéro de carte », « Titulaire », « Code
