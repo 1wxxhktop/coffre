@@ -15,7 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.7.4", features = [] }
 
 [dependencies]
-tauri = { version = "2.12.5", features = [] }
+tauri = { version = "2.12.5", features = ["tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-single-instance = "2"
@@ -37,20 +37,25 @@ coffre-ssh-agent = { path = "crates/coffre-ssh-agent" }
 tauri-plugin-clipboard-manager = "2"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
+tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["apple-native"] }
 objc2 = "0.6"
-objc2-foundation = "0.3"
+objc2-foundation = { version = "0.3", features = ["NSDistributedNotificationCenter"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace"] }
+objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFDictionary", "CFNotificationCenter", "CFString"] }
 objc2-local-authentication = { version = "0.3", default-features = false, features = ["std", "LAContext", "block2"] }
 block2 = "0.6"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["windows-native"] }
+windows = { version = "0.61", features = ["Security_Credentials_UI", "Win32_Foundation", "Win32_System_RemoteDesktop", "Win32_System_WinRT", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["sync-secret-service"] }
+zbus = "5.19"
 
 [workspace]
 members = [
