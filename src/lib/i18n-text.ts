@@ -664,6 +664,7 @@ export const EN_TEXT: Record<string, string> = {
     'contacts required to open emergency access',
   'Sans serveur, aucun délai ne peut être imposé : un accès immédiat s’ouvre dès que le contact possède le fichier et sa clé privée. En mode Shamir, le nombre de contacts configuré est requis.':
     'Without a server, no delay can be enforced: immediate access opens as soon as the contact holds the file and their private key. In Shamir mode, the configured number of contacts is required.',
+  'Télécharger le paquet': 'Download package',
   'Fuites connues': 'Known breaches',
   'Surveillance optionnelle en k-anonymat.': 'Optional k-anonymity monitoring.',
   'Vérifier mes mots de passe dans les fuites connues (Have I Been Pwned)':

@@ -1049,7 +1049,8 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   synchronisation automatique. L’import fusionne par identifiant et date de
   mise à jour, avec un plafond de 20 000 éléments. Les pierres tombales des
   éléments supprimés sont incluses et appliquées si elles sont plus récentes ;
-  l’échange reste manuel ;
+  l’échange reste manuel ; le paquet peut être copié ou téléchargé comme
+  fichier `.coffre-shared.json`, puis importé par le membre ;
 - les mutations d’éléments vérifient le rôle local : un coffre `read` refuse
   création, modification, déplacement, corbeille, pièces jointes et suppression.
   Cette restriction est appliquée par l’application ; un membre qui modifie son

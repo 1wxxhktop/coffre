@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Copy, Fingerprint, LoaderCircle, Package, Users } from 'lucide-react'
 import { copyToClipboard } from '../lib/clipboard'
+import { downloadFile } from '../lib/settings'
 import { publicSharingIdentity, type SharingIdentity } from '../lib/sharing'
 import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
@@ -323,6 +324,20 @@ export function SharingSettings() {
                 <Copy size={16} />
                 {copied === 'package' ? tt('Paquet copié') : tt('Copier le paquet')}
               </button>
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() =>
+                  downloadFile(
+                    packageText,
+                    `partage-${shareVaultId}.coffre-shared.json`,
+                    'application/json',
+                  )
+                }
+              >
+                <Package size={16} />
+                {tt('Télécharger le paquet')}
+              </button>
             </div>
           </>
         )}
@@ -378,6 +393,19 @@ export function SharingSettings() {
 
       <details className="settings-help">
         <summary>{tt('Importer un coffre partagé')}</summary>
+        <label className="field field--full">
+          <span className="field__label">{tt('Fichier de partage')}</span>
+          <input
+            className="input"
+            type="file"
+            accept=".json,.coffre-shared,application/json"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (!file) return
+              void file.text().then((text) => setImportText(text))
+            }}
+          />
+        </label>
         <label className="field field--full">
           <span className="field__label">{tt('Paquet de partage')}</span>
           <textarea
