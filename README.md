@@ -717,11 +717,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-<<<<<<< HEAD
-| `bun run test` | Tests Vitest (503 tests) |
-=======
 | `bun run test` | Tests Vitest (567 tests) |
->>>>>>> origin/main
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (146 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
@@ -917,11 +913,7 @@ trousseau et de la nouvelle interface) :
   n’ouvre aucune connexion réseau ;
 - les 146 exécutions Playwright passent ou sont ignorées sur Chromium et WebKit, moteur des
   WebViews macOS/iOS ;
-<<<<<<< HEAD
-- `cargo test --lib` exécute 32 tests (1 ignoré) : stockage natif (rotation, permissions,
-=======
 - `cargo test --lib` exécute 36 tests (1 ignoré) : stockage natif (rotation, permissions,
->>>>>>> origin/main
   effacement), trames et manifestes du pont natif, confinement et écritures
   atomiques du dossier de synchronisation, validation du préfixe HIBP,
   traduction des événements de session macOS/Windows/Linux et détection de
