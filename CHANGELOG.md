@@ -2,6 +2,14 @@
 
 ## Non publié
 
+- Protection anti-hameçonnage au remplissage forcé et à l’enregistrement :
+  analyse locale des domaines du coffre et d’une liste populaire embarquée
+  (confusables Unicode TR39, distance de Damerau-Levenshtein, marque en
+  sous-domaine, IP brute, HTTP, port inhabituel, identifiant déjà vu ailleurs),
+  bandeau Annuler / Continuer quand même dans l’extension et journalisation
+  chiffrée du choix. Jeux de données datés (`popular-domains.json`,
+  `confusables.json`, `domain-equivalences.json`), scripts de mise à jour et
+  aucune requête réseau.
 - Modèles intégrés pour tous les types d’éléments (connexion, note, carte,
   identité, passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle,
   document), avec la liste complète de leurs champs, création directe depuis

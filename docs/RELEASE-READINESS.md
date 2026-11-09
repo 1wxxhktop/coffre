@@ -76,6 +76,10 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   L’échange manuel `.coffre-shared.json` reste disponible.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
+- **Anti-hameçonnage** : analyse locale des domaines au remplissage forcé et à
+  l’enregistrement, bandeau Annuler / Continuer quand même, journalisation
+  chiffrée du choix. Jeux de données embarqués (Apple MIT, Unicode UTS #39),
+  aucune API de réputation ni requête réseau.
 - **Verrouillage** : auto-lock, perte de visibilité, `pagehide`, Web Locks,
   instance desktop unique, effacement du presse-papiers au verrouillage.
 - **Récupération** : phrase EFF de 10 mots, enveloppe séparée, vérification de

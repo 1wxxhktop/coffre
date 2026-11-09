@@ -421,6 +421,76 @@ appairage) est conservée dans `chrome.storage.local`.
   et la validation d’origine, mais une page qui contrôle entièrement son DOM
   peut toujours gêner l’affichage du menu.
 
+### 2.10.1 Protection anti-hameçonnage
+
+La protection anti-hameçonnage (`src/lib/phishing.ts`) est entièrement locale :
+elle ne contacte aucune API de réputation, n’envoie aucun domaine et ne
+conserve aucun résultat. Elle s’exécute dans l’application, avant un
+remplissage forcé ou un enregistrement demandé par l’extension.
+
+Signaux et seuils :
+
+- **confusable** : l’hôte contient des caractères non ASCII ou un libellé
+  `xn--` ; son squelette de confusables (table Unicode TR39 réduite, NFKC,
+  leetspeak et séquences courantes) correspond à un domaine du coffre ou de la
+  liste populaire, sans être le même domaine enregistrable ;
+- **faute de frappe** : distance de Damerau-Levenshtein ≤ 2 entre le libellé de
+  marque de la page et celui d’un domaine connu ; le libellé doit faire au
+  moins 5 caractères, soit au moins 6 caractères pour le domaine complet. Une
+  distance de 1 est un danger, une distance de 2 un avertissement. Si les
+  marques sont identiques, seule une faute sur le TLD (`github.co` face à
+  `github.com`) est signalée ;
+- **marque en sous-domaine** : un domaine connu apparaît comme libellé à
+  gauche du domaine enregistrable de la page (`paypal.com.login-check.io`,
+  `paypal.secure-login.io`) ;
+- **IP brute**, **HTTP** et **port inhabituel** : page servie depuis une adresse
+  IP, en clair, ou sur un port autre que 80/443. Les adresses de bouclage
+  (`localhost`, `127.0.0.0/8`, `::1`) sont ignorées ;
+- **domaine jamais vu** : à l’enregistrement uniquement, le même nom
+  d’utilisateur existe déjà sur un autre domaine enregistrable. C’est un
+  avertissement doux, jamais un blocage.
+
+Les domaines d’un même domaine enregistrable (`accounts.google.com` face à
+`google.com`) et les groupes d’équivalences légitimes (`apple.com` /
+`icloud.com`, `google.com` / `gmail.com`) ne déclenchent rien. La liste
+d’équivalences est embarquée dans `src/assets/domain-equivalences.json`.
+
+Jeux de données embarqués et datés :
+
+- `src/assets/popular-domains.json` : domaines dérivés d’Apple « Password
+  Manager Resources » (MIT), instantané du 9 novembre 2026, régénéré par
+  `scripts/update-popular-domains.mjs` sans réseau ;
+- `src/assets/confusables.json` : table réduite issue d’Unicode UTS #39
+  `confusables.txt` (Unicode License V3), instantané du 6 août 2026, régénéré
+  par `scripts/update-confusables.mjs` ;
+- `src/assets/domain-equivalences.json` : liste originale Coffre
+  (GPL-3.0-only).
+
+Aucun de ces fichiers n’est téléchargé à l’exécution. La liste populaire et la
+table de confusables sont incluses dans le bundle de l’application ; elles ne
+sont pas nécessaires au bundle de l’extension, qui interroge l’application par
+le pont. Ce sont des ressources statiques de l’application, pas des données du
+fichier `.coffre`.
+
+Interface et journal :
+
+- le bandeau est rendu dans l’iframe d’origine extension ; « Annuler » est le
+  choix par défaut et ne transmet aucun identifiant ;
+- « Continuer quand même » transmet un indicateur explicite à l’application,
+  qui ne remplit ou n’enregistre qu’après cet accord ;
+- le choix est écrit dans le journal d’activité chiffré (`phishing-warning`)
+  avec les codes des signaux et l’hôte, jamais l’URL complète, jamais un
+  secret ;
+- le bandeau ne s’affiche pas pour un remplissage normal dont l’hôte
+  correspond déjà à l’élément ; les signaux IP, HTTP et port restent vérifiés.
+
+Limites : la liste de suffixes publics est réduite (voir 2.10), la table de
+confusables est volontairement partielle, une faute de frappe peut passer si
+elle affecte plusieurs caractères ou un domaine très court, et l’utilisateur
+peut toujours forcer l’action après l’avertissement. La protection complète le
+contrôle de domaine existant ; elle ne remplace ni la vigilance de
+l’utilisateur ni un audit externe.
+
 ### 2.11 Pont natif de l’extension (desktop)
 
 Sur desktop, l’extension peut parler directement à l’application au lieu de
