@@ -757,7 +757,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run extension:smoke` | Test manuel de l’extension (serveurs requis) |
 | `bun run bridge:smoke` | Smoke du relais natif stdin/socket (binaire compilé) |
 | `bun run core:test` | Tests de `coffre-core`, de la façade FFI, du CLI et du noyau SSH |
-| `./scripts/build-coffre-core-apple.sh` | Construit localement `CoffreCore.xcframework` pour les extensions macOS (Xcode requis) |
+| `./scripts/build-coffre-core-apple.sh` | Construit localement `CoffreCore.xcframework` pour les extensions macOS (sans Xcode complet) |
 | `bun run core:clippy` | Clippy strict de `coffre-core`, `coffre-core-ffi`, `coffre-cli` et `coffre-ssh-agent` |
 | `bun run deny` | Vérifie licences, avis de sécurité et sources Cargo |
 | `cargo +nightly fuzz run vault_parse` | Fuzz local du parseur (depuis `src-tauri/crates/coffre-core`) |
@@ -978,7 +978,9 @@ La façade S2 ajoute, en plus des mutations existantes :
 
 Pour les extensions macOS, `scripts/build-coffre-core-apple.sh` construit
 localement `CoffreCore.xcframework` (arm64 + x86_64) et les bindings Swift. Le
-script exige Xcode et n’est jamais exécuté par la CI.
+script n’exige pas Xcode complet : il assemble le xcframework à partir des
+bibliothèques statiques et des en-têtes générés par UniFFI. Il n’est jamais
+exécuté par la CI.
 
 La commande Tauri `core_merge_files` fusionne des fichiers chiffrés sans
 recevoir de mot de passe ni exposer de contenu clair.
