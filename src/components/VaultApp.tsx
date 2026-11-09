@@ -69,6 +69,7 @@ import {
 import { isTauriRuntime } from '../lib/external'
 import { backupAlert } from '../lib/backup'
 import { getTravelMode } from '../lib/travelMode'
+import { TRAY_GENERATOR_EVENT, TRAY_LOCK_EVENT } from '../lib/systemIntegration'
 import type { StateUpdate } from '../lib/stateUpdate'
 
 // Les dialogues lourds sont chargés à l’ouverture : le premier écran ne paie
@@ -440,6 +441,26 @@ export function VaultApp() {
     })
     return () => unlisten?.()
   }, [])
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return
+    let disposed = false
+    const cleanups: Array<() => void> = []
+    const register = <T,>(event: string, handler: () => void) => {
+      void listen<T>(event, handler)
+        .then((cleanup) => {
+          if (disposed) cleanup()
+          else cleanups.push(cleanup)
+        })
+        .catch(() => undefined)
+    }
+    register(TRAY_GENERATOR_EVENT, () => setGeneratorOpen(true))
+    register(TRAY_LOCK_EVENT, () => lock())
+    return () => {
+      disposed = true
+      for (const cleanup of cleanups) cleanup()
+    }
+  }, [lock])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {

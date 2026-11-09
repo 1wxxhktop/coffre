@@ -19,8 +19,11 @@ mod backup_store;
 mod blob_store;
 mod bridge;
 mod lan_sync;
+mod session_watch;
 mod ssh_agent;
 mod sync_store;
+#[cfg(desktop)]
+mod tray;
 mod vault_store;
 
 pub use bridge::{is_native_host_invocation, run_native_host};
@@ -29,6 +32,55 @@ const KEYCHAIN_SERVICE: &str = "app.coffre.desktop";
 /// Service séparé : une clé biométrique ne peut pas être lue par
 /// `keychain_load`, qui ne connaît que `KEYCHAIN_SERVICE`.
 const BIOMETRIC_SERVICE: &str = "app.coffre.desktop.biometric";
+/// Texte du dialogue biométrique. Il est fixé ici, et non fourni par la
+/// WebView, pour qu’un script ne puisse pas présenter une demande trompeuse.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+const BIOMETRIC_REASON: &str = "déverrouiller Coffre";
+
+/// Indique si le lancement courant vient de l’ouverture de session.
+struct StartupState {
+    hidden: bool,
+}
+
+#[tauri::command]
+fn startup_is_hidden(state: tauri::State<'_, StartupState>) -> bool {
+    state.hidden
+}
+
+#[tauri::command]
+fn autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        app.autolaunch()
+            .is_enabled()
+            .map_err(|error| error.to_string())
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        Err("Le démarrage automatique n’est pas disponible sur cette plateforme.".into())
+    }
+}
+
+#[tauri::command]
+fn autostart_set(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        let manager = app.autolaunch();
+        if enabled {
+            manager.enable().map_err(|error| error.to_string())
+        } else {
+            manager.disable().map_err(|error| error.to_string())
+        }
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = (app, enabled);
+        Err("Le démarrage automatique n’est pas disponible sur cette plateforme.".into())
+    }
+}
 
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn entry_for(service: &str, account: &str) -> Result<keyring::Entry, String> {
@@ -87,14 +139,23 @@ fn keychain_delete(account: String) -> Result<(), String> {
     }
 }
 
-/// Vrai si l’appareil propose une biométrie utilisable (Touch ID).
+/// Vrai si l’appareil propose une biométrie utilisable (Touch ID ou Windows
+/// Hello).
 #[tauri::command]
-fn biometric_available() -> bool {
+async fn biometric_available() -> bool {
     #[cfg(target_os = "macos")]
     {
-        biometric::available()
+        tauri::async_runtime::spawn_blocking(biometric::available)
+            .await
+            .unwrap_or(false)
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        tauri::async_runtime::spawn_blocking(windows_hello::available)
+            .await
+            .unwrap_or(false)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         false
     }
@@ -144,20 +205,26 @@ struct BiometricResult {
 /// Authentifie par empreinte puis libère la clé.
 ///
 /// L’authentification est faite dans cette commande : la WebView ne peut pas
-/// lire une clé biométrique sans passer par Touch ID.
-/// Texte du dialogue Touch ID. Il est fixé ici, et non fourni par la WebView,
-/// pour qu’un script ne puisse pas présenter une demande trompeuse.
-#[cfg(target_os = "macos")]
-const BIOMETRIC_REASON: &str = "déverrouiller Coffre";
-
+/// lire une clé biométrique sans passer par Touch ID ou Windows Hello.
 #[tauri::command]
 async fn biometric_load(account: String) -> Result<BiometricResult, String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
-        let authenticated =
-            tauri::async_runtime::spawn_blocking(|| biometric::authenticate(BIOMETRIC_REASON))
-                .await
-                .map_err(|error| error.to_string())??;
+        let authenticated = {
+            let reason = BIOMETRIC_REASON;
+            #[cfg(target_os = "macos")]
+            {
+                tauri::async_runtime::spawn_blocking(move || biometric::authenticate(reason))
+                    .await
+                    .map_err(|error| error.to_string())??
+            }
+            #[cfg(target_os = "windows")]
+            {
+                tauri::async_runtime::spawn_blocking(move || windows_hello::confirm(reason))
+                    .await
+                    .map_err(|error| error.to_string())??
+            }
+        };
 
         if !authenticated {
             return Ok(BiometricResult {
@@ -177,10 +244,10 @@ async fn biometric_load(account: String) -> Result<BiometricResult, String> {
             secret,
         })
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = account;
-        Err("Le déverrouillage par empreinte n’est pas disponible sur cette plateforme.".into())
+        Err("Le déverrouillage biométrique n’est pas disponible sur cette plateforme.".into())
     }
 }
 
@@ -193,7 +260,13 @@ async fn biometric_confirm(reason: String) -> Result<bool, String> {
             .await
             .map_err(|error| error.to_string())?
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        tauri::async_runtime::spawn_blocking(move || windows_hello::confirm(&reason))
+            .await
+            .map_err(|error| error.to_string())?
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = reason;
         Ok(false)
@@ -250,6 +323,48 @@ mod biometric {
                 Err(_) => Err("L’authentification par empreinte a expiré.".into()),
             }
         }
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod windows_hello {
+    use windows::Security::Credentials::UI::{
+        UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
+    };
+    use windows::Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize};
+    use windows::core::HSTRING;
+
+    fn ensure_com() {
+        // Les commandes tournent dans `spawn_blocking` ; chaque thread doit
+        // initialiser son appartement avant d’appeler une API WinRT.
+        unsafe {
+            let _ = RoInitialize(RO_INIT_MULTITHREADED);
+        }
+    }
+
+    pub fn available() -> bool {
+        ensure_com();
+        UserConsentVerifier::CheckAvailabilityAsync()
+            .and_then(|operation| operation.get())
+            .map(|availability| availability == UserConsentVerifierAvailability::Available)
+            .unwrap_or(false)
+    }
+
+    /// Demande une vérification Windows Hello. Un refus, une annulation ou un
+    /// échec ne libère jamais la clé : l’appelant reçoit `false` ou une erreur.
+    pub fn confirm(reason: &str) -> Result<bool, String> {
+        ensure_com();
+        if !available() {
+            return Err(
+                "Windows Hello n’est pas disponible ou n’est pas configuré sur cet appareil."
+                    .into(),
+            );
+        }
+        let message = HSTRING::from(reason);
+        UserConsentVerifier::RequestVerificationAsync(&message)
+            .and_then(|operation| operation.get())
+            .map(|result| result == UserConsentVerificationResult::Verified)
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -589,11 +704,15 @@ impl<R: Runtime> Plugin<R> for NavigationGuard {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let started_hidden = std::env::args().any(|argument| argument == "--autostart");
     let builder = tauri::Builder::default()
         .manage(bridge::BridgeState::default())
         .manage(sync_store::SyncState::default())
         .manage(lan_sync::LanState::load())
         .manage(ssh_agent::SshAgentState::default())
+        .manage(StartupState {
+            hidden: started_hidden,
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(NavigationGuard)
         // Utilisé uniquement depuis les commandes Rust ci-dessus : aucune
@@ -655,17 +774,28 @@ pub fn run() {
             sync_read,
             sync_write,
             sync_watch,
-            sync_unwatch
+            sync_unwatch,
+            autostart_enabled,
+            autostart_set,
+            startup_is_hidden,
+            tray::tray_set_language,
+            tray::tray_set_keep_on_close
         ]);
 
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.unminimize();
-            let _ = window.show();
-            let _ = window.set_focus();
-        }
-    }));
+    let builder = builder
+        .manage(tray::TrayState::default())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--autostart"]),
+        ))
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }));
 
     #[cfg(desktop)]
     let builder = builder
@@ -696,7 +826,29 @@ pub fn run() {
                 })
                 .build(),
         )
-        .setup(|app| {
+        .on_window_event(|window, event| {
+            if window.label() != "main" {
+                return;
+            }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if tray::keeps_window_on_close(window.app_handle()) {
+                    let _ = window.hide();
+                } else {
+                    window.app_handle().exit(0);
+                }
+            }
+        })
+        .setup(move |app| {
+            if let Err(error) = tray::init(app.handle()) {
+                eprintln!("Icône de barre de menus indisponible : {error}");
+            }
+            if let Err(error) = session_watch::start(app.handle().clone()) {
+                eprintln!("Surveillance de session indisponible : {error}");
+            }
+            if started_hidden && let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
             if let Err(error) = app.global_shortcut().register(quick_search_shortcut()) {
                 eprintln!("Raccourci global de recherche indisponible : {error}");
             }

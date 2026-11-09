@@ -12,6 +12,7 @@ import {
   KeyRound,
   Languages,
   LoaderCircle,
+  Monitor,
   Share2,
   ShieldAlert,
   ShieldCheck,
@@ -44,6 +45,7 @@ import { keychainAvailable } from '../lib/keychain'
 import { biometricAvailable } from '../lib/biometrics'
 import { prfSupported } from '../lib/prf'
 import { isTauriRuntime } from '../lib/external'
+import { getAutostartEnabled, setAutostartEnabled } from '../lib/systemIntegration'
 import { ensureNotificationPermission } from '../lib/notifications'
 import { LOCALES, type Locale } from '../lib/i18n'
 import {
@@ -173,6 +175,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
 
   const [biometricsReady, setBiometricsReady] = useState(false)
   const [biometricBusy, setBiometricBusy] = useState(false)
+  const [autostartBusy, setAutostartBusy] = useState(false)
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimate | null>(null)
@@ -214,6 +217,21 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return
+    let cancelled = false
+    void getAutostartEnabled()
+      .then((enabled) => {
+        if (!cancelled && enabled !== settings.launchAtLogin) {
+          updateSettings({ launchAtLogin: enabled })
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [settings.launchAtLogin, updateSettings])
 
   useEffect(() => {
     let cancelled = false
@@ -263,6 +281,26 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
         ),
         'error',
       )
+    }
+  }
+
+  const toggleAutostart = async (enabled: boolean) => {
+    setAutostartBusy(true)
+    try {
+      await setAutostartEnabled(enabled)
+      updateSettings({ launchAtLogin: enabled })
+      toast(
+        tt(
+          enabled
+            ? 'Démarrage à l’ouverture de session activé'
+            : 'Démarrage à l’ouverture de session désactivé',
+        ),
+        'success',
+      )
+    } catch {
+      toast(tt('Impossible de modifier le démarrage à l’ouverture de session'), 'error')
+    } finally {
+      setAutostartBusy(false)
     }
   }
 
@@ -565,12 +603,12 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     setBiometricBusy(true)
     try {
       await resetBiometricKey()
-      toast(tt('Clé Touch ID réinitialisée'), 'success')
+      toast(tt('Clé biométrique réinitialisée'), 'success')
     } catch (caught) {
       toast(
         caught instanceof Error
           ? caught.message
-          : tt('Réinitialisation Touch ID impossible'),
+          : tt('Réinitialisation biométrique impossible'),
         'error',
       )
     } finally {
@@ -780,6 +818,76 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     <span>{tt("Recevoir un rappel pour les échéances proches")}</span>
                   </label>
                 </section>
+
+                {isTauriRuntime() && (
+                  <section className="settings-section">
+                    <div className="settings-section__head">
+                      <span className="settings-section__icon">
+                        <Monitor size={18} />
+                      </span>
+                      <div>
+                        <h3>{tt("Intégration au système")}</h3>
+                        <p>
+                          {tt(
+                            "Verrouillage avec la session, barre de menus et démarrage à l’ouverture de session.",
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={settings.lockOnSystemLock}
+                        onChange={(event) =>
+                          updateSettings({ lockOnSystemLock: event.target.checked })
+                        }
+                      />
+                      <span>{tt("Verrouiller avec la session")}</span>
+                    </label>
+
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={settings.lockOnSleep}
+                        onChange={(event) =>
+                          updateSettings({ lockOnSleep: event.target.checked })
+                        }
+                      />
+                      <span>{tt("Verrouiller à la mise en veille")}</span>
+                    </label>
+
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={settings.trayKeepOnClose}
+                        onChange={(event) =>
+                          updateSettings({ trayKeepOnClose: event.target.checked })
+                        }
+                      />
+                      <span>
+                        {tt(
+                          "Garder Coffre dans la barre de menus à la fermeture de la fenêtre",
+                        )}
+                      </span>
+                    </label>
+
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={settings.launchAtLogin}
+                        disabled={autostartBusy}
+                        onChange={(event) => void toggleAutostart(event.target.checked)}
+                      />
+                      <span>{tt("Démarrer à l’ouverture de session")}</span>
+                    </label>
+                    <p className="field__hint">
+                      {tt(
+                        "Coffre démarre verrouillé et masqué ; ouvrez-le depuis la barre de menus.",
+                      )}
+                    </p>
+                  </section>
+                )}
 
                 <section className="settings-section">
                   <div className="settings-section__head">
@@ -1052,7 +1160,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                               })
                             }}
                           />
-                          <span>{tt("Déverrouiller avec Touch ID (empreinte)")}</span>
+                          <span>{tt("Déverrouiller avec la biométrie (Touch ID / Windows Hello)")}</span>
                         </label>
                         <details className="settings-help">
                           <summary>{tt("En savoir plus")}</summary>
@@ -1079,7 +1187,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                               )}
                               {biometricBusy
                                 ? 'Réinitialisation…'
-                                : 'Réinitialiser Touch ID'}
+                                : 'Réinitialiser le déverrouillage biométrique'}
                             </button>
                           </div>
                         )}
@@ -1098,7 +1206,9 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                       />
                       <span>
                         Mémoriser la clé maîtresse dans le trousseau du système
-                        {settings.biometricUnlock ? ' (remplacé par Touch ID)' : ''}
+                        {settings.biometricUnlock
+                          ? ` ${tt('(remplacé par la biométrie)')}`
+                          : ''}
                       </span>
                     </label>
                     <details className="settings-help">
