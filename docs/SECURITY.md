@@ -1051,6 +1051,11 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   Cette restriction est appliquée par l’application ; un membre qui modifie son
   client et possède la clé partagée peut toujours écrire. Les rôles ne sont donc
   pas une barrière cryptographique contre un membre malveillant ;
+- la révocation d’un membre exige le rôle administrateur, génère une nouvelle
+  clé de coffre, ré-enveloppe les clés d’éléments et les métadonnées, puis
+  produit un nouveau paquet pour les membres restants. La révocation est
+  **forward-only** : l’ancien membre conserve l’ancienne clé pour les contenus
+  déjà reçus, mais ne peut plus lire les nouvelles écritures ;
 - les enveloppes utilisent HPKE base mode avec X25519, HKDF-SHA-256 et
   AES-256-GCM ; l’information `info` lie le chiffré au coffre et au membre, ou
   au contact d’urgence ;

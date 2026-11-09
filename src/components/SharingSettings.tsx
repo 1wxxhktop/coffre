@@ -13,17 +13,23 @@ export function SharingSettings() {
     createSharingIdentity,
     createSharingPackage,
     importSharingPackage,
+    getVaultSharing,
+    revokeSharingMember,
   } = useVault()
   const { tt } = useI18n()
   const { toast } = useToast()
   const [identity, setIdentity] = useState<SharingIdentity | null>(null)
-  const [busy, setBusy] = useState<'identity' | 'package' | 'import' | null>(null)
+  const [busy, setBusy] = useState<'identity' | 'package' | 'import' | 'revoke' | null>(null)
   const [copied, setCopied] = useState<'identity' | 'package' | null>(null)
   const [shareVaultId, setShareVaultId] = useState(vaults[0]?.id ?? '')
   const [memberText, setMemberText] = useState('')
   const [packageText, setPackageText] = useState('')
   const [importText, setImportText] = useState('')
   const [importName, setImportName] = useState('')
+  const [members, setMembers] = useState<
+    import('../lib/types').VaultSharingMember[]
+  >([])
+  const [adminFingerprint, setAdminFingerprint] = useState<string | undefined>()
 
   useEffect(() => {
     let cancelled = false
@@ -44,6 +50,27 @@ export function SharingSettings() {
       setShareVaultId(vaults[0]?.id ?? '')
     }
   }, [shareVaultId, vaults])
+
+  const loadMembers = async (vaultId: string) => {
+    if (!vaultId) {
+      setMembers([])
+      setAdminFingerprint(undefined)
+      return
+    }
+    try {
+      const sharing = await getVaultSharing(vaultId)
+      setMembers(sharing.members)
+      setAdminFingerprint(sharing.adminFingerprint)
+    } catch {
+      setMembers([])
+      setAdminFingerprint(undefined)
+    }
+  }
+
+  useEffect(() => {
+    void loadMembers(shareVaultId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareVaultId])
 
   const create = async () => {
     if (busy) return
@@ -80,6 +107,7 @@ export function SharingSettings() {
         memberText.split('\n'),
       )
       setPackageText(JSON.stringify(pkg, null, 2))
+      await loadMembers(shareVaultId)
       toast(tt('Paquet de partage généré'), 'success')
     } catch (caught) {
       toast(
@@ -96,6 +124,24 @@ export function SharingSettings() {
     if (await copyToClipboard(packageText)) {
       setCopied('package')
       window.setTimeout(() => setCopied(null), 1_500)
+    }
+  }
+
+  const revoke = async (fingerprint: string) => {
+    if (busy) return
+    setBusy('revoke')
+    try {
+      const pkg = await revokeSharingMember(shareVaultId, fingerprint)
+      setPackageText(JSON.stringify(pkg, null, 2))
+      await loadMembers(shareVaultId)
+      toast(tt('Membre révoqué, nouveau paquet généré.'), 'success')
+    } catch (caught) {
+      toast(
+        caught instanceof Error ? caught.message : tt('Révocation impossible.'),
+        'error',
+      )
+    } finally {
+      setBusy(null)
     }
   }
 
@@ -248,6 +294,49 @@ export function SharingSettings() {
         <p className="settings-copy">
           {tt(
             'Les rôles sont vérifiés à l’import ; l’écriture n’est pas encore restreinte par le rôle.',
+          )}
+        </p>
+      </details>
+
+      <details className="settings-help">
+        <summary>{tt('Membres du coffre')}</summary>
+        {members.length === 0 ? (
+          <p className="settings-copy">{tt('Aucun membre enregistré.')}</p>
+        ) : (
+          <div className="detail-list">
+            {members.map((member) => (
+              <div className="detail-row" key={member.fingerprint}>
+                <span className="detail-row__label">
+                  <span className="mono">{member.fingerprint}</span>
+                </span>
+                <span className="detail-row__value">
+                  <span className="detail-row__text">
+                    {member.role === 'write' ? tt('Écriture') : tt('Lecture')}
+                    {member.fingerprint === adminFingerprint
+                      ? ` · ${tt('Administrateur')}`
+                      : ''}
+                  </span>
+                  {member.fingerprint === adminFingerprint ||
+                  adminFingerprint !== identity?.fingerprint ? null : (
+                    <span className="detail-row__actions">
+                      <button
+                        type="button"
+                        className="button button--danger-text"
+                        onClick={() => void revoke(member.fingerprint)}
+                        disabled={busy !== null}
+                      >
+                        {tt('Révoquer')}
+                      </button>
+                    </span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="settings-copy">
+          {tt(
+            'Un membre révoqué conserve l’ancienne clé pour les contenus déjà reçus.',
           )}
         </p>
       </details>

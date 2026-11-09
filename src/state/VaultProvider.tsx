@@ -19,6 +19,9 @@ import {
 import {
   addAttachment as addAttachmentToFile,
   addSharedVault,
+  readVaultSharing,
+  rotateVaultKey,
+  setVaultSharingMembers,
   addVault as addVaultToFile,
   appendActivity,
   deleteAliasKey as deleteAliasKeyInFile,
@@ -59,7 +62,7 @@ import {
   type VaultIntegrityReport,
   type VaultSession,
 } from '../lib/vault'
-import { deriveMasterKey, fromBase64, toBase64, wipe } from '../lib/crypto'
+import { deriveMasterKey, fromBase64, randomBytes, toBase64, wipe } from '../lib/crypto'
 import { deleteVaultKey, loadVaultKey, storeVaultKey } from '../lib/keychain'
 import {
   deleteBiometricKey,
@@ -206,6 +209,16 @@ interface VaultContextValue extends ProviderState {
   ) => Promise<SharedVaultPackage>
   /** Importe un coffre partagé dans le fichier local. */
   importSharingPackage: (packageText: string, vaultName: string) => Promise<void>
+  /** Liste les membres connus d’un coffre partagé. */
+  getVaultSharing: (vaultId: string) => Promise<{
+    members: import('../lib/types').VaultSharingMember[]
+    adminFingerprint?: string
+  }>
+  /** Révoque un membre et renvoie le nouveau paquet pour les restants. */
+  revokeSharingMember: (
+    vaultId: string,
+    memberFingerprint: string,
+  ) => Promise<SharedVaultPackage>
   /** Supprime puis réenregistre la clé biométrique du coffre courant. */
   resetBiometricKey: () => Promise<void>
   lock: () => void
@@ -1079,12 +1092,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (members.length < 2) {
           throw new Error('Ajoutez au moins une identité de membre')
         }
-        return createSharedVaultPackage({
+        const pkg = await createSharedVaultPackage({
           vaultId,
           vaultKey,
           admin: identity,
           members,
         })
+        const withMembers = await setVaultSharingMembers(
+          file,
+          current.session,
+          vaultId,
+          members.map((member) => ({
+            encryptionPublicKey: member.identity.encryptionPublicKey,
+            signingPublicKey: member.identity.signingPublicKey,
+            fingerprint: member.identity.fingerprint,
+            role: member.role,
+          })),
+          identity.fingerprint,
+        )
+        const signed = await persist(file, withMembers)
+        apply((previous) => ({ ...previous, file: signed }))
+        return pkg
       }),
     [apply, enqueue, persist],
   )
@@ -1131,6 +1159,78 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           syncPending: true,
           syncRevision: previous.syncRevision + 1,
         }))
+      }),
+    [apply, enqueue, persist],
+  )
+
+  const getVaultSharing = useCallback(
+    async (vaultId: string) => {
+      const current = stateRef.current
+      if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+      return readVaultSharing(current.file, current.session, vaultId)
+    },
+    [],
+  )
+
+  const revokeSharingMember = useCallback(
+    (vaultId: string, memberFingerprint: string) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (current.readOnly) throw new Error('Le coffre est en lecture seule.')
+        let file = current.file
+        let identity: SharingIdentity
+        if (file.sharing) {
+          identity = await openSharingIdentity(
+            file.sharing,
+            current.session.masterKey,
+            file.id,
+          )
+        } else {
+          throw new Error('Créez d’abord votre identité de partage')
+        }
+        const sharing = await readVaultSharing(file, current.session, vaultId)
+        if (sharing.adminFingerprint !== identity.fingerprint) {
+          throw new Error('Seul l’administrateur peut révoquer un membre')
+        }
+        if (memberFingerprint === identity.fingerprint) {
+          throw new Error('L’administrateur ne peut pas se révoquer lui-même')
+        }
+        if (!sharing.members.some((member) => member.fingerprint === memberFingerprint)) {
+          throw new Error('Membre introuvable')
+        }
+        const remaining = sharing.members.filter(
+          (member) => member.fingerprint !== memberFingerprint,
+        )
+        const rotated = await rotateVaultKey(
+          file,
+          current.session,
+          vaultId,
+          randomBytes(32),
+        )
+        file = await setVaultSharingMembers(
+          rotated,
+          current.session,
+          vaultId,
+          remaining,
+          identity.fingerprint,
+        )
+        const pkg = await createSharedVaultPackage({
+          vaultId,
+          vaultKey: current.session.vaultKey(vaultId),
+          admin: identity,
+          members: remaining.map((member) => ({
+            identity: {
+              encryptionPublicKey: member.encryptionPublicKey,
+              signingPublicKey: member.signingPublicKey,
+              fingerprint: member.fingerprint,
+            },
+            role: member.role,
+          })),
+        })
+        const signed = await persist(current.file, file)
+        apply((previous) => ({ ...previous, file: signed }))
+        return pkg
       }),
     [apply, enqueue, persist],
   )
@@ -2796,6 +2896,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     createSharingIdentity,
     createSharingPackage,
     importSharingPackage,
+    getVaultSharing,
+    revokeSharingMember,
     resetBiometricKey,
     lock,
     addVault,
