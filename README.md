@@ -735,7 +735,11 @@ pas automatiquement à son contenu. La liste des connexions occupe toute la
 hauteur disponible et défile avec le reste du panneau. Une fois le remplissage
 actif dans l’onglet, le bouton d’activation laisse place à une pastille verte
 dans le pied de page. Le logo Coffre est un SVG inline qui s’inverse selon le
-thème clair ou sombre, dans le popup comme dans le menu des champs.
+thème clair ou sombre, dans le popup comme dans le menu des champs, et les
+icônes d’action 16/32/48/128 px disposent de variantes clair/sombre.
+La barre de recherche et le bouton du générateur restent ancrés en haut pendant
+le défilement ; la recherche est focalisée à l’ouverture et une touche
+imprimable lance immédiatement une recherche.
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
 propose une mise à jour.
