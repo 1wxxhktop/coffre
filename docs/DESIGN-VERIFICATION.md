@@ -18,7 +18,7 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | Versions | `bun run version:check` | 0.8.0 cohérente |
 | Rust format | `cargo fmt -- --check` | OK |
 | Rust lint | `cargo clippy --all-targets -- -D warnings` | OK |
-| Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 28 tests desktop (1 ignoré) + 12 tests cœur + 1 test FFI + 9 tests CLI + 17 tests agent SSH |
+| Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 30 tests desktop (1 ignoré) + 12 tests cœur + 1 test FFI + 9 tests CLI + 17 tests agent SSH |
 | axe A/AA | `e2e/accessibility.spec.ts` | 0 violation sur les écrans scannés |
 
 ## Couverture e2e design
