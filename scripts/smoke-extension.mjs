@@ -226,7 +226,11 @@ try {
       const windowPromise = context.waitForEvent('page', { timeout: 30_000 })
       await passkeyPage.getByRole('button', { name: action }).click()
       const prompt = await windowPromise
-      await prompt.getByRole('button', { name: button }).click()
+      // La fenêtre de confirmation se ferme dès que la décision est envoyée :
+      // déclencher le clic sans attendre la fermeture évite une course Playwright.
+      await prompt
+        .getByRole('button', { name: button })
+        .evaluate((element) => element.click())
       await passkeyPage.waitForFunction(
         () => Boolean(document.querySelector('#passkey-result')?.dataset.kind),
         null,
