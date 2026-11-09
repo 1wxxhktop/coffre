@@ -1,0 +1,46 @@
+name: Fuzz
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: coffre-core (libFuzzer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Installer cargo-fuzz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+
+      - name: Fuzzer le parseur
+        working-directory: src-tauri/crates/coffre-core
+        run: cargo fuzz run vault_parse -- -max_total_time=120 -rss_limit_mb=2048
+
+      - name: Fuzzer la fusion
+        working-directory: src-tauri/crates/coffre-core
+        run: cargo fuzz run merge -- -max_total_time=120 -rss_limit_mb=2048
+
+      - name: Conserver les artefacts en cas d’échec
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-artifacts
+          path: src-tauri/crates/coffre-core/fuzz/artifacts
+          retention-days: 7

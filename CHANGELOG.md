@@ -183,7 +183,8 @@
   comparés deux fois avec `SOURCE_DATE_EPOCH=0`, SBOM CycloneDX Rust et web
   générés en CI et joints aux releases macOS. `cargo deny` contrôle licences,
   avis RUSTSEC et sources ; les exceptions sont documentées dans
-  `src-tauri/deny.toml`.
+  `src-tauri/deny.toml`. Fuzzing hebdomadaire du parseur et de la fusion
+  `coffre-core` avec libFuzzer.
 - Cœur Rust partagé `coffre-core` : Argon2id, AES-256-GCM, AAD, HMAC-SHA-256,
   manifeste canonique, ouverture des fichiers v1 à v4, création/modification/
   suppression d’éléments, signature v4 (horloges, tombstones, MAC), rotation

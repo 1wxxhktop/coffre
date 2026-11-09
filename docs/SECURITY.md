@@ -1092,6 +1092,9 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   (crates.io uniquement). Les avis temporairement ignorés sont documentés dans
   `src-tauri/deny.toml` : `rsa` 0.9 (attente de `ssh-key` 0.7/`rsa` 0.10) et
   des crates transitoires non maintenues de la chaîne Tauri ;
+- deux cibles de fuzzing (`vault_parse`, `merge`) sont exécutées chaque
+  semaine en CI sur Rust nightly ; le corpus et les artefacts restent hors du
+  dépôt ;
 - les builds desktop ne sont pas encore comparés de façon reproductible, et
   l’audit externe reste à intégrer.
 

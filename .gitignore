@@ -36,3 +36,9 @@ blob-report
 
 # SBOM générés
 sbom/
+
+# Fuzzing
+src-tauri/crates/coffre-core/fuzz/target/
+src-tauri/crates/coffre-core/fuzz/corpus/
+src-tauri/crates/coffre-core/fuzz/artifacts/
+src-tauri/crates/coffre-core/fuzz/Cargo.lock
