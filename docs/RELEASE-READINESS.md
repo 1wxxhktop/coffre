@@ -100,14 +100,9 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
 
-- **Tests** : 503 tests unitaires (71 fichiers), 146 exécutions Playwright
-  (73 parcours sur Chromium et WebKit), 32 tests Rust desktop (1 ignoré) +
-  12 tests `coffre-core` + 1 test FFI + 13 tests `coffre-cli` + 17 tests agent
-
-- **Tests** : 567 tests unitaires (73 fichiers), 146 exécutions Playwright
+- **Tests** : 567 tests unitaires (75 fichiers), 146 exécutions Playwright
   (73 parcours sur Chromium et WebKit), 36 tests Rust desktop (1 ignoré) +
   22 tests `coffre-core` + 3 tests FFI + 13 tests `coffre-cli` + 17 tests agent
-
   SSH, smoke extension
   (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
   verrouillage), vérification HIBP interceptée, relais natif simulé et
