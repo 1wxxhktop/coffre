@@ -74,6 +74,8 @@ function report(score: number, weak = 1): SecurityReport {
     similar: [],
     old: [],
     no2fa: [],
+    passkeyAvailable: [],
+    noHttps: [],
     duplicates: [],
     incomplete: [],
     breached: [],
@@ -100,6 +102,7 @@ describe('historique du score de sécurité', () => {
     expect(first).toHaveLength(1)
     expect(first[0]).toMatchObject({
       date: '2026-11-08',
+      scoreVersion: 2,
       score: 40,
       total: 10,
       weak: 1,
@@ -178,6 +181,30 @@ describe('historique du score de sécurité', () => {
       delta: 25,
     })
     expect(summarizeSecurityHistory([])).toBeNull()
+  })
+
+  it('annote les mesures antérieures au nouveau calcul', () => {
+    storage.setItem(
+      'coffre:security-history:v1',
+      JSON.stringify([
+        {
+          date: '2026-11-01',
+          score: 50,
+          total: 10,
+          weak: 2,
+          reused: 0,
+          no2fa: 0,
+          affected: 2,
+        },
+      ]),
+    )
+    expect(loadSecurityHistory()[0].scoreVersion).toBe(1)
+    const merged = mergeSecuritySnapshot(
+      loadSecurityHistory(),
+      report(60),
+      new Date(2026, 10, 8),
+    )
+    expect(merged.map((entry) => entry.scoreVersion)).toEqual([1, 2])
   })
 
   it('résiste à un stockage corrompu et peut être effacé', () => {

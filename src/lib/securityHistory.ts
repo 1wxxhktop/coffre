@@ -11,10 +11,14 @@ import type { SecurityReport } from './security'
 
 const HISTORY_KEY = 'coffre:security-history:v1'
 export const MAX_SECURITY_HISTORY_DAYS = 365
+/** Version du calcul du score ; 1 pour les mesures antérieures à Q2. */
+export const SECURITY_SCORE_VERSION = 2
 
 export interface SecuritySnapshot {
   /** Date locale AAAA-MM-JJ. */
   date: string
+  /** Version de la formule ; absente des anciennes mesures. */
+  scoreVersion?: number
   score: number
   total: number
   weak: number
@@ -50,6 +54,11 @@ function parseSnapshot(value: unknown): SecuritySnapshot | null {
     parsed[key] = Math.round(number)
   }
   if (parsed.score > 100) parsed.score = 100
+  const scoreVersion = Number(record.scoreVersion)
+  parsed.scoreVersion =
+    Number.isFinite(scoreVersion) && scoreVersion >= 1
+      ? Math.round(scoreVersion)
+      : 1
   return parsed
 }
 
@@ -103,6 +112,7 @@ export function mergeSecuritySnapshot(
 
   const snapshot: SecuritySnapshot = {
     date: dateStamp(now),
+    scoreVersion: SECURITY_SCORE_VERSION,
     score: report.score,
     total: report.total,
     weak: report.weak.length,
