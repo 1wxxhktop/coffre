@@ -15,7 +15,7 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |
 | Build extension | `bun run extension:build` | OK |
-| Versions | `bun run version:check` | 0.8.0 cohérente |
+| Versions | `bun run version:check` | 0.9.0 cohérente |
 | Rust format | `cargo fmt -- --check` | OK |
 | Rust lint | `cargo clippy --all-targets -- -D warnings` | OK |
 | Rust tests | `cargo test --lib` + `cargo test -p coffre-core` | 30 tests desktop (1 ignoré) + 12 tests cœur + 1 test FFI + 9 tests CLI + 17 tests agent SSH |

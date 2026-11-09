@@ -106,8 +106,8 @@ Le workflow `.github/workflows/release.yml` se déclenche sur un tag `v*` :
 # La version doit être identique dans package.json, Cargo.toml,
 # tauri.conf.json et le manifeste de l’extension.
 bun run version:check
-git tag v0.8.0
-git push origin v0.8.0
+git tag v0.9.0
+git push origin v0.9.0
 ```
 
 Le workflow :
@@ -127,8 +127,8 @@ Sur une machine vierge ou après téléchargement :
 ```bash
 spctl --assess --type execute --verbose=4 Coffre.app
 xcrun stapler validate Coffre.app
-xcrun stapler validate Coffre_0.8.0_universal.dmg
-shasum -a 256 Coffre_0.8.0_universal.dmg
+xcrun stapler validate Coffre_0.9.0_universal.dmg
+shasum -a 256 Coffre_0.9.0_universal.dmg
 ```
 
 Le résultat attendu de `spctl` mentionne `accepted` et

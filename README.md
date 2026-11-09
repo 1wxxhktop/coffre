@@ -8,7 +8,7 @@ La synchronisation et la vérification des fuites sont optionnelles ; cette
 dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
 L’interface est en français.
 
-> **État du projet — 0.8.0 (passkeys, trousseau natif et interface desktop).**
+> **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
 > La version web/PWA est fonctionnelle et couverte par 463 tests unitaires et
 > 65 parcours Playwright exécutés sur Chromium et WebKit (130 exécutions, 6 ignorées). Une
 > intégration continue vérifie lint, types, tests et build ; les bundles desktop

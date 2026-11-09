@@ -995,7 +995,7 @@ checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
 name = "coffre"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "active-win-pos-rs",
  "aes-gcm 0.10.3",
@@ -1028,7 +1028,7 @@ dependencies = [
 
 [[package]]
 name = "coffre-cli"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "clap",
  "coffre-core",
@@ -1042,7 +1042,7 @@ dependencies = [
 
 [[package]]
 name = "coffre-core"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "argon2",
@@ -1057,7 +1057,7 @@ dependencies = [
 
 [[package]]
 name = "coffre-core-ffi"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "coffre-core",
  "serde",
@@ -1068,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "coffre-ssh-agent"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "clap",
  "coffre-core",
