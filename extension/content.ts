@@ -23,7 +23,6 @@ import {
   type DetectedAutofill,
 } from './detect'
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
-import { submitLoginForm } from './loginSubmit'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 const MENU_ORIGIN = new URL(api.runtime.getURL('menu.html')).origin
@@ -443,7 +442,6 @@ api.runtime.onMessage.addListener(
       password: values.password,
       totp: values.totp ?? '',
     })
-    if (filled > 0) submitLoginForm()
     sendResponse(filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' })
   },
 )
