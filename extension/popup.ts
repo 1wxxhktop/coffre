@@ -588,7 +588,7 @@ async function fillEntry(itemId: string) {
       tabId: currentTab?.id,
     })
     if (response.ok) {
-      showMessage('Identifiants remplis dans la page.', 'success')
+      showMessage(t('popup_filledSubmitted'), 'success')
       window.setTimeout(() => window.close(), 700)
     } else {
       showMessage(errorText(response.error), 'error')
