@@ -14,6 +14,7 @@ import type {
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
 import { isValidRpId } from '../src/lib/passkeys'
 import { submitLoginForm } from './loginSubmit'
+import { saveBannerView } from './saveBannerState'
 import {
   PendingSaveStore,
   RecentSelectionStore,
@@ -126,6 +127,7 @@ interface ExtensionMessage {
   card?: Record<string, unknown>
   identity?: Record<string, unknown>
   requestId?: string
+  offerId?: string
   payload?: unknown
   decision?: string
 }
@@ -845,7 +847,7 @@ async function loginSaveState(
 async function formSubmitted(
   sender: chrome.runtime.MessageSender,
   message: ExtensionMessage,
-): Promise<{ prompt: boolean; error?: string }> {
+): Promise<{ prompt: boolean; offerId?: string; error?: string }> {
   const tabId = sender.tab?.id
   const frameId = sender.frameId
   if (!Number.isInteger(tabId) || !Number.isInteger(frameId)) {
@@ -948,8 +950,11 @@ async function formSubmitted(
     if (state === 'different') pending.update = true
   }
 
-  await setPendingSave(saveKey(tabId as number, frameId as number), pending)
-  return { prompt: true }
+  const saved = await setPendingSave(
+    saveKey(tabId as number, frameId as number),
+    pending,
+  )
+  return { prompt: true, offerId: saved.id }
 }
 
 async function saveCredentials(
@@ -1120,14 +1125,10 @@ async function saveIdentity(
   }
 }
 
-async function menuSave(
-  tabId: number,
-  frameId: number,
+async function savePendingEntry(
+  pending: StoredPendingSave,
+  username = pending.username,
 ): Promise<{ ok?: boolean; updated?: boolean; error?: string }> {
-  if (!validTabFrame(tabId, frameId)) return { error: 'invalid' }
-  const key = saveKey(tabId, frameId)
-  const pending = await pendingSaveStore.get(key)
-  if (!pending) return { error: 'no-pending' }
   const result =
     pending.kind === 'card' && pending.card
       ? await saveCard(pending.card)
@@ -1135,13 +1136,23 @@ async function menuSave(
         ? await saveIdentity(pending.identity)
         : await saveCredentials({
             host: pending.host,
-            username: pending.username,
+            username,
             password: pending.password,
           })
   if (result.ok) {
-    await clearPendingSave(key)
+    await clearPendingSave(pending.key)
   }
   return result
+}
+
+async function menuSave(
+  tabId: number,
+  frameId: number,
+): Promise<{ ok?: boolean; updated?: boolean; error?: string }> {
+  if (!validTabFrame(tabId, frameId)) return { error: 'invalid' }
+  const pending = await pendingSaveStore.get(saveKey(tabId, frameId))
+  if (!pending) return { error: 'no-pending' }
+  return savePendingEntry(pending)
 }
 
 type PasskeyKind = 'create' | 'get'
@@ -1211,6 +1222,16 @@ function isPasskeyPage(sender: chrome.runtime.MessageSender): boolean {
     (sender.url === page || sender.url.startsWith(`${page}?`))
   )
 }
+
+function isSaveBannerPage(sender: chrome.runtime.MessageSender): boolean {
+  const page = api.runtime.getURL('save-banner.html')
+  return (
+    typeof sender.url === 'string' &&
+    (sender.url === page || sender.url.startsWith(`${page}?`))
+  )
+}
+
+const OFFER_ID_PATTERN = /^[a-f0-9-]{8,64}$/i
 
 function closePasskeyWindow(request: PendingPasskeyRequest): void {
   if (typeof request.windowId === 'number') {
@@ -1667,6 +1688,45 @@ async function handle(
       )
     case 'FORM_SUBMITTED':
       return formSubmitted(sender, message)
+    case 'GET_PENDING_BANNER': {
+      const context = await contentContext(sender)
+      if (!context || context.frameId !== 0) return { offer: null }
+      const pending = await latestPendingForTab(context.tabId)
+      if (
+        !pending ||
+        !(
+          pending.host === context.host ||
+          hostMatches(pending.host, context.host)
+        )
+      ) {
+        return { offer: null }
+      }
+      const view = saveBannerView(pending)
+      return view ? { offer: { id: view.offerId } } : { offer: null }
+    }
+    case 'GET_SAVE_BANNER': {
+      if (!isSaveBannerPage(sender)) return { error: 'forbidden' }
+      const offerId =
+        typeof message.offerId === 'string' ? message.offerId : ''
+      if (!OFFER_ID_PATTERN.test(offerId)) return { error: 'invalid' }
+      const pending = await pendingSaveStore.find(offerId)
+      if (!pending) return { error: 'no-pending' }
+      const view = saveBannerView(pending)
+      return view ? { banner: view } : { error: 'no-pending' }
+    }
+    case 'SAVE_BANNER_NOW': {
+      if (!isSaveBannerPage(sender)) return { error: 'forbidden' }
+      const offerId =
+        typeof message.offerId === 'string' ? message.offerId : ''
+      if (!OFFER_ID_PATTERN.test(offerId)) return { error: 'invalid' }
+      const pending = await pendingSaveStore.find(offerId)
+      if (!pending) return { error: 'no-pending' }
+      const username =
+        pending.kind === 'login'
+          ? pendingText(message.username, 500) || pending.username
+          : pending.username
+      return savePendingEntry(pending, username)
+    }
     case 'SAVE_STATUS': {
       const key = saveKey(Number(message.tabId), Number(message.frameId))
       const pending = await pendingSaveStore.get(key)

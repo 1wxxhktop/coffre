@@ -113,6 +113,48 @@
   "options_permissionsCopy": {
     "message": "The extension requests access to the active tab when filling, and to the Coffre address configured above. It has no access to other tabs outside your action."
   },
+  "saveBanner_pageTitle": {
+    "message": "Save to Coffre"
+  },
+  "saveBanner_titleLogin": {
+    "message": "Save the password for $1?"
+  },
+  "saveBanner_titleUpdate": {
+    "message": "Update the password for $1?"
+  },
+  "saveBanner_titleCard": {
+    "message": "Save this card for $1?"
+  },
+  "saveBanner_titleIdentity": {
+    "message": "Save this identity for $1?"
+  },
+  "saveBanner_username": {
+    "message": "Username"
+  },
+  "saveBanner_save": {
+    "message": "Save"
+  },
+  "saveBanner_later": {
+    "message": "Later"
+  },
+  "saveBanner_close": {
+    "message": "Close"
+  },
+  "saveBanner_saved": {
+    "message": "Saved to Coffre."
+  },
+  "saveBanner_updated": {
+    "message": "Updated in Coffre."
+  },
+  "saveBanner_errorNoPending": {
+    "message": "This suggestion has expired."
+  },
+  "saveBanner_errorSave": {
+    "message": "Could not save to Coffre."
+  },
+  "saveBanner_phishingWarning": {
+    "message": "Warning: this page does not match the original site. Check the address before saving."
+  },
   "menu_open": {
     "message": "Open Coffre"
   },

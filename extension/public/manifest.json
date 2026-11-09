@@ -34,6 +34,8 @@
       "resources": [
         "menu.html",
         "menu.js",
+        "save-banner.html",
+        "save-banner.js",
         "webauthn-main.js",
         "assets/*",
         "chunks/*",

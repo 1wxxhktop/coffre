@@ -70,6 +70,12 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : bandeau d’enregistrement après une soumission, y compris après
+  redirection. Il vit dans une iframe d’extension fermée et ne reçoit qu’un
+  identifiant d’offre ; le mot de passe reste dans `storage.session`. L’identifiant
+  est modifiable, « Plus tard » conserve la proposition dans le popup et le
+  bandeau se ferme après 30 secondes sans interaction. Le signal Q1 est prévu
+  comme point d’extension.
 - Extension : déverrouillage depuis la popup. Avec le pont natif, Coffre
   reprend le premier plan et déclenche Touch ID si l’option est active ; le
   mot de passe maître reste saisi dans l’application. Si l’application est

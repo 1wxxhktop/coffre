@@ -775,10 +775,19 @@ Puis, dans Chrome ou un navigateur Chromium :
 
 Le menu s’affiche dans une iframe d’extension : la page ne peut pas lire son
 contenu. Il propose trois onglets — **Connexions**, **Cartes** et **Identités** —
-selon les champs détectés. Une fois un élément choisi, l’extension propose aussi
-d’enregistrer ou de mettre à jour la connexion, la carte ou l’identité après la
-soumission du formulaire. Les connexions en plusieurs étapes réutilisent le
+selon les champs détectés. Les connexions en plusieurs étapes réutilisent le
 dernier identifiant choisi pendant deux minutes.
+
+Après une soumission, un **bandeau d’enregistrement** apparaît en haut à droite
+de la page d’arrivée (même avec une redirection). Il vit lui aussi dans une
+iframe d’extension fermée : la page ne voit qu’un identifiant d’offre opaque,
+jamais le mot de passe ni les métadonnées. Le bandeau propose d’enregistrer ou
+de mettre à jour la connexion, la carte ou l’identité, avec un identifiant
+modifiable pour les connexions. « Plus tard » ferme le bandeau et conserve la
+proposition dans le popup ; sans interaction, il se ferme après 30 secondes.
+Si le coffre est verrouillé avant l’enregistrement, la proposition a été purgée
+par la règle E0 et le bandeau indique qu’elle a expiré plutôt que de rejouer un
+secret disparu.
 
 **Cartes et identités.** La détection repose sur les attributs `autocomplete`
 (`cc-number`, `cc-exp`, `cc-csc`, `given-name`, `postal-code`…), les types de

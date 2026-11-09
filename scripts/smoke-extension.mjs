@@ -366,6 +366,86 @@ try {
   }, targetTab.id)
   assert.equal(expiredPending.pending, null)
 
+  // E2 : bandeau après une inscription avec redirection.
+  await target.goto(new URL('/register', TARGET_URL).toString())
+  await target.locator('#email').fill('banner@example.com')
+  await target.locator('#new-password').fill('mot-de-passe-bandeau!')
+  await target.getByRole('button', { name: 'Créer mon compte' }).click()
+  await target.waitForURL('**/welcome*')
+  await target
+    .locator('[data-coffre-save-banner]')
+    .waitFor({ timeout: 10_000 })
+
+  const bannerSecurity = await target.evaluate(() => {
+    const host = document.querySelector('[data-coffre-save-banner]')
+    host?.click()
+    return {
+      exists: Boolean(document.querySelector('[data-coffre-save-banner]')),
+      shadow: host?.shadowRoot ?? null,
+      text: host?.textContent ?? '',
+      visibleIframes: document.querySelectorAll('iframe[src*="save-banner"]').length,
+    }
+  })
+  assert.equal(bannerSecurity.exists, true)
+  assert.equal(bannerSecurity.shadow, null)
+  assert.equal(bannerSecurity.text, '')
+  assert.equal(bannerSecurity.visibleIframes, 0)
+
+  const bannerPending = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    targetTab.id,
+  )
+  assert.ok(bannerPending.pending?.id)
+  const laterBanner = await context.newPage()
+  await laterBanner.goto(
+    `chrome-extension://${extensionId}/save-banner.html?offer=${encodeURIComponent(
+      bannerPending.pending.id,
+    )}`,
+  )
+  await laterBanner.locator('#banner-later').click()
+  await laterBanner.close()
+  const afterLater = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    targetTab.id,
+  )
+  assert.equal(afterLater.pending?.id, bannerPending.pending.id)
+
+  const bannerPage = await context.newPage()
+  await bannerPage.goto(
+    `chrome-extension://${extensionId}/save-banner.html?offer=${encodeURIComponent(
+      bannerPending.pending.id,
+    )}`,
+  )
+  await bannerPage.locator('#banner-username').fill('banner+modifie@example.com')
+  await bannerPage.locator('#banner-save').click()
+  await bannerPage
+    .locator('#banner-message')
+    .filter({ hasText: /Enregistré|Saved/ })
+    .waitFor({ timeout: 10_000 })
+  await bannerPage.close()
+
+  const bannerSearch = await extensionPage.evaluate(
+    ({ query }) => chrome.runtime.sendMessage({ type: 'SEARCH', query }),
+    { query: 'banner+modifie@example.com' },
+  )
+  const savedBannerItem = bannerSearch.items?.find(
+    (entry) => entry.username === 'banner+modifie@example.com',
+  )
+  assert.ok(savedBannerItem, 'la connexion enregistrée par le bandeau est absente')
+  const savedBannerDetails = await extensionPage.evaluate(
+    ({ id, host }) => chrome.runtime.sendMessage({ type: 'DETAILS', itemId: id, host }),
+    { id: savedBannerItem.id, host: new URL(TARGET_URL).hostname },
+  )
+  assert.equal(savedBannerDetails.details?.password, 'mot-de-passe-bandeau!')
+  const bannerCleared = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    targetTab.id,
+  )
+  assert.equal(bannerCleared.pending, null)
+
   const passkeyURL = new URL('/passkey', TARGET_URL)
   if (passkeyURL.hostname === '127.0.0.1') passkeyURL.hostname = 'localhost'
   if (passkeyURL.protocol === 'https:' || passkeyURL.hostname === 'localhost') {

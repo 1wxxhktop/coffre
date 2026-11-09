@@ -1,0 +1,244 @@
+:root {
+  color-scheme: dark;
+  --panel: #111111;
+  --panel-2: #191919;
+  --text: #ededed;
+  --muted: #a1a1a1;
+  --line: #3a3a3a;
+  --primary: #ededed;
+  --primary-text: #111111;
+  --success-bg: #12251a;
+  --success-text: #86efac;
+  --error-bg: #2a1414;
+  --error-text: #fca5a5;
+  --shadow: rgba(0, 0, 0, 0.45);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --panel: #ffffff;
+    --panel-2: #f4f4f5;
+    --text: #18181b;
+    --muted: #52525b;
+    --line: #d4d4d8;
+    --primary: #18181b;
+    --primary-text: #fafafa;
+    --success-bg: #dcfce7;
+    --success-text: #166534;
+    --error-bg: #fee2e2;
+    --error-text: #991b1b;
+    --shadow: rgba(0, 0, 0, 0.18);
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --panel: #ffffff;
+  --panel-2: #f4f4f5;
+  --text: #18181b;
+  --muted: #52525b;
+  --line: #d4d4d8;
+  --primary: #18181b;
+  --primary-text: #fafafa;
+  --success-bg: #dcfce7;
+  --success-text: #166534;
+  --error-bg: #fee2e2;
+  --error-text: #991b1b;
+  --shadow: rgba(0, 0, 0, 0.18);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+body {
+  padding: 0;
+  overflow: hidden;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.banner {
+  display: flex;
+  width: 100%;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 10px 34px var(--shadow);
+}
+
+.banner__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.banner__head-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.banner__head strong {
+  display: block;
+  font-size: 13px;
+}
+
+.banner__head small {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.banner__mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 7px;
+}
+
+.icon-button {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.banner__title {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.banner__detail {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.banner__field {
+  display: grid;
+  gap: 4px;
+}
+
+.banner__field span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.banner__field input {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.banner__field input:focus {
+  border-color: var(--text);
+  outline: none;
+}
+
+.banner__message {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.banner__message--success {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.banner__message--error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.banner__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.banner__actions .button {
+  flex: 1;
+}
+
+.button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--text);
+}
+
+.button--primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (max-width: 420px) {
+  .banner {
+    border-radius: 12px;
+  }
+}
