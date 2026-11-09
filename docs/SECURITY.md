@@ -1088,8 +1088,12 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
 - des SBOM CycloneDX sont générés pour chaque crate Rust et pour le projet
   npm, conservés comme artefact de CI et joints aux releases macOS. Ils ne sont
   pas encore signés séparément ;
+- `cargo deny` vérifie les licences autorisées, les avis RUSTSEC et les sources
+  (crates.io uniquement). Les avis temporairement ignorés sont documentés dans
+  `src-tauri/deny.toml` : `rsa` 0.9 (attente de `ssh-key` 0.7/`rsa` 0.10) et
+  des crates transitoires non maintenues de la chaîne Tauri ;
 - les builds desktop ne sont pas encore comparés de façon reproductible, et
-  `cargo deny`/l’audit externe restent à intégrer.
+  l’audit externe reste à intégrer.
 
 ## 3. Stockage local
 

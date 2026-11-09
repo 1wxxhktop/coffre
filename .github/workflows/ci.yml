@@ -175,6 +175,14 @@ jobs:
         with:
           tool: cargo-audit
 
+      - name: Installer cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2
+
+      - name: Vérifier licences, avis et sources
+        run: cargo deny --manifest-path src-tauri/Cargo.toml --config src-tauri/deny.toml --workspace check
+
       - name: Auditer les crates
         working-directory: src-tauri
         run: cargo audit
