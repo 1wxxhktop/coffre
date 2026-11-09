@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import {
   clearVaultStorage,
   loadBackupVaultFile,
@@ -145,6 +146,7 @@ import {
 } from '../lib/sharedSyncConfig'
 import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
 import { isTauriRuntime } from '../lib/external'
+import { SYSTEM_LOCK_EVENT, isStartedHidden, systemLockShouldLock } from '../lib/systemIntegration'
 import {
   getSyncConfig,
   newSyncDeviceId,
@@ -725,6 +727,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     void (async () => {
       try {
+        // Un lancement automatique à l’ouverture de session ne doit jamais
+        // déverrouiller le coffre silencieusement, même si le trousseau est
+        // configuré : la fenêtre reste masquée et verrouillée.
+        const startedHidden = isTauriRuntime()
+          ? await isStartedHidden().catch(() => false)
+          : false
         const file = await loadVaultFile()
         if (cancelled) return
         if (!file) {
@@ -745,6 +753,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         // l’a demandé, si Touch ID n’est pas requis et si la clé correspond
         // encore à ce fichier.
         if (
+          !startedHidden &&
           settingsRef.current.keychainUnlock &&
           !settingsRef.current.biometricUnlock
         ) {
@@ -961,7 +970,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           throw new Error(
             error instanceof Error
               ? error.message
-              : 'L’authentification par empreinte a échoué',
+              : 'L’authentification biométrique a échoué',
           )
         }
 
@@ -976,7 +985,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           biometricKeyFileRef.current = null
           await deleteBiometricKey(current.file.id)
           throw new Error(
-            'Aucune clé biométrique n’est enregistrée pour ce coffre. Déverrouillez avec le mot de passe, puis réactivez Touch ID.',
+            'Aucune clé biométrique n’est enregistrée pour ce coffre. Déverrouillez avec le mot de passe, puis réactivez le déverrouillage biométrique.',
           )
         }
 
@@ -1010,7 +1019,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           biometricKeyFileRef.current = null
           await deleteBiometricKey(current.file.id)
           throw new Error(
-            'La clé biométrique n’est plus valide. Déverrouillez avec le mot de passe, puis réactivez Touch ID.',
+            'La clé biométrique n’est plus valide. Déverrouillez avec le mot de passe, puis réactivez le déverrouillage biométrique.',
           )
         } finally {
           wipe(masterKey)
@@ -1805,6 +1814,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [sharedSyncFileId, state.syncRevision, syncSharedVault])
 
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    void listen<{ kind?: string }>(SYSTEM_LOCK_EVENT, (event) => {
+      if (disposed) return
+      if (systemLockShouldLock(settingsRef.current, event.payload)) lock()
+    })
+      .then((cleanup) => {
+        if (disposed) cleanup()
+        else unlisten = cleanup
+      })
+      .catch(() => undefined)
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [lock])
 
   useEffect(() => {
     // Fermeture, rechargement ou mise en cache (bfcache) : la session est

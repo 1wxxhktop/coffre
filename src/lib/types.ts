@@ -582,13 +582,21 @@ export interface AppSettings {
   lockOnHide: boolean
   /** Desktop : verrouiller lorsque la fenêtre perd le focus. */
   lockOnFocusLoss: boolean
+  /** Desktop : verrouiller lorsque la session du système se verrouille. */
+  lockOnSystemLock: boolean
+  /** Desktop : verrouiller à la mise en veille. */
+  lockOnSleep: boolean
+  /** Desktop : garder l’application dans la barre de menus à la fermeture. */
+  trayKeepOnClose: boolean
+  /** Desktop : démarrer Coffre à l’ouverture de session, verrouillé et masqué. */
+  launchAtLogin: boolean
   /** Durée de conservation de la corbeille ; 0 = jamais purger automatiquement. */
   trashRetentionDays: number
   /** Durée de conservation de l’historique du générateur ; 0 = désactivé. */
   generatorHistoryRetentionDays: number
   /** Desktop : mémoriser la clé maîtresse dans le trousseau du système. */
   keychainUnlock: boolean
-  /** Desktop macOS : déverrouiller par empreinte (Touch ID). */
+  /** Desktop macOS/Windows : déverrouiller par biométrie (Touch ID ou Windows Hello). */
   biometricUnlock: boolean
   /** Afficher des notifications locales pour les échéances proches. */
   expiryNotifications: boolean
@@ -603,6 +611,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   clipboardClearSeconds: 30,
   lockOnHide: true,
   lockOnFocusLoss: false,
+  lockOnSystemLock: true,
+  lockOnSleep: true,
+  trayKeepOnClose: true,
+  launchAtLogin: false,
   trashRetentionDays: 30,
   generatorHistoryRetentionDays: 7,
   keychainUnlock: false,
