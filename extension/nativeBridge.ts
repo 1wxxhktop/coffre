@@ -390,6 +390,7 @@ export async function nativeFill(
   host: string,
   kind: 'login' | 'card' | 'identity' | 'custom' = 'login',
   includeSensitive = false,
+  allowMismatch = false,
 ): Promise<{ credentials?: unknown; error?: string }> {
   try {
     const response = await encryptedRequest({
@@ -398,9 +399,42 @@ export async function nativeFill(
       host,
       kind,
       includeSensitive,
+      allowMismatch,
     })
     if (typeof response.error === 'string') return { error: response.error }
     return { credentials: response.credentials ?? null }
+  } catch (error) {
+    resetConnection()
+    return { error: error instanceof Error ? error.message : 'native-unavailable' }
+  }
+}
+
+export async function nativeAssessHost(input: {
+  host?: string
+  url?: string
+  username?: string
+  mode?: 'fill' | 'save'
+  itemId?: string
+}): Promise<{ assessment?: unknown; error?: string }> {
+  try {
+    const response = await encryptedRequest({ type: 'assess-host', ...input })
+    if (typeof response.error === 'string') return { error: response.error }
+    return { assessment: response.assessment ?? null }
+  } catch (error) {
+    resetConnection()
+    return { error: error instanceof Error ? error.message : 'native-unavailable' }
+  }
+}
+
+export async function nativeRecordPhishingChoice(input: {
+  host: string
+  signals: string[]
+  choice: 'cancel' | 'continue'
+}): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    const response = await encryptedRequest({ type: 'phishing-choice', ...input })
+    if (typeof response.error === 'string') return { error: response.error }
+    return { ok: response.ok === true }
   } catch (error) {
     resetConnection()
     return { error: error instanceof Error ? error.message : 'native-unavailable' }
@@ -508,6 +542,7 @@ export async function nativeSaveLogin(input: {
   username: string
   password: string
   title?: string
+  overridePhishing?: boolean
 }): Promise<{ ok?: boolean; updated?: boolean; itemId?: string; error?: string }> {
   try {
     const response = await encryptedRequest({
@@ -516,6 +551,7 @@ export async function nativeSaveLogin(input: {
       username: input.username,
       password: input.password,
       title: input.title ?? input.host,
+      overridePhishing: input.overridePhishing === true,
     })
     if (response.type === 'save-result' && response.ok === true) {
       return {

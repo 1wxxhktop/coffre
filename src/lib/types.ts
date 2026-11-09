@@ -292,6 +292,7 @@ export type ActivityKind =
   | 'pairing'
   | 'share'
   | 'extension-fill'
+  | 'phishing-warning'
   | 'autotype'
   | 'ssh-agent'
 
