@@ -1291,8 +1291,11 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
   complet.
 - Pas de protection contre un OS compromis, un keylogger, une extension
   malveillante ou une injection de code dans la page.
-- Le bundle initial fait environ 688 Ko minifiés (215 Ko gzip), plus un worker KDF de 28 Ko ; la liste EFF et
-  `hash-wasm` pourront être chargés à la demande dans une version ultérieure.
+- Le chargement initial complet (application, React, validation et crypto)
+  représente environ 895 Ko minifiés (277 Ko gzip) répartis en chunks ; les
+  dialogues d’élément, de réglages, de sécurité et le générateur sont chargés
+  à l’ouverture, ce qui diffère aussi les importeurs et le parseur KDBX. Aucun
+  chunk ne dépasse 305 Ko ; le worker KDF pèse 28 Ko.
 - Les tests de bout en bout utilisent Chromium et WebKit ; Firefox et les
   WebViews Android/iOS réelles doivent encore être validés.
 - Le bundle macOS local est non signé et non notarisé ; les builds Windows et

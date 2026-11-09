@@ -7,6 +7,7 @@
  */
 
 import { randomId } from './crypto'
+import { unzipSync } from 'fflate'
 import { ImportError, MAX_IMPORT_ITEMS, type ParsedImport } from './import'
 import { normalizeTotpUri } from './totp'
 import {
@@ -299,7 +300,6 @@ export async function parse1pux(
 ): Promise<ParsedImport> {
   let entries: Record<string, Uint8Array>
   try {
-    const { unzipSync } = await import('fflate')
     entries = unzipSync(bytes)
   } catch {
     throw new ImportError('Ce fichier .1pux n’est pas une archive ZIP valide')
