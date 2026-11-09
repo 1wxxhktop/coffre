@@ -113,6 +113,19 @@ l’onglet « Accueil » sur mobile. Les catégories de sécurité ouvrent la li
 filtrée correspondante, et les actions rapides permettent de créer un élément
 ou de générer un mot de passe.
 
+### Liste groupée par date
+
+La bibliothèque regroupe automatiquement les éléments par date. Les sections
+sont « Aujourd’hui », « Hier », « 7 derniers jours », « Ce mois-ci », puis un
+groupe par mois pour les dates plus anciennes. Le regroupement suit la date de
+modification par défaut ; il suit la date de création avec le tri « Créés »,
+l’horodatage d’utilisation avec « Récents » et la date de suppression dans la
+corbeille. Le tri choisi s’applique à l’intérieur de chaque groupe.
+
+Les en-têtes de date restent collés en haut de la liste pendant le défilement.
+L’option « Grouper par date » du menu de la liste, active par défaut, permet de
+revenir à une liste plate ; le choix est mémorisé dans `localStorage`.
+
 ### Colonnes redimensionnables
 
 Sur desktop, deux poignées permettent d’ajuster la largeur de la barre

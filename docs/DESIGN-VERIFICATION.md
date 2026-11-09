@@ -10,8 +10,8 @@ accompagne les captures de [`design-captures/`](design-captures/).
 | TypeScript | `bun run typecheck` | OK |
 | Lint + jetons | `bun run lint` | OK, 0 erreur ; seuls des avertissements `oxlint` préexistants |
 | Jetons seuls | `bun run lint:design` | OK, aucune valeur littérale hors jetons |
-| Tests unitaires | `bun run test` | 60 fichiers, 436 tests |
-| E2E Chromium + WebKit | `bun run test:e2e` | 118 tests passés, 6 ignorés (124 exécutions) |
+| Tests unitaires | `bun run test` | 62 fichiers, 451 tests |
+| E2E Chromium + WebKit | `bun run test:e2e` | 124 tests passés, 6 ignorés (130 exécutions) |
 | Régression visuelle | `bun run test:visual` | 14 captures, Chromium/macOS, 7 écrans × 2 thèmes |
 | Build PWA | `bun run build` | OK |
 | Build extension | `bun run extension:build` | OK |
@@ -43,7 +43,9 @@ liste, la mémorisation des largeurs après rechargement, le repli en rail
 d’icônes, sa persistance, et l’absence de poignées sur mobile.
 `e2e/dashboard.spec.ts` vérifie que le tableau de bord est la vue par défaut,
 l’ouverture des catégories, des éléments et de la création, l’état du stockage,
-ainsi que son comportement mobile sans débordement.
+ainsi que son comportement mobile sans débordement. `e2e/date-groups.spec.ts`
+vérifie le regroupement automatique par date, le tri à l’intérieur des groupes
+et le retour à une liste plate.
 
 `e2e/accessibility.spec.ts` vérifie en plus les noms accessibles, le piège à
 focus des modales, `prefers-reduced-motion` et l’audit axe sur
