@@ -77,6 +77,7 @@ const settingsButton = $<HTMLButtonElement>('settings')
 const themeButton = $<HTMLButtonElement>('theme')
 const themeIcon = $<HTMLSpanElement>('theme-icon')
 const footerStatus = $<HTMLSpanElement>('footer-status')
+const bottomDock = $<HTMLDivElement>('bottom-dock')
 
 let currentTab: chrome.tabs.Tab | null = null
 let status: AppStatus = { appOpen: false, unlocked: false, appUrl: '' }
@@ -166,6 +167,11 @@ async function initTheme(): Promise<void> {
   renderTheme()
 }
 
+function updateDockHeight(): void {
+  const height = Math.ceil(bottomDock.getBoundingClientRect().height)
+  document.documentElement.style.setProperty('--dock-height', `${height}px`)
+}
+
 function normalizeAppUrl(value: string): string | null {
   try {
     const url = new URL(value.trim())
@@ -198,12 +204,14 @@ function openSettings(): void {
   setSettingsStatus('')
   renderThemeChoices()
   void loadSettings()
+  updateDockHeight()
 }
 
 function closeSettings(): void {
   settingsOpen = false
   settingsView.hidden = true
   mainView.hidden = false
+  updateDockHeight()
   void init()
 }
 
@@ -809,5 +817,12 @@ themeButton.addEventListener('click', () => {
 showAllButton.addEventListener('click', () => {
   void loadAll()
 })
+
+if (typeof ResizeObserver === 'function') {
+  new ResizeObserver(updateDockHeight).observe(bottomDock)
+} else {
+  window.addEventListener('resize', updateDockHeight)
+}
+updateDockHeight()
 
 void init()
