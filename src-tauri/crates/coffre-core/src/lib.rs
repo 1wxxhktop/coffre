@@ -4,13 +4,22 @@
 //! vérification du MAC global v4 et le manifeste canonique. Les mutations, la
 //! rotation et la fusion seront ajoutées dans les tranches suivantes.
 
+mod autofill;
 mod crypto;
+mod domain;
 mod format;
 mod merge;
+mod passkey;
+mod totp;
 
 use std::collections::HashMap;
 use std::fmt;
 use zeroize::Zeroizing;
+
+pub use autofill::{
+    CredentialIdentity, LoginSummary, RevealedLogin, credential_identities, logins_for_service,
+    reveal_login,
+};
 
 pub use crypto::{
     SealedValue, constant_time_eq, derive_master_key, from_base64, hmac_sha256, integrity_key_aad,
@@ -18,11 +27,17 @@ pub use crypto::{
     recovery_guard_aad, seal_bytes, seal_bytes_with_nonce, sha256, to_base64, validate_kdf,
     vault_key_aad, vault_meta_aad,
 };
+pub use domain::{host_from_url, login_allows_host, registrable_domain};
 pub use format::{
     AttachmentRecord, Clock, Integrity, ItemRecord, KdfParams, Manifest, RecoveryEnvelope,
     RecoveryWrap, Tombstone, VaultFile, VaultRecord, VersionRecord, canonical_json,
 };
 pub use merge::{MergeConflict, MergeError, MergeErrorCode, MergeResult, merge};
+pub use passkey::{
+    CreatedPasskey, PasskeyAssertion, StoredPasskey, assert_passkey, create_passkey,
+    validate_rp_id, verify_assertion,
+};
+pub use totp::{TotpAlgorithm, TotpConfig, parse_totp_uri};
 
 #[derive(Debug)]
 pub enum CoreError {
