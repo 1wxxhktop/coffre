@@ -715,6 +715,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run extension:smoke` | Test manuel de l’extension (serveurs requis) |
 | `bun run bridge:smoke` | Smoke du relais natif stdin/socket (binaire compilé) |
 | `bun run core:test` | Tests de `coffre-core`, de la façade FFI, du CLI et du noyau SSH |
+| `./scripts/build-coffre-core-apple.sh` | Construit localement `CoffreCore.xcframework` pour les extensions macOS (Xcode requis) |
 | `bun run core:clippy` | Clippy strict de `coffre-core`, `coffre-core-ffi`, `coffre-cli` et `coffre-ssh-agent` |
 | `bun run deny` | Vérifie licences, avis de sécurité et sources Cargo |
 | `cargo +nightly fuzz run vault_parse` | Fuzz local du parseur (depuis `src-tauri/crates/coffre-core`) |
