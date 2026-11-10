@@ -1003,12 +1003,14 @@ export function NativeBridge() {
         if (
           message.type === 'unlock-request' &&
           statusRef.current !== 'unlocked' &&
-          biometricsRef.current
+          biometricsRef.current &&
+          Boolean(await loadSessionKey())
         ) {
           try {
             await unlockWithBiometrics()
           } catch {
-            // Touch ID annulé ou indisponible : l’utilisateur garde la main.
+            // Touch ID annulé ou indisponible : la fenêtre de déverrouillage
+            // reste au premier plan et l’utilisateur garde la main.
           }
         }
         await send(connectionId, { id: message.id, type: 'focused' })

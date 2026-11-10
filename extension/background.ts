@@ -16,8 +16,29 @@ import type {
   PhishingAssessment,
   PhishingQuery,
 } from '../src/lib/phishing'
+import {
+  DEFAULT_PASSWORD_OPTIONS,
+  generatePassword,
+} from '../src/lib/password'
 import { isValidRpId } from '../src/lib/passkeys'
+import {
+  matchingLoginSummaries,
+  totpLoginSummary,
+} from './commandHelpers'
+import {
+  buildContextMenuModel,
+  type ContextMenuEntry,
+} from './contextMenuModel'
+import { t } from './i18n'
+import { loadSettings, usesNativeBridge } from './settings'
 import { submitLoginForm } from './loginSubmit'
+import { saveBannerView } from './saveBannerState'
+import {
+  PendingSaveStore,
+  RecentSelectionStore,
+  type SessionStorageArea,
+  type StoredPendingSave,
+} from './sessionState'
 import {
   nativeAssessHost,
   nativeCheckLogin,
@@ -33,6 +54,7 @@ import {
   nativeSaveLogin,
   nativeSearch,
   nativeStatus,
+  nativeUnlock,
 } from './nativeBridge'
 
 /** Firefox expose `browser` (promesses) ; Chrome expose `chrome`. */
@@ -40,6 +62,74 @@ const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? ch
 
 const DEFAULT_APP_URL = 'http://localhost:1420'
 const APP_URL_KEY = 'appUrl'
+
+/**
+ * `storage.session` est le seul stockage partagé qui accepte un secret en
+ * transit : il reste en mémoire et disparaît à la fermeture du navigateur.
+ * Un repli mémoire couvre les navigateurs qui ne l’exposent pas encore.
+ */
+class MemorySessionArea implements SessionStorageArea {
+  private values = new Map<string, unknown>()
+
+  async get(keys?: string | string[] | null): Promise<Record<string, unknown>> {
+    if (keys === null || keys === undefined) {
+      return Object.fromEntries(this.values)
+    }
+    const wanted = Array.isArray(keys) ? keys : [keys]
+    return Object.fromEntries(
+      wanted
+        .filter((key) => this.values.has(key))
+        .map((key) => [key, this.values.get(key)]),
+    )
+  }
+
+  async set(items: Record<string, unknown>): Promise<void> {
+    for (const [key, value] of Object.entries(items)) this.values.set(key, value)
+  }
+
+  async remove(keys: string | string[]): Promise<void> {
+    for (const key of Array.isArray(keys) ? keys : [keys]) this.values.delete(key)
+  }
+}
+
+function sessionStorageArea(): SessionStorageArea {
+  try {
+    const session = api.storage.session as SessionStorageArea | undefined
+    if (session) return session
+  } catch {
+    // Firefox avant 115 ou navigateur sans stockage de session.
+  }
+  return new MemorySessionArea()
+}
+
+async function prepareSessionStorage(): Promise<void> {
+  try {
+    const session = api.storage.session as
+      | (SessionStorageArea & {
+          setAccessLevel?: (value: {
+            accessLevel: 'TRUSTED_CONTEXTS' | 'TRUSTED_AND_UNTRUSTED_CONTEXTS'
+          }) => Promise<void>
+        })
+      | undefined
+    await session?.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' })
+  } catch {
+    // Firefox expose storage.session sans setAccessLevel : l’accès reste
+    // limité aux pages d’extension par le manifeste.
+  }
+}
+
+const sessionReady = prepareSessionStorage()
+const sessionStorage = sessionStorageArea()
+const pendingSaveStore = new PendingSaveStore(
+  sessionStorage,
+  Date.now,
+  sessionReady,
+)
+const recentSelectionStore = new RecentSelectionStore(
+  sessionStorage,
+  Date.now,
+  sessionReady,
+)
 
 interface ExtensionMessage {
   type?: string
@@ -52,6 +142,8 @@ interface ExtensionMessage {
   password?: string
   url?: string
   appUrl?: string
+  command?: string
+  menuItemId?: string
   kind?: string
   formKind?: string
   includeSensitive?: boolean
@@ -59,6 +151,7 @@ interface ExtensionMessage {
   card?: Record<string, unknown>
   identity?: Record<string, unknown>
   requestId?: string
+  offerId?: string
   payload?: unknown
   decision?: string
   signals?: string[]
@@ -70,6 +163,7 @@ interface AppStatus {
   unlocked: boolean
   paired?: boolean
   hostAccess?: boolean
+  siteAccess?: boolean
   mode?: 'native' | 'tab'
   tabId?: number
   appUrl: string
@@ -121,11 +215,34 @@ async function readTabStatus(): Promise<AppStatus> {
  * Le pont natif est prioritaire : il ne dépend pas d’un onglet Coffre ouvert.
  * L’onglet Web reste le repli lorsque l’application desktop ne répond pas.
  */
-async function hasHostAccess(): Promise<boolean> {
+async function grantedHostOrigins(): Promise<string[]> {
   try {
-    return await api.permissions.contains({
-      origins: ['http://*/*', 'https://*/*'],
-    })
+    const appUrl = await getAppUrl()
+    const appPatterns = new Set([
+      `${appUrl}/*`,
+      'http://localhost:4173/*',
+      'http://127.0.0.1:4173/*',
+    ])
+    const all = await api.permissions.getAll()
+    return (all.origins ?? []).filter(
+      (origin) => /^https?:\/\//i.test(origin) && !appPatterns.has(origin),
+    )
+  } catch {
+    return []
+  }
+}
+
+async function hasHostAccess(): Promise<boolean> {
+  return (await grantedHostOrigins()).length > 0
+}
+
+async function hasSiteAccess(): Promise<boolean> {
+  try {
+    const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+    const url = tab?.url ?? ''
+    if (!/^https?:/i.test(url)) return false
+    const origin = new URL(url).origin
+    return await api.permissions.contains({ origins: [`${origin}/*`] })
   } catch {
     return false
   }
@@ -135,10 +252,10 @@ const CONTENT_SCRIPT_ID = 'coffre-inline'
 const WEBAUTHN_SCRIPT_ID = 'coffre-webauthn-main'
 
 /**
- * Le content script n’est enregistré qu’après autorisation explicite des hôtes.
- * Il est ainsi absent des pages tant que l’utilisateur n’a pas activé le menu
- * dans les champs. L’interception WebAuthn suit la même permission et tourne
- * dans le monde de la page, à `document_start`, sans accès aux clés.
+ * Le content script n’est enregistré que sur les hôtes explicitement
+ * autorisés. Site par site ou tous les sites, la liste vient de
+ * `permissions.getAll` : aucune permission d’hôte globale n’est supposée.
+ * L’interception WebAuthn suit exactement les mêmes hôtes.
  */
 async function syncContentScriptRegistration(): Promise<void> {
   let registered: Array<{ id: string }> = []
@@ -148,80 +265,85 @@ async function syncContentScriptRegistration(): Promise<void> {
     // Firefox ou un navigateur sans scripting dynamique.
     return
   }
-  const allowed = await hasHostAccess()
-  const hasContent = registered.some((script) => script.id === CONTENT_SCRIPT_ID)
-  const hasWebauthn = registered.some(
-    (script) => script.id === WEBAUTHN_SCRIPT_ID,
-  )
-
-  if (!allowed) {
-    const ids = [
-      ...(hasContent ? [CONTENT_SCRIPT_ID] : []),
-      ...(hasWebauthn ? [WEBAUTHN_SCRIPT_ID] : []),
-    ]
-    if (ids.length > 0) {
-      try {
-        await api.scripting.unregisterContentScripts({ ids })
-      } catch {
-        // Déjà retiré par le navigateur.
-      }
-    }
-    return
-  }
-
-  if (!hasContent) {
+  const origins = await grantedHostOrigins()
+  const existing = registered
+    .filter(
+      (script) =>
+        script.id === CONTENT_SCRIPT_ID || script.id === WEBAUTHN_SCRIPT_ID,
+    )
+    .map((script) => script.id)
+  if (existing.length > 0) {
     try {
-      await api.scripting.registerContentScripts([
-        {
-          id: CONTENT_SCRIPT_ID,
-          matches: ['http://*/*', 'https://*/*'],
-          js: ['content.js'],
-          runAt: 'document_idle',
-          allFrames: true,
-          persistAcrossSessions: true,
-        },
-      ])
+      await api.scripting.unregisterContentScripts({ ids: existing })
     } catch {
-      // Le remplissage au clic reste disponible depuis le popup.
+      // Déjà retiré par le navigateur.
     }
   }
+  if (origins.length === 0) return
 
-  if (!hasWebauthn) {
-    try {
-      await api.scripting.registerContentScripts([
-        {
-          id: WEBAUTHN_SCRIPT_ID,
-          matches: ['http://*/*', 'https://*/*'],
-          js: ['webauthn-main.js'],
-          runAt: 'document_start',
-          allFrames: true,
-          persistAcrossSessions: true,
-          world: 'MAIN',
-        },
-      ])
-    } catch {
-      // Pas de monde MAIN : le content script injecte le script en repli.
-    }
+  try {
+    await api.scripting.registerContentScripts([
+      {
+        id: CONTENT_SCRIPT_ID,
+        matches: origins,
+        js: ['content.js'],
+        runAt: 'document_idle',
+        allFrames: true,
+        persistAcrossSessions: true,
+      },
+    ])
+  } catch {
+    // Le remplissage au clic reste disponible depuis le popup.
+  }
+
+  try {
+    await api.scripting.registerContentScripts([
+      {
+        id: WEBAUTHN_SCRIPT_ID,
+        matches: origins,
+        js: ['webauthn-main.js'],
+        runAt: 'document_start',
+        allFrames: true,
+        persistAcrossSessions: true,
+        world: 'MAIN',
+      },
+    ])
+  } catch {
+    // Pas de monde MAIN : le content script injecte le script en repli.
   }
 }
 
 void syncContentScriptRegistration()
 void updateActionBadge()
+// Le menu contextuel est construit au premier onglet activé : certains
+// navigateurs n’aiment pas les appels à `contextMenus` avant la fin de
+// l’initialisation du service worker.
 
 async function readStatus(): Promise<AppStatus> {
+  const settings = await loadSettings()
   const hostAccess = await hasHostAccess()
-  const native = await nativeStatus()
+  const siteAccess = await hasSiteAccess()
+  const native = usesNativeBridge(settings.appMode)
+    ? await nativeStatus()
+    : null
+  let status: AppStatus
   if (native) {
-    return {
+    status = {
       appOpen: true,
       unlocked: native.unlocked,
       paired: native.paired,
       hostAccess,
+      siteAccess,
       mode: 'native',
       appUrl: '',
     }
+  } else {
+    status = { ...(await readTabStatus()), hostAccess, siteAccess }
   }
-  return { ...(await readTabStatus()), hostAccess }
+  // Une proposition d’enregistrement ne survit pas au verrouillage du coffre :
+  // le secret en transit n’a plus de raison d’être conservé.
+  if (!status.unlocked) await clearSessionState()
+  return status
 }
 
 async function recordGeneratedPassword(
@@ -604,6 +726,224 @@ async function injectCredentials(
   }
 }
 
+function flashActionBadge(): void {
+  void api.action
+    .setBadgeText({ text: '!' })
+    .catch(() => undefined)
+  setTimeout(() => void updateActionBadge(), 2_000)
+}
+
+async function activeTab(): Promise<chrome.tabs.Tab | undefined> {
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+  return tab
+}
+
+async function pingContentScript(
+  tabId: number,
+  frameId = 0,
+): Promise<boolean> {
+  try {
+    const response = (await api.tabs.sendMessage(
+      tabId,
+      { type: 'COFFRE_PING' },
+      { frameId },
+    )) as { ok?: boolean } | undefined
+    return response?.ok === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Les raccourcis et le menu contextuel accordent `activeTab` : le content
+ * script peut être injecté à la demande sur un site qui n’a pas encore reçu la
+ * permission durable.
+ */
+async function ensureContentScript(
+  tabId: number,
+  frameId = 0,
+): Promise<boolean> {
+  if (await pingContentScript(tabId, frameId)) return true
+  try {
+    await api.scripting.executeScript({
+      target: { tabId, frameIds: [frameId] },
+      files: ['content.js'],
+    })
+  } catch {
+    return false
+  }
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    if (await pingContentScript(tabId, frameId)) return true
+  }
+  return false
+}
+
+async function openMenuInTab(
+  tabId: number,
+  kind: ExtensionAutofillKind,
+  frameId = 0,
+): Promise<boolean> {
+  if (!(await ensureContentScript(tabId, frameId))) return false
+  try {
+    const response = (await api.tabs.sendMessage(
+      tabId,
+      { type: 'COFFRE_OPEN_MENU', kind },
+      { frameId },
+    )) as { ok?: boolean } | undefined
+    return response?.ok === true
+  } catch {
+    return false
+  }
+}
+
+async function commandFillLogin(): Promise<boolean> {
+  const tab = await activeTab()
+  if (!tab?.id) {
+    flashActionBadge()
+    return false
+  }
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+  if (!host) {
+    flashActionBadge()
+    return false
+  }
+  const status = await readStatus()
+  if (!status.unlocked || (status.mode === 'native' && !status.paired)) {
+    flashActionBadge()
+    return false
+  }
+  const result = await search(host, 'login')
+  if (result.error) {
+    flashActionBadge()
+    return false
+  }
+  const matches = matchingLoginSummaries(result.items ?? [], host)
+  if (matches.length === 0) {
+    flashActionBadge()
+    return false
+  }
+  if (matches.length > 1) {
+    if (await openMenuInTab(tab.id, 'login')) return true
+    flashActionBadge()
+    return false
+  }
+  const filled = await fill(matches[0].id, tab.id)
+  if (filled.ok) return true
+  flashActionBadge()
+  return false
+}
+
+async function generateAndFillPassword(
+  tabId: number,
+  url: string,
+  frameId = 0,
+): Promise<boolean> {
+  let password = ''
+  try {
+    const { generatePasswordForRules, passwordRulesForUrl } = await import(
+      '../src/lib/passwordRules'
+    )
+    const site = url ? passwordRulesForUrl(url) : null
+    password = site
+      ? generatePasswordForRules(site.rules, DEFAULT_PASSWORD_OPTIONS.length)
+      : generatePassword(DEFAULT_PASSWORD_OPTIONS)
+  } catch {
+    password = generatePassword(DEFAULT_PASSWORD_OPTIONS)
+  }
+  if (!(await ensureContentScript(tabId, frameId))) {
+    flashActionBadge()
+    return false
+  }
+  try {
+    const response = (await api.tabs.sendMessage(
+      tabId,
+      { type: 'COFFRE_FILL_GENERATED', password },
+      { frameId },
+    )) as { ok?: boolean } | undefined
+    if (response?.ok) {
+      // Q3 : le mot de passe rempli reste retrouvable dans l’historique
+      // chiffré du générateur si l’inscription n’est pas enregistrée.
+      const host = url ? hostFromUrl(url) : ''
+      void recordGeneratedPassword(host, password).catch(() => undefined)
+      return true
+    }
+  } catch {
+    // Le badge ci-dessous signale l’échec.
+  }
+  flashActionBadge()
+  return false
+}
+
+async function commandGeneratePassword(): Promise<boolean> {
+  const tab = await activeTab()
+  if (!tab?.id) {
+    flashActionBadge()
+    return false
+  }
+  return generateAndFillPassword(tab.id, tab.url ?? '')
+}
+
+async function commandFillTotp(): Promise<boolean> {
+  const tab = await activeTab()
+  if (!tab?.id) {
+    flashActionBadge()
+    return false
+  }
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+  if (!host) {
+    flashActionBadge()
+    return false
+  }
+  const status = await readStatus()
+  if (!status.unlocked || (status.mode === 'native' && !status.paired)) {
+    flashActionBadge()
+    return false
+  }
+  const result = await search(host, 'login')
+  if (result.error) {
+    flashActionBadge()
+    return false
+  }
+  const match = totpLoginSummary(result.items ?? [], host)
+  if (!match) {
+    flashActionBadge()
+    return false
+  }
+  const fetched = await fetchCredentials(match.id, host, status)
+  if (fetched.error || !fetched.credentials) {
+    flashActionBadge()
+    return false
+  }
+  const credentials = fetched.credentials
+  if (credentials.kind !== 'login' || !credentials.totp) {
+    flashActionBadge()
+    return false
+  }
+  if (!(await ensureContentScript(tab.id))) {
+    flashActionBadge()
+    return false
+  }
+  try {
+    const response = (await api.tabs.sendMessage(tab.id, {
+      type: 'COFFRE_FILL_TOTP',
+      code: credentials.totp,
+    })) as { ok?: boolean } | undefined
+    if (response?.ok) return true
+  } catch {
+    // Le badge ci-dessous signale l’échec.
+  }
+  flashActionBadge()
+  return false
+}
+
+async function handleCommand(command: string): Promise<boolean> {
+  if (command === 'fill-login') return commandFillLogin()
+  if (command === 'generate-password') return commandGeneratePassword()
+  if (command === 'fill-totp') return commandFillTotp()
+  return false
+}
+
 /**
  * Détails d’une connexion pour affichage/copie manuelle dans le popup ou le
  * menu inline. Le domaine est vérifié comme pour un remplissage : l’extension
@@ -667,59 +1007,49 @@ async function fill(
   return injectCredentials(targetId, data)
 }
 
-interface PendingSave {
-  host: string
-  kind: ExtensionAutofillKind
-  label: string
-  detail: string
-  url: string
-  username: string
-  password: string
-  update?: boolean
-  card?: ExtensionCardSaveInput
-  identity?: ExtensionIdentitySaveInput
-  /** Signaux affichés avant l’enregistrement, s’il y en a. */
-  phishing?: PhishingAssessment
-  expires: number
-  timer: number
-}
+let badgeTimer: ReturnType<typeof setTimeout> | undefined
 
-const recentSelections = new Map<
-  number,
-  { itemId: string; host: string; expires: number }
->()
-const pendingSaves = new Map<string, PendingSave>()
-const latestPendingByTab = new Map<number, string>()
+function scheduleBadgeRefresh(entries: StoredPendingSave[]): void {
+  if (badgeTimer) clearTimeout(badgeTimer)
+  badgeTimer = undefined
+  if (entries.length === 0) return
+  const nextExpiry = Math.min(...entries.map((entry) => entry.expiresAt))
+  badgeTimer = setTimeout(
+    () => void updateActionBadge(),
+    Math.max(1_000, nextExpiry - Date.now() + 250),
+  )
+}
 
 async function updateActionBadge(): Promise<void> {
   try {
+    const entries = await pendingSaveStore.list()
+    scheduleBadgeRefresh(entries)
     await api.action.setBadgeBackgroundColor({ color: '#d97706' })
     await api.action.setBadgeText({
-      text: pendingSaves.size > 0 ? '●' : '',
+      text: entries.length > 0 ? '●' : '',
     })
   } catch {
     // Certains navigateurs ne supportent pas le badge : le popup reste usable.
   }
 }
 
-function clearPendingSave(key: string): void {
-  const pending = pendingSaves.get(key)
-  if (pending) clearTimeout(pending.timer)
-  pendingSaves.delete(key)
-  const tabId = Number(key.split(':')[0])
-  if (latestPendingByTab.get(tabId) === key) latestPendingByTab.delete(tabId)
-  void updateActionBadge()
+async function clearPendingSave(key: string): Promise<void> {
+  await pendingSaveStore.remove(key)
+  await updateActionBadge()
 }
 
-function latestPendingForTab(tabId: number): string | null {
-  const key = latestPendingByTab.get(tabId)
-  if (!key) return null
-  const pending = pendingSaves.get(key)
-  if (!pending || pending.expires < Date.now()) {
-    clearPendingSave(key)
-    return null
-  }
-  return key
+async function latestPendingForTab(
+  tabId: number,
+): Promise<StoredPendingSave | null> {
+  return pendingSaveStore.latestForTab(tabId)
+}
+
+async function clearSessionState(): Promise<void> {
+  await Promise.all([
+    pendingSaveStore.clear(),
+    recentSelectionStore.clear(),
+  ])
+  await updateActionBadge()
 }
 
 function saveKey(tabId: number, frameId: number): string {
@@ -775,11 +1105,11 @@ async function menuSearch(
 }> {
   const result = await search(query.trim() || host, kind)
   if (result.error) return { error: result.error }
-  const recent = recentSelections.get(tabId)
+  const recent = await recentSelectionStore.get(tabId)
   const recentId =
     kind === 'login' &&
     recent &&
-    recent.expires > Date.now() &&
+    recent.expiresAt > Date.now() &&
     (recent.host === host || hostMatches(recent.host, host))
       ? recent.itemId
       : undefined
@@ -858,11 +1188,7 @@ async function menuFill(
       return { error: response?.error ?? 'no-fields' }
     }
     if (kind === 'login') {
-      recentSelections.set(tabId, {
-        itemId,
-        host,
-        expires: Date.now() + 120_000,
-      })
+      await recentSelectionStore.set(tabId, itemId, host)
     }
     return { ok: true }
   } catch {
@@ -870,19 +1196,22 @@ async function menuFill(
   }
 }
 
-function setPendingSave(
+async function setPendingSave(
   key: string,
-  pending: Omit<PendingSave, 'expires' | 'timer'>,
-): void {
-  clearPendingSave(key)
-  const expires = Date.now() + 120_000
-  const timer = setTimeout(() => {
-    clearPendingSave(key)
-  }, 120_000)
-  pendingSaves.set(key, { ...pending, expires, timer })
-  const tabId = Number(key.split(':')[0])
-  latestPendingByTab.set(tabId, key)
-  void updateActionBadge()
+  pending: Omit<
+    StoredPendingSave,
+    'id' | 'key' | 'tabId' | 'frameId' | 'createdAt' | 'expiresAt'
+  >,
+): Promise<StoredPendingSave> {
+  const [tabId, frameId] = key.split(':').map(Number)
+  const saved = await pendingSaveStore.upsert({
+    ...pending,
+    key,
+    tabId,
+    frameId,
+  })
+  await updateActionBadge()
+  return saved
 }
 
 function pendingText(value: unknown, max: number): string {
@@ -968,7 +1297,7 @@ async function loginSaveState(
 async function formSubmitted(
   sender: chrome.runtime.MessageSender,
   message: ExtensionMessage,
-): Promise<{ prompt: boolean; error?: string }> {
+): Promise<{ prompt: boolean; offerId?: string; error?: string }> {
   const tabId = sender.tab?.id
   const frameId = sender.frameId
   if (!Number.isInteger(tabId) || !Number.isInteger(frameId)) {
@@ -992,7 +1321,10 @@ async function formSubmitted(
     password: '',
   }
 
-  let pending: Omit<PendingSave, 'expires' | 'timer'>
+  let pending: Omit<
+    StoredPendingSave,
+    'id' | 'key' | 'tabId' | 'frameId' | 'createdAt' | 'expiresAt'
+  >
   if (kind === 'card') {
     const card = message.card ?? {}
     const number = pendingText(card.number, 40).replace(/\s+/g, '')
@@ -1077,8 +1409,11 @@ async function formSubmitted(
     }
   }
 
-  setPendingSave(saveKey(tabId as number, frameId as number), pending)
-  return { prompt: true }
+  const saved = await setPendingSave(
+    saveKey(tabId as number, frameId as number),
+    pending,
+  )
+  return { prompt: true, offerId: saved.id }
 }
 
 async function saveCredentials(
@@ -1255,9 +1590,9 @@ async function saveIdentity(
   }
 }
 
-async function menuSave(
-  tabId: number,
-  frameId: number,
+async function savePendingEntry(
+  pending: StoredPendingSave,
+  username = pending.username,
   overridePhishing = false,
 ): Promise<{
   ok?: boolean
@@ -1265,13 +1600,6 @@ async function menuSave(
   error?: string
   phishing?: PhishingAssessment
 }> {
-  if (!validTabFrame(tabId, frameId)) return { error: 'invalid' }
-  const key = saveKey(tabId, frameId)
-  const pending = pendingSaves.get(key)
-  if (!pending || pending.expires < Date.now()) {
-    pendingSaves.delete(key)
-    return { error: 'no-pending' }
-  }
   if (pending.phishing && pending.phishing.signals.length > 0) {
     if (!overridePhishing) {
       return { error: 'phishing-warning', phishing: pending.phishing }
@@ -1289,14 +1617,30 @@ async function menuSave(
         ? await saveIdentity(pending.identity)
         : await saveCredentials({
             host: pending.host,
-            username: pending.username,
+            username,
             password: pending.password,
             overridePhishing,
           })
   if (result.ok) {
-    clearPendingSave(key)
+    await clearPendingSave(pending.key)
   }
   return result
+}
+
+async function menuSave(
+  tabId: number,
+  frameId: number,
+  overridePhishing = false,
+): Promise<{
+  ok?: boolean
+  updated?: boolean
+  error?: string
+  phishing?: PhishingAssessment
+}> {
+  if (!validTabFrame(tabId, frameId)) return { error: 'invalid' }
+  const pending = await pendingSaveStore.get(saveKey(tabId, frameId))
+  if (!pending) return { error: 'no-pending' }
+  return savePendingEntry(pending, pending.username, overridePhishing)
 }
 
 type PasskeyKind = 'create' | 'get'
@@ -1366,6 +1710,31 @@ function isPasskeyPage(sender: chrome.runtime.MessageSender): boolean {
     (sender.url === page || sender.url.startsWith(`${page}?`))
   )
 }
+
+function isExtensionPage(sender: chrome.runtime.MessageSender): boolean {
+  return (
+    typeof sender.url === 'string' &&
+    sender.url.startsWith(api.runtime.getURL(''))
+  )
+}
+
+function isSaveBannerPage(sender: chrome.runtime.MessageSender): boolean {
+  const page = api.runtime.getURL('save-banner.html')
+  return (
+    typeof sender.url === 'string' &&
+    (sender.url === page || sender.url.startsWith(`${page}?`))
+  )
+}
+
+function isMenuPage(sender: chrome.runtime.MessageSender): boolean {
+  const page = api.runtime.getURL('menu.html')
+  return (
+    typeof sender.url === 'string' &&
+    (sender.url === page || sender.url.startsWith(`${page}?`))
+  )
+}
+
+const OFFER_ID_PATTERN = /^[a-f0-9-]{8,64}$/i
 
 function closePasskeyWindow(request: PendingPasskeyRequest): void {
   if (typeof request.windowId === 'number') {
@@ -1646,6 +2015,62 @@ async function contentContext(
   }
 }
 
+/**
+ * Déverrouillage demandé depuis l’extension.
+ *
+ * Le mot de passe maître n’est jamais demandé ni transmis ici : l’application
+ * desktop affiche sa propre fenêtre (Touch ID ou saisie), ou l’onglet Coffre
+ * Web est ouvert. L’extension se contente ensuite d’interroger l’état.
+ */
+async function requestUnlock(): Promise<{
+  ok?: boolean
+  pending?: boolean
+  mode?: 'native' | 'tab'
+  error?: string
+}> {
+  const native = await nativeStatus()
+  if (native) {
+    if (!native.paired) return { error: 'needs-pairing' }
+    if (native.unlocked) return { ok: true, mode: 'native' }
+    const result = await nativeUnlock()
+    if (result.error === 'needs-pairing') return result
+    if (!result.error) {
+      return { ok: true, pending: result.pending === true, mode: 'native' }
+    }
+    await openApp()
+    return { ok: true, pending: true, mode: 'tab' }
+  }
+
+  const tabStatus = await readTabStatus()
+  if (tabStatus.appOpen && tabStatus.unlocked) {
+    return { ok: true, mode: 'tab' }
+  }
+
+  // L’application desktop peut être fermée : l’hôte natif la démarre
+  // uniquement sur ce clic explicite (drapeau `launch`), jamais pour une
+  // simple lecture d’état.
+  const launched = await nativeUnlock()
+  if (launched.ok || launched.pending) {
+    return { ok: true, pending: launched.pending === true, mode: 'native' }
+  }
+  if (launched.error === 'needs-pairing') return launched
+
+  await openApp()
+  return { ok: true, pending: true, mode: 'tab' }
+}
+
+const WELCOME_NOTICE_VERSION = '0.9.0'
+
+async function openWelcome(mode: 'install' | 'update'): Promise<void> {
+  try {
+    await api.tabs.create({
+      url: api.runtime.getURL(`welcome.html?mode=${mode}`),
+    })
+  } catch {
+    // L’accueil reste accessible depuis les réglages.
+  }
+}
+
 async function openApp(): Promise<{ ok: boolean }> {
   const native = await nativeStatus()
   if (native) {
@@ -1665,6 +2090,246 @@ async function openApp(): Promise<{ ok: boolean }> {
   return { ok: true }
 }
 
+async function aliasForHost(
+  host: string,
+): Promise<{ alias?: string; error?: string }> {
+  const status = await readStatus()
+  if (status.mode === 'native') return { error: 'unsupported' }
+  if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
+  if (!status.unlocked) return { error: 'locked' }
+  try {
+    const [result] = await api.scripting.executeScript({
+      target: { tabId: status.tabId },
+      world: 'MAIN',
+      func: async (site: string) => {
+        const bridge = (
+          window as unknown as {
+            __coffreExtension?: {
+              generateAlias?: (site: string) => Promise<string | null>
+            }
+          }
+        ).__coffreExtension
+        return bridge?.generateAlias ? bridge.generateAlias(site) : null
+      },
+      args: [host],
+    })
+    const alias = result?.result as string | null | undefined
+    return alias ? { alias } : { error: 'alias' }
+  } catch {
+    return { error: 'permission' }
+  }
+}
+
+let contextMenuQueue: Promise<void> = Promise.resolve()
+let lastContextMenuModel: ContextMenuEntry[] = []
+
+function contextMenuTitle(entry: ContextMenuEntry): string {
+  return entry.title || (entry.titleKey ? t(entry.titleKey) : '')
+}
+
+async function rebuildContextMenus(): Promise<void> {
+  try {
+    await api.contextMenus.removeAll()
+  } catch {
+    // Le navigateur peut ne pas exposer l’API malgré la permission.
+    return
+  }
+  const status = await readStatus()
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+  const host = tab?.url ? hostFromUrl(tab.url) : ''
+  const available =
+    status.unlocked &&
+    !(status.mode === 'native' && status.paired === false)
+
+  let logins: ExtensionAutofillSummary[] = []
+  let cards: ExtensionAutofillSummary[] = []
+  let identities: ExtensionAutofillSummary[] = []
+  if (available) {
+    if (host) {
+      const result = await search(host, 'login')
+      logins = result.items ?? []
+    }
+    const cardResult = await search('', 'card')
+    cards = cardResult.items ?? []
+    const identityResult = await search('', 'identity')
+    identities = identityResult.items ?? []
+  }
+
+  const model = buildContextMenuModel({
+    unlocked: available,
+    host,
+    logins,
+    cards,
+    identities,
+  })
+  lastContextMenuModel = model
+  for (const entry of model) {
+    try {
+      const properties = {
+        id: entry.id,
+        title: contextMenuTitle(entry),
+        ...(entry.parentId
+          ? { parentId: entry.parentId }
+          : { contexts: entry.contexts ?? ['all'] }),
+        enabled: entry.enabled !== false,
+      } as unknown as chrome.contextMenus.CreateProperties
+      api.contextMenus.create(properties)
+    } catch {
+      // Un identifiant en double ne doit pas interrompre tout le menu.
+    }
+  }
+}
+
+function scheduleContextMenus(): void {
+  contextMenuQueue = contextMenuQueue
+    .then(() => rebuildContextMenus())
+    .catch(() => undefined)
+}
+
+const CONTEXT_ITEM_ID = /^[A-Za-z0-9_-]{1,128}$/
+
+async function contextMenuFill(
+  tab: chrome.tabs.Tab,
+  frameId: number,
+  pageUrl: string,
+  itemId: string,
+  kind: ExtensionAutofillKind,
+): Promise<boolean> {
+  // L’hôte est celui du cadre cliqué, pas celui de l’onglet : un remplissage
+  // dans une iframe est vérifié contre l’origine de l’iframe.
+  const host = pageUrl ? hostFromUrl(pageUrl) : ''
+  if (!tab.id || !host || !CONTEXT_ITEM_ID.test(itemId)) {
+    flashActionBadge()
+    return false
+  }
+  if (!(await ensureContentScript(tab.id, frameId))) {
+    flashActionBadge()
+    return false
+  }
+  const response = await menuFill(tab.id, frameId, host, pageUrl, itemId, kind)
+  if (response.ok) return true
+  if (response.error === 'phishing-warning') {
+    // Q1 : le menu dans le champ affiche l’avertissement et laisse choisir.
+    if (await openMenuInTab(tab.id, kind, frameId)) return true
+  }
+  flashActionBadge()
+  return false
+}
+
+async function insertAliasInTab(
+  tab: chrome.tabs.Tab,
+  frameId: number,
+): Promise<boolean> {
+  if (!tab.id) {
+    flashActionBadge()
+    return false
+  }
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+  if (!host) {
+    flashActionBadge()
+    return false
+  }
+  const result = await aliasForHost(host)
+  if (!result.alias) {
+    flashActionBadge()
+    return false
+  }
+  if (!(await ensureContentScript(tab.id, frameId))) {
+    flashActionBadge()
+    return false
+  }
+  try {
+    const response = (await api.tabs.sendMessage(
+      tab.id,
+      { type: 'COFFRE_FILL_TEXT', text: result.alias },
+      { frameId },
+    )) as { ok?: boolean } | undefined
+    if (response?.ok) return true
+  } catch {
+    // Le badge ci-dessous signale l’échec.
+  }
+  flashActionBadge()
+  return false
+}
+
+async function onContextMenuClicked(
+  info: chrome.contextMenus.OnClickData,
+  tab?: chrome.tabs.Tab,
+): Promise<void> {
+  const id = String(info.menuItemId)
+  const frameId = info.frameId ?? 0
+  if (id === 'unlock') {
+    const result = await requestUnlock()
+    if (result.error) flashActionBadge()
+    scheduleContextMenus()
+    return
+  }
+  if (id === 'open-app' || id === 'add-site') {
+    await openApp()
+    return
+  }
+  if (!tab) return flashActionBadge()
+  const pageUrl = (info.frameUrl || info.pageUrl || tab.url || '').slice(0, 2048)
+
+  if (id === 'fill-login-choose') {
+    if (!(await openMenuInTab(tab.id ?? -1, 'login', frameId))) {
+      flashActionBadge()
+    }
+    return
+  }
+  if (id === 'fill-card') {
+    if (!(await openMenuInTab(tab.id ?? -1, 'card', frameId))) {
+      flashActionBadge()
+    }
+    return
+  }
+  if (id === 'fill-identity') {
+    if (!(await openMenuInTab(tab.id ?? -1, 'identity', frameId))) {
+      flashActionBadge()
+    }
+    return
+  }
+  if (id === 'generate-password') {
+    if (tab.id) {
+      await generateAndFillPassword(tab.id, tab.url ?? '', frameId)
+    }
+    return
+  }
+  if (id === 'insert-alias') {
+    await insertAliasInTab(tab, frameId)
+    return
+  }
+  if (id.startsWith('fill-login:')) {
+    await contextMenuFill(
+      tab,
+      frameId,
+      pageUrl,
+      id.slice('fill-login:'.length),
+      'login',
+    )
+    return
+  }
+  if (id.startsWith('fill-card:')) {
+    await contextMenuFill(
+      tab,
+      frameId,
+      pageUrl,
+      id.slice('fill-card:'.length),
+      'card',
+    )
+    return
+  }
+  if (id.startsWith('fill-identity:')) {
+    await contextMenuFill(
+      tab,
+      frameId,
+      pageUrl,
+      id.slice('fill-identity:'.length),
+      'identity',
+    )
+  }
+}
+
 async function handle(
   message: ExtensionMessage,
   sender: chrome.runtime.MessageSender,
@@ -1681,6 +2346,121 @@ async function handle(
     case 'OPEN_APP':
     case 'FOCUS_APP':
       return openApp()
+    case 'UNLOCK_REQUEST':
+      return requestUnlock().finally(() => scheduleContextMenus())
+    case 'OPEN_SHORTCUTS': {
+      // Firefox refuse d’ouvrir about:addons depuis une extension : il
+      // fournit openShortcutSettings() (Firefox 137+).
+      const commands = api.commands as
+        | (typeof api.commands & { openShortcutSettings?: () => Promise<void> })
+        | undefined
+      if (commands?.openShortcutSettings) {
+        try {
+          await commands.openShortcutSettings()
+          return { ok: true }
+        } catch {
+          return { error: 'shortcuts-page' }
+        }
+      }
+      if (/Firefox/i.test(navigator.userAgent)) {
+        return { error: 'shortcuts-page' }
+      }
+      try {
+        await api.tabs.create({ url: 'chrome://extensions/shortcuts' })
+        return { ok: true }
+      } catch {
+        return { error: 'shortcuts-page' }
+      }
+    }
+    case 'RUN_COMMAND': {
+      // Canal interne des tests de bout en bout : l’API `commands` ne permet
+      // pas de déclencher une commande depuis Playwright. Il reste limité aux
+      // pages d’extension et n’expose aucune opération nouvelle.
+      // Seuls la popup et les pages d’extension ouvertes dans leur propre
+      // onglet l’utilisent : jamais le menu ni le bandeau intégrés à un site.
+      if (
+        !isExtensionPage(sender) ||
+        (sender.tab !== undefined &&
+          !(sender.tab.url ?? '').startsWith(api.runtime.getURL('')))
+      ) {
+        return { error: 'forbidden' }
+      }
+      const command =
+        typeof message.command === 'string' ? message.command : ''
+      if (
+        command !== 'fill-login' &&
+        command !== 'generate-password' &&
+        command !== 'fill-totp'
+      ) {
+        return { error: 'invalid' }
+      }
+      return { ok: await handleCommand(command) }
+    }
+    case 'CONTEXT_MENU_SNAPSHOT': {
+      if (!isExtensionPage(sender)) return { error: 'forbidden' }
+      await rebuildContextMenus()
+      return { model: lastContextMenuModel }
+    }
+    case 'RUN_CONTEXT_MENU': {
+      // Même limite que RUN_COMMAND : les menus natifs ne sont pas
+      // cliquables depuis Playwright. Ce canal reste réservé aux pages
+      // d’extension et appelle le gestionnaire réel.
+      if (!isExtensionPage(sender)) return { error: 'forbidden' }
+      const menuItemId =
+        typeof message.menuItemId === 'string' ? message.menuItemId : ''
+      const tabId = Number(message.tabId)
+      const frameId = Number(message.frameId)
+      if (!menuItemId || !Number.isInteger(tabId) || tabId < 0) {
+        return { error: 'invalid' }
+      }
+      const tab = await api.tabs.get(tabId).catch(() => undefined)
+      if (!tab) return { error: 'no-tab' }
+      await onContextMenuClicked(
+        {
+          menuItemId,
+          frameId: Number.isInteger(frameId) && frameId >= 0 ? frameId : 0,
+        } as unknown as chrome.contextMenus.OnClickData,
+        tab,
+      )
+      return { ok: true }
+    }
+    case 'FILL_SIGNUP': {
+      if (!isMenuPage(sender)) return { error: 'forbidden' }
+      const tabId = Number(message.tabId)
+      const frameId = Number(message.frameId)
+      const password =
+        typeof message.password === 'string' ? message.password : ''
+      if (
+        !Number.isInteger(tabId) ||
+        tabId < 0 ||
+        !Number.isInteger(frameId) ||
+        frameId < 0 ||
+        password.length < 4 ||
+        password.length > 128
+      ) {
+        return { error: 'invalid' }
+      }
+      const tab = await api.tabs.get(tabId).catch(() => undefined)
+      const host = tab?.url ? hostFromUrl(tab.url) : ''
+      if (!host) return { error: 'no-tab' }
+      if (!(await ensureContentScript(tabId, frameId))) {
+        return { error: 'permission' }
+      }
+      try {
+        const response = (await api.tabs.sendMessage(
+          tabId,
+          { type: 'COFFRE_FILL_SIGNUP', password, host },
+          { frameId },
+        )) as { ok?: boolean; filled?: number; error?: string } | undefined
+        if (!response?.ok) return { error: response?.error ?? 'no-fields' }
+        // Q3 : l’historique chiffré du générateur vit dans le coffre, via
+        // l’application ; l’extension ne conserve pas le mot de passe.
+        void recordGeneratedPassword(host, password).catch(() => undefined)
+        return { ok: true, filled: response.filled ?? 0 }
+      } catch {
+        return { error: 'no-tab' }
+      }
+    }
     case 'PAIR':
       return nativePair()
     case 'ENABLE_INLINE':
@@ -1734,34 +2514,8 @@ async function handle(
         message.host ?? '',
         message.password ?? '',
       )
-    case 'ALIAS_GENERATE': {
-      const host = message.host ?? ''
-      const status = await readStatus()
-      if (status.mode === 'native') return { error: 'unsupported' }
-      if (!status.appOpen || !status.tabId) return { error: 'app-closed' }
-      if (!status.unlocked) return { error: 'locked' }
-      try {
-        const [result] = await api.scripting.executeScript({
-          target: { tabId: status.tabId },
-          world: 'MAIN',
-          func: async (site: string) => {
-            const bridge = (
-              window as unknown as {
-                __coffreExtension?: {
-                  generateAlias?: (site: string) => Promise<string | null>
-                }
-              }
-            ).__coffreExtension
-            return bridge?.generateAlias ? bridge.generateAlias(site) : null
-          },
-          args: [host],
-        })
-        const alias = result?.result as string | null | undefined
-        return alias ? { alias } : { error: 'alias' }
-      } catch {
-        return { error: 'permission' }
-      }
-    }
+    case 'ALIAS_GENERATE':
+      return aliasForHost(message.host ?? '')
     case 'MENU_SEARCH':
       return menuSearch(
         Number(message.tabId),
@@ -1790,13 +2544,53 @@ async function handle(
       )
     case 'FORM_SUBMITTED':
       return formSubmitted(sender, message)
+    case 'GET_PENDING_BANNER': {
+      const context = await contentContext(sender)
+      if (!context || context.frameId !== 0) return { offer: null }
+      const pending = await latestPendingForTab(context.tabId)
+      if (
+        !pending ||
+        !(
+          pending.host === context.host ||
+          hostMatches(pending.host, context.host)
+        )
+      ) {
+        return { offer: null }
+      }
+      const view = saveBannerView(pending)
+      return view ? { offer: { id: view.offerId } } : { offer: null }
+    }
+    case 'GET_SAVE_BANNER': {
+      if (!isSaveBannerPage(sender)) return { error: 'forbidden' }
+      const offerId =
+        typeof message.offerId === 'string' ? message.offerId : ''
+      if (!OFFER_ID_PATTERN.test(offerId)) return { error: 'invalid' }
+      const pending = await pendingSaveStore.find(offerId)
+      if (!pending) return { error: 'no-pending' }
+      const view = saveBannerView(pending)
+      return view ? { banner: view } : { error: 'no-pending' }
+    }
+    case 'SAVE_BANNER_NOW': {
+      if (!isSaveBannerPage(sender)) return { error: 'forbidden' }
+      const offerId =
+        typeof message.offerId === 'string' ? message.offerId : ''
+      if (!OFFER_ID_PATTERN.test(offerId)) return { error: 'invalid' }
+      const pending = await pendingSaveStore.find(offerId)
+      if (!pending) return { error: 'no-pending' }
+      const username =
+        pending.kind === 'login'
+          ? pendingText(message.username, 500) || pending.username
+          : pending.username
+      return savePendingEntry(
+        pending,
+        username,
+        message.overridePhishing === true,
+      )
+    }
     case 'SAVE_STATUS': {
       const key = saveKey(Number(message.tabId), Number(message.frameId))
-      const pending = pendingSaves.get(key)
-      if (!pending || pending.expires < Date.now()) {
-        pendingSaves.delete(key)
-        return { pending: null }
-      }
+      const pending = await pendingSaveStore.get(key)
+      if (!pending) return { pending: null }
       return {
         pending: {
           username: pending.label,
@@ -1815,29 +2609,28 @@ async function handle(
       )
     case 'GET_PENDING_SAVE': {
       const tabId = Number(message.tabId)
-      const key = latestPendingForTab(tabId)
-      if (!key) return { pending: null }
-      const pending = pendingSaves.get(key)
+      const pending = await latestPendingForTab(tabId)
       if (!pending) return { pending: null }
       return {
         pending: {
+          id: pending.id,
           username: pending.label,
           host: pending.host,
           kind: pending.kind,
           detail: pending.detail,
           update: pending.update === true,
           tabId,
-          frameId: Number(key.split(':')[1]),
+          frameId: pending.frameId,
         },
       }
     }
     case 'SAVE_PENDING_NOW': {
       const tabId = Number(message.tabId)
-      const key = latestPendingForTab(tabId)
-      if (!key) return { error: 'no-pending' }
+      const pending = await latestPendingForTab(tabId)
+      if (!pending) return { error: 'no-pending' }
       return menuSave(
-        Number(key.split(':')[0]),
-        Number(key.split(':')[1]),
+        pending.tabId,
+        pending.frameId,
         message.overridePhishing === true,
       )
     }
@@ -1861,12 +2654,12 @@ async function handle(
     }
     case 'SAVE_DISMISS': {
       const key = saveKey(Number(message.tabId), Number(message.frameId))
-      clearPendingSave(key)
+      await clearPendingSave(key)
       return { ok: true }
     }
     case 'SAVE_DISMISS_PENDING': {
-      const key = latestPendingForTab(Number(message.tabId))
-      if (key) clearPendingSave(key)
+      const pending = await latestPendingForTab(Number(message.tabId))
+      if (pending) await clearPendingSave(pending.key)
       return { ok: true }
     }
     case 'GET_APP_URL':
@@ -1884,6 +2677,41 @@ async function handle(
   }
 }
 
+api.commands?.onCommand.addListener((command) => {
+  void handleCommand(command).catch(() => flashActionBadge())
+})
+
+api.contextMenus?.onClicked.addListener((info, tab) => {
+  void onContextMenuClicked(info, tab).catch(() => flashActionBadge())
+})
+
+api.runtime.onInstalled.addListener((details) => {
+  scheduleContextMenus()
+  const version = api.runtime.getManifest().version
+  if (details.reason === 'install') {
+    void openWelcome('install')
+    return
+  }
+  if (
+    details.reason === 'update' &&
+    details.previousVersion &&
+    details.previousVersion !== version &&
+    version === WELCOME_NOTICE_VERSION
+  ) {
+    void openWelcome('update')
+  }
+})
+api.runtime.onStartup.addListener(() => scheduleContextMenus())
+api.tabs.onActivated.addListener(() => scheduleContextMenus())
+// Une navigation dans le même onglet change le site : le menu ne doit pas
+// garder les noms des connexions du site précédent.
+api.tabs.onUpdated.addListener((_tabId, change, tab) => {
+  if (tab.active && (change.url !== undefined || change.status === 'loading')) {
+    scheduleContextMenus()
+  }
+})
+api.windows.onFocusChanged.addListener(() => scheduleContextMenus())
+
 api.windows.onRemoved.addListener((windowId) => {
   for (const request of [...pendingPasskeys.values()]) {
     if (request.windowId === windowId) decidePasskey(request.id, 'decline')
@@ -1894,6 +2722,12 @@ api.tabs.onRemoved.addListener((tabId) => {
   for (const request of [...pendingPasskeys.values()]) {
     if (request.tabId === tabId) decidePasskey(request.id, 'decline')
   }
+  void Promise.all([
+    pendingSaveStore.removeTab(tabId),
+    recentSelectionStore.removeTab(tabId),
+  ])
+    .then(() => updateActionBadge())
+    .catch(() => undefined)
 })
 
 api.runtime.onMessage.addListener(

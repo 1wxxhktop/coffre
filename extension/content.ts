@@ -12,10 +12,14 @@ import {
   detectCardFields,
   detectIdentityFields,
   detectLoginFields,
+  detectSignupFields,
   fillDetectedCard,
   fillDetectedIdentity,
   fillDetectedLogin,
   fillFieldsByLabel,
+  fillOtpField,
+  fillPasswordField,
+  fillSignupPasswords,
   canFillCard,
   isVisible,
   readCardValues,
@@ -24,6 +28,7 @@ import {
 } from './detect'
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
 import { submitLoginForm } from './loginSubmit'
+import { loadSettings } from './settings'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 const MENU_ORIGIN = new URL(api.runtime.getURL('menu.html')).origin
@@ -45,9 +50,18 @@ type AutofillKind = 'login' | 'card' | 'identity'
 interface MenuHandle {
   host: HTMLDivElement
   iframe: HTMLIFrameElement
-  mode: 'badge' | 'save'
+  mode: 'badge' | 'save' | 'open'
   kind: AutofillKind
+  signup: boolean
   anchor: HTMLInputElement
+  width: number
+  height: number
+}
+
+interface SaveBannerHandle {
+  host: HTMLDivElement
+  iframe: HTMLIFrameElement
+  offerId: string
   width: number
   height: number
 }
@@ -67,8 +81,13 @@ const PASSKEY_REQUEST_PATTERN = /^[A-Za-z0-9_-]{8,64}$/
 
 let context: ContentContext | null = null
 let menu: MenuHandle | null = null
+let saveBanner: SaveBannerHandle | null = null
+let lastFocusedInput: HTMLInputElement | null = null
 let detectTimer: number | undefined
 let dismissedUntil = 0
+let inlineMenuEnabled = true
+let saveBannerEnabled = true
+const dismissedBanners = new Set<string>()
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
   return api.runtime.sendMessage(payload) as Promise<T>
@@ -135,10 +154,162 @@ function setMenuSize(width: number, height: number) {
   positionMenu()
 }
 
+function isTopFrame(): boolean {
+  try {
+    return window.top === window
+  } catch {
+    return false
+  }
+}
+
+function removeSaveBanner(): void {
+  if (!saveBanner) return
+  saveBanner.host.remove()
+  saveBanner = null
+}
+
+function positionSaveBanner(): void {
+  if (!saveBanner) return
+  const margin = 12
+  const width = Math.min(saveBanner.width, Math.max(40, window.innerWidth - margin * 2))
+  saveBanner.host.style.width = `${width}px`
+  saveBanner.host.style.left = `${Math.max(margin, window.innerWidth - width - margin)}px`
+  saveBanner.host.style.top = `${margin}px`
+}
+
+function setSaveBannerSize(width: number, height: number): void {
+  if (!saveBanner) return
+  saveBanner.width = Math.max(40, Math.min(420, Number(width) || 380))
+  saveBanner.height = Math.max(40, Math.min(480, Number(height) || 200))
+  saveBanner.host.style.height = `${saveBanner.height}px`
+  positionSaveBanner()
+}
+
+/**
+ * Bandeau d’enregistrement dans une iframe d’origine extension, placée dans un
+ * shadow root fermé. La page ne reçoit que l’identifiant opaque de l’offre.
+ */
+function showSaveBanner(offerId: string): void {
+  if (
+    !context ||
+    !isTopFrame() ||
+    !saveBannerEnabled ||
+    dismissedBanners.has(offerId)
+  ) {
+    return
+  }
+  if (saveBanner?.offerId === offerId) return
+  removeSaveBanner()
+
+  const host = document.createElement('div')
+  host.setAttribute('data-coffre-save-banner', '')
+  host.style.cssText = [
+    'all: initial',
+    'position: fixed',
+    'z-index: 2147483647',
+    'width: 380px',
+    'height: 210px',
+    'border: 0',
+    'padding: 0',
+    'margin: 0',
+    'background: transparent',
+    'color-scheme: light dark',
+    'pointer-events: auto',
+  ].join(';')
+
+  const shadow = host.attachShadow({ mode: 'closed' })
+  const iframe = document.createElement('iframe')
+  iframe.title = 'Coffre'
+  iframe.setAttribute('allowtransparency', 'true')
+  iframe.referrerPolicy = 'no-referrer'
+  iframe.style.cssText =
+    'width:100%;height:100%;border:0;padding:0;margin:0;background:transparent;color-scheme:light dark;'
+  const url = new URL(api.runtime.getURL('save-banner.html'))
+  url.searchParams.set('offer', offerId)
+  iframe.src = url.toString()
+  iframe.addEventListener('error', removeSaveBanner)
+  shadow.append(iframe)
+  document.documentElement.append(host)
+
+  saveBanner = { host, iframe, offerId, width: 380, height: 210 }
+  positionSaveBanner()
+}
+
+async function refreshSaveBanner(): Promise<void> {
+  if (!context || !isTopFrame() || !saveBannerEnabled) {
+    removeSaveBanner()
+    return
+  }
+  try {
+    const response = await send<{ offer?: { id?: string } | null }>({
+      type: 'GET_PENDING_BANNER',
+    })
+    const offerId =
+      typeof response?.offer?.id === 'string' ? response.offer.id : ''
+    if (offerId) showSaveBanner(offerId)
+    else removeSaveBanner()
+  } catch {
+    // Le service worker peut être indisponible pendant une navigation.
+  }
+}
+
+function commandKind(value: unknown): AutofillKind {
+  return value === 'card' || value === 'identity' ? value : 'login'
+}
+
+function fillActiveText(value: string): number {
+  if (!value) return 0
+  const active = document.activeElement
+  const target =
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    (active instanceof HTMLElement && active.isContentEditable)
+      ? active
+      : lastFocusedInput
+  if (!target) return 0
+
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    const prototype =
+      target instanceof HTMLInputElement
+        ? HTMLInputElement.prototype
+        : HTMLTextAreaElement.prototype
+    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
+    setter?.call(target, value)
+    target.dispatchEvent(new Event('input', { bubbles: true }))
+    target.dispatchEvent(new Event('change', { bubbles: true }))
+    target.focus()
+    return 1
+  }
+  if (target instanceof HTMLElement && target.isContentEditable) {
+    target.textContent = value
+    target.dispatchEvent(new Event('input', { bubbles: true }))
+    target.focus()
+    return 1
+  }
+  return 0
+}
+
+function openMenuAtActiveField(kind: AutofillKind): boolean {
+  if (!context) return false
+  const detected = detectAutofillFields(document)
+  const anchor =
+    lastFocusedInput && isVisible(lastFocusedInput)
+      ? lastFocusedInput
+      : detected?.anchor
+  if (!anchor) return false
+  const detectedKind =
+    detected?.kind === 'card' || detected?.kind === 'identity'
+      ? detected.kind
+      : 'login'
+  showMenu(anchor, kind || detectedKind, 'open', detected?.kind === 'signup')
+  return true
+}
+
 function showMenu(
   anchor: HTMLInputElement,
   kind: AutofillKind,
-  mode: 'badge' | 'save' = 'badge',
+  mode: 'badge' | 'save' | 'open' = 'badge',
+  signup = false,
 ): void {
   if (!context) return
   removeMenu()
@@ -173,6 +344,7 @@ function showMenu(
   url.searchParams.set('url', location.href.slice(0, 2048))
   url.searchParams.set('kind', kind)
   url.searchParams.set('mode', mode)
+  if (signup) url.searchParams.set('signup', '1')
   iframe.src = url.toString()
   shadow.append(iframe)
   const initialWidth =
@@ -188,6 +360,7 @@ function showMenu(
     iframe,
     mode,
     kind,
+    signup,
     anchor,
     width: initialWidth,
     height: initialHeight,
@@ -196,28 +369,40 @@ function showMenu(
 }
 
 function refreshDetection(): void {
-  if (Date.now() < dismissedUntil) return
+  if (!inlineMenuEnabled || Date.now() < dismissedUntil) return
   const detected = detectAutofillFields(document)
   if (!detected) {
     removeMenu()
     return
   }
+  const kind = detected.kind === 'signup' ? 'login' : detected.kind
+  const signup = detected.kind === 'signup'
   if (menu && menu.mode === 'badge') {
-    if (menu.kind !== detected.kind) {
+    if (menu.kind !== kind || menu.signup !== signup) {
       removeMenu()
-      showMenu(detected.anchor, detected.kind)
+      showMenu(detected.anchor, kind, 'badge', signup)
       return
     }
     menu.anchor = detected.anchor
     positionMenu()
   } else if (!menu) {
-    showMenu(detected.anchor, detected.kind)
+    showMenu(detected.anchor, kind, 'badge', signup)
   }
 }
 
 function scheduleDetection() {
   window.clearTimeout(detectTimer)
   detectTimer = window.setTimeout(refreshDetection, 250)
+}
+
+async function loadContentSettings(): Promise<void> {
+  const settings = await loadSettings()
+  inlineMenuEnabled = settings.inlineMenu
+  saveBannerEnabled = settings.saveBanner
+  if (!inlineMenuEnabled) removeMenu()
+  else scheduleDetection()
+  if (!saveBannerEnabled) removeSaveBanner()
+  else void refreshSaveBanner()
 }
 
 function handleFocus(event: FocusEvent) {
@@ -236,6 +421,7 @@ function handleFocus(event: FocusEvent) {
   ) {
     return
   }
+  lastFocusedInput = target
   scheduleDetection()
 }
 
@@ -260,10 +446,28 @@ function handleSubmit() {
   if (!detected || !context) return
   const url = location.href
   const host = context.host
+  if (detected.kind === 'signup') {
+    const fields = detected.signup
+    if (!fields.password.value) return
+    void send<{ prompt?: boolean; offerId?: string }>({
+      type: 'FORM_SUBMITTED',
+      host,
+      username: fields.username?.value ?? '',
+      password: fields.password.value,
+      url,
+    })
+      .then((response) => {
+        if (response?.prompt && response.offerId) {
+          showSaveBanner(response.offerId)
+        }
+      })
+      .catch(() => undefined)
+    return
+  }
   if (detected.kind === 'login') {
     const fields = detected.login
     if (!fields.password || !fields.username || !fields.password.value) return
-    void send<{ prompt?: boolean }>({
+    void send<{ prompt?: boolean; offerId?: string }>({
       type: 'FORM_SUBMITTED',
       host,
       username: fields.username.value,
@@ -271,8 +475,8 @@ function handleSubmit() {
       url,
     })
       .then((response) => {
-        if (response?.prompt && fields.password) {
-          showMenu(fields.password, 'login', 'save')
+        if (response?.prompt && response.offerId) {
+          showSaveBanner(response.offerId)
         }
       })
       .catch(() => undefined)
@@ -281,7 +485,7 @@ function handleSubmit() {
   if (detected.kind === 'card') {
     const values = readCardValues(detected.card)
     if (!values.number) return
-    void send<{ prompt?: boolean }>({
+    void send<{ prompt?: boolean; offerId?: string }>({
       type: 'FORM_SUBMITTED',
       formKind: 'card',
       host,
@@ -289,7 +493,9 @@ function handleSubmit() {
       url,
     })
       .then((response) => {
-        if (response?.prompt) showMenu(detected.anchor, 'card', 'save')
+        if (response?.prompt && response.offerId) {
+          showSaveBanner(response.offerId)
+        }
       })
       .catch(() => undefined)
     return
@@ -298,7 +504,7 @@ function handleSubmit() {
   if (!values.email && !values.firstName && !values.lastName && !values.fullName) {
     return
   }
-  void send<{ prompt?: boolean }>({
+  void send<{ prompt?: boolean; offerId?: string }>({
     type: 'FORM_SUBMITTED',
     formKind: 'identity',
     host,
@@ -306,7 +512,9 @@ function handleSubmit() {
     url,
   })
     .then((response) => {
-      if (response?.prompt) showMenu(detected.anchor, 'identity', 'save')
+      if (response?.prompt && response.offerId) {
+        showSaveBanner(response.offerId)
+      }
     })
     .catch(() => undefined)
 }
@@ -316,6 +524,10 @@ api.runtime.onMessage.addListener(
     message: {
       type?: string
       host?: string
+      kind?: string
+      password?: string
+      code?: string
+      text?: string
       values?: {
         kind?: string
         username?: string
@@ -343,6 +555,65 @@ api.runtime.onMessage.addListener(
   ) => {
     if (message?.type === 'COFFRE_PING') {
       sendResponse({ ok: true })
+      return
+    }
+    if (message?.type === 'COFFRE_OPEN_MENU') {
+      const opened = openMenuAtActiveField(commandKind(message.kind))
+      sendResponse(opened ? { ok: true } : { ok: false, error: 'no-fields' })
+      return
+    }
+    if (message?.type === 'COFFRE_FILL_GENERATED') {
+      const filled = fillPasswordField(
+        document,
+        typeof message.password === 'string' ? message.password : '',
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+    if (message?.type === 'COFFRE_FILL_TOTP') {
+      const filled = fillOtpField(
+        document,
+        typeof message.code === 'string' ? message.code : '',
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+    if (message?.type === 'COFFRE_FILL_TEXT') {
+      const filled = fillActiveText(
+        typeof message.text === 'string' ? message.text : '',
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
+      return
+    }
+    if (message?.type === 'COFFRE_FILL_SIGNUP') {
+      const pageHost = hostFromUrl(location.href)
+      const expected = hostFromUrl(message.host ?? '') || message.host || ''
+      if (
+        !pageHost ||
+        !expected ||
+        !(pageHost === expected || hostMatches(pageHost, expected))
+      ) {
+        sendResponse({ ok: false, error: 'domain-mismatch' })
+        return
+      }
+      const fields = detectSignupFields(document)
+      if (!fields) {
+        sendResponse({ ok: false, error: 'no-fields' })
+        return
+      }
+      const filled = fillSignupPasswords(
+        fields,
+        typeof message.password === 'string' ? message.password : '',
+      )
+      sendResponse(
+        filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' },
+      )
       return
     }
     if (message?.type !== 'COFFRE_FILL_ITEM') return
@@ -467,6 +738,26 @@ window.addEventListener('message', (event) => {
   }
 })
 
+window.addEventListener('message', (event) => {
+  if (!saveBanner || event.source !== saveBanner.iframe.contentWindow) return
+  if (event.origin !== MENU_ORIGIN) return
+  const data = event.data as {
+    type?: string
+    width?: number
+    height?: number
+  }
+  if (data?.type === 'coffre-save-banner-resize') {
+    setSaveBannerSize(Number(data.width), Number(data.height))
+  }
+  if (data?.type === 'coffre-save-banner-close') {
+    dismissedBanners.add(saveBanner.offerId)
+    removeSaveBanner()
+  }
+  if (data?.type === 'coffre-save-banner-saved') {
+    removeSaveBanner()
+  }
+})
+
 function passkeyPayload(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object') return null
   const source = value as Record<string, unknown>
@@ -545,7 +836,15 @@ document.addEventListener('focusin', handleFocus, true)
 document.addEventListener('submit', handleSubmit, true)
 window.addEventListener('scroll', positionMenu, true)
 window.addEventListener('resize', positionMenu)
-scheduleDetection()
+window.addEventListener('resize', positionSaveBanner)
+window.addEventListener('focus', () => void refreshSaveBanner())
+void loadContentSettings()
+api.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return
+  if (changes.inlineMenu || changes.saveBanner) {
+    void loadContentSettings()
+  }
+})
 
 const observer = new MutationObserver(scheduleDetection)
 observer.observe(document.documentElement, { childList: true, subtree: true })
@@ -557,10 +856,12 @@ void send<ContentContext | null>({ type: 'CONTENT_CONTEXT' })
     if (!value || !Number.isInteger(value.tabId) || !value.host) return
     context = value
     scheduleDetection()
+    void refreshSaveBanner()
   })
   .catch(() => undefined)
 
 window.addEventListener('pagehide', () => {
   observer.disconnect()
   removeMenu()
+  removeSaveBanner()
 })

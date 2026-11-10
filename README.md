@@ -85,10 +85,12 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   automatique des connexions, codes TOTP, **cartes bancaires** et **identités /
   adresses** depuis l’onglet Coffre déverrouillé, ou directement depuis
   l’application desktop grâce au **pont natif** appairé et chiffré (ECDH P-256,
-  HKDF, AES-256-GCM). Menu dans les champs (iframe d’extension, détection
-  locale), iframes, connexions en plusieurs étapes, proposition d’enregistrer
-  ou de mettre à jour après soumission, et **passkeys WebAuthn** (création et
-  connexion) avec confirmation dans une fenêtre d’extension. Le CVC et le PIN
+  HKDF, AES-256-GCM), y compris le **déverrouillage demandé depuis la popup**
+  (Touch ID ou fenêtre de Coffre, démarrage de l’application si elle est
+  fermée). Menu dans les champs (iframe d’extension, détection locale), iframes,
+  connexions en plusieurs étapes, proposition d’enregistrer ou de mettre à jour
+  après soumission, et **passkeys WebAuthn** (création et connexion) avec
+  confirmation dans une fenêtre d’extension. Le CVC et le PIN
   ne sont remplis qu’après une action explicite ; une carte est refusée hors
   HTTPS et dans une iframe tierce qui n’est pas un prestataire de paiement
   connu. Les pages sont autorisées explicitement via les permissions
@@ -822,7 +824,11 @@ connexion puis valide automatiquement le formulaire de connexion ; les cartes
 et identités ne sont jamais soumises automatiquement.
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
-propose une mise à jour.
+propose une mise à jour. La proposition survit à l’arrêt du service worker :
+elle est conservée dix minutes au maximum dans `storage.session`, purgée à la
+fermeture de l’onglet et au verrouillage du coffre, et reste invisible des
+content scripts (`setAccessLevel`). Le badge est recalculé au réveil du service
+worker.
 
 ```bash
 bun run extension:build
@@ -842,10 +848,56 @@ Puis, dans Chrome ou un navigateur Chromium :
 
 Le menu s’affiche dans une iframe d’extension : la page ne peut pas lire son
 contenu. Il propose trois onglets — **Connexions**, **Cartes** et **Identités** —
-selon les champs détectés. Une fois un élément choisi, l’extension propose aussi
-d’enregistrer ou de mettre à jour la connexion, la carte ou l’identité après la
-soumission du formulaire. Les connexions en plusieurs étapes réutilisent le
+selon les champs détectés. Les connexions en plusieurs étapes réutilisent le
 dernier identifiant choisi pendant deux minutes.
+
+Après une soumission, un **bandeau d’enregistrement** apparaît en haut à droite
+de la page d’arrivée (même avec une redirection). Il vit lui aussi dans une
+iframe d’extension fermée : la page ne voit qu’un identifiant d’offre opaque,
+jamais le mot de passe ni les métadonnées. Le bandeau propose d’enregistrer ou
+de mettre à jour la connexion, la carte ou l’identité, avec un identifiant
+modifiable pour les connexions. « Plus tard » ferme le bandeau et conserve la
+proposition dans le popup ; sans interaction, il se ferme après 30 secondes.
+Si le coffre est verrouillé avant l’enregistrement, la proposition a été purgée
+par la règle E0 et le bandeau indique qu’elle a expiré plutôt que de rejouer un
+secret disparu.
+
+**Mot de passe fort à l’inscription.** Sur un champ
+`autocomplete="new-password"`, un formulaire d’inscription ou de changement de
+mot de passe, le menu affiche en premier « Utiliser un mot de passe fort » avec
+un aperçu partiel. Un clic génère localement un mot de passe conforme aux
+règles embarquées du site, remplit le champ et sa confirmation, sans soumettre
+le formulaire. Un simple formulaire de connexion `current-password` n’affiche
+pas cette proposition. L’historique du générateur (Q3) est prévu comme point
+d’extension.
+
+**Raccourcis.** La popup s’ouvre avec `⌘⇧Y` / `Ctrl+Shift+Y` ; `⌘⇧L`
+(`Option+Shift+L` sur macOS, `Ctrl+Shift+L` sur Windows/Linux) remplit la
+connexion la plus pertinente — ou ouvre le menu du champ actif s’il y en a
+plusieurs. Les raccourcis « générer un mot de passe » et « remplir le code
+TOTP » n’ont pas de touche par défaut : assignez-les dans
+`chrome://extensions/shortcuts` ou `about:addons`. Ils utilisent `activeTab` et
+fonctionnent sur un site non autorisé au préalable, sans ouvrir la popup. La
+liste des touches effectives est affichée dans les réglages du popup.
+
+**Menu contextuel.** Un clic droit dans un champ propose « Remplir avec
+Coffre » avec les connexions du site actif, « Générer un mot de passe »,
+« Insérer un alias e-mail », « Remplir une carte » et « Remplir une identité ».
+Sur une page, il propose « Ouvrir Coffre » et « Ajouter ce site à Coffre »
+(qui ouvre l’application : l’extension n’écrit jamais dans le coffre). Coffre
+verrouillé, une seule entrée « Déverrouiller Coffre » est affichée. Les noms
+d’éléments sont filtrés sur le domaine de l’onglet actif ; le menu est
+reconstruit à l’activation d’un onglet et au changement de fenêtre.
+
+**Accueil et réglages.** À l’installation, `welcome.html` guide le choix entre
+application desktop (recommandée) et application Web, l’appairage ou l’adresse
+Web, l’activation site par site (défaut) ou tous les sites, puis rappelle les
+raccourcis et l’épinglage. Une note de mise à jour n’apparaît que lorsqu’une
+version change réellement le comportement ou les permissions. La page
+d’options (`chrome-extension://…/options.html`, aussi accessible depuis le
+popup) regroupe la connexion, le remplissage, l’enregistrement, les raccourcis,
+le thème et les permissions. Les réglages sont locaux : aucun secret, aucun
+nom d’élément, aucune télémétrie.
 
 **Cartes et identités.** La détection repose sur les attributs `autocomplete`
 (`cc-number`, `cc-exp`, `cc-csc`, `given-name`, `postal-code`…), les types de
@@ -889,9 +941,15 @@ Edge, Brave et Firefox). Dans le popup de l’extension :
 
 La clé de session est conservée dans le trousseau du système et dans
 `chrome.storage.local` ; les échanges sont chiffrés en AES-256-GCM. Si
-l’application est verrouillée, le popup propose de la ramener au premier plan.
-Sans application desktop, l’extension conserve le remplissage via l’onglet
-Coffre Web.
+l’application est verrouillée, le popup propose **Déverrouiller Coffre** :
+Coffre affiche sa fenêtre et déclenche Touch ID si l’option est active, sinon
+la saisie du mot de passe maître se fait dans l’application — jamais dans la
+popup ni par le pont. Un refus laisse le coffre verrouillé. Si l’application
+est fermée, l’hôte natif la démarre sur ce clic explicite, puis la popup suit
+l’état du coffre. Sans application desktop, le bouton ouvre ou active l’onglet
+Coffre Web et le popup se met à jour quand le coffre est déverrouillé (la
+popup peut toutefois se fermer lorsque le navigateur ou l’application prend le
+focus ; rouvrez-la ensuite).
 
 L’adresse de Coffre est configurable dans les réglages de l’extension
 (`http://localhost:1420` par défaut). L’extension demande l’accès à l’onglet
