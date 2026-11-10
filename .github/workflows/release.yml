@@ -19,7 +19,7 @@ env:
 
 jobs:
   macos:
-    name: Bundle signé et notarié
+    name: Bundle macOS (ad hoc, ou Developer ID si configuré)
     runs-on: macos-latest
     # Minute macOS ≈ 10 minutes Linux sur le quota : un build bloqué ne doit
     # pas consommer 90 minutes.
@@ -79,8 +79,9 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           if [[ -z "$APPLE_CERTIFICATE" ]]; then
-            echo "Le secret APPLE_CERTIFICATE est requis pour signer la release." >&2
-            exit 1
+            # Pas de compte Apple : release signée ad hoc, sans notarisation.
+            echo "Aucun certificat Developer ID : release ad hoc."
+            exit 0
           fi
           keychain_password="$(uuidgen)"
           certificate="$RUNNER_TEMP/coffre-certificate.p12"
@@ -137,6 +138,7 @@ jobs:
       - name: Créer la release GitHub
         env:
           GH_TOKEN: ${{ github.token }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           version="$(node -p "require('./package.json').version")"
           update_assets=()
@@ -151,6 +153,10 @@ jobs:
           if [[ "$version" == *-* ]]; then
             prerelease=(--prerelease)
           fi
+          notes=()
+          if [[ -z "$APPLE_SIGNING_IDENTITY" ]]; then
+            notes=(--notes "**Installation sur macOS** : cette version n’est pas notariée par Apple. À la première ouverture, macOS refuse de lancer Coffre : ouvrez Réglages Système → Confidentialité et sécurité, puis « Ouvrir quand même ». Vérifiez d’abord l’empreinte SHA-256 du DMG (fichier .sha256 ci-dessous). Les mises à jour suivantes, signées par la clé de Coffre, s’installent depuis l’application sans cet avertissement.")
+          fi
           # Brouillon : la mise à jour n’est proposée qu’une fois la release
           # publiée par le workflow « Publier une mise à jour ».
           gh release create "$GITHUB_REF_NAME" \
@@ -162,6 +168,7 @@ jobs:
             sbom/SHA256SUMS \
             --title "Coffre $version" \
             --generate-notes \
+            "${notes[@]}" \
             --draft \
             "${prerelease[@]}" \
             --verify-tag

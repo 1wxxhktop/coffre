@@ -1,18 +1,33 @@
-# Release macOS signée et notariée
+# Release macOS
 
-**État :** la chaîne de build est prête, mais aucune release signée n’a encore
-été produite : le certificat **Developer ID Application** et les secrets Apple
-ne sont pas disponibles dans le dépôt. Ce document décrit la procédure complète.
+**Mode retenu : sans compte Apple.** Les releases sont signées **ad hoc**
+(hardened runtime, sans Developer ID ni notarisation). Les mises à jour
+automatiques fonctionnent quand même : elles sont signées par la clé de mise à
+jour de Coffre (§ 3.1), indépendante d’Apple.
+
+Conséquence pour les utilisateurs : à la **première** installation, macOS
+refuse d’ouvrir une application non notariée. Il faut :
+
+1. vérifier l’empreinte du DMG (`shasum -a 256 Coffre_*.dmg`, à comparer au
+   fichier `.sha256` de la release) ;
+2. glisser Coffre dans Applications et l’ouvrir une première fois ;
+3. ouvrir Réglages Système → Confidentialité et sécurité, puis cliquer sur
+   « Ouvrir quand même ».
+
+Les mises à jour suivantes sont téléchargées par l’application elle-même et
+installées sans cet avertissement. Ce texte est ajouté aux notes de chaque
+release ad hoc.
+
+Les sections 2 à 4 (certificat Developer ID, notarisation) restent valables si
+un certificat est un jour disponible : le script et le workflow basculent
+alors automatiquement en mode Developer ID. Sans eux, ces étapes sont ignorées.
 
 ## 1. Prérequis
 
-- Compte **Apple Developer** payant.
-- Certificat **Developer ID Application** (pas Apple Distribution, réservé à
-  l’App Store).
-- Identifiant d’équipe Apple (`APPLE_TEAM_ID`).
-- Mot de passe d’application Apple ID pour la notarisation, ou une clé API
-  App Store Connect.
 - macOS avec Xcode Command Line Tools, Rust, Bun et `gh` authentifié.
+- La clé de signature des mises à jour (§ 3.1).
+- Optionnel : compte **Apple Developer**, certificat **Developer ID
+  Application**, identifiant d’équipe et identifiants de notarisation.
 
 Le bundle desktop local reste signé ad hoc (`signingIdentity: "-"`) pour le
 développement. Le script de release fournit `APPLE_SIGNING_IDENTITY`, qui prend

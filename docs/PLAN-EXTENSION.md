@@ -12,7 +12,7 @@ Plans liés :
 - `docs/PLAN-FEATURES-QUOTIDIEN.md` : Q1 (anti-hameçonnage) et Q3 (historique
   du générateur) ont une partie dans l’extension ; ce plan s’appuie dessus
   sans les refaire.
-- `docs/PLAN-INTEGRATION-SYSTEME.md` : S5 (Safari) et S1 (icône de barre de
+- `docs/PLAN-INTEGRATION-SYSTEME.md` : S5 (Safari, hors programme faute de compte Apple) et S1 (icône de barre de
   menus, app gardée en arrière-plan) facilitent E1.
 
 ---

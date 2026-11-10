@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
-# Construit, signe, notarie et vérifie une release macOS de Coffre.
+# Construit et vérifie une release macOS de Coffre.
 #
-# Prérequis :
-#   - certificat « Developer ID Application » dans le trousseau ;
-#   - variables APPLE_SIGNING_IDENTITY et identifiants de notarisation ;
-#   - Bun, Rust et les cibles Apple installées (le script les ajoute).
+# Deux modes :
 #
-# Exemple :
+#   - ad hoc (par défaut, sans compte Apple) : bundle signé ad hoc
+#     (`signingIdentity: "-"`), ni Developer ID ni notarisation. macOS affiche
+#     l’avertissement Gatekeeper à la première ouverture (voir docs/RELEASE.md).
+#     Les mises à jour automatiques fonctionnent : elles sont signées par la clé
+#     de mise à jour de Coffre, indépendante d’Apple.
+#
+#   - Developer ID (optionnel) : si APPLE_SIGNING_IDENTITY est fourni, avec les
+#     identifiants de notarisation, le bundle est signé, notarié et agrafé.
+#
+# Exemples :
+#   ./scripts/release-macos.sh
 #   APPLE_SIGNING_IDENTITY="Developer ID Application: … (TEAMID)" \
 #   APPLE_ID="…" APPLE_PASSWORD="mot-de-passe-application" APPLE_TEAM_ID="TEAMID" \
 #   ./scripts/release-macos.sh
@@ -31,24 +38,39 @@ need_command bun
 need_command cargo
 need_command rustup
 need_command codesign
-need_command security
-need_command spctl
-need_command xcrun
 need_command shasum
 
-[[ -n "${APPLE_SIGNING_IDENTITY:-}" ]] || fail \
-  "APPLE_SIGNING_IDENTITY est requis (certificat Developer ID Application)."
+# Les secrets absents arrivent comme chaînes vides depuis GitHub Actions :
+# Tauri les prendrait pour des valeurs. On les retire de l’environnement.
+for name in APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID \
+  APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH APPLE_CERTIFICATE \
+  APPLE_CERTIFICATE_PASSWORD TAURI_SIGNING_PRIVATE_KEY \
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD COFFRE_UPDATER_PUBKEY; do
+  if [[ -z "${!name:-}" ]]; then
+    unset "$name"
+  fi
+done
 
-if ! security find-identity -v -p codesigning | grep -Fq "$APPLE_SIGNING_IDENTITY"; then
-  fail "identité de signature introuvable dans le trousseau : $APPLE_SIGNING_IDENTITY"
-fi
-
-if [[ -n "${APPLE_ID:-}" && -n "${APPLE_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" ]]; then
-  NOTARIZATION="Apple ID"
-elif [[ -n "${APPLE_API_KEY:-}" && -n "${APPLE_API_ISSUER:-}" && -n "${APPLE_API_KEY_PATH:-}" ]]; then
-  NOTARIZATION="App Store Connect API"
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+  MODE="developer-id"
+  need_command security
+  need_command spctl
+  need_command xcrun
+  if ! security find-identity -v -p codesigning | grep -Fq "$APPLE_SIGNING_IDENTITY"; then
+    fail "identité de signature introuvable dans le trousseau : $APPLE_SIGNING_IDENTITY"
+  fi
+  if [[ -n "${APPLE_ID:-}" && -n "${APPLE_PASSWORD:-}" && -n "${APPLE_TEAM_ID:-}" ]]; then
+    NOTARIZATION="Apple ID"
+  elif [[ -n "${APPLE_API_KEY:-}" && -n "${APPLE_API_ISSUER:-}" && -n "${APPLE_API_KEY_PATH:-}" ]]; then
+    NOTARIZATION="App Store Connect API"
+  else
+    fail "identifiants de notarisation manquants : APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID ou APPLE_API_KEY/APPLE_API_ISSUER/APPLE_API_KEY_PATH."
+  fi
 else
-  fail "identifiants de notarisation manquants : APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID ou APPLE_API_KEY/APPLE_API_ISSUER/APPLE_API_KEY_PATH."
+  MODE="ad-hoc"
+  # Aucune notarisation possible sans compte Apple : Tauri ne doit pas tenter.
+  unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
+  echo "Mode ad hoc : bundle signé ad hoc, sans Developer ID ni notarisation."
 fi
 
 if [[ "$TARGET" == universal-apple-darwin ]]; then
@@ -73,7 +95,7 @@ else
   echo "Avertissement : TAURI_SIGNING_PRIVATE_KEY absent, aucun paquet de mise à jour ne sera produit." >&2
 fi
 
-echo "Construction de la release macOS ($TARGET)…"
+echo "Construction de la release macOS ($TARGET, $MODE)…"
 bun run tauri build "${BUILD_ARGS[@]}"
 
 APP="$TARGET_DIR/release/bundle/macos/Coffre.app"
@@ -85,37 +107,44 @@ DMG="$(find "$DMG_DIR" -maxdepth 1 -name '*.dmg' -print -quit)"
 echo "Vérification de la signature et du hardened runtime…"
 codesign --verify --deep --strict --verbose=2 "$APP"
 SIGN_INFO="$(codesign -dv --verbose=4 "$APP" 2>&1)"
-grep -Fq "Authority=Developer ID Application" <<<"$SIGN_INFO" \
-  || fail "le bundle n’est pas signé par un certificat Developer ID Application."
-grep -Eq 'flags=.*\(runtime\)' <<<"$SIGN_INFO" \
+# « flags=0x10000(runtime) » en Developer ID, « flags=0x10002(adhoc,runtime) » en ad hoc.
+grep -Eq 'flags=0x[0-9a-f]+\([^)]*runtime' <<<"$SIGN_INFO" \
   || fail "le hardened runtime n’est pas activé."
-grep -Eq '^TeamIdentifier=[A-Z0-9]+' <<<"$SIGN_INFO" \
-  || fail "TeamIdentifier absent : la signature n’est pas une signature Developer ID."
 
-echo "Vérification de la notarisation et de l’agrafage ($NOTARIZATION)…"
-xcrun stapler validate "$APP"
+if [[ "$MODE" == "developer-id" ]]; then
+  grep -Fq "Authority=Developer ID Application" <<<"$SIGN_INFO" \
+    || fail "le bundle n’est pas signé par un certificat Developer ID Application."
+  grep -Eq '^TeamIdentifier=[A-Z0-9]+' <<<"$SIGN_INFO" \
+    || fail "TeamIdentifier absent : la signature n’est pas une signature Developer ID."
 
-if ! xcrun stapler validate "$DMG" >/dev/null 2>&1; then
-  echo "Le DMG n’est pas encore agrafé ; soumission à Apple…"
-  if [[ "$NOTARIZATION" == "Apple ID" ]]; then
-    xcrun notarytool submit "$DMG" \
-      --apple-id "$APPLE_ID" \
-      --password "$APPLE_PASSWORD" \
-      --team-id "$APPLE_TEAM_ID" \
-      --wait
-  else
-    xcrun notarytool submit "$DMG" \
-      --key "$APPLE_API_KEY_PATH" \
-      --key-id "$APPLE_API_KEY" \
-      --issuer "$APPLE_API_ISSUER" \
-      --wait
+  echo "Vérification de la notarisation et de l’agrafage ($NOTARIZATION)…"
+  xcrun stapler validate "$APP"
+
+  if ! xcrun stapler validate "$DMG" >/dev/null 2>&1; then
+    echo "Le DMG n’est pas encore agrafé ; soumission à Apple…"
+    if [[ "$NOTARIZATION" == "Apple ID" ]]; then
+      xcrun notarytool submit "$DMG" \
+        --apple-id "$APPLE_ID" \
+        --password "$APPLE_PASSWORD" \
+        --team-id "$APPLE_TEAM_ID" \
+        --wait
+    else
+      xcrun notarytool submit "$DMG" \
+        --key "$APPLE_API_KEY_PATH" \
+        --key-id "$APPLE_API_KEY" \
+        --issuer "$APPLE_API_ISSUER" \
+        --wait
+    fi
+    xcrun stapler staple "$DMG"
   fi
-  xcrun stapler staple "$DMG"
-fi
 
-xcrun stapler validate "$DMG"
-spctl --assess --type execute --verbose=4 "$APP"
-spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+  xcrun stapler validate "$DMG"
+  spctl --assess --type execute --verbose=4 "$APP"
+  spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+else
+  grep -Fq "Signature=adhoc" <<<"$SIGN_INFO" \
+    || fail "le bundle devait être signé ad hoc."
+fi
 
 (
   cd "$DMG_DIR"
@@ -130,7 +159,7 @@ if [[ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
 fi
 
 echo
-echo "Release prête :"
+echo "Release prête ($MODE) :"
 echo "  $DMG"
 echo "  $DMG.sha256"
 echo

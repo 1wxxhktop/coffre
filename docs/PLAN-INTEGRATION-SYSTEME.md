@@ -79,7 +79,15 @@ compte Apple et de fournir l’identifiant d’équipe.
 | S6 | Windows : pont natif, fournisseur de passkeys Windows 11 | Windows 11 | Optionnel | L |
 | S7 | Linux : fournisseur Secret Service (optionnel) | Linux | Non | M |
 
-Ordre recommandé : **S1 → S2 → S0 → S3 → S4 → S5 → S6 → S7**.
+> **Décision du 10 novembre 2026 : pas de compte Apple Developer.** S0, S3, S4
+> et S5 sont **hors programme** : ils exigent un certificat Developer ID, des
+> entitlements (App Group, AutoFill) et une notarisation qu’on ne peut pas
+> obtenir sans compte payant. Ne pas les commencer. Les releases macOS sont
+> signées ad hoc (voir `docs/RELEASE.md`). S1 et S2 sont faits ; restent S6
+> (Windows) et S7 (Linux). Le cœur natif S2 reste utile au CLI et à de futures
+> intégrations hors App Store.
+
+Ordre retenu : **S6 → S7** (S1 et S2 terminés ; S0, S3, S4, S5 hors programme).
 
 S1 et S2 commencent tout de suite et n’attendent aucun achat. S3 est le cœur du
 plan : c’est lui qui fait apparaître Coffre à côté de Mots de passe et de
