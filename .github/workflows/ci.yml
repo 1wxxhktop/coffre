@@ -80,7 +80,7 @@ jobs:
           path: |
             dist
             dist-extension
-          retention-days: 7
+          retention-days: 30
 
   e2e:
     name: Parcours Playwright
@@ -402,11 +402,37 @@ jobs:
       - name: Compiler le bundle desktop
         run: bun run desktop:build
 
+      - name: Compiler les outils en ligne de commande
+        shell: bash
+        run: |
+          cargo build --release --manifest-path src-tauri/Cargo.toml \
+            -p coffre-cli -p coffre-ssh-agent
+          mkdir -p outils
+          ext=""
+          if [[ "$RUNNER_OS" == "Windows" ]]; then ext=".exe"; fi
+          for bin in coffre-cli coffre-git-sign; do
+            cp "src-tauri/target/release/${bin}${ext}" outils/
+          done
+          # L’agent SSH repose sur un socket Unix : absent sous Windows.
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            cp src-tauri/target/release/coffre-ssh-agent outils/
+          fi
+
+      # Récupérés par `bun run release:collect` dans le dossier local release/.
       - name: Conserver les artefacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coffre-desktop-${{ matrix.os }}
+          # Paquets finaux seulement : le dossier de travail AppImage contient
+          # Coffre.png et coffre.png, inextractibles sur un disque insensible à
+          # la casse (macOS), et pèse plus de 200 Mo.
           path: |
-            src-tauri/target/release/bundle/**
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*-setup.exe
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/release/bundle/**/*.AppImage
+            outils/**
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 30

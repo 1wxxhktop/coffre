@@ -12,6 +12,8 @@ dist
 dist-extension
 dist-ssr
 coffre-extension.zip
+# Exécutables rassemblés par `bun run release:collect`
+/release/
 *.local
 
 # Playwright
