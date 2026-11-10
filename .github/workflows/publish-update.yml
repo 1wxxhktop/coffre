@@ -1,0 +1,87 @@
+name: Publier une mise à jour
+
+# Publie un brouillon de release créé par « Release macOS » et met à jour le
+# canal bêta. Déclenchement manuel uniquement : c’est la publication qui rend
+# la mise à jour visible des applications installées.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag de la release à publier (ex. v1.2.0 ou v1.3.0-beta.1)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: publish-update
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: 1.4.3
+
+jobs:
+  publish:
+    name: Publier et mettre à jour les canaux
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Vérifier le tag et le manifeste
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Tag invalide : $TAG" >&2
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/manifest"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern latest.json --dir "$RUNNER_TEMP/manifest"
+          version="$(node -p "require('$RUNNER_TEMP/manifest/latest.json').version")"
+          if [[ "v$version" != "$TAG" ]]; then
+            echo "Le manifeste annonce $version, différent du tag $TAG." >&2
+            exit 1
+          fi
+
+      - name: Publier la release
+        run: |
+          if [[ "$TAG" == *-* ]]; then
+            # Préversion : jamais « latest », donc absente du canal stable.
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --draft=false --prerelease --latest=false
+          else
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --draft=false --prerelease=false --latest
+          fi
+
+      - name: Mettre à jour le canal bêta
+        run: |
+          # Le canal bêta suit aussi les versions stables, sans jamais reculer.
+          if ! gh release view canal-beta --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create canal-beta --repo "$GITHUB_REPOSITORY" \
+              --title "Canal bêta (manifeste de mise à jour)" \
+              --notes "Release technique : porte le manifeste latest.json du canal bêta de Coffre. Ne pas télécharger." \
+              --prerelease --latest=false
+          fi
+          mkdir -p "$RUNNER_TEMP/beta"
+          gh release download canal-beta --repo "$GITHUB_REPOSITORY" \
+            --pattern latest.json --dir "$RUNNER_TEMP/beta" 2>/dev/null || true
+          if bun scripts/updater-manifest.ts should-replace \
+            --current "$RUNNER_TEMP/beta/latest.json" \
+            --next "$RUNNER_TEMP/manifest/latest.json"; then
+            gh release upload canal-beta "$RUNNER_TEMP/manifest/latest.json" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          fi

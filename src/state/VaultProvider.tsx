@@ -290,6 +290,11 @@ interface VaultContextValue extends ProviderState {
   /** Supprime puis réenregistre la clé biométrique du coffre courant. */
   resetBiometricKey: () => Promise<void>
   lock: () => void
+  /**
+   * Prépare un redémarrage (mise à jour) : verrouille sans oublier le
+   * déverrouillage rapide, puis attend la fin des écritures déjà en file.
+   */
+  prepareForRestart: () => Promise<void>
   addVault: (name: string) => Promise<void>
   renameVault: (vaultId: string, name: string) => Promise<void>
   deleteVault: (vaultId: string) => Promise<void>
@@ -1612,6 +1617,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [apply])
 
   const lock = useCallback(() => lockWith(true), [lockWith])
+
+  const prepareForRestart = useCallback(async () => {
+    lockWith(false)
+    await queueRef.current.catch(() => undefined)
+  }, [lockWith])
 
   const configureSharedFolder = useCallback(
     (vaultId: string, dir: string) =>
@@ -3660,6 +3670,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     removeEmergencyAccess,
     resetBiometricKey,
     lock,
+    prepareForRestart,
     addVault,
     renameVault,
     deleteVault,
