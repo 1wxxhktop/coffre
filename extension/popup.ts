@@ -538,6 +538,7 @@ async function toggleDetails(
       type: 'DETAILS',
       itemId: entry.id,
       host,
+      url: currentTab?.url ?? '',
     })
     if (panel.hidden) return
     if (response.error || !response.details) {

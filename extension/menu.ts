@@ -338,6 +338,7 @@ async function toggleDetails(
       type: 'DETAILS',
       itemId: entry.id,
       host: query.host,
+      url: query.url,
     })
     if (panel.hidden) return
     if (response.error || !response.details) {

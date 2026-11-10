@@ -11,7 +11,11 @@ import type {
   ExtensionPasskeyGetInput,
   ExtensionPasskeyGetResult,
 } from '../src/lib/extensionProtocol'
-import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
+import {
+  hostFromUrl,
+  hostMatches,
+  pageServiceFromUrl,
+} from '../src/lib/extensionProtocol'
 import type {
   PhishingAssessment,
   PhishingQuery,
@@ -62,6 +66,17 @@ const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? ch
 
 const DEFAULT_APP_URL = 'http://localhost:1420'
 const APP_URL_KEY = 'appUrl'
+
+/**
+ * Service transmis à l’application pour la règle de domaines : l’origine de la
+ * page (`schéma://hôte[:port]`) quand l’URL est connue et correspond à l’hôte,
+ * sinon l’hôte seul. Sans schéma ni port, un élément `http://hôte:8080` ne
+ * correspondrait jamais, et le refus HTTPS → HTTP serait sans effet.
+ */
+function serviceFor(host: string, url: string | undefined): string {
+  const origin = url ? pageServiceFromUrl(url) : ''
+  return origin && hostFromUrl(origin) === host ? origin : host
+}
 
 /**
  * `storage.session` est le seul stockage partagé qui accepte un secret en
@@ -910,7 +925,11 @@ async function commandFillTotp(): Promise<boolean> {
     flashActionBadge()
     return false
   }
-  const fetched = await fetchCredentials(match.id, host, status)
+  const fetched = await fetchCredentials(
+    match.id,
+    serviceFor(host, tab.url),
+    status,
+  )
   if (fetched.error || !fetched.credentials) {
     flashActionBadge()
     return false
@@ -952,11 +971,12 @@ async function handleCommand(command: string): Promise<boolean> {
 async function itemDetails(
   itemId: string,
   host: string,
+  url = '',
 ): Promise<{ details?: ExtensionCredentials; error?: string }> {
   if (!itemId || !host) return { error: 'not-found' }
 
   const status = await readStatus()
-  const fetched = await fetchCredentials(itemId, host, status)
+  const fetched = await fetchCredentials(itemId, serviceFor(host, url), status)
   if (fetched.error) return { error: fetched.error }
 
   const credentials = fetched.credentials
@@ -989,7 +1009,7 @@ async function fill(
   let host = ''
   try {
     const tab = await api.tabs.get(targetId)
-    host = tab.url ? hostFromUrl(tab.url) : ''
+    host = tab.url ? serviceFor(hostFromUrl(tab.url), tab.url) : ''
   } catch {
     host = ''
   }
@@ -1164,7 +1184,7 @@ async function menuFill(
   const status = await readStatus()
   const fetched = await fetchCredentials(
     itemId,
-    host,
+    serviceFor(host, url),
     status,
     kind,
     includeSensitive,
@@ -1227,10 +1247,11 @@ type LoginSaveState = 'same' | 'different' | 'missing'
  */
 async function compareExistingLogin(
   status: AppStatus,
-  host: string,
+  service: string,
   username: string,
   password: string,
 ): Promise<LoginSaveState | null> {
+  const host = hostFromUrl(service) || service
   const result = await search(host, 'login')
   if (result.error) return null
   const candidates = (result.items ?? []).filter(
@@ -1244,7 +1265,7 @@ async function compareExistingLogin(
 
   let compared = false
   for (const candidate of candidates) {
-    const fetched = await fetchCredentials(candidate.id, host, status)
+    const fetched = await fetchCredentials(candidate.id, service, status)
     if (!fetched.credentials || fetched.credentials.kind !== 'login') continue
     compared = true
     if (fetched.credentials.password === password) return 'same'
@@ -1254,6 +1275,7 @@ async function compareExistingLogin(
 
 async function loginSaveState(
   status: AppStatus,
+  /** Origine de la page si connue (voir `serviceFor`), sinon l’hôte. */
   host: string,
   username: string,
   password: string,
@@ -1392,7 +1414,7 @@ async function formSubmitted(
   if (kind === 'login') {
     const state = await loginSaveState(
       status,
-      host,
+      serviceFor(host, url),
       pending.username,
       pending.password,
     )
@@ -1413,6 +1435,14 @@ async function formSubmitted(
     saveKey(tabId as number, frameId as number),
     pending,
   )
+  // E2 : après une redirection, la page d’arrivée a pu demander le bandeau
+  // avant la fin de cette vérification. Le cadre principal le redemande ; il
+  // ne l’affiche que si l’hôte correspond (GET_PENDING_BANNER).
+  void api.tabs
+    .sendMessage(tabId as number, { type: 'COFFRE_REFRESH_SAVE_BANNER' }, {
+      frameId: 0,
+    })
+    .catch(() => undefined)
   return { prompt: true, offerId: saved.id }
 }
 
@@ -1616,7 +1646,7 @@ async function savePendingEntry(
       : pending.kind === 'identity' && pending.identity
         ? await saveIdentity(pending.identity)
         : await saveCredentials({
-            host: pending.host,
+            host: serviceFor(pending.host, pending.url),
             username,
             password: pending.password,
             overridePhishing,
@@ -2342,7 +2372,11 @@ async function handle(
     case 'FILL':
       return fill(message.itemId ?? '', message.tabId)
     case 'DETAILS':
-      return itemDetails(message.itemId ?? '', message.host ?? '')
+      return itemDetails(
+        message.itemId ?? '',
+        message.host ?? '',
+        message.url ?? '',
+      )
     case 'OPEN_APP':
     case 'FOCUS_APP':
       return openApp()
