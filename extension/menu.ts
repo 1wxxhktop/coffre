@@ -3,6 +3,10 @@ import type {
   ExtensionAutofillSummary,
 } from '../src/lib/extensionProtocol'
 import type { PhishingAssessment } from '../src/lib/phishing'
+import {
+  DEFAULT_PASSWORD_OPTIONS,
+  generatePassword,
+} from '../src/lib/password'
 import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
 import { mountLogos } from './logo'
@@ -20,7 +24,8 @@ interface MenuQuery {
   topHost: string
   url: string
   kind: ExtensionAutofillKind
-  mode: 'badge' | 'save'
+  mode: 'badge' | 'save' | 'open'
+  signup: boolean
 }
 
 interface SearchResponse {
@@ -83,12 +88,17 @@ const empty = $<HTMLParagraphElement>('empty')
 const actions = $<HTMLDivElement>('actions')
 const saveButton = $<HTMLButtonElement>('save')
 const ignoreButton = $<HTMLButtonElement>('ignore')
+const signup = $<HTMLElement>('signup')
+const signupPreview = $<HTMLOutputElement>('signup-preview')
+const signupUseButton = $<HTMLButtonElement>('signup-use')
+const signupRegenerateButton = $<HTMLButtonElement>('signup-regenerate')
 
 const params = new URLSearchParams(window.location.search)
 let searchTimer: number | undefined
 let pendingPhishing:
   | { assessment: PhishingAssessment; action: 'fill' | 'save'; itemId?: string }
   | null = null
+let strongPassword = ''
 let kind: ExtensionAutofillKind =
   params.get('kind') === 'card' ||
   params.get('kind') === 'identity' ||
@@ -102,7 +112,13 @@ const query: MenuQuery = {
   topHost: params.get('top') ?? '',
   url: (params.get('url') ?? '').slice(0, 2048),
   kind,
-  mode: params.get('mode') === 'save' ? 'save' : 'badge',
+  mode:
+    params.get('mode') === 'save'
+      ? 'save'
+      : params.get('mode') === 'open'
+        ? 'open'
+        : 'badge',
+  signup: params.get('signup') === '1',
 }
 
 const ERROR_KEYS: Record<string, string> = {
@@ -217,6 +233,58 @@ function updateTabs() {
     button.setAttribute('aria-selected', String(value === kind))
   }
   sensitiveWrap.hidden = kind !== 'card'
+  signup.hidden = !query.signup || kind !== 'login'
+}
+
+function renderStrongPassword(): void {
+  if (!strongPassword) {
+    signupPreview.textContent = ''
+    return
+  }
+  signupPreview.textContent = `${strongPassword.slice(0, 3)}…${strongPassword.slice(-2)}`
+}
+
+async function prepareStrongPassword(): Promise<void> {
+  try {
+    const { generatePasswordForRules, passwordRulesForUrl } = await import(
+      '../src/lib/passwordRules'
+    )
+    const site = passwordRulesForUrl(query.host)
+    strongPassword = site
+      ? generatePasswordForRules(site.rules, DEFAULT_PASSWORD_OPTIONS.length)
+      : generatePassword(DEFAULT_PASSWORD_OPTIONS)
+  } catch {
+    strongPassword = generatePassword(DEFAULT_PASSWORD_OPTIONS)
+  }
+  // Q3 : l’historique du générateur pourra être alimenté ici lorsque le lot
+  // sera livré. Le mot de passe complet n’est jamais affiché ni persisté.
+  renderStrongPassword()
+}
+
+async function useStrongPassword(): Promise<void> {
+  if (!strongPassword) await prepareStrongPassword()
+  if (!strongPassword) return
+  signupUseButton.disabled = true
+  try {
+    const response = await send<{ ok?: boolean; error?: string }>({
+      type: 'FILL_SIGNUP',
+      tabId: query.tabId,
+      frameId: query.frameId,
+      host: query.host,
+      password: strongPassword,
+    })
+    if (!response?.ok) {
+      showMessage(errorText(response?.error), 'error')
+      return
+    }
+    strongPassword = ''
+    showMessage(t('menu_signupFilled'), 'success')
+    window.setTimeout(close, 700)
+  } catch {
+    showMessage(t('menu_errorGeneric'), 'error')
+  } finally {
+    signupUseButton.disabled = false
+  }
 }
 
 function setKind(next: ExtensionAutofillKind) {
@@ -270,6 +338,7 @@ async function toggleDetails(
       type: 'DETAILS',
       itemId: entry.id,
       host: query.host,
+      url: query.url,
     })
     if (panel.hidden) return
     if (response.error || !response.details) {
@@ -506,6 +575,21 @@ async function ignore() {
   close()
 }
 
+function openPanel(): void {
+  expand()
+  tabs.hidden = false
+  searchWrap.hidden = false
+  aliasWrap.hidden = false
+  updateTabs()
+  if (query.signup) {
+    void prepareStrongPassword()
+    signupUseButton.focus()
+  } else {
+    searchInput.focus()
+  }
+  void load('')
+}
+
 function init() {
   hostLabel.textContent = query.topHost && query.topHost !== query.host
     ? `${query.host} · ${query.topHost}`
@@ -514,16 +598,8 @@ function init() {
   if (query.mode === 'save') {
     void loadSaveStatus()
   } else {
-    badge.hidden = false
-    badgeButton.addEventListener('click', () => {
-      expand()
-      tabs.hidden = false
-      searchWrap.hidden = false
-      aliasWrap.hidden = false
-      updateTabs()
-      searchInput.focus()
-      void load('')
-    })
+    badge.hidden = query.mode === 'open'
+    badgeButton.addEventListener('click', openPanel)
     searchInput.addEventListener('input', () => {
       window.clearTimeout(searchTimer)
       searchTimer = window.setTimeout(() => {
@@ -546,6 +622,7 @@ function init() {
     tabCard.addEventListener('click', () => setKind('card'))
     tabIdentity.addEventListener('click', () => setKind('identity'))
     tabCustom.addEventListener('click', () => setKind('custom'))
+    if (query.mode === 'open') openPanel()
   }
 
   closeButton.addEventListener('click', close)
@@ -553,6 +630,10 @@ function init() {
   ignoreButton.addEventListener('click', () => void ignore())
   phishingCancel.addEventListener('click', () => void cancelPhishing())
   phishingContinue.addEventListener('click', continuePhishing)
+  signupUseButton.addEventListener('click', () => void useStrongPassword())
+  signupRegenerateButton.addEventListener('click', () => {
+    void prepareStrongPassword()
+  })
 }
 
 void loadTheme()

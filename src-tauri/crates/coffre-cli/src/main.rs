@@ -6,7 +6,7 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use coffre_core::{OpenedItem, OpenedVault, VaultFile, open};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha1::Sha1;
 use sha2::{Sha256, Sha512};
 use std::io::Write;
@@ -185,19 +185,19 @@ fn totp_code(
     let message = counter.to_be_bytes();
     let digest = match algorithm {
         Algorithm::Sha1 => {
-            let mut mac = <Hmac<Sha1> as Mac>::new_from_slice(secret)
+            let mut mac = <Hmac<Sha1> as KeyInit>::new_from_slice(secret)
                 .map_err(|_| "clé TOTP invalide".to_string())?;
             mac.update(&message);
             mac.finalize().into_bytes().to_vec()
         }
         Algorithm::Sha256 => {
-            let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret)
+            let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(secret)
                 .map_err(|_| "clé TOTP invalide".to_string())?;
             mac.update(&message);
             mac.finalize().into_bytes().to_vec()
         }
         Algorithm::Sha512 => {
-            let mut mac = <Hmac<Sha512> as Mac>::new_from_slice(secret)
+            let mut mac = <Hmac<Sha512> as KeyInit>::new_from_slice(secret)
                 .map_err(|_| "clé TOTP invalide".to_string())?;
             mac.update(&message);
             mac.finalize().into_bytes().to_vec()

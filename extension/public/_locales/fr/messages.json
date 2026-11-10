@@ -2,8 +2,209 @@
   "extName": {
     "message": "Coffre — remplissage automatique"
   },
+  "welcome_title": {
+    "message": "Bienvenue dans Coffre"
+  },
+  "welcome_eyebrow": {
+    "message": "Extension navigateur"
+  },
+  "welcome_heading": {
+    "message": "Bienvenue dans Coffre"
+  },
+  "welcome_subtitle": {
+    "message": "Remplissez vos connexions sans quitter le navigateur, sans serveur ni télémétrie."
+  },
+  "welcome_updateHeading": {
+    "message": "Quoi de neuf dans cette version"
+  },
+  "welcome_updateShortcuts": {
+    "message": "Raccourcis clavier et menu contextuel."
+  },
+  "welcome_updateUnlock": {
+    "message": "Déverrouillage depuis la popup et bandeau d’enregistrement."
+  },
+  "welcome_updateSettings": {
+    "message": "Réglages complets et activation site par site."
+  },
+  "welcome_connectHeading": {
+    "message": "Choisissez votre application"
+  },
+  "welcome_connectCopy": {
+    "message": "L’application desktop est recommandée : elle reste disponible sans onglet Coffre ouvert."
+  },
+  "welcome_modeLabel": {
+    "message": "Mode de connexion"
+  },
+  "welcome_desktop": {
+    "message": "Application desktop"
+  },
+  "welcome_desktopCopy": {
+    "message": "Recommandé · Touch ID ou mot de passe dans Coffre"
+  },
+  "welcome_web": {
+    "message": "Application Web"
+  },
+  "welcome_webCopy": {
+    "message": "Un onglet Coffre déverrouillé suffit"
+  },
+  "welcome_pairCopy": {
+    "message": "Ouvrez Coffre, déverrouillez votre coffre, puis cliquez sur le bouton ci-dessous."
+  },
+  "welcome_pair": {
+    "message": "Associer l’extension"
+  },
+  "welcome_openApp": {
+    "message": "Ouvrir Coffre"
+  },
+  "welcome_pairCode": {
+    "message": "Code $1 — confirmez-le dans Coffre."
+  },
+  "welcome_pairing": {
+    "message": "Demande envoyée. Confirmez le code affiché dans Coffre."
+  },
+  "welcome_pairConfirm": {
+    "message": "Confirmez le code dans Coffre pour terminer l’association."
+  },
+  "welcome_paired": {
+    "message": "Extension associée à Coffre."
+  },
+  "welcome_pairedNoCode": {
+    "message": "Association confirmée."
+  },
+  "welcome_pairFailed": {
+    "message": "Association impossible. Vérifiez que Coffre est ouvert et déverrouillé."
+  },
+  "welcome_webUrl": {
+    "message": "Adresse de l’application Web"
+  },
+  "welcome_saveUrl": {
+    "message": "Enregistrer et autoriser"
+  },
+  "welcome_test": {
+    "message": "Tester"
+  },
+  "welcome_invalidUrl": {
+    "message": "Adresse http:// ou https:// invalide."
+  },
+  "welcome_saved": {
+    "message": "Adresse enregistrée."
+  },
+  "welcome_savedNoPermission": {
+    "message": "Adresse enregistrée. Autorisez l’accès à ce site si nécessaire."
+  },
+  "welcome_saveFailed": {
+    "message": "Enregistrement impossible."
+  },
+  "welcome_testOk": {
+    "message": "Coffre est ouvert et déverrouillé."
+  },
+  "welcome_testLocked": {
+    "message": "Coffre est verrouillé."
+  },
+  "welcome_testClosed": {
+    "message": "Coffre n’est pas ouvert dans un onglet."
+  },
+  "welcome_testFailed": {
+    "message": "Connexion impossible."
+  },
+  "welcome_activationHeading": {
+    "message": "Activez le remplissage"
+  },
+  "welcome_activationCopy": {
+    "message": "Vous pouvez limiter l’extension aux sites que vous choisissez."
+  },
+  "welcome_siteBySite": {
+    "message": "Site par site"
+  },
+  "welcome_siteBySiteCopy": {
+    "message": "Recommandé · activez chaque site depuis la popup"
+  },
+  "welcome_allSites": {
+    "message": "Tous les sites"
+  },
+  "welcome_allSitesCopy": {
+    "message": "Une seule autorisation pour les sites HTTP et HTTPS"
+  },
+  "welcome_requestAll": {
+    "message": "Autoriser tous les sites maintenant"
+  },
+  "welcome_allDenied": {
+    "message": "Permission refusée : l’extension reste limitée aux sites autorisés."
+  },
+  "welcome_allEnabled": {
+    "message": "Tous les sites sont autorisés. Rechargez les onglets déjà ouverts."
+  },
+  "welcome_allFailed": {
+    "message": "Activation impossible sur tous les sites."
+  },
+  "welcome_shortcutsHeading": {
+    "message": "Raccourcis et épinglage"
+  },
+  "welcome_shortcutsCopy": {
+    "message": "Épinglez l’icône Coffre pour l’avoir sous la main. Les raccourcis restent modifiables."
+  },
+  "welcome_editShortcuts": {
+    "message": "Modifier les raccourcis"
+  },
+  "welcome_finish": {
+    "message": "Terminer"
+  },
+  "welcome_close": {
+    "message": "Fermer"
+  },
+  "welcome_advanced": {
+    "message": "Réglages avancés"
+  },
+  "welcome_privacy": {
+    "message": "Local · aucun serveur · aucune télémétrie. Le mot de passe maître ne quitte jamais Coffre."
+  },
   "extDescription": {
     "message": "Complément local de Coffre : remplit les identifiants depuis l’application déverrouillée, sans serveur ni télémétrie."
+  },
+  "commandFillLogin": {
+    "message": "Remplir la connexion la plus pertinente"
+  },
+  "context_fillLogin": {
+    "message": "Remplir avec Coffre"
+  },
+  "context_chooseLogin": {
+    "message": "Choisir une connexion…"
+  },
+  "context_noLogin": {
+    "message": "Aucune connexion pour ce site"
+  },
+  "context_generate": {
+    "message": "Générer un mot de passe"
+  },
+  "context_alias": {
+    "message": "Insérer un alias e-mail"
+  },
+  "context_fillCard": {
+    "message": "Remplir une carte"
+  },
+  "context_noCard": {
+    "message": "Aucune carte"
+  },
+  "context_fillIdentity": {
+    "message": "Remplir une identité"
+  },
+  "context_noIdentity": {
+    "message": "Aucune identité"
+  },
+  "context_openApp": {
+    "message": "Ouvrir Coffre"
+  },
+  "context_addSite": {
+    "message": "Ajouter ce site à Coffre"
+  },
+  "context_unlock": {
+    "message": "Déverrouiller Coffre"
+  },
+  "commandGeneratePassword": {
+    "message": "Générer et remplir un mot de passe"
+  },
+  "commandFillTotp": {
+    "message": "Remplir le code de vérification (TOTP)"
   },
   "popup_siteUnknown": {
     "message": "Site inconnu"
@@ -29,6 +230,24 @@
   "popup_activateInline": {
     "message": "Activer le remplissage dans les champs"
   },
+  "popup_activateSite": {
+    "message": "Activer sur ce site"
+  },
+  "popup_activateHint": {
+    "message": "Activez le remplissage pour ce site afin de remplir les formulaires directement."
+  },
+  "popup_activateDenied": {
+    "message": "Permission refusée pour le remplissage dans les champs."
+  },
+  "popup_activateFailed": {
+    "message": "Activation impossible sur cette page."
+  },
+  "popup_activatedSite": {
+    "message": "Remplissage activé sur ce site."
+  },
+  "popup_activatedAll": {
+    "message": "Remplissage activé sur tous les sites. Rechargez les onglets déjà ouverts."
+  },
   "popup_pair": {
     "message": "Associer l’extension"
   },
@@ -37,6 +256,30 @@
   },
   "popup_unlockApp": {
     "message": "Déverrouiller Coffre"
+  },
+  "popup_openUnlock": {
+    "message": "Ouvrir Coffre pour déverrouiller"
+  },
+  "popup_unlocking": {
+    "message": "Déverrouillage en cours… Confirmez dans Coffre."
+  },
+  "popup_unlockCancel": {
+    "message": "Annuler le déverrouillage"
+  },
+  "popup_unlockHint": {
+    "message": "Coffre est toujours verrouillé. Confirmez Touch ID ou saisissez le mot de passe maître dans l’application."
+  },
+  "popup_unlockTimeout": {
+    "message": "Déverrouillage non confirmé. Réessayez depuis Coffre."
+  },
+  "popup_unlockCancelled": {
+    "message": "Déverrouillage annulé dans l’extension."
+  },
+  "popup_unlocked": {
+    "message": "Coffre déverrouillé."
+  },
+  "popup_unlockTab": {
+    "message": "Coffre s’ouvre dans un onglet. Déverrouillez-le, la popup se mettra à jour."
   },
   "popup_footer": {
     "message": "Local · aucun serveur"
@@ -49,6 +292,60 @@
   },
   "options_subtitle": {
     "message": "Remplissage automatique local, sans serveur ni télémétrie."
+  },
+  "options_connection": {
+    "message": "Connexion à Coffre"
+  },
+  "options_connectionCopy": {
+    "message": "Choisissez l’application desktop (recommandée) ou l’application Web. Aucun secret n’est stocké dans l’extension."
+  },
+  "options_filling": {
+    "message": "Remplissage"
+  },
+  "options_inlineMenu": {
+    "message": "Afficher le menu dans les champs"
+  },
+  "options_autoSubmit": {
+    "message": "Valider le formulaire après remplissage"
+  },
+  "options_autoSubmitCopy": {
+    "message": "Clique sur « Se connecter » à votre place. Désactivé, vous vérifiez le compte choisi avant l’envoi."
+  },
+  "options_inlineMenuCopy": {
+    "message": "Badge Coffre près des formulaires sur les sites autorisés."
+  },
+  "options_copyTotp": {
+    "message": "Copier le code TOTP après remplissage"
+  },
+  "options_autofillOnLoad": {
+    "message": "Remplir au chargement"
+  },
+  "options_soon": {
+    "message": "Disponible dans un prochain lot (E10/E11)."
+  },
+  "options_activation": {
+    "message": "Activation"
+  },
+  "options_saving": {
+    "message": "Enregistrement"
+  },
+  "options_saveBanner": {
+    "message": "Afficher le bandeau après une soumission"
+  },
+  "options_saveBannerCopy": {
+    "message": "La proposition reste disponible dans le popup si le bandeau est masqué."
+  },
+  "options_exclusions": {
+    "message": "Exclusions par site"
+  },
+  "options_exclusionsSoon": {
+    "message": "« Ne jamais proposer d’enregistrer » et « Ne jamais remplir » arrivent avec le lot E7. Aucune exclusion n’est encore enregistrée."
+  },
+  "options_appearance": {
+    "message": "Apparence"
+  },
+  "options_shortcutsEdit": {
+    "message": "Modifier les raccourcis"
   },
   "options_appAddress": {
     "message": "Adresse de l’application"
@@ -87,7 +384,49 @@
     "message": "Permissions"
   },
   "options_permissionsCopy": {
-    "message": "L’extension demande l’accès à l’onglet actif au moment du remplissage, et à l’adresse de Coffre configurée ci-dessus. Elle n’a pas accès aux autres onglets en dehors de votre action."
+    "message": "L’extension demande l’accès à l’onglet actif au moment du remplissage, aux sites que vous autorisez, et à l’adresse de Coffre. Elle n’a pas accès aux autres onglets en dehors de vos actions. La permission contextMenus ne sert qu’à afficher le menu du clic droit ; aucune donnée n’est transmise."
+  },
+  "saveBanner_pageTitle": {
+    "message": "Enregistrer dans Coffre"
+  },
+  "saveBanner_titleLogin": {
+    "message": "Enregistrer le mot de passe pour $1 ?"
+  },
+  "saveBanner_titleUpdate": {
+    "message": "Mettre à jour le mot de passe de $1 ?"
+  },
+  "saveBanner_titleCard": {
+    "message": "Enregistrer cette carte pour $1 ?"
+  },
+  "saveBanner_titleIdentity": {
+    "message": "Enregistrer cette identité pour $1 ?"
+  },
+  "saveBanner_username": {
+    "message": "Identifiant"
+  },
+  "saveBanner_save": {
+    "message": "Enregistrer"
+  },
+  "saveBanner_later": {
+    "message": "Plus tard"
+  },
+  "saveBanner_close": {
+    "message": "Fermer"
+  },
+  "saveBanner_saved": {
+    "message": "Enregistré dans Coffre."
+  },
+  "saveBanner_updated": {
+    "message": "Mis à jour dans Coffre."
+  },
+  "saveBanner_errorNoPending": {
+    "message": "Cette proposition a expiré."
+  },
+  "saveBanner_errorSave": {
+    "message": "Enregistrement impossible dans Coffre."
+  },
+  "saveBanner_phishingWarning": {
+    "message": "Attention : cette page ne correspond pas au site d’origine. Vérifiez l’adresse avant d’enregistrer."
   },
   "menu_open": {
     "message": "Ouvrir Coffre"
@@ -281,6 +620,21 @@
   "menu_fieldCount": {
     "message": "champ(s) remplissable(s)"
   },
+  "menu_signupTitle": {
+    "message": "Utiliser un mot de passe fort"
+  },
+  "menu_signupHint": {
+    "message": "Généré localement selon les règles du site."
+  },
+  "menu_signupUse": {
+    "message": "Utiliser ce mot de passe"
+  },
+  "menu_signupRegenerate": {
+    "message": "Régénérer"
+  },
+  "menu_signupFilled": {
+    "message": "Mot de passe fort rempli. Enregistrez la connexion après validation."
+  },
   "menu_alias": {
     "message": "Créer un alias e-mail"
   },
@@ -340,6 +694,36 @@
   },
   "settings_appearance": {
     "message": "Apparence"
+  },
+  "settings_shortcuts": {
+    "message": "Raccourcis"
+  },
+  "settings_shortcutsCopy": {
+    "message": "Les raccourcis sont modifiables dans les réglages du navigateur."
+  },
+  "settings_shortcutsEdit": {
+    "message": "Modifier les raccourcis"
+  },
+  "settings_openOptions": {
+    "message": "Tous les réglages"
+  },
+  "shortcut_openPopup": {
+    "message": "Ouvrir la popup"
+  },
+  "shortcut_fillLogin": {
+    "message": "Remplir la connexion"
+  },
+  "shortcut_generatePassword": {
+    "message": "Générer un mot de passe"
+  },
+  "shortcut_fillTotp": {
+    "message": "Remplir le code TOTP"
+  },
+  "shortcut_notSet": {
+    "message": "Non défini"
+  },
+  "error_shortcutsPage": {
+    "message": "Impossible d’ouvrir la page des raccourcis du navigateur."
   },
   "settings_appAddress": {
     "message": "Adresse de l’application"

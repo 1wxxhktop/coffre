@@ -819,6 +819,98 @@ export const EN_TEXT: Record<string, string> = {
     'Bullets, list numbers and duplicates are ignored. Codes stay encrypted in the vault.',
   'Le code copié sera daté et ne sera plus proposé. Vous pourrez le rétablir depuis la fiche.':
     'The copied code will be dated and no longer offered. You can restore it from the item.',
+  "Mises à jour":
+    "Updates",
+  "Nouvelles versions publiées sur GitHub, signées et vérifiées avant installation.":
+    "New versions published on GitHub, signed and verified before installation.",
+  "La version Web se met à jour automatiquement à chaque visite, sans action de votre part.":
+    "The web version updates itself automatically on each visit, with nothing to do.",
+  "Version installée :":
+    "Installed version:",
+  "Version installée":
+    "Installed version",
+  "Dernière vérification":
+    "Last check",
+  "Recherche…":
+    "Checking…",
+  "Rechercher maintenant":
+    "Check now",
+  "Coffre est à jour.":
+    "Coffre is up to date.",
+  "Version {version} disponible":
+    "Version {version} available",
+  "Préversion":
+    "Pre-release",
+  "Notes de version":
+    "Release notes",
+  "Téléchargement de la mise à jour":
+    "Downloading the update",
+  "Téléchargement…":
+    "Downloading…",
+  "Téléchargement… {percent} %":
+    "Downloading… {percent}%",
+  "Installer et redémarrer":
+    "Install and restart",
+  "Installation… Coffre va redémarrer.":
+    "Installing… Coffre will restart.",
+  "Ignorer cette version":
+    "Skip this version",
+  "La mise à jour sera installée à la fermeture de Coffre.":
+    "The update will be installed when Coffre quits.",
+  "Recherche automatique":
+    "Automatic check",
+  "Désactivée":
+    "Off",
+  "À chaque démarrage":
+    "At every launch",
+  "Chaque jour":
+    "Every day",
+  "Chaque semaine":
+    "Every week",
+  "Canal":
+    "Channel",
+  "Stable":
+    "Stable",
+  "Bêta (préversions)":
+    "Beta (pre-releases)",
+  "Installation":
+    "Installation",
+  "Me demander":
+    "Ask me",
+  "À la fermeture de Coffre":
+    "When Coffre quits",
+  "Télécharger automatiquement en arrière-plan":
+    "Download automatically in the background",
+  "Les préversions apportent les nouveautés plus tôt mais peuvent contenir des défauts. Gardez des sauvegardes à jour.":
+    "Pre-releases bring new features earlier but may contain bugs. Keep your backups up to date.",
+  "Version ignorée : {version}":
+    "Skipped version: {version}",
+  "Ne plus ignorer":
+    "Stop skipping",
+  "La recherche contacte github.com : GitHub voit votre adresse IP et la version de Coffre. Aucune donnée du coffre n’est envoyée. Chaque paquet est signé et sa signature vérifiée avant installation ; le coffre est verrouillé avant le redémarrage.":
+    "Checking contacts github.com: GitHub sees your IP address and Coffre version. No vault data is sent. Every package is signed and its signature verified before installation; the vault is locked before restarting.",
+  "Coffre {version} est disponible":
+    "Coffre {version} is available",
+  "Plus tard":
+    "Later",
+  "Prête : elle sera installée à la fermeture de Coffre.":
+    "Ready: it will be installed when Coffre quits.",
+  "Les mises à jour ne sont pas disponibles dans ce build : la clé de signature n’y est pas intégrée (build local ou de développement).":
+    "Updates are not available in this build: the signing key is not embedded (local or development build).",
+  "Canal de mise à jour invalide.":
+    "Invalid update channel.",
+  "Impossible de joindre le serveur de mises à jour. Vérifiez la connexion et réessayez.":
+    "Cannot reach the update server. Check your connection and try again.",
+  "Téléchargement impossible, ou signature du paquet invalide. Rien n’a été installé.":
+    "Download failed, or the package signature is invalid. Nothing was installed.",
+  "Installation impossible. Coffre reste dans sa version actuelle.":
+    "Installation failed. Coffre stays on its current version.",
+  "Cette mise à jour n’est plus disponible. Relancez une recherche.":
+    "This update is no longer available. Check again.",
+  "Téléchargez la mise à jour avant de l’installer.":
+    "Download the update before installing it.",
+  "Une opération de mise à jour est déjà en cours.":
+    "An update operation is already in progress.",
 }
 
 /** Traduit un texte source ; renvoie le texte tel quel s’il est inconnu. */

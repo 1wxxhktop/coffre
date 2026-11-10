@@ -6,6 +6,8 @@ import { Brand } from './components/Brand'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { NativeBridge } from './components/NativeBridge'
 import { BackupScheduler } from './components/BackupScheduler'
+import { UpdateNotice } from './components/UpdateNotice'
+import { UpdateProvider } from './state/UpdateProvider'
 import { VaultProvider, useVault } from './state/VaultProvider'
 import { I18nProvider, useI18n } from './state/I18nProvider'
 import { SettingsProvider } from './state/SettingsProvider'
@@ -20,14 +22,17 @@ export default function App() {
       <I18nProvider>
         <ToastProvider>
           <VaultProvider>
-            <div
-              className="window-drag-strip"
-              data-tauri-drag-region
-              aria-hidden="true"
-            />
-            <NativeBridge />
-            <BackupScheduler />
-            <Root />
+            <UpdateProvider>
+              <div
+                className="window-drag-strip"
+                data-tauri-drag-region
+                aria-hidden="true"
+              />
+              <NativeBridge />
+              <BackupScheduler />
+              <Root />
+              <UpdateNotice />
+            </UpdateProvider>
           </VaultProvider>
         </ToastProvider>
       </I18nProvider>

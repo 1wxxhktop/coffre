@@ -9,7 +9,7 @@ use aes_gcm::{
 };
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as MacKeyInit, Mac};
 use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -104,7 +104,7 @@ pub fn seal_bytes_with_nonce(
     let cipher = cipher(key)?;
     let encrypted = cipher
         .encrypt(
-            Nonce::from_slice(nonce),
+            &Nonce::from(*nonce),
             Payload {
                 msg: plaintext,
                 aad: aad.as_bytes(),
@@ -134,10 +134,12 @@ pub fn open_bytes(
     if nonce.len() != NONCE_BYTES {
         return Err(CoreError::InvalidFormat("nonce AES invalide".into()));
     }
+    let nonce = Nonce::try_from(nonce.as_slice())
+        .map_err(|_| CoreError::InvalidFormat("nonce AES invalide".into()))?;
     let ciphertext = from_base64(&sealed.c)?;
     let plaintext = cipher
         .decrypt(
-            Nonce::from_slice(&nonce),
+            &nonce,
             Payload {
                 msg: &ciphertext,
                 aad: aad.as_bytes(),
@@ -152,7 +154,7 @@ pub fn sha256(bytes: &[u8]) -> Vec<u8> {
 }
 
 pub fn hmac_sha256(key: &[u8], message: &[u8]) -> Result<Vec<u8>, CoreError> {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key)
+    let mut mac = <Hmac<Sha256> as MacKeyInit>::new_from_slice(key)
         .map_err(|_| CoreError::Crypto("clé HMAC invalide".into()))?;
     mac.update(message);
     Ok(mac.finalize().into_bytes().to_vec())

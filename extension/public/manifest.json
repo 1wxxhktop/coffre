@@ -10,7 +10,8 @@
     "scripting",
     "storage",
     "nativeMessaging",
-    "clipboardWrite"
+    "clipboardWrite",
+    "contextMenus"
   ],
   "host_permissions": [
     "http://localhost:1420/*",
@@ -34,6 +35,8 @@
       "resources": [
         "menu.html",
         "menu.js",
+        "save-banner.html",
+        "save-banner.js",
         "webauthn-main.js",
         "assets/*",
         "chunks/*",
@@ -45,6 +48,27 @@
       ]
     }
   ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      }
+    },
+    "fill-login": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Alt+Shift+L"
+      },
+      "description": "__MSG_commandFillLogin__"
+    },
+    "generate-password": {
+      "description": "__MSG_commandGeneratePassword__"
+    },
+    "fill-totp": {
+      "description": "__MSG_commandFillTotp__"
+    }
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "coffre@1wxxhktop.github.io",
