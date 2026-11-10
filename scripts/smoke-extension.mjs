@@ -233,7 +233,22 @@ try {
   )
   assert.equal(fill.ok, true)
   await new Promise((resolve) => setTimeout(resolve, 600))
+  // Par défaut, le formulaire n’est pas soumis : l’utilisateur vérifie le compte.
+  assert.equal(await target.evaluate(() => window.__coffreSubmitCount), 0)
+
+  await extensionPage.evaluate(() =>
+    chrome.storage.local.set({ autoSubmitLogin: true }),
+  )
+  const fillAndSubmit = await extensionPage.evaluate(
+    ({ id, tabId }) => chrome.runtime.sendMessage({ type: 'FILL', itemId: id, tabId }),
+    { id: itemId, tabId: targetTab.id },
+  )
+  assert.equal(fillAndSubmit.ok, true)
+  await new Promise((resolve) => setTimeout(resolve, 600))
   assert.equal(await target.evaluate(() => window.__coffreSubmitCount), 1)
+  await extensionPage.evaluate(() =>
+    chrome.storage.local.set({ autoSubmitLogin: false }),
+  )
 
   const values = await target.evaluate(() => ({
     username: document.querySelector('#username').value,

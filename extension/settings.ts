@@ -17,6 +17,8 @@ export interface ExtensionSettings {
   saveBanner: boolean
   copyTotpAfterFill: boolean
   autofillOnLoad: boolean
+  /** Soumettre le formulaire de connexion après remplissage (désactivé par défaut). */
+  autoSubmitLogin: boolean
   excludedSites: string[]
 }
 
@@ -33,6 +35,7 @@ export const INLINE_MENU_KEY = 'inlineMenu'
 export const SAVE_BANNER_KEY = 'saveBanner'
 export const COPY_TOTP_KEY = 'copyTotpAfterFill'
 export const AUTOFILL_ON_LOAD_KEY = 'autofillOnLoad'
+export const AUTO_SUBMIT_KEY = 'autoSubmitLogin'
 export const EXCLUDED_SITES_KEY = 'excludedSites'
 
 const KEYS = [
@@ -43,6 +46,7 @@ const KEYS = [
   SAVE_BANNER_KEY,
   COPY_TOTP_KEY,
   AUTOFILL_ON_LOAD_KEY,
+  AUTO_SUBMIT_KEY,
   EXCLUDED_SITES_KEY,
 ]
 
@@ -54,6 +58,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   saveBanner: true,
   copyTotpAfterFill: false,
   autofillOnLoad: false,
+  autoSubmitLogin: false,
   excludedSites: [],
 }
 
@@ -129,6 +134,10 @@ export function sanitizeSettings(
       typeof values[AUTOFILL_ON_LOAD_KEY] === 'boolean'
         ? (values[AUTOFILL_ON_LOAD_KEY] as boolean)
         : DEFAULT_SETTINGS.autofillOnLoad,
+    autoSubmitLogin:
+      typeof values[AUTO_SUBMIT_KEY] === 'boolean'
+        ? (values[AUTO_SUBMIT_KEY] as boolean)
+        : DEFAULT_SETTINGS.autoSubmitLogin,
     excludedSites: [...new Set(excluded)],
   }
 }
@@ -164,6 +173,9 @@ export async function saveSettings(
   }
   if (patch.autofillOnLoad !== undefined) {
     values[AUTOFILL_ON_LOAD_KEY] = patch.autofillOnLoad
+  }
+  if (patch.autoSubmitLogin !== undefined) {
+    values[AUTO_SUBMIT_KEY] = patch.autoSubmitLogin
   }
   if (patch.excludedSites !== undefined) {
     values[EXCLUDED_SITES_KEY] = sanitizeSettings({
