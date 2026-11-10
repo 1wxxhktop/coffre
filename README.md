@@ -94,9 +94,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   ne sont remplis qu’après une action explicite ; une carte est refusée hors
   HTTPS et dans une iframe tierce qui n’est pas un prestataire de paiement
   connu. Les pages sont autorisées explicitement via les permissions
-  optionnelles. L’extension ne stocke aucun identifiant et ne copie rien dans le
-  presse-papiers ; seule la clé de session du pont natif est conservée dans son
-  stockage local.
+  optionnelles. L’extension ne stocke aucun identifiant et ne copie dans le
+  presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
+  l’option est activée, pour le code TOTP après un remplissage ; seule la clé
+  de session du pont natif est conservée dans son stockage local.
 - **Protection anti-hameçonnage** : avant un remplissage forcé ou un
   enregistrement, Coffre compare le domaine de la page aux domaines du coffre et
   à deux listes embarquées de sites populaires — Apple Password Manager
@@ -818,23 +819,40 @@ Le popup inclut une **barre de recherche** permanente, un **générateur de mot
 de passe local** avec copie en un clic et un **thème système/clair/sombre**.
 Le générateur permet de régler la longueur, les classes de caractères et
 l’exclusion des caractères ambigus ; les options sont mémorisées localement.
-Un clic sur une connexion déploie ses détails (identifiant, mot de passe masqué,
-code TOTP) avec copie champ par champ, y compris lorsque le remplissage
-automatique échoue. Les réglages (thème, adresse de Coffre, test de connexion)
-s’ouvrent directement dans le popup, sans nouvel onglet. La barre d’action et le
-statut restent ancrés en bas de la fenêtre, même lorsque celle-ci ne s’ajuste
-pas automatiquement à son contenu. La liste des connexions occupe toute la
-hauteur disponible et défile avec le reste du panneau. Une fois le remplissage
-actif dans l’onglet, le bouton d’activation laisse place à une pastille verte
-dans le pied de page. Le logo Coffre est un SVG inline qui s’inverse selon le
-thème clair ou sombre, dans le popup comme dans le menu des champs, et les
-icônes d’action 16/32/48/128 px disposent de variantes clair/sombre.
-La barre de recherche et le bouton du générateur restent ancrés en haut pendant
-le défilement ; la recherche est focalisée à l’ouverture et une touche
-imprimable lance immédiatement une recherche. Le bouton « Remplir » remplit la
-connexion sans l’envoyer : l’option « Valider le formulaire après remplissage »
-(désactivée par défaut) clique en plus sur le bouton de connexion. Les cartes
-et identités ne sont jamais soumises automatiquement.
+La vue d’accueil est découpée en **« Pour ce site », « Favoris » et
+« Récents »** ; taper dans la recherche bascule sur l’ensemble du coffre. Les
+icônes de type et les pastilles d’initiale sont des SVG locaux, alignés sur
+`ItemIcon` : aucune favicon n’est téléchargée. Un clic sur une connexion
+déploie ses détails (identifiant, mot de passe masqué, code TOTP) avec copie
+champ par champ, y compris lorsque le remplissage automatique échoue.
+Au clavier, `↑`/`↓` parcourent les résultats, `Entrée` remplit, `/` ramène à la
+recherche et `Échap` referme les détails ou revient à la vue du site. `⌘C`
+copie le mot de passe, `⌘⇧C` l’identifiant et `⌘⌥C` le code TOTP (`Ctrl` sur
+Windows/Linux, `Ctrl+Alt` pour le TOTP). Chaque état (application fermée, non
+appairée, coffre verrouillé, site non autorisé, aucun résultat) affiche un
+message et une action principale. Les réglages (thème, adresse de Coffre, test
+de connexion) s’ouvrent directement dans le popup, sans nouvel onglet. Le
+statut reste ancré en bas de la fenêtre, même lorsque celle-ci ne s’ajuste pas
+automatiquement à son contenu. La liste des connexions occupe toute la hauteur
+disponible et défile avec le reste du panneau. Une fois le remplissage actif
+dans l’onglet, le bouton d’activation laisse place à une pastille verte dans le
+pied de page. Le logo Coffre est un SVG inline qui s’inverse selon le thème
+clair ou sombre, dans le popup comme dans le menu des champs, et les icônes
+d’action 16/32/48/128 px disposent de variantes clair/sombre. La barre de
+recherche et le bouton du générateur restent ancrés en haut pendant le
+défilement ; la recherche est focalisée à l’ouverture. Le bouton « Remplir »
+remplit la connexion sans l’envoyer : l’option « Valider le formulaire après
+remplissage » (désactivée par défaut) clique en plus sur le bouton de
+connexion. Les cartes et identités ne sont jamais soumises automatiquement.
+
+**Badge et copie TOTP.** Le badge de la barre d’action affiche le nombre de
+connexions du site actif lorsque le coffre est déverrouillé et le site autorisé ;
+le point ambre d’une proposition d’enregistrement reste prioritaire. L’option
+« Copier le code TOTP après remplissage », désactivée par défaut, copie le code
+puis l’efface après 30 secondes s’il n’a pas été remplacé. C’est la seule
+lecture du presse-papiers par l’extension : elle sert uniquement à comparer ce
+code, rien n’est conservé ni transmis.
+
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
 propose une mise à jour. La proposition survit à l’arrêt du service worker :
@@ -908,9 +926,20 @@ Web, l’activation site par site (défaut) ou tous les sites, puis rappelle les
 raccourcis et l’épinglage. Une note de mise à jour n’apparaît que lorsqu’une
 version change réellement le comportement ou les permissions. La page
 d’options (`chrome-extension://…/options.html`, aussi accessible depuis le
-popup) regroupe la connexion, le remplissage, l’enregistrement, les raccourcis,
-le thème et les permissions. Les réglages sont locaux : aucun secret, aucun
-nom d’élément, aucune télémétrie.
+popup) regroupe la connexion, le remplissage, l’enregistrement, les exclusions,
+les raccourcis, le thème et les permissions. Les réglages sont locaux : aucun
+secret, aucun nom d’élément, aucune télémétrie. Seules les exclusions
+contiennent des noms de domaines. L’accès « Tous les sites » demandé une fois
+peut être révoqué depuis cette page, qui rebascule alors sur l’activation site
+par site.
+
+**Exclusions par site.** Deux listes indépendantes sont modifiables depuis le
+popup ou la page d’options : « Ne jamais remplir ce site » masque le menu,
+bloque les remplissages, les raccourcis et la génération sur ce domaine ;
+« Ne jamais proposer d’enregistrer » empêche le bandeau et la proposition dans
+le popup. Le domaine est ramené au domaine enregistrable usuel
+(`login.example.com` → `example.com`). Le retrait d’une exclusion rétablit le
+comportement sans recharger l’extension.
 
 **Cartes et identités.** La détection repose sur les attributs `autocomplete`
 (`cc-number`, `cc-exp`, `cc-csc`, `given-name`, `postal-code`…), les types de

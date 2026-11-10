@@ -76,10 +76,10 @@
           </span>
         </label>
         <label class="toggle">
-          <input id="copy-totp" type="checkbox" disabled />
+          <input id="copy-totp" type="checkbox" />
           <span>
             <strong data-i18n="options_copyTotp">Copier le code TOTP après remplissage</strong>
-            <small data-i18n="options_soon">Disponible dans un prochain lot (E10).</small>
+            <small data-i18n="options_copyTotpCopy">Le code est effacé après 30 secondes s’il n’a pas été remplacé. Coffre lit le presse-papiers uniquement pour ce contrôle.</small>
           </span>
         </label>
         <label class="toggle">
@@ -107,8 +107,14 @@
             </span>
           </label>
         </div>
+        <p class="muted" data-i18n="options_allSitesCopy">
+          « Tous les sites » demande une seule fois l’accès aux pages HTTP et HTTPS. L’autorisation reste révocable ici à tout moment ; Coffre ne lit aucune page en dehors du remplissage et du menu que vous déclenchez.
+        </p>
         <button id="request-all" class="button" type="button" hidden>
           <span data-i18n="welcome_requestAll">Autoriser tous les sites maintenant</span>
+        </button>
+        <button id="revoke-all" class="button" type="button" hidden>
+          <span data-i18n="options_revokeAll">Révoquer l’accès à tous les sites</span>
         </button>
         <p id="fill-status" class="status" role="status"></p>
       </section>
@@ -123,9 +129,19 @@
           </span>
         </label>
         <h3 data-i18n="options_exclusions">Exclusions par site</h3>
-        <p class="muted" data-i18n="options_exclusionsSoon">
-          « Ne jamais proposer d’enregistrer » et « Ne jamais remplir » arrivent avec le lot E7. Aucune exclusion n’est encore enregistrée.
+        <p class="muted" data-i18n="options_exclusionsCopy">
+          Ajoutez une exclusion depuis la popup ou le menu d’un site. Les listes ci-dessous sont modifiables sans recharger l’extension.
         </p>
+        <div class="exclusion-groups">
+          <div>
+            <h4 data-i18n="settings_excludeFill">Ne jamais remplir ce site</h4>
+            <ul id="never-fill-list" class="exclusion-list"></ul>
+          </div>
+          <div>
+            <h4 data-i18n="settings_excludeSave">Ne jamais proposer d’enregistrer</h4>
+            <ul id="never-save-list" class="exclusion-list"></ul>
+          </div>
+        </div>
       </section>
 
       <section class="card">

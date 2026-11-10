@@ -35,9 +35,13 @@ const pairingCode = $<HTMLParagraphElement>('pairing-code')
 const inlineMenu = $<HTMLInputElement>('inline-menu')
 const saveBanner = $<HTMLInputElement>('save-banner')
 const autoSubmit = $<HTMLInputElement>('auto-submit')
+const copyTotp = $<HTMLInputElement>('copy-totp')
 const requestAllButton = $<HTMLButtonElement>('request-all')
+const revokeAllButton = $<HTMLButtonElement>('revoke-all')
 const fillStatus = $<HTMLParagraphElement>('fill-status')
 const shortcutsList = $<HTMLUListElement>('shortcuts-list')
+const neverFillList = $<HTMLUListElement>('never-fill-list')
+const neverSaveList = $<HTMLUListElement>('never-save-list')
 const modeInputs = Array.from(
   document.querySelectorAll<HTMLInputElement>('input[name="app-mode"]'),
 )
@@ -50,6 +54,7 @@ const themeChoices = Array.from(
 
 let appMode: AppMode = 'desktop'
 let activationMode: ActivationMode = 'site'
+let allSitesGranted = false
 let themePreference: ThemePreference = 'dark'
 
 const SHORTCUT_LABELS: Record<string, string> = {
@@ -80,9 +85,23 @@ function selectedActivation(): ActivationMode {
     : 'site'
 }
 
+async function refreshAllSitesState(): Promise<void> {
+  try {
+    allSitesGranted = await api.permissions.contains({
+      origins: ['http://*/*', 'https://*/*'],
+    })
+  } catch {
+    allSitesGranted = false
+  }
+  requestAllButton.hidden = activationMode !== 'all' || allSitesGranted
+  revokeAllButton.hidden = activationMode !== 'all' || !allSitesGranted
+}
+
 function renderActivation(): void {
   activationMode = selectedActivation()
   requestAllButton.hidden = activationMode !== 'all'
+  revokeAllButton.hidden = true
+  void refreshAllSitesState()
 }
 
 function renderTheme(): void {
@@ -143,6 +162,56 @@ async function describeStatus(): Promise<void> {
   setStatus(status, t('settings_status_ready'), 'ok')
 }
 
+function renderExclusionList(
+  element: HTMLUListElement,
+  entries: string[],
+  kind: 'fill' | 'save',
+): void {
+  element.replaceChildren()
+  if (entries.length === 0) {
+    const empty = document.createElement('li')
+    empty.className = 'empty'
+    empty.textContent = t('options_exclusionsEmpty')
+    element.append(empty)
+    return
+  }
+  for (const host of entries) {
+    const item = document.createElement('li')
+    const label = document.createElement('span')
+    label.textContent = host
+    const remove = document.createElement('button')
+    remove.type = 'button'
+    remove.textContent = t('options_exclusionsRemove')
+    remove.addEventListener('click', () => {
+      void (async () => {
+        const response = (await api.runtime.sendMessage({
+          type: 'SET_SITE_EXCLUSION',
+          host,
+          kind,
+          excluded: false,
+        })) as { ok?: boolean; error?: string }
+        if (!response?.ok) {
+          setStatus(fillStatus, t('error_generic'), 'error')
+          return
+        }
+        const settings = await loadSettings()
+        renderExclusionList(neverFillList, settings.neverFillSites, 'fill')
+        renderExclusionList(neverSaveList, settings.neverSaveSites, 'save')
+      })()
+    })
+    item.append(label, remove)
+    element.append(item)
+  }
+}
+
+function renderExclusions(settings: {
+  neverFillSites: string[]
+  neverSaveSites: string[]
+}): void {
+  renderExclusionList(neverFillList, settings.neverFillSites, 'fill')
+  renderExclusionList(neverSaveList, settings.neverSaveSites, 'save')
+}
+
 async function load(): Promise<void> {
   await loadTheme().then((preference) => {
     themePreference = preference
@@ -155,6 +224,8 @@ async function load(): Promise<void> {
   inlineMenu.checked = settings.inlineMenu
   saveBanner.checked = settings.saveBanner
   autoSubmit.checked = settings.autoSubmitLogin
+  copyTotp.checked = settings.copyTotpAfterFill
+  renderExclusions(settings)
   for (const modeInput of modeInputs) {
     modeInput.checked = modeInput.value === appMode
   }
@@ -232,11 +303,41 @@ async function requestAllSites(): Promise<void> {
       return
     }
     await api.runtime.sendMessage({ type: 'ENABLE_INLINE' })
+    await refreshAllSitesState()
     setStatus(fillStatus, t('welcome_allEnabled'), 'ok')
   } catch {
     setStatus(fillStatus, t('welcome_allFailed'), 'error')
   } finally {
     requestAllButton.disabled = false
+  }
+}
+
+async function revokeAllSites(): Promise<void> {
+  revokeAllButton.disabled = true
+  try {
+    const removed = await api.permissions.remove({
+      origins: ['http://*/*', 'https://*/*'],
+    })
+    if (!removed) {
+      setStatus(fillStatus, t('welcome_revokeFailed'), 'error')
+      return
+    }
+    activationMode = 'site'
+    await saveSettings({ activationMode })
+    for (const activationInput of activationInputs) {
+      activationInput.checked = activationInput.value === activationMode
+    }
+    try {
+      await api.runtime.sendMessage({ type: 'ENABLE_INLINE' })
+    } catch {
+      // Le retrait de permission reste effectif même si la synchronisation échoue.
+    }
+    renderActivation()
+    setStatus(fillStatus, t('welcome_allRevoked'), 'ok')
+  } catch {
+    setStatus(fillStatus, t('welcome_revokeFailed'), 'error')
+  } finally {
+    revokeAllButton.disabled = false
   }
 }
 
@@ -273,6 +374,10 @@ autoSubmit.addEventListener('change', () => {
 saveBanner.addEventListener('change', () => {
   void saveSettings({ saveBanner: saveBanner.checked })
 })
+copyTotp.addEventListener('change', () => {
+  void saveSettings({ copyTotpAfterFill: copyTotp.checked })
+})
+revokeAllButton.addEventListener('click', () => void revokeAllSites())
 saveButton.addEventListener('click', () => void saveApp())
 testButton.addEventListener('click', () => void describeStatus())
 openButton.addEventListener('click', () => {
