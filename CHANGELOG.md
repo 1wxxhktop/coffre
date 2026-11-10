@@ -2,6 +2,14 @@
 
 ## Non publié
 
+- `bun run release:collect` rassemble dans un dossier local `release/` tous
+  les exécutables construits par la CI sur `main` : DMG macOS, installateurs
+  Windows, paquets Linux, outils en ligne de commande (`coffre-cli`,
+  `coffre-git-sign`, `coffre-ssh-agent`) pour chaque système, extension,
+  application Web et SBOM, avec empreintes SHA-256. La CI compile désormais
+  ces outils sur les trois systèmes, ne conserve que les paquets finaux et les
+  garde 30 jours.
+
 - CI : le dépôt étant public, les runners GitHub sont gratuits. Chaque PR et
   chaque push lancent de nouveau les tests sur macOS et Windows et les
   parcours Playwright sur WebKit ; les bundles desktop et la reproductibilité
