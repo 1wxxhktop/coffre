@@ -137,6 +137,12 @@
   "welcome_allFailed": {
     "message": "Could not enable all sites."
   },
+  "welcome_allRevoked": {
+    "message": "All-sites access revoked. Filling remains site by site."
+  },
+  "welcome_revokeFailed": {
+    "message": "Could not revoke access. Remove the permission from the browser settings."
+  },
   "welcome_shortcutsHeading": {
     "message": "Shortcuts and pinning"
   },
@@ -284,6 +290,123 @@
   "popup_footer": {
     "message": "Local · no server"
   },
+  "popup_footerHint": {
+    "message": "↑↓ navigate · ↵ fill · / search"
+  },
+  "popup_footerPairing": {
+    "message": "Coffre desktop · not paired"
+  },
+  "popup_footerClosed": {
+    "message": "Coffre is not open"
+  },
+  "popup_footerLockedNative": {
+    "message": "Coffre desktop locked"
+  },
+  "popup_footerLocked": {
+    "message": "Coffre locked"
+  },
+  "popup_footerNative": {
+    "message": "Coffre desktop · local native bridge"
+  },
+  "popup_footerReady": {
+    "message": "Coffre unlocked · local"
+  },
+  "popup_pageUnsupported": {
+    "message": "Unsupported page"
+  },
+  "popup_searchFor": {
+    "message": "Search for $1…"
+  },
+  "popup_results": {
+    "message": "Results"
+  },
+  "popup_siteSection": {
+    "message": "For this site"
+  },
+  "popup_favorites": {
+    "message": "Favorites"
+  },
+  "popup_recents": {
+    "message": "Recent"
+  },
+  "popup_searchResults": {
+    "message": "Results"
+  },
+  "popup_allItems": {
+    "message": "All logins"
+  },
+  "popup_noSiteTitle": {
+    "message": "No login for this site"
+  },
+  "popup_noSiteText": {
+    "message": "Add this login in Coffre to find it here."
+  },
+  "popup_addSite": {
+    "message": "Add this site in Coffre"
+  },
+  "popup_noResultsTitle": {
+    "message": "No results"
+  },
+  "popup_noResultsText": {
+    "message": "No login matches “$1”."
+  },
+  "popup_clearSearch": {
+    "message": "Clear search"
+  },
+  "state_closedTitle": {
+    "message": "Coffre is not open"
+  },
+  "state_closedText": {
+    "message": "Open Coffre to fill your credentials."
+  },
+  "state_pairTitle": {
+    "message": "Extension not paired"
+  },
+  "state_pairText": {
+    "message": "Pair this extension with Coffre: the code appears here and in the app."
+  },
+  "state_lockedTitle": {
+    "message": "Coffre locked"
+  },
+  "state_lockedText": {
+    "message": "Unlock Coffre to find your credentials."
+  },
+  "state_siteTitle": {
+    "message": "Fill not enabled"
+  },
+  "popup_pairRequested": {
+    "message": "Request sent. Confirm the code shown in Coffre."
+  },
+  "popup_paired": {
+    "message": "Extension paired with Coffre."
+  },
+  "popup_pairFailed": {
+    "message": "Pairing failed."
+  },
+  "popup_pairCode": {
+    "message": "Code $1 — confirm it in Coffre."
+  },
+  "popup_updated": {
+    "message": "Password updated."
+  },
+  "popup_saved": {
+    "message": "Login saved."
+  },
+  "popup_copiedPassword": {
+    "message": "Password copied."
+  },
+  "popup_copiedUsername": {
+    "message": "Username copied."
+  },
+  "popup_copiedTotp": {
+    "message": "TOTP code copied."
+  },
+  "popup_noTotp": {
+    "message": "No TOTP code for this login."
+  },
+  "popup_copyFailed": {
+    "message": "Copy failed."
+  },
   "options_title": {
     "message": "Settings — Coffre"
   },
@@ -317,11 +440,20 @@
   "options_copyTotp": {
     "message": "Copy the TOTP code after filling"
   },
+  "options_copyTotpCopy": {
+    "message": "The code is cleared after 30 seconds if it has not been replaced. Coffre reads the clipboard only for this check."
+  },
+  "options_allSitesCopy": {
+    "message": "“All sites” asks once for access to HTTP and HTTPS pages. You can revoke it here at any time; Coffre never reads a page outside the fill or menu you trigger."
+  },
+  "options_revokeAll": {
+    "message": "Revoke access to all sites"
+  },
   "options_autofillOnLoad": {
     "message": "Fill on page load"
   },
   "options_soon": {
-    "message": "Available in a later batch (E10/E11)."
+    "message": "Available in a later batch (E11)."
   },
   "options_activation": {
     "message": "Activation"
@@ -338,8 +470,14 @@
   "options_exclusions": {
     "message": "Per-site exclusions"
   },
-  "options_exclusionsSoon": {
-    "message": "“Never offer to save” and “Never fill” arrive with E7. No exclusion is stored yet."
+  "options_exclusionsCopy": {
+    "message": "Add an exclusion from the popup or a site’s field menu. The lists below update without reloading the extension."
+  },
+  "options_exclusionsEmpty": {
+    "message": "No exclusion."
+  },
+  "options_exclusionsRemove": {
+    "message": "Remove"
   },
   "options_appearance": {
     "message": "Appearance"
@@ -384,7 +522,7 @@
     "message": "Permissions"
   },
   "options_permissionsCopy": {
-    "message": "The extension requests access to the active tab when filling, to the sites you allow, and to the Coffre address. It has no access to other tabs outside your actions. The contextMenus permission only displays the right-click menu; no data is transmitted."
+    "message": "The extension requests access to the active tab when filling, to the sites you allow, and to the Coffre address. It has no access to other tabs outside your actions. The contextMenus permission only displays the right-click menu; clipboardRead is used only to clear a copied TOTP code if it has not changed, and clipboardWrite for copies you trigger. No data is transmitted."
   },
   "saveBanner_pageTitle": {
     "message": "Save to Coffre"
@@ -409,6 +547,12 @@
   },
   "saveBanner_later": {
     "message": "Later"
+  },
+  "saveBanner_never": {
+    "message": "Never for this site"
+  },
+  "saveBanner_neverSaved": {
+    "message": "This site will no longer offer to save a login."
   },
   "saveBanner_close": {
     "message": "Close"
@@ -496,6 +640,9 @@
   },
   "error_nativeUnavailable": {
     "message": "The Coffre desktop app is unavailable."
+  },
+  "error_excluded": {
+    "message": "This site is excluded from Coffre."
   },
   "error_generic": {
     "message": "Operation failed."
@@ -611,6 +758,9 @@
   "menu_errorCancelled": {
     "message": "Biometric confirmation cancelled."
   },
+  "menu_errorExcluded": {
+    "message": "This site is excluded from Coffre."
+  },
   "menu_tabCustom": {
     "message": "Templates"
   },
@@ -634,6 +784,12 @@
   },
   "menu_signupFilled": {
     "message": "Strong password filled. Save the login after validation."
+  },
+  "menu_excludeSite": {
+    "message": "Never show on this site"
+  },
+  "menu_excluded": {
+    "message": "Coffre will no longer offer to fill on this site."
   },
   "menu_alias": {
     "message": "Create an email alias"
@@ -694,6 +850,24 @@
   },
   "settings_appearance": {
     "message": "Appearance"
+  },
+  "settings_behavior": {
+    "message": "Behavior"
+  },
+  "settings_exclusions": {
+    "message": "Exclusions"
+  },
+  "settings_exclusionHost": {
+    "message": "Current site: $1"
+  },
+  "settings_exclusionNoSite": {
+    "message": "Open this popup on an HTTP or HTTPS page to exclude the site."
+  },
+  "settings_excludeFill": {
+    "message": "Never fill on this site"
+  },
+  "settings_excludeSave": {
+    "message": "Never offer to save"
   },
   "settings_shortcuts": {
     "message": "Shortcuts"

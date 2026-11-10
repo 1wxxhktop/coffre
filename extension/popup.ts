@@ -7,11 +7,15 @@ import {
 } from '../src/lib/password'
 import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
+import { itemIconSvg, itemInitial, stateIconSvg } from './itemIcon'
 import { mountLogos } from './logo'
+import { groupLogins, type PopupGroup } from './popupModel'
 import {
   loadSettings as loadExtensionSettings,
+  saveSettings as saveExtensionSettings,
   type ActivationMode,
 } from './settings'
+import { isSiteExcluded } from './siteExclusions'
 import { loadTheme, nextTheme, saveTheme, type ThemePreference } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
@@ -77,10 +81,12 @@ const generatorClassToggles = [
   { input: generatorDigitsInput, key: 'digits' as const },
   { input: generatorSymbolsInput, key: 'symbols' as const },
 ]
-const results = $<HTMLUListElement>('results')
-const empty = $<HTMLParagraphElement>('empty')
-const showAllButton = $<HTMLButtonElement>('show-all')
-const actions = $<HTMLDivElement>('actions')
+const results = $<HTMLDivElement>('results')
+const state = $<HTMLElement>('state')
+const stateIcon = $<HTMLSpanElement>('state-icon')
+const stateTitle = $<HTMLHeadingElement>('state-title')
+const stateText = $<HTMLParagraphElement>('state-text')
+const stateAction = $<HTMLButtonElement>('state-action')
 const mainElement = $<HTMLElement>('main')
 const mainView = $<HTMLDivElement>('main-view')
 const settingsView = $<HTMLElement>('settings-view')
@@ -91,29 +97,35 @@ const settingsTestButton = $<HTMLButtonElement>('settings-test')
 const settingsStatus = $<HTMLParagraphElement>('settings-status')
 const settingsOpenAppButton = $<HTMLButtonElement>('settings-open-app')
 const settingsOpenOptionsButton = $<HTMLButtonElement>('settings-open-options')
+const settingsExclusionHost = $<HTMLParagraphElement>('settings-exclusion-host')
+const copyTotpInput = $<HTMLInputElement>('copy-totp-setting')
+const excludeFillInput = $<HTMLInputElement>('exclude-fill')
+const excludeSaveInput = $<HTMLInputElement>('exclude-save')
 const shortcutsList = $<HTMLUListElement>('shortcuts-list')
 const settingsShortcutsButton = $<HTMLButtonElement>('settings-shortcuts')
 const themeChoices = Array.from(
   document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]'),
 )
-const pairButton = $<HTMLButtonElement>('pair')
-const activateInlineButton = $<HTMLButtonElement>('activate-inline')
 const savePrompt = $<HTMLDivElement>('save-prompt')
 const saveText = $<HTMLParagraphElement>('save-text')
 const saveNowButton = $<HTMLButtonElement>('save-now')
 const saveIgnoreButton = $<HTMLButtonElement>('save-ignore')
-const openAppButton = $<HTMLButtonElement>('open-app')
-const focusAppButton = $<HTMLButtonElement>('focus-app')
 const settingsButton = $<HTMLButtonElement>('settings')
 const themeButton = $<HTMLButtonElement>('theme')
 const themeIcon = $<HTMLSpanElement>('theme-icon')
 const footerStatus = $<HTMLSpanElement>('footer-status')
+const footerHint = $<HTMLParagraphElement>('footer-hint')
 const bottomDock = $<HTMLDivElement>('bottom-dock')
 const inlineStatusDot = $<HTMLSpanElement>('inline-status-dot')
 
 let currentTab: chrome.tabs.Tab | null = null
 let status: AppStatus = { appOpen: false, unlocked: false, appUrl: '' }
 let entries: ExtensionLoginSummary[] = []
+let initialHost = ''
+let activeIndex = -1
+let stateKind: 'closed' | 'pair' | 'locked' | 'site' | 'empty' | 'search' | null =
+  null
+let siteBlocked = false
 let generatedValue = ''
 let passwordOptions: PasswordOptions = { ...DEFAULT_PASSWORD_OPTIONS }
 let generatorOptionsLoaded = false
@@ -158,6 +170,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   'native-timeout': 'error_nativeTimeout',
   'native-unavailable': 'error_nativeUnavailable',
   'shortcuts-page': 'error_shortcutsPage',
+  excluded: 'error_excluded',
 }
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -186,6 +199,42 @@ function setBusy(value: boolean) {
   }
 }
 
+/** Convertit un SVG constant en nœud, sans affecter de HTML à un élément. */
+function iconNode(markup: string): SVGElement {
+  const parsed = new DOMParser().parseFromString(markup, 'text/html')
+  return parsed.body.firstElementChild as unknown as SVGElement
+}
+
+function showState(
+  kind: NonNullable<typeof stateKind>,
+  title: string,
+  text: string,
+  action?: { label: string; run: () => void },
+): void {
+  stateKind = kind
+  stateIcon.replaceChildren(iconNode(stateIconSvg(kind)))
+  stateTitle.textContent = title
+  stateText.textContent = text
+  stateAction.hidden = !action
+  stateAction.textContent = action?.label ?? ''
+  stateAction.onclick = action
+    ? () => {
+        action.run()
+      }
+    : null
+  state.hidden = false
+}
+
+function hideState(): void {
+  stateKind = null
+  state.hidden = true
+  stateAction.onclick = null
+}
+
+function openApp(): void {
+  void send({ type: 'OPEN_APP' }).then(() => window.close())
+}
+
 function renderThemeChoices(): void {
   for (const button of themeChoices) {
     const active = button.dataset.themeChoice === themePreference
@@ -198,7 +247,7 @@ function renderTheme(): void {
   const label = t(`theme_${themePreference}`)
   themeButton.title = `${t('theme_toggle')} — ${label}`
   themeButton.setAttribute('aria-label', themeButton.title)
-  themeIcon.innerHTML = THEME_ICONS[themePreference]
+  themeIcon.replaceChildren(iconNode(THEME_ICONS[themePreference]))
   renderThemeChoices()
 }
 
@@ -257,6 +306,47 @@ async function loadShortcuts(): Promise<void> {
   }
 }
 
+async function loadExclusions(): Promise<void> {
+  const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
+  const settings = await loadExtensionSettings()
+  copyTotpInput.checked = settings.copyTotpAfterFill
+  const supported = Boolean(host) && /^https?:/i.test(currentTab?.url ?? '')
+  settingsExclusionHost.textContent = supported
+    ? t('settings_exclusionHost', [host])
+    : t('settings_exclusionNoSite')
+  excludeFillInput.disabled = !supported
+  excludeSaveInput.disabled = !supported
+  excludeFillInput.checked =
+    supported && isSiteExcluded(settings.neverFillSites, host)
+  excludeSaveInput.checked =
+    supported && isSiteExcluded(settings.neverSaveSites, host)
+}
+
+async function updateExclusion(
+  kind: 'fill' | 'save',
+  input: HTMLInputElement,
+): Promise<void> {
+  const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
+  if (!host) return
+  try {
+    const response = await send<{ ok?: boolean; error?: string }>({
+      type: 'SET_SITE_EXCLUSION',
+      host,
+      kind,
+      excluded: input.checked,
+    })
+    if (!response?.ok) {
+      input.checked = !input.checked
+      setSettingsStatus(errorText(response?.error), 'error')
+      return
+    }
+    if (kind === 'save' && input.checked) savePrompt.hidden = true
+  } catch {
+    input.checked = !input.checked
+    setSettingsStatus(t('error_generic'), 'error')
+  }
+}
+
 async function loadSettings(): Promise<void> {
   try {
     const response = await send<{ appUrl: string }>({ type: 'GET_APP_URL' })
@@ -264,6 +354,7 @@ async function loadSettings(): Promise<void> {
   } catch {
     settingsAppUrl.value = status.appUrl || ''
   }
+  await loadExclusions()
   await loadShortcuts()
 }
 
@@ -353,14 +444,24 @@ function unlockButtonLabel(): string {
     : t('popup_openUnlock')
 }
 
+function bindLockedAction(): void {
+  if (stateKind !== 'locked') return
+  stateAction.textContent = t('popup_unlockCancel')
+  stateAction.onclick = () => stopUnlock(true)
+}
+
 function stopUnlock(cancelled = false): void {
   unlocking = false
   if (unlockPoll !== undefined) window.clearInterval(unlockPoll)
   unlockPoll = undefined
   if (unlockHintTimer !== undefined) window.clearTimeout(unlockHintTimer)
   unlockHintTimer = undefined
-  focusAppButton.textContent = unlockButtonLabel()
-  openAppButton.disabled = false
+  if (stateKind === 'locked') {
+    showState('locked', t('state_lockedTitle'), t('state_lockedText'), {
+      label: unlockButtonLabel(),
+      run: () => void startUnlock(),
+    })
+  }
   if (cancelled) showMessage(t('popup_unlockCancelled'), 'info')
 }
 
@@ -391,8 +492,7 @@ async function pollUnlock(deadline: number): Promise<void> {
 async function startUnlock(): Promise<void> {
   if (unlocking) return
   unlocking = true
-  focusAppButton.textContent = t('popup_unlockCancel')
-  openAppButton.disabled = true
+  bindLockedAction()
   showMessage(t('popup_unlocking'), 'info')
   const deadline = Date.now() + 120_000
   unlockHintTimer = window.setTimeout(() => {
@@ -431,88 +531,75 @@ async function startUnlock(): Promise<void> {
   }
 }
 
-function renderStatus() {
-  actions.hidden = true
-  pairButton.hidden = true
-  activateInlineButton.hidden = true
-  focusAppButton.hidden = true
-  focusAppButton.textContent = unlockButtonLabel()
-  inlineStatusDot.hidden = true
-  searchWrap.hidden = false
-  searchInput.disabled = true
-  results.replaceChildren()
-  empty.hidden = true
-  showAllButton.hidden = true
+function activateLabel(): string {
+  return t(
+    activationMode === 'all' ? 'popup_activateInline' : 'popup_activateSite',
+  )
+}
 
-  if (status.mode === 'native' && !status.unlocked) {
-    showMessage('Coffre est verrouillé. Déverrouillez l’application pour continuer.')
-    actions.hidden = false
-    openAppButton.hidden = true
-    focusAppButton.hidden = false
-    footerStatus.textContent = 'Coffre desktop verrouillé'
-    return
-  }
+function renderStatus(): void {
+  hideMessage()
+  hideState()
+  inlineStatusDot.hidden = true
+  searchWrap.hidden = true
+  searchInput.disabled = true
+  footerHint.hidden = true
+  results.replaceChildren()
+  activeIndex = -1
+  siteBlocked = false
 
   if (status.mode === 'native' && status.paired === false) {
-    showMessage(
-      'Associez cette extension à Coffre : le code s’affichera ici et dans l’application.',
-    )
-    actions.hidden = false
-    pairButton.hidden = false
-    openAppButton.hidden = true
-    footerStatus.textContent = 'Coffre desktop · non associé'
+    showState('pair', t('state_pairTitle'), t('state_pairText'), {
+      label: t('popup_pair'),
+      run: () => void pairExtension(),
+    })
+    footerStatus.textContent = t('popup_footerPairing')
     return
   }
 
   if (!status.appOpen) {
-    showMessage('Ouvrez Coffre pour remplir vos identifiants.')
-    actions.hidden = false
-    openAppButton.hidden = false
-    footerStatus.textContent = 'Coffre n’est pas ouvert'
+    showState('closed', t('state_closedTitle'), t('state_closedText'), {
+      label: t('popup_openApp'),
+      run: openApp,
+    })
+    footerStatus.textContent = t('popup_footerClosed')
     return
   }
 
   if (!status.unlocked) {
-    showMessage('Coffre est verrouillé. Déverrouillez-le dans son onglet.')
-    actions.hidden = false
-    openAppButton.hidden = true
-    focusAppButton.hidden = false
+    showState('locked', t('state_lockedTitle'), t('state_lockedText'), {
+      label: unlockButtonLabel(),
+      run: () => void startUnlock(),
+    })
     footerStatus.textContent =
-      status.mode === 'native' ? 'Coffre desktop verrouillé' : 'Coffre verrouillé'
+      status.mode === 'native'
+        ? t('popup_footerLockedNative')
+        : t('popup_footerLocked')
     return
   }
 
   searchWrap.hidden = false
   searchInput.disabled = false
-  const siteAllowed = status.siteAccess !== false
-  if (!siteAllowed && !inlineReady) {
-    showMessage(t('popup_activateHint'), 'info')
-  } else {
-    hideMessage()
-  }
-  actions.hidden = inlineReady
-  openAppButton.hidden = true
-  activateInlineButton.hidden = inlineReady
-  const activateLabel = activateInlineButton.querySelector('span')
-  if (activateLabel) {
-    activateLabel.textContent = t(
-      activationMode === 'all'
-        ? 'popup_activateInline'
-        : 'popup_activateSite',
-    )
+  footerHint.hidden = false
+  siteBlocked = status.siteAccess === false && !inlineReady
+  if (siteBlocked) {
+    showState('site', t('state_siteTitle'), t('popup_activateHint'), {
+      label: activateLabel(),
+      run: () => void activateInline(),
+    })
   }
   inlineStatusDot.hidden = !inlineReady
   footerStatus.textContent =
     status.mode === 'native'
-      ? 'Coffre desktop · pont natif local'
-      : 'Coffre déverrouillé · local'
+      ? t('popup_footerNative')
+      : t('popup_footerReady')
 }
 
 async function toggleDetails(
   entry: ExtensionLoginSummary,
   row: HTMLLIElement,
   panel: HTMLDivElement,
-  toggle: HTMLButtonElement,
+  toggle: HTMLElement,
 ): Promise<void> {
   const expanded = row.dataset.expanded === 'true'
   if (expanded) {
@@ -553,75 +640,145 @@ async function toggleDetails(
   }
 }
 
-function renderResults() {
-  results.replaceChildren()
-  empty.hidden = entries.length > 0
+function optionElements(): HTMLElement[] {
+  return Array.from(
+    results.querySelectorAll<HTMLElement>('[role="option"]'),
+  )
+}
 
-  for (const entry of entries) {
-    const item = document.createElement('li')
-    item.className = 'result'
-    item.dataset.expanded = 'false'
-
-    const head = document.createElement('div')
-    head.className = 'result__head'
-
-    const toggle = document.createElement('button')
-    toggle.type = 'button'
-    toggle.className = 'result__toggle'
-    toggle.setAttribute('aria-expanded', 'false')
-    toggle.title = t('details_expand')
-    toggle.setAttribute('aria-label', `${t('details_expand')} — ${entry.title}`)
-
-    const icon = document.createElement('span')
-    icon.className = 'result__icon'
-    icon.textContent = (entry.title.trim()[0] ?? '?').toUpperCase()
-
-    const text = document.createElement('div')
-    text.className = 'result__text'
-    const title = document.createElement('div')
-    title.className = 'result__title'
-    title.textContent = entry.title
-    title.title = entry.title
-    const sub = document.createElement('div')
-    sub.className = 'result__sub'
-    sub.textContent = entry.username || entry.host || t('menu_noLogin')
-    sub.title = sub.textContent
-    text.append(title, sub)
-
-    const chevron = document.createElement('span')
-    chevron.className = 'result__chevron'
-    chevron.setAttribute('aria-hidden', 'true')
-    chevron.textContent = '›'
-
-    toggle.append(icon, text, chevron)
-
-    const fillButton = document.createElement('button')
-    fillButton.type = 'button'
-    fillButton.className = 'button button--primary result__fill'
-    fillButton.title = t('details_fill')
-    fillButton.setAttribute('aria-label', `${t('details_fill')} — ${entry.title}`)
-    fillButton.innerHTML = FILL_ICON
-    const fillLabel = document.createElement('span')
-    fillLabel.className = 'result__fill-label'
-    fillLabel.textContent = t('details_fill')
-    fillButton.append(fillLabel)
-    fillButton.addEventListener('click', () => void fillEntry(entry.id))
-
-    head.append(toggle, fillButton)
-
-    const details = document.createElement('div')
-    details.className = 'result__details'
-    details.hidden = true
-    details.setAttribute('aria-live', 'polite')
-
-    toggle.addEventListener('click', () => {
-      void toggleDetails(entry, item, details, toggle)
-    })
-
-    item.append(head, details)
-    results.append(item)
+function setActive(index: number, focus = false): void {
+  const options = optionElements()
+  activeIndex = index >= 0 && index < options.length ? index : -1
+  options.forEach((element, position) => {
+    const active = position === activeIndex
+    element.tabIndex = active ? 0 : -1
+    element.setAttribute('aria-selected', String(active))
+    element.classList.toggle('result--active', active)
+  })
+  const current = options[activeIndex]
+  if (current) {
+    current.scrollIntoView({ block: 'nearest' })
+    if (focus) current.focus({ preventScroll: true })
   }
 }
+
+function createResult(
+  entry: ExtensionLoginSummary,
+  index: number,
+): HTMLLIElement {
+  const item = document.createElement('li')
+  item.className = 'result'
+  item.dataset.expanded = 'false'
+  item.dataset.index = String(index)
+  item.setAttribute('role', 'option')
+  item.setAttribute('aria-selected', 'false')
+  item.setAttribute('tabindex', '-1')
+  const subtitle = entry.username || entry.host || t('menu_noLogin')
+  item.setAttribute('aria-label', `${entry.title} — ${subtitle}`)
+
+  item.addEventListener('focus', () => setActive(index))
+
+  const head = document.createElement('div')
+  head.className = 'result__head'
+  head.setAttribute('aria-hidden', 'true')
+
+  const toggle = document.createElement('div')
+  toggle.className = 'result__toggle'
+  toggle.dataset.expanded = 'false'
+
+  const icon = document.createElement('span')
+  icon.className = 'result__icon'
+  icon.append(iconNode(itemIconSvg(entry.kind)))
+  const initial = document.createElement('span')
+  initial.className = 'result__initial'
+  initial.textContent = itemInitial(entry.title)
+  icon.append(initial)
+
+  const text = document.createElement('div')
+  text.className = 'result__text'
+  const title = document.createElement('div')
+  title.className = 'result__title'
+  title.textContent = entry.title
+  title.title = entry.title
+  const sub = document.createElement('div')
+  sub.className = 'result__sub'
+  sub.textContent = subtitle
+  sub.title = subtitle
+  text.append(title, sub)
+
+  const chevron = document.createElement('span')
+  chevron.className = 'result__chevron'
+  chevron.setAttribute('aria-hidden', 'true')
+  chevron.textContent = '›'
+
+  toggle.append(icon, text, chevron)
+
+  const fillButton = document.createElement('button')
+  fillButton.type = 'button'
+  fillButton.tabIndex = -1
+  fillButton.className = 'button button--primary result__fill'
+  fillButton.title = t('details_fill')
+  fillButton.setAttribute('aria-label', `${t('details_fill')} — ${entry.title}`)
+  fillButton.replaceChildren(iconNode(FILL_ICON))
+  const fillLabel = document.createElement('span')
+  fillLabel.className = 'result__fill-label'
+  fillLabel.textContent = t('details_fill')
+  fillButton.append(fillLabel)
+  fillButton.addEventListener('click', (event) => {
+    event.stopPropagation()
+    void fillEntry(entry.id)
+  })
+
+  head.append(toggle, fillButton)
+
+  const details = document.createElement('div')
+  details.className = 'result__details'
+  details.hidden = true
+  details.setAttribute('aria-live', 'polite')
+
+  toggle.addEventListener('click', (event) => {
+    event.stopPropagation()
+    setActive(index)
+    void toggleDetails(entry, item, details, toggle)
+  })
+
+  item.append(head, details)
+  return item
+}
+
+function renderGroups(groups: PopupGroup[]): void {
+  results.replaceChildren()
+  activeIndex = -1
+  entries = groups.flatMap((group) => group.entries)
+  let index = 0
+
+  for (const group of groups) {
+    if (group.entries.length === 0) continue
+    const section = document.createElement('section')
+    section.className = 'result-group'
+    const heading = document.createElement('h2')
+    heading.className = 'result-group__title'
+    heading.textContent = group.title
+    const list = document.createElement('ul')
+    list.className = 'results'
+    list.setAttribute('role', 'listbox')
+    list.setAttribute('aria-label', group.title)
+    for (const entry of group.entries) {
+      list.append(createResult(entry, index))
+      index += 1
+    }
+    section.append(heading, list)
+    results.append(section)
+  }
+
+  if (entries.length > 0) {
+    setActive(-1)
+    const first = optionElements()[0]
+    if (first) first.tabIndex = 0
+  }
+}
+
+
 
 async function refreshPendingSave(): Promise<void> {
   if (!currentTab?.id) {
@@ -677,37 +834,72 @@ async function refreshStatus(): Promise<boolean> {
   )
 }
 
-async function loadResults(query: string) {
-  const response = await send<SearchResponse>({ type: 'SEARCH', query })
-  if (response.error) {
-    showMessage(errorText(response.error), 'error')
-    await refreshStatus()
-    return
-  }
-  entries = response.items ?? []
-  renderResults()
-  mainElement.scrollTop = 0
-  showAllButton.hidden = true
-
-  if (entries.length === 0 && query) {
-    empty.textContent = 'Aucun identifiant pour ce site.'
-    empty.hidden = false
-    showAllButton.hidden = false
-  } else if (entries.length === 0) {
-    empty.textContent = 'Aucune connexion dans le coffre.'
-    empty.hidden = false
-  }
+function showAddSiteState(): void {
+  showState('empty', t('popup_noSiteTitle'), t('popup_noSiteText'), {
+    label: t('popup_addSite'),
+    run: openApp,
+  })
 }
 
-async function loadAll() {
-  const response = await send<SearchResponse>({ type: 'SEARCH', query: '' })
-  entries = response.items ?? []
-  renderResults()
+function showEmptySearchState(query: string): void {
+  showState(
+    'search',
+    t('popup_noResultsTitle'),
+    t('popup_noResultsText', [query]),
+    {
+      label: t('popup_clearSearch'),
+      run: () => {
+        searchInput.value = initialHost
+        void loadInitial(initialHost)
+        searchInput.focus()
+      },
+    },
+  )
+}
+
+async function loadInitial(host: string): Promise<void> {
+  const [siteResponse, allResponse] = await Promise.all([
+    send<SearchResponse>({ type: 'SEARCH', query: host }),
+    send<SearchResponse>({ type: 'SEARCH', query: '' }),
+  ])
+  const error = siteResponse.error ?? allResponse.error
+  if (error) {
+    await refreshStatus()
+    showMessage(errorText(error), 'error')
+    return
+  }
+
+  const siteEntries = siteResponse.items ?? []
+  const allEntries = allResponse.items ?? []
+  renderGroups(
+    groupLogins(siteEntries, allEntries, {
+      site: t('popup_siteSection'),
+      favorites: t('popup_favorites'),
+      recents: t('popup_recents'),
+    }),
+  )
   mainElement.scrollTop = 0
-  showAllButton.hidden = true
-  empty.textContent =
-    entries.length > 0 ? 'Toutes vos connexions :' : 'Aucune connexion dans le coffre.'
-  empty.hidden = false
+  if (!siteBlocked && siteEntries.length === 0) showAddSiteState()
+  else if (!siteBlocked) hideState()
+}
+
+async function loadSearch(query: string): Promise<void> {
+  const response = await send<SearchResponse>({ type: 'SEARCH', query })
+  if (response.error) {
+    await refreshStatus()
+    showMessage(errorText(response.error), 'error')
+    return
+  }
+  const found = response.items ?? []
+  renderGroups([
+    {
+      title: query ? t('popup_searchResults') : t('popup_allItems'),
+      entries: found,
+    },
+  ])
+  mainElement.scrollTop = 0
+  if (found.length === 0 && !siteBlocked) showEmptySearchState(query)
+  else if (!siteBlocked) hideState()
 }
 
 async function fillEntry(itemId: string) {
@@ -881,18 +1073,19 @@ async function init() {
   const [tab] = await api.tabs.query({ active: true, currentWindow: true })
   currentTab = tab ?? null
   const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
-  site.textContent = host || 'Page non prise en charge'
+  initialHost = host
+  site.textContent = host || t('popup_pageUnsupported')
   searchInput.placeholder = host
-    ? `Rechercher pour ${host}…`
-    : 'Rechercher un identifiant…'
+    ? t('popup_searchFor', [host])
+    : t('popup_searchPlaceholder')
 
   const unlocked = await refreshStatus()
   await refreshPendingSave()
   if (!unlocked) return
 
-  const query = host || ''
-  await loadResults(query)
-  searchInput.value = query
+  searchInput.value = host
+  if (host) await loadInitial(host)
+  else await loadSearch('')
   if (!settingsOpen) searchInput.focus({ preventScroll: true })
 
   if (!searchListenerReady) {
@@ -900,7 +1093,12 @@ async function init() {
     searchInput.addEventListener('input', () => {
       window.clearTimeout(searchTimer)
       searchTimer = window.setTimeout(() => {
-        void loadResults(searchInput.value.trim())
+        const query = searchInput.value.trim()
+        if (host && query.toLowerCase() === host.toLowerCase()) {
+          void loadInitial(host)
+        } else {
+          void loadSearch(query)
+        }
       }, 150)
     })
   }
@@ -932,15 +1130,6 @@ generatorAmbiguousInput.addEventListener('change', () => {
 })
 copyGeneratedButton.addEventListener('click', () => {
   void copyGeneratedPassword()
-})
-
-openAppButton.addEventListener('click', () => {
-  void startUnlock()
-})
-
-focusAppButton.addEventListener('click', () => {
-  if (unlocking) stopUnlock(true)
-  else void startUnlock()
 })
 
 async function requestHostPermission(
@@ -1001,75 +1190,73 @@ async function injectInlineScripts(tabId: number): Promise<void> {
   if (!ready?.ok) throw lastError ?? new Error('content script indisponible')
 }
 
-activateInlineButton.addEventListener('click', () => {
+async function activateInline(): Promise<void> {
   if (busy) return
-  void (async () => {
-    activateInlineButton.disabled = true
-    let granted: boolean | null = null
-    try {
-      const [tab] = await api.tabs.query({ active: true, currentWindow: true })
-      if (!tab?.id || !tab.url || !/^https?:/i.test(tab.url)) {
-        throw new Error('onglet actif sans site HTTP')
-      }
-      const origins =
-        activationMode === 'all'
-          ? ['http://*/*', 'https://*/*']
-          : [`${new URL(tab.url).origin}/*`]
-      granted = await requestHostPermission(origins)
-      if (granted === false) {
-        showMessage(t('popup_activateDenied'), 'error')
-        return
-      }
-      try {
-        await send({ type: 'ENABLE_INLINE' })
-      } catch {
-        // Orion/WebKit : l’enregistrement dynamique peut échouer ; l’injection
-        // manuelle dans l’onglet courant reste tentée ci-dessous.
-      }
-      await injectInlineScripts(tab.id)
-      await init()
-      showMessage(
-        activationMode === 'all'
-          ? t('popup_activatedAll')
-          : t('popup_activatedSite'),
-        'success',
-      )
-    } catch (error) {
-      console.error('Activation du remplissage impossible', error)
-      showMessage(
-        granted === false
-          ? t('popup_activateDenied')
-          : t('popup_activateFailed'),
-        'error',
-      )
-    } finally {
-      activateInlineButton.disabled = false
+  stateAction.disabled = true
+  let granted: boolean | null = null
+  try {
+    const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+    if (!tab?.id || !tab.url || !/^https?:/i.test(tab.url)) {
+      throw new Error('onglet actif sans site HTTP')
     }
-  })()
-})
+    const origins =
+      activationMode === 'all'
+        ? ['http://*/*', 'https://*/*']
+        : [`${new URL(tab.url).origin}/*`]
+    granted = await requestHostPermission(origins)
+    if (granted === false) {
+      showMessage(t('popup_activateDenied'), 'error')
+      return
+    }
+    try {
+      await send({ type: 'ENABLE_INLINE' })
+    } catch {
+      // Orion/WebKit : l’enregistrement dynamique peut échouer ; l’injection
+      // manuelle dans l’onglet courant reste tentée ci-dessous.
+    }
+    await injectInlineScripts(tab.id)
+    await init()
+    showMessage(
+      activationMode === 'all'
+        ? t('popup_activatedAll')
+        : t('popup_activatedSite'),
+      'success',
+    )
+  } catch (error) {
+    console.error('Activation du remplissage impossible', error)
+    showMessage(
+      granted === false
+        ? t('popup_activateDenied')
+        : t('popup_activateFailed'),
+      'error',
+    )
+  } finally {
+    stateAction.disabled = false
+  }
+}
 
-pairButton.addEventListener('click', () => {
+async function pairExtension(): Promise<void> {
   if (busy) return
   setBusy(true)
-  pairButton.disabled = true
-  showMessage('Demande envoyée. Confirmez le code affiché dans Coffre.')
-  void send<{ ok?: boolean; error?: string }>({ type: 'PAIR' })
-    .then(async (response) => {
-      pairButton.disabled = false
-      setBusy(false)
-      if (!response.ok) {
-        showMessage(errorText(response.error), 'error')
-        return
-      }
-      showMessage('Extension associée à Coffre.', 'success')
-      await init()
+  stateAction.disabled = true
+  showMessage(t('popup_pairRequested'), 'info')
+  try {
+    const response = await send<{ ok?: boolean; error?: string }>({
+      type: 'PAIR',
     })
-    .catch(() => {
-      pairButton.disabled = false
-      setBusy(false)
-      showMessage('Association impossible.', 'error')
-    })
-})
+    if (!response.ok) {
+      showMessage(errorText(response.error), 'error')
+      return
+    }
+    await init()
+    showMessage(t('popup_paired'), 'success')
+  } catch {
+    showMessage(t('popup_pairFailed'), 'error')
+  } finally {
+    stateAction.disabled = false
+    setBusy(false)
+  }
+}
 
 api.runtime.onMessage.addListener((message: unknown) => {
   if (
@@ -1079,7 +1266,7 @@ api.runtime.onMessage.addListener((message: unknown) => {
     typeof (message as { code?: unknown }).code === 'string'
   ) {
     showMessage(
-      `Code ${(message as { code: string }).code} — confirmez-le dans Coffre.`,
+      t('popup_pairCode', [(message as { code: string }).code]),
       'info',
     )
   }
@@ -1097,7 +1284,7 @@ saveNowButton.addEventListener('click', () => {
       savePrompt.hidden = true
       if (response.ok) {
         showMessage(
-          response.updated ? 'Mot de passe mis à jour.' : 'Identifiant enregistré.',
+          response.updated ? t('popup_updated') : t('popup_saved'),
           'success',
         )
       } else {
@@ -1140,6 +1327,16 @@ settingsOpenOptionsButton.addEventListener('click', () => {
   void api.runtime.openOptionsPage()
 })
 
+copyTotpInput.addEventListener('change', () => {
+  void saveExtensionSettings({ copyTotpAfterFill: copyTotpInput.checked })
+})
+excludeFillInput.addEventListener('change', () => {
+  void updateExclusion('fill', excludeFillInput)
+})
+excludeSaveInput.addEventListener('change', () => {
+  void updateExclusion('save', excludeSaveInput)
+})
+
 settingsShortcutsButton.addEventListener('click', () => {
   void send<{ ok?: boolean; error?: string }>({ type: 'OPEN_SHORTCUTS' }).then(
     (response) => {
@@ -1164,22 +1361,209 @@ themeButton.addEventListener('click', () => {
   renderTheme()
 })
 
-showAllButton.addEventListener('click', () => {
-  void loadAll()
-})
+function selectedEntry(): ExtensionLoginSummary | null {
+  return activeIndex >= 0 ? (entries[activeIndex] ?? null) : null
+}
+
+function isEditable(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
+  )
+}
+
+function hasSelection(): boolean {
+  if ((window.getSelection()?.toString() ?? '').length > 0) return true
+  const active = document.activeElement
+  return (
+    active instanceof HTMLInputElement &&
+    active.selectionStart !== null &&
+    active.selectionStart !== active.selectionEnd
+  )
+}
+
+function collapseDetails(row: HTMLElement): void {
+  row.dataset.expanded = 'false'
+  const panel = row.querySelector<HTMLElement>('.result__details')
+  if (panel) panel.hidden = true
+  const toggle = row.querySelector<HTMLElement>('.result__toggle')
+  toggle?.setAttribute('aria-expanded', 'false')
+}
+
+async function copyField(
+  field: 'password' | 'username' | 'totp',
+): Promise<void> {
+  const entry = selectedEntry()
+  if (!entry) return
+  const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
+  try {
+    const response = await send<DetailsResponse>({
+      type: 'DETAILS',
+      itemId: entry.id,
+      host,
+    })
+    if (response.error || !response.details) {
+      showMessage(t('details_error'), 'error')
+      return
+    }
+    const value =
+      field === 'password'
+        ? response.details.password
+        : field === 'username'
+          ? response.details.username
+          : response.details.totp
+    if (!value) {
+      showMessage(t(field === 'totp' ? 'popup_noTotp' : 'popup_copyFailed'), 'info')
+      return
+    }
+    await navigator.clipboard.writeText(value)
+    showMessage(
+      t(
+        field === 'password'
+          ? 'popup_copiedPassword'
+          : field === 'username'
+            ? 'popup_copiedUsername'
+            : 'popup_copiedTotp',
+      ),
+      'success',
+    )
+  } catch {
+    showMessage(t('popup_copyFailed'), 'error')
+  }
+}
+
+function resetToSite(): void {
+  searchInput.value = initialHost
+  if (initialHost) void loadInitial(initialHost)
+  else void loadSearch('')
+  searchInput.focus()
+}
 
 document.addEventListener('keydown', (event) => {
-  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
+  if (settingsOpen) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeSettings()
+    }
     return
   }
-  if (settingsOpen || searchInput.disabled || searchWrap.hidden) return
+  if (searchInput.disabled || searchWrap.hidden) return
+
   const target = event.target
-  if (
+  const editable = isEditable(target)
+  const inSearch = target === searchInput
+  const inResults =
     target instanceof HTMLElement &&
-    target.closest('input, textarea, select, [contenteditable="true"]')
-  ) {
+    Boolean(target.closest('[role="option"]'))
+  const mod = event.metaKey || event.ctrlKey
+  const key = event.key.toLowerCase()
+
+  if (mod && key === 'c') {
+    if (event.shiftKey && !event.altKey) {
+      event.preventDefault()
+      void copyField('username')
+      return
+    }
+    if (event.altKey && !event.shiftKey) {
+      event.preventDefault()
+      void copyField('totp')
+      return
+    }
+    if (!event.shiftKey && !event.altKey && selectedEntry() && !hasSelection()) {
+      event.preventDefault()
+      void copyField('password')
+      return
+    }
+  }
+
+  if (event.key === 'Escape') {
+    if (!generatorPanel.hidden) {
+      event.preventDefault()
+      generatorPanel.hidden = true
+      searchInput.focus()
+      return
+    }
+    const expanded = results.querySelector<HTMLElement>(
+      '.result[data-expanded="true"]',
+    )
+    if (expanded) {
+      event.preventDefault()
+      collapseDetails(expanded)
+      return
+    }
+    if (searchInput.value.trim() !== initialHost) {
+      event.preventDefault()
+      resetToSite()
+      return
+    }
+    setActive(-1)
     return
   }
+
+  if (
+    (event.key === 'ArrowDown' || event.key === 'ArrowUp') &&
+    (inSearch || inResults || !editable)
+  ) {
+    const options = optionElements()
+    if (options.length === 0) return
+    event.preventDefault()
+    const delta = event.key === 'ArrowDown' ? 1 : -1
+    const next =
+      activeIndex < 0
+        ? delta > 0
+          ? 0
+          : options.length - 1
+        : Math.max(0, Math.min(options.length - 1, activeIndex + delta))
+    setActive(next, true)
+    return
+  }
+
+  if (inResults && event.key === 'Home') {
+    event.preventDefault()
+    setActive(0, true)
+    return
+  }
+  if (inResults && event.key === 'End') {
+    event.preventDefault()
+    setActive(optionElements().length - 1, true)
+    return
+  }
+
+  if (inResults && event.key === 'ArrowRight') {
+    const row = target.closest<HTMLElement>('[role="option"]')
+    if (row && row.dataset.expanded !== 'true') {
+      const toggle = row.querySelector<HTMLElement>('.result__toggle')
+      toggle?.click()
+      event.preventDefault()
+    }
+    return
+  }
+  if (inResults && event.key === 'ArrowLeft') {
+    const row = target.closest<HTMLElement>('[role="option"]')
+    if (row && row.dataset.expanded === 'true') {
+      event.preventDefault()
+      collapseDetails(row)
+    }
+    return
+  }
+
+  if (event.key === 'Enter' && (inResults || (inSearch && activeIndex >= 0))) {
+    const entry = selectedEntry()
+    if (entry) {
+      event.preventDefault()
+      void fillEntry(entry.id)
+    }
+    return
+  }
+
+  if (event.key === '/' && !editable && !mod && !event.altKey) {
+    event.preventDefault()
+    searchInput.focus()
+    searchInput.select()
+    return
+  }
+
+  if (editable || mod || event.altKey) return
   if (event.key.length !== 1 || event.key === ' ') return
 
   searchInput.focus()
@@ -1187,7 +1571,7 @@ document.addEventListener('keydown', (event) => {
   event.preventDefault()
   window.clearTimeout(searchTimer)
   searchTimer = window.setTimeout(() => {
-    void loadResults(searchInput.value.trim())
+    void loadSearch(searchInput.value.trim())
   }, 150)
 })
 

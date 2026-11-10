@@ -92,6 +92,7 @@ const signup = $<HTMLElement>('signup')
 const signupPreview = $<HTMLOutputElement>('signup-preview')
 const signupUseButton = $<HTMLButtonElement>('signup-use')
 const signupRegenerateButton = $<HTMLButtonElement>('signup-regenerate')
+const excludeSiteButton = $<HTMLButtonElement>('exclude-site')
 
 const params = new URLSearchParams(window.location.search)
 let searchTimer: number | undefined
@@ -133,6 +134,7 @@ const ERROR_KEYS: Record<string, string> = {
   'insecure-context': 'menu_errorInsecure',
   'cross-origin-frame': 'menu_errorFrame',
   cancelled: 'menu_errorCancelled',
+  excluded: 'menu_errorExcluded',
 }
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -259,6 +261,28 @@ async function prepareStrongPassword(): Promise<void> {
   // Q3 : l’historique du générateur pourra être alimenté ici lorsque le lot
   // sera livré. Le mot de passe complet n’est jamais affiché ni persisté.
   renderStrongPassword()
+}
+
+async function excludeSite(): Promise<void> {
+  excludeSiteButton.disabled = true
+  try {
+    const response = await send<{ ok?: boolean; error?: string }>({
+      type: 'SET_SITE_EXCLUSION',
+      host: query.host,
+      kind: 'fill',
+      excluded: true,
+    })
+    if (!response?.ok) {
+      showMessage(errorText(response?.error), 'error')
+      return
+    }
+    showMessage(t('menu_excluded'), 'success')
+    window.setTimeout(close, 700)
+  } catch {
+    showMessage(t('menu_errorGeneric'), 'error')
+  } finally {
+    excludeSiteButton.disabled = false
+  }
 }
 
 async function useStrongPassword(): Promise<void> {
@@ -498,6 +522,7 @@ async function fill(itemId: string, overridePhishing = false) {
 
 async function loadSaveStatus() {
   expand()
+  excludeSiteButton.hidden = true
   tabs.hidden = true
   searchWrap.hidden = true
   sensitiveWrap.hidden = true
@@ -580,6 +605,7 @@ function openPanel(): void {
   tabs.hidden = false
   searchWrap.hidden = false
   aliasWrap.hidden = false
+  excludeSiteButton.hidden = false
   updateTabs()
   if (query.signup) {
     void prepareStrongPassword()
@@ -634,6 +660,7 @@ function init() {
   signupRegenerateButton.addEventListener('click', () => {
     void prepareStrongPassword()
   })
+  excludeSiteButton.addEventListener('click', () => void excludeSite())
 }
 
 void loadTheme()

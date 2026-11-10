@@ -22,6 +22,9 @@ export interface ExtensionLoginSummary {
   username: string
   host: string
   hasTotp: boolean
+  /** Renseigné par les ponts récents ; absent d’un ancien pont. */
+  favorite?: boolean
+  updatedAt?: string
 }
 
 export interface ExtensionCardSummary {
@@ -390,6 +393,8 @@ export function searchLogins(
     .sort(
       (a, b) =>
         b.score - a.score ||
+        Number(b.item.favorite) - Number(a.item.favorite) ||
+        b.item.updatedAt.localeCompare(a.item.updatedAt) ||
         a.item.title.localeCompare(b.item.title, 'fr', { sensitivity: 'base' }),
     )
     .slice(0, EXTENSION_MAX_RESULTS)
@@ -399,6 +404,8 @@ export function searchLogins(
       username: item.username,
       host: hosts[0] ?? '',
       hasTotp: Boolean(item.totp),
+      favorite: item.favorite,
+      updatedAt: item.updatedAt,
     }))
 }
 
