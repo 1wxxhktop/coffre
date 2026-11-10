@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- CI : le dépôt étant public, les runners GitHub sont gratuits. Chaque PR et
+  chaque push lancent de nouveau les tests sur macOS et Windows et les
+  parcours Playwright sur WebKit ; les bundles desktop et la reproductibilité
+  macOS tournent sur chaque push vers `main`.
 - Correctifs révélés par la première CI complète : l’application desktop
   compile de nouveau sous Linux (type du chemin de session logind) ; les tests
   du binaire de l’agent SSH ne tournent que sous Unix et un test vérifie le
