@@ -1052,7 +1052,7 @@ version = "0.9.0"
 dependencies = [
  "clap",
  "coffre-core",
- "hmac 0.12.1",
+ "hmac",
  "rpassword",
  "serde_json",
  "sha1",
@@ -1068,7 +1068,7 @@ dependencies = [
  "argon2",
  "base64 0.22.1",
  "getrandom 0.3.4",
- "hmac 0.12.1",
+ "hmac",
  "p256",
  "serde",
  "serde_json",
@@ -1369,7 +1369,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a"
 dependencies = [
  "quote",
- "syn 3.0.9",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -2725,15 +2725,6 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
-
-[[package]]
-name = "hmac"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
-dependencies = [
- "digest 0.10.7",
-]
 
 [[package]]
 name = "hmac"
@@ -5006,7 +4997,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4a459cddafb3fe76b31fd8f1108007566c40301feb64dc7b54656eb7388172b"
 dependencies = [
  "crypto-bigint",
- "hmac 0.13.0",
+ "hmac",
 ]
 
 [[package]]
@@ -5071,7 +5062,7 @@ dependencies = [
  "crypto-common 0.2.2",
  "crypto-primes",
  "digest 0.11.3",
- "hmac 0.13.0",
+ "hmac",
  "pkcs1",
  "pkcs8 0.11.0",
  "rand_core 0.10.1",
