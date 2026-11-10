@@ -305,6 +305,12 @@
   "options_inlineMenu": {
     "message": "Show the field menu"
   },
+  "options_autoSubmit": {
+    "message": "Submit the form after filling"
+  },
+  "options_autoSubmitCopy": {
+    "message": "Clicks “Sign in” for you. When off, you can check the chosen account before sending."
+  },
   "options_inlineMenuCopy": {
     "message": "Coffre badge near forms on allowed sites."
   },

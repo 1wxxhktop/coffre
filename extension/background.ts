@@ -725,7 +725,7 @@ async function injectCredentials(
     const filled = Number(
       (result?.result as { filled?: number } | undefined)?.filled ?? 0,
     )
-    if (filled > 0) {
+    if (filled > 0 && (await loadSettings()).autoSubmitLogin) {
       try {
         await api.scripting.executeScript({
           target: { tabId: targetId },

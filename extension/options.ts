@@ -34,6 +34,7 @@ const status = $<HTMLParagraphElement>('status')
 const pairingCode = $<HTMLParagraphElement>('pairing-code')
 const inlineMenu = $<HTMLInputElement>('inline-menu')
 const saveBanner = $<HTMLInputElement>('save-banner')
+const autoSubmit = $<HTMLInputElement>('auto-submit')
 const requestAllButton = $<HTMLButtonElement>('request-all')
 const fillStatus = $<HTMLParagraphElement>('fill-status')
 const shortcutsList = $<HTMLUListElement>('shortcuts-list')
@@ -153,6 +154,7 @@ async function load(): Promise<void> {
   input.value = settings.appUrl
   inlineMenu.checked = settings.inlineMenu
   saveBanner.checked = settings.saveBanner
+  autoSubmit.checked = settings.autoSubmitLogin
   for (const modeInput of modeInputs) {
     modeInput.checked = modeInput.value === appMode
   }
@@ -264,6 +266,9 @@ for (const button of themeChoices) {
 
 inlineMenu.addEventListener('change', () => {
   void saveSettings({ inlineMenu: inlineMenu.checked })
+})
+autoSubmit.addEventListener('change', () => {
+  void saveSettings({ autoSubmitLogin: autoSubmit.checked })
 })
 saveBanner.addEventListener('change', () => {
   void saveSettings({ saveBanner: saveBanner.checked })
