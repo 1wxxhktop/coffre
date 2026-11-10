@@ -29,6 +29,7 @@ import {
 import { hostFromUrl, hostMatches } from '../src/lib/extensionProtocol'
 import { submitLoginForm } from './loginSubmit'
 import { loadSettings } from './settings'
+import { isSiteExcluded } from './siteExclusions'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 const MENU_ORIGIN = new URL(api.runtime.getURL('menu.html')).origin
@@ -87,6 +88,8 @@ let detectTimer: number | undefined
 let dismissedUntil = 0
 let inlineMenuEnabled = true
 let saveBannerEnabled = true
+let neverFillSites: string[] = []
+let neverSaveSites: string[] = []
 const dismissedBanners = new Set<string>()
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -194,6 +197,7 @@ function showSaveBanner(offerId: string): void {
     !context ||
     !isTopFrame() ||
     !saveBannerEnabled ||
+    saveBlocked() ||
     dismissedBanners.has(offerId)
   ) {
     return
@@ -236,7 +240,7 @@ function showSaveBanner(offerId: string): void {
 }
 
 async function refreshSaveBanner(): Promise<void> {
-  if (!context || !isTopFrame() || !saveBannerEnabled) {
+  if (!context || !isTopFrame() || !saveBannerEnabled || saveBlocked()) {
     removeSaveBanner()
     return
   }
@@ -290,7 +294,7 @@ function fillActiveText(value: string): number {
 }
 
 function openMenuAtActiveField(kind: AutofillKind): boolean {
-  if (!context) return false
+  if (!context || fillBlocked()) return false
   const detected = detectAutofillFields(document)
   const anchor =
     lastFocusedInput && isVisible(lastFocusedInput)
@@ -311,7 +315,7 @@ function showMenu(
   mode: 'badge' | 'save' | 'open' = 'badge',
   signup = false,
 ): void {
-  if (!context) return
+  if (!context || fillBlocked()) return
   removeMenu()
 
   const host = document.createElement('div')
@@ -369,7 +373,10 @@ function showMenu(
 }
 
 function refreshDetection(): void {
-  if (!inlineMenuEnabled || Date.now() < dismissedUntil) return
+  if (!inlineMenuEnabled || fillBlocked() || Date.now() < dismissedUntil) {
+    if (fillBlocked()) removeMenu()
+    return
+  }
   const detected = detectAutofillFields(document)
   if (!detected) {
     removeMenu()
@@ -395,13 +402,27 @@ function scheduleDetection() {
   detectTimer = window.setTimeout(refreshDetection, 250)
 }
 
+function currentHost(): string {
+  return context?.host ?? hostFromUrl(location.href)
+}
+
+function fillBlocked(): boolean {
+  return isSiteExcluded(neverFillSites, currentHost())
+}
+
+function saveBlocked(): boolean {
+  return isSiteExcluded(neverSaveSites, currentHost())
+}
+
 async function loadContentSettings(): Promise<void> {
   const settings = await loadSettings()
   inlineMenuEnabled = settings.inlineMenu
   saveBannerEnabled = settings.saveBanner
-  if (!inlineMenuEnabled) removeMenu()
+  neverFillSites = settings.neverFillSites
+  neverSaveSites = settings.neverSaveSites
+  if (!inlineMenuEnabled || fillBlocked()) removeMenu()
   else scheduleDetection()
-  if (!saveBannerEnabled) removeSaveBanner()
+  if (!saveBannerEnabled || saveBlocked()) removeSaveBanner()
   else void refreshSaveBanner()
 }
 
@@ -442,6 +463,7 @@ function cardFillAllowed(): boolean {
 }
 
 function handleSubmit() {
+  if (saveBlocked()) return
   const detected = fieldsForSave()
   if (!detected || !context) return
   const url = location.href
@@ -565,11 +587,19 @@ api.runtime.onMessage.addListener(
       return
     }
     if (message?.type === 'COFFRE_OPEN_MENU') {
+      if (fillBlocked()) {
+        sendResponse({ ok: false, error: 'excluded' })
+        return
+      }
       const opened = openMenuAtActiveField(commandKind(message.kind))
       sendResponse(opened ? { ok: true } : { ok: false, error: 'no-fields' })
       return
     }
     if (message?.type === 'COFFRE_FILL_GENERATED') {
+      if (fillBlocked()) {
+        sendResponse({ ok: false, error: 'excluded' })
+        return
+      }
       const filled = fillPasswordField(
         document,
         typeof message.password === 'string' ? message.password : '',
@@ -580,6 +610,10 @@ api.runtime.onMessage.addListener(
       return
     }
     if (message?.type === 'COFFRE_FILL_TOTP') {
+      if (fillBlocked()) {
+        sendResponse({ ok: false, error: 'excluded' })
+        return
+      }
       const filled = fillOtpField(
         document,
         typeof message.code === 'string' ? message.code : '',
@@ -590,6 +624,10 @@ api.runtime.onMessage.addListener(
       return
     }
     if (message?.type === 'COFFRE_FILL_TEXT') {
+      if (fillBlocked()) {
+        sendResponse({ ok: false, error: 'excluded' })
+        return
+      }
       const filled = fillActiveText(
         typeof message.text === 'string' ? message.text : '',
       )
@@ -599,6 +637,10 @@ api.runtime.onMessage.addListener(
       return
     }
     if (message?.type === 'COFFRE_FILL_SIGNUP') {
+      if (fillBlocked()) {
+        sendResponse({ ok: false, error: 'excluded' })
+        return
+      }
       const pageHost = hostFromUrl(location.href)
       const expected = hostFromUrl(message.host ?? '') || message.host || ''
       if (
@@ -632,6 +674,10 @@ api.runtime.onMessage.addListener(
       !(pageHost === expected || hostMatches(pageHost, expected))
     ) {
       sendResponse({ ok: false, error: 'domain-mismatch' })
+      return
+    }
+    if (fillBlocked()) {
+      sendResponse({ ok: false, error: 'excluded' })
       return
     }
     const values = message.values
@@ -853,7 +899,12 @@ window.addEventListener('focus', () => void refreshSaveBanner())
 void loadContentSettings()
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return
-  if (changes.inlineMenu || changes.saveBanner) {
+  if (
+    changes.inlineMenu ||
+    changes.saveBanner ||
+    changes.neverFillSites ||
+    changes.neverSaveSites
+  ) {
     void loadContentSettings()
   }
 })

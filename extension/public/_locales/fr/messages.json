@@ -137,6 +137,12 @@
   "welcome_allFailed": {
     "message": "Activation impossible sur tous les sites."
   },
+  "welcome_allRevoked": {
+    "message": "Accès à tous les sites révoqué. Le remplissage reste site par site."
+  },
+  "welcome_revokeFailed": {
+    "message": "Révocation impossible. Retirez l’autorisation depuis les réglages du navigateur."
+  },
   "welcome_shortcutsHeading": {
     "message": "Raccourcis et épinglage"
   },
@@ -284,6 +290,123 @@
   "popup_footer": {
     "message": "Local · aucun serveur"
   },
+  "popup_footerHint": {
+    "message": "↑↓ naviguer · ↵ remplir · / rechercher"
+  },
+  "popup_footerPairing": {
+    "message": "Coffre desktop · non associé"
+  },
+  "popup_footerClosed": {
+    "message": "Coffre n’est pas ouvert"
+  },
+  "popup_footerLockedNative": {
+    "message": "Coffre desktop verrouillé"
+  },
+  "popup_footerLocked": {
+    "message": "Coffre verrouillé"
+  },
+  "popup_footerNative": {
+    "message": "Coffre desktop · pont natif local"
+  },
+  "popup_footerReady": {
+    "message": "Coffre déverrouillé · local"
+  },
+  "popup_pageUnsupported": {
+    "message": "Page non prise en charge"
+  },
+  "popup_searchFor": {
+    "message": "Rechercher pour $1…"
+  },
+  "popup_results": {
+    "message": "Résultats"
+  },
+  "popup_siteSection": {
+    "message": "Pour ce site"
+  },
+  "popup_favorites": {
+    "message": "Favoris"
+  },
+  "popup_recents": {
+    "message": "Récents"
+  },
+  "popup_searchResults": {
+    "message": "Résultats"
+  },
+  "popup_allItems": {
+    "message": "Toutes les connexions"
+  },
+  "popup_noSiteTitle": {
+    "message": "Aucun identifiant pour ce site"
+  },
+  "popup_noSiteText": {
+    "message": "Ajoutez cette connexion dans Coffre pour la retrouver ici."
+  },
+  "popup_addSite": {
+    "message": "Ajouter ce site dans Coffre"
+  },
+  "popup_noResultsTitle": {
+    "message": "Aucun résultat"
+  },
+  "popup_noResultsText": {
+    "message": "Aucune connexion ne correspond à « $1 »."
+  },
+  "popup_clearSearch": {
+    "message": "Effacer la recherche"
+  },
+  "state_closedTitle": {
+    "message": "Coffre n’est pas ouvert"
+  },
+  "state_closedText": {
+    "message": "Ouvrez Coffre pour remplir vos identifiants."
+  },
+  "state_pairTitle": {
+    "message": "Extension non associée"
+  },
+  "state_pairText": {
+    "message": "Associez cette extension à Coffre : le code s’affichera ici et dans l’application."
+  },
+  "state_lockedTitle": {
+    "message": "Coffre verrouillé"
+  },
+  "state_lockedText": {
+    "message": "Déverrouillez Coffre pour retrouver vos identifiants."
+  },
+  "state_siteTitle": {
+    "message": "Remplissage non activé"
+  },
+  "popup_pairRequested": {
+    "message": "Demande envoyée. Confirmez le code affiché dans Coffre."
+  },
+  "popup_paired": {
+    "message": "Extension associée à Coffre."
+  },
+  "popup_pairFailed": {
+    "message": "Association impossible."
+  },
+  "popup_pairCode": {
+    "message": "Code $1 — confirmez-le dans Coffre."
+  },
+  "popup_updated": {
+    "message": "Mot de passe mis à jour."
+  },
+  "popup_saved": {
+    "message": "Identifiant enregistré."
+  },
+  "popup_copiedPassword": {
+    "message": "Mot de passe copié."
+  },
+  "popup_copiedUsername": {
+    "message": "Identifiant copié."
+  },
+  "popup_copiedTotp": {
+    "message": "Code TOTP copié."
+  },
+  "popup_noTotp": {
+    "message": "Aucun code TOTP pour cette connexion."
+  },
+  "popup_copyFailed": {
+    "message": "Copie impossible."
+  },
   "options_title": {
     "message": "Réglages — Coffre"
   },
@@ -317,11 +440,20 @@
   "options_copyTotp": {
     "message": "Copier le code TOTP après remplissage"
   },
+  "options_copyTotpCopy": {
+    "message": "Le code est effacé après 30 secondes s’il n’a pas été remplacé. Coffre lit le presse-papiers uniquement pour ce contrôle."
+  },
+  "options_allSitesCopy": {
+    "message": "« Tous les sites » demande une seule fois l’accès aux pages HTTP et HTTPS. L’autorisation reste révocable ici à tout moment ; Coffre ne lit aucune page en dehors du remplissage et du menu que vous déclenchez."
+  },
+  "options_revokeAll": {
+    "message": "Révoquer l’accès à tous les sites"
+  },
   "options_autofillOnLoad": {
     "message": "Remplir au chargement"
   },
   "options_soon": {
-    "message": "Disponible dans un prochain lot (E10/E11)."
+    "message": "Disponible dans un prochain lot (E11)."
   },
   "options_activation": {
     "message": "Activation"
@@ -338,8 +470,14 @@
   "options_exclusions": {
     "message": "Exclusions par site"
   },
-  "options_exclusionsSoon": {
-    "message": "« Ne jamais proposer d’enregistrer » et « Ne jamais remplir » arrivent avec le lot E7. Aucune exclusion n’est encore enregistrée."
+  "options_exclusionsCopy": {
+    "message": "Ajoutez une exclusion depuis la popup ou le menu d’un site. Les listes ci-dessous sont modifiables sans recharger l’extension."
+  },
+  "options_exclusionsEmpty": {
+    "message": "Aucune exclusion."
+  },
+  "options_exclusionsRemove": {
+    "message": "Retirer"
   },
   "options_appearance": {
     "message": "Apparence"
@@ -384,7 +522,7 @@
     "message": "Permissions"
   },
   "options_permissionsCopy": {
-    "message": "L’extension demande l’accès à l’onglet actif au moment du remplissage, aux sites que vous autorisez, et à l’adresse de Coffre. Elle n’a pas accès aux autres onglets en dehors de vos actions. La permission contextMenus ne sert qu’à afficher le menu du clic droit ; aucune donnée n’est transmise."
+    "message": "L’extension demande l’accès à l’onglet actif au moment du remplissage, aux sites que vous autorisez, et à l’adresse de Coffre. Elle n’a pas accès aux autres onglets en dehors de vos actions. La permission contextMenus ne sert qu’à afficher le menu du clic droit ; clipboardRead n’est utilisé que pour effacer un code TOTP copié s’il n’a pas changé, et clipboardWrite pour les copies que vous déclenchez. Aucune donnée n’est transmise."
   },
   "saveBanner_pageTitle": {
     "message": "Enregistrer dans Coffre"
@@ -409,6 +547,12 @@
   },
   "saveBanner_later": {
     "message": "Plus tard"
+  },
+  "saveBanner_never": {
+    "message": "Jamais pour ce site"
+  },
+  "saveBanner_neverSaved": {
+    "message": "Ce site ne proposera plus d’enregistrer de connexion."
   },
   "saveBanner_close": {
     "message": "Fermer"
@@ -496,6 +640,9 @@
   },
   "error_nativeUnavailable": {
     "message": "L’application Coffre desktop n’est pas disponible."
+  },
+  "error_excluded": {
+    "message": "Ce site est exclu de Coffre."
   },
   "error_generic": {
     "message": "Opération impossible."
@@ -611,6 +758,9 @@
   "menu_errorCancelled": {
     "message": "Confirmation biométrique annulée."
   },
+  "menu_errorExcluded": {
+    "message": "Ce site est exclu de Coffre."
+  },
   "menu_tabCustom": {
     "message": "Modèles"
   },
@@ -634,6 +784,12 @@
   },
   "menu_signupFilled": {
     "message": "Mot de passe fort rempli. Enregistrez la connexion après validation."
+  },
+  "menu_excludeSite": {
+    "message": "Ne plus afficher sur ce site"
+  },
+  "menu_excluded": {
+    "message": "Coffre ne proposera plus de remplissage sur ce site."
   },
   "menu_alias": {
     "message": "Créer un alias e-mail"
@@ -694,6 +850,24 @@
   },
   "settings_appearance": {
     "message": "Apparence"
+  },
+  "settings_behavior": {
+    "message": "Comportement"
+  },
+  "settings_exclusions": {
+    "message": "Exclusions"
+  },
+  "settings_exclusionHost": {
+    "message": "Site actif : $1"
+  },
+  "settings_exclusionNoSite": {
+    "message": "Ouvrez ce popup sur une page HTTP ou HTTPS pour exclure le site."
+  },
+  "settings_excludeFill": {
+    "message": "Ne jamais remplir ce site"
+  },
+  "settings_excludeSave": {
+    "message": "Ne jamais proposer d’enregistrer"
   },
   "settings_shortcuts": {
     "message": "Raccourcis"

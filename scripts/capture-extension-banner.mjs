@@ -33,30 +33,10 @@ try {
   // proposition de test. Le popup appellerait GET_STATUS et la supprimerait.
   const page = await context.newPage()
   await page.goto(`chrome-extension://${extensionId}/options.html`)
+  // Laisse le service worker terminer son premier rafraîchissement d’état
+  // (il purge les propositions quand aucune application n’est ouverte).
+  await new Promise((resolve) => setTimeout(resolve, 1200))
   const now = Date.now()
-  await page.evaluate(
-    ({ now }) => {
-      const offer = {
-        id: 'abcdef12-3456-7890-abcd-ef1234567890',
-        key: '42:0',
-        tabId: 42,
-        frameId: 0,
-        host: 'github.com',
-        kind: 'login',
-        label: 'ada@example.com',
-        detail: '',
-        url: 'https://github.com/session',
-        username: 'ada@example.com',
-        password: 'secret-de-capture',
-        createdAt: now,
-        expiresAt: now + 600_000,
-      }
-      return chrome.storage.session.set({
-        'coffre.pendingSaves.v1': [offer],
-      })
-    },
-    { now },
-  )
 
   for (const theme of ['dark', 'light']) {
     await page.evaluate((value) => chrome.storage.local.set({ theme: value }), theme)
@@ -65,6 +45,32 @@ try {
     await banner.goto(
       `chrome-extension://${extensionId}/save-banner.html?offer=abcdef12-3456-7890-abcd-ef1234567890`,
     )
+    // L’activation de l’onglet a pu purger la session : on réécrit la
+    // proposition puis on recharge sans changer d’onglet.
+    await page.evaluate(
+      ({ now }) => {
+        const offer = {
+          id: 'abcdef12-3456-7890-abcd-ef1234567890',
+          key: '42:0',
+          tabId: 42,
+          frameId: 0,
+          host: 'github.com',
+          kind: 'login',
+          label: 'ada@example.com',
+          detail: '',
+          url: 'https://github.com/session',
+          username: 'ada@example.com',
+          password: 'secret-de-capture',
+          createdAt: now,
+          expiresAt: now + 600_000,
+        }
+        return chrome.storage.session.set({
+          'coffre.pendingSaves.v1': [offer],
+        })
+      },
+      { now },
+    )
+    await banner.reload()
     await banner.locator('#banner-title').waitFor()
     await banner.evaluate((value) => {
       document.body.style.background = value === 'dark' ? '#09090b' : '#e4e4e7'
@@ -76,6 +82,13 @@ try {
     })
     await banner.close()
   }
+
+  await page.evaluate(() =>
+    chrome.storage.local.set({
+      neverFillSites: ['github.com'],
+      neverSaveSites: ['example.com'],
+    }),
+  )
 
   // Réglages du popup avec la liste des raccourcis.
   const popup = await context.newPage()

@@ -25,6 +25,7 @@ import {
   generatePassword,
 } from '../src/lib/password'
 import { isValidRpId } from '../src/lib/passkeys'
+import { badgeText } from './badge'
 import {
   matchingLoginSummaries,
   totpLoginSummary,
@@ -34,7 +35,12 @@ import {
   type ContextMenuEntry,
 } from './contextMenuModel'
 import { t } from './i18n'
-import { loadSettings, usesNativeBridge } from './settings'
+import {
+  loadSettings,
+  saveSettings,
+  usesNativeBridge,
+} from './settings'
+import { isSiteExcluded, siteKey } from './siteExclusions'
 import { submitLoginForm } from './loginSubmit'
 import { saveBannerView } from './saveBannerState'
 import {
@@ -159,6 +165,7 @@ interface ExtensionMessage {
   appUrl?: string
   command?: string
   menuItemId?: string
+  excluded?: boolean
   kind?: string
   formKind?: string
   includeSensitive?: boolean
@@ -401,6 +408,18 @@ async function recordGeneratedPassword(
   }
 }
 
+async function fillAllowedForHost(host: string): Promise<boolean> {
+  if (!host) return false
+  const settings = await loadSettings()
+  return !isSiteExcluded(settings.neverFillSites, host)
+}
+
+async function saveAllowedForHost(host: string): Promise<boolean> {
+  if (!host) return false
+  const settings = await loadSettings()
+  return !isSiteExcluded(settings.neverSaveSites, host)
+}
+
 async function requireNativeCredentials(
   status: AppStatus,
   itemId: string,
@@ -629,6 +648,82 @@ async function credentialsFromTab(
   }
 }
 
+const TOTP_CLIPBOARD_TTL_MS = 30_000
+
+/**
+ * Copie le code TOTP dans le presse-papiers puis l’efface après 30 secondes
+ * seulement si le contenu n’a pas changé. `clipboardRead` est réservée à ce
+ * contrôle ; si la lecture échoue, le presse-papiers n’est jamais vidé.
+ */
+async function copyTotpToClipboard(
+  tabId: number,
+  code: string,
+): Promise<boolean> {
+  if (!code) return false
+  try {
+    const [result] = await api.scripting.executeScript({
+      target: { tabId },
+      func: async (value: string, ttl: number) => {
+        const write = async (text: string): Promise<boolean> => {
+          try {
+            await navigator.clipboard.writeText(text)
+            return true
+          } catch {
+            // Repli pour les contextes sans API asynchrone.
+          }
+          try {
+            const host = document.createElement('div')
+            host.style.cssText =
+              'position:fixed;left:-1000px;top:-1000px;width:1px;height:1px;opacity:0'
+            const root = host.attachShadow({ mode: 'closed' })
+            const area = document.createElement('textarea')
+            area.value = text
+            area.setAttribute('readonly', '')
+            root.append(area)
+            document.documentElement.append(host)
+            area.select()
+            const copied = document.execCommand('copy')
+            host.remove()
+            return copied
+          } catch {
+            return false
+          }
+        }
+        const read = async (): Promise<string | null> => {
+          try {
+            return await navigator.clipboard.readText()
+          } catch {
+            return null
+          }
+        }
+        if (!(await write(value))) return false
+        window.setTimeout(() => {
+          void (async () => {
+            const current = await read()
+            if (current === value) await write('')
+          })()
+        }, ttl)
+        return true
+      },
+      args: [code, TOTP_CLIPBOARD_TTL_MS],
+    })
+    return result?.result === true
+  } catch {
+    return false
+  }
+}
+
+async function maybeCopyTotp(tabId: number, code: string): Promise<void> {
+  if (!code) return
+  try {
+    const settings = await loadSettings()
+    if (!settings.copyTotpAfterFill) return
+    await copyTotpToClipboard(tabId, code)
+  } catch {
+    // La copie ne doit jamais faire échouer le remplissage.
+  }
+}
+
 async function injectCredentials(
   targetId: number,
   data: ExtensionCredentials,
@@ -725,6 +820,10 @@ async function injectCredentials(
     const filled = Number(
       (result?.result as { filled?: number } | undefined)?.filled ?? 0,
     )
+    if (filled > 0) {
+      await maybeCopyTotp(targetId, data.totp)
+    }
+    // La validation automatique n’a lieu que si l’utilisateur l’a activée.
     if (filled > 0 && (await loadSettings()).autoSubmitLogin) {
       try {
         await api.scripting.executeScript({
@@ -819,7 +918,7 @@ async function commandFillLogin(): Promise<boolean> {
     return false
   }
   const host = tab.url ? hostFromUrl(tab.url) : ''
-  if (!host) {
+  if (!host || !(await fillAllowedForHost(host))) {
     flashActionBadge()
     return false
   }
@@ -854,6 +953,11 @@ async function generateAndFillPassword(
   url: string,
   frameId = 0,
 ): Promise<boolean> {
+  const host = url ? hostFromUrl(url) : ''
+  if (!host || !(await fillAllowedForHost(host))) {
+    flashActionBadge()
+    return false
+  }
   let password = ''
   try {
     const { generatePasswordForRules, passwordRulesForUrl } = await import(
@@ -896,6 +1000,11 @@ async function commandGeneratePassword(): Promise<boolean> {
     flashActionBadge()
     return false
   }
+  const host = tab.url ? hostFromUrl(tab.url) : ''
+  if (!host || !(await fillAllowedForHost(host))) {
+    flashActionBadge()
+    return false
+  }
   return generateAndFillPassword(tab.id, tab.url ?? '')
 }
 
@@ -906,7 +1015,7 @@ async function commandFillTotp(): Promise<boolean> {
     return false
   }
   const host = tab.url ? hostFromUrl(tab.url) : ''
-  if (!host) {
+  if (!host || !(await fillAllowedForHost(host))) {
     flashActionBadge()
     return false
   }
@@ -1013,6 +1122,7 @@ async function fill(
   } catch {
     host = ''
   }
+  if (!(await fillAllowedForHost(host))) return { error: 'excluded' }
 
   const status = await readStatus()
   const fetched =
@@ -1028,6 +1138,8 @@ async function fill(
 }
 
 let badgeTimer: ReturnType<typeof setTimeout> | undefined
+let badgeUpdating = false
+let badgeQueued = false
 
 function scheduleBadgeRefresh(entries: StoredPendingSave[]): void {
   if (badgeTimer) clearTimeout(badgeTimer)
@@ -1040,16 +1152,59 @@ function scheduleBadgeRefresh(entries: StoredPendingSave[]): void {
   )
 }
 
+async function badgeLoginCount(host: string): Promise<number> {
+  const result = await search(host, 'login')
+  return result.items?.length ?? 0
+}
+
 async function updateActionBadge(): Promise<void> {
+  // `search` passe par `readStatus`, qui purge la session verrouillée et
+  // rappelle cette fonction : le garde évite une récursion, et la demande
+  // suivante est rejouée à la fin pour ne pas perdre un changement d’état.
+  if (badgeUpdating) {
+    badgeQueued = true
+    return
+  }
+  badgeUpdating = true
   try {
     const entries = await pendingSaveStore.list()
     scheduleBadgeRefresh(entries)
-    await api.action.setBadgeBackgroundColor({ color: '#d97706' })
+    if (entries.length > 0) {
+      await api.action.setBadgeBackgroundColor({ color: '#d97706' })
+      await api.action.setBadgeText({
+        text: badgeText(entries.length, 0, false),
+      })
+      return
+    }
+
+    const settings = await loadSettings()
+    const siteAccess = await hasSiteAccess()
+    const native = usesNativeBridge(settings.appMode)
+      ? await nativeStatus()
+      : null
+    const unlocked = native
+      ? Boolean(native.unlocked) && native.paired !== false
+      : (await readTabStatus()).unlocked
+    const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+    const host = tab?.url ? hostFromUrl(tab.url) : ''
+    const allowed =
+      unlocked &&
+      siteAccess &&
+      Boolean(host) &&
+      !isSiteExcluded(settings.neverFillSites, host)
+    const count = allowed ? await badgeLoginCount(host) : 0
+    await api.action.setBadgeBackgroundColor({ color: '#3f3f46' })
     await api.action.setBadgeText({
-      text: entries.length > 0 ? '●' : '',
+      text: badgeText(0, count, allowed),
     })
   } catch {
     // Certains navigateurs ne supportent pas le badge : le popup reste usable.
+  } finally {
+    badgeUpdating = false
+    if (badgeQueued) {
+      badgeQueued = false
+      void updateActionBadge()
+    }
   }
 }
 
@@ -1153,6 +1308,7 @@ async function menuFill(
   if (!validTabFrame(tabId, frameId) || !host || !itemId) {
     return { error: 'invalid' }
   }
+  if (!(await fillAllowedForHost(host))) return { error: 'excluded' }
 
   let url = pageUrl.slice(0, 2048)
   if (!url) {
@@ -1209,6 +1365,9 @@ async function menuFill(
     }
     if (kind === 'login') {
       await recentSelectionStore.set(tabId, itemId, host)
+      if (credentials.kind === 'login') {
+        await maybeCopyTotp(tabId, credentials.totp)
+      }
     }
     return { ok: true }
   } catch {
@@ -1330,6 +1489,7 @@ async function formSubmitted(
       ? hostFromUrl(message.host) || message.host.trim().toLowerCase()
       : ''
   if (!host) return { prompt: false }
+  if (!(await saveAllowedForHost(host))) return { prompt: false }
   const kind: ExtensionAutofillKind =
     message.formKind === 'card' || message.formKind === 'identity'
       ? message.formKind
@@ -1630,6 +1790,10 @@ async function savePendingEntry(
   error?: string
   phishing?: PhishingAssessment
 }> {
+  if (!(await saveAllowedForHost(pending.host))) {
+    await clearPendingSave(pending.key)
+    return { error: 'excluded' }
+  }
   if (pending.phishing && pending.phishing.signals.length > 0) {
     if (!overridePhishing) {
       return { error: 'phishing-warning', phishing: pending.phishing }
@@ -2165,8 +2329,10 @@ async function rebuildContextMenus(): Promise<void> {
     return
   }
   const status = await readStatus()
+  const settings = await loadSettings()
   const [tab] = await api.tabs.query({ active: true, currentWindow: true })
   const host = tab?.url ? hostFromUrl(tab.url) : ''
+  const fillAllowed = !isSiteExcluded(settings.neverFillSites, host)
   const available =
     status.unlocked &&
     !(status.mode === 'native' && status.paired === false)
@@ -2187,6 +2353,7 @@ async function rebuildContextMenus(): Promise<void> {
 
   const model = buildContextMenuModel({
     unlocked: available,
+    fillAllowed,
     host,
     logins,
     cards,
@@ -2292,6 +2459,7 @@ async function onContextMenuClicked(
     const result = await requestUnlock()
     if (result.error) flashActionBadge()
     scheduleContextMenus()
+    void updateActionBadge()
     return
   }
   if (id === 'open-app' || id === 'add-site') {
@@ -2381,7 +2549,10 @@ async function handle(
     case 'FOCUS_APP':
       return openApp()
     case 'UNLOCK_REQUEST':
-      return requestUnlock().finally(() => scheduleContextMenus())
+      return requestUnlock().finally(() => {
+        scheduleContextMenus()
+        void updateActionBadge()
+      })
     case 'OPEN_SHORTCUTS': {
       // Firefox refuse d’ouvrir about:addons depuis une extension : il
       // fournit openShortcutSettings() (Firefox 137+).
@@ -2477,6 +2648,7 @@ async function handle(
       const tab = await api.tabs.get(tabId).catch(() => undefined)
       const host = tab?.url ? hostFromUrl(tab.url) : ''
       if (!host) return { error: 'no-tab' }
+      if (!(await fillAllowedForHost(host))) return { error: 'excluded' }
       if (!(await ensureContentScript(tabId, frameId))) {
         return { error: 'permission' }
       }
@@ -2495,10 +2667,43 @@ async function handle(
         return { error: 'no-tab' }
       }
     }
+    case 'SET_SITE_EXCLUSION': {
+      if (!isExtensionPage(sender)) return { error: 'forbidden' }
+      const host = siteKey(message.host ?? '')
+      const kind = message.kind === 'save' ? 'save' : 'fill'
+      if (!host) return { error: 'invalid' }
+      const excluded = message.excluded !== false
+      const settings = await loadSettings()
+      const current =
+        kind === 'save' ? settings.neverSaveSites : settings.neverFillSites
+      const next = excluded
+        ? [...new Set([...current, host])]
+        : current.filter((entry) => siteKey(entry) !== host)
+      await saveSettings(
+        kind === 'save'
+          ? { neverSaveSites: next }
+          : { neverFillSites: next },
+      )
+      if (excluded && kind === 'save') {
+        await pendingSaveStore.removeWhere((entry) =>
+          isSiteExcluded([host], entry.host),
+        )
+        await updateActionBadge()
+      }
+      scheduleContextMenus()
+      void updateActionBadge()
+      return {
+        ok: true,
+        host,
+        kind,
+        excluded: next.includes(host),
+      }
+    }
     case 'PAIR':
       return nativePair()
     case 'ENABLE_INLINE':
       await syncContentScriptRegistration()
+      void updateActionBadge()
       return { ok: true, hostAccess: await hasHostAccess() }
     case 'CONTENT_CONTEXT':
       return contentContext(sender)
@@ -2591,6 +2796,10 @@ async function handle(
       ) {
         return { offer: null }
       }
+      if (!(await saveAllowedForHost(pending.host))) {
+        await clearPendingSave(pending.key)
+        return { offer: null }
+      }
       const view = saveBannerView(pending)
       return view ? { offer: { id: view.offerId } } : { offer: null }
     }
@@ -2601,6 +2810,10 @@ async function handle(
       if (!OFFER_ID_PATTERN.test(offerId)) return { error: 'invalid' }
       const pending = await pendingSaveStore.find(offerId)
       if (!pending) return { error: 'no-pending' }
+      if (!(await saveAllowedForHost(pending.host))) {
+        await clearPendingSave(pending.key)
+        return { error: 'no-pending' }
+      }
       const view = saveBannerView(pending)
       return view ? { banner: view } : { error: 'no-pending' }
     }
@@ -2625,6 +2838,10 @@ async function handle(
       const key = saveKey(Number(message.tabId), Number(message.frameId))
       const pending = await pendingSaveStore.get(key)
       if (!pending) return { pending: null }
+      if (!(await saveAllowedForHost(pending.host))) {
+        await clearPendingSave(pending.key)
+        return { pending: null }
+      }
       return {
         pending: {
           username: pending.label,
@@ -2645,6 +2862,10 @@ async function handle(
       const tabId = Number(message.tabId)
       const pending = await latestPendingForTab(tabId)
       if (!pending) return { pending: null }
+      if (!(await saveAllowedForHost(pending.host))) {
+        await clearPendingSave(pending.key)
+        return { pending: null }
+      }
       return {
         pending: {
           id: pending.id,
@@ -2736,15 +2957,27 @@ api.runtime.onInstalled.addListener((details) => {
   }
 })
 api.runtime.onStartup.addListener(() => scheduleContextMenus())
-api.tabs.onActivated.addListener(() => scheduleContextMenus())
-// Une navigation dans le même onglet change le site : le menu ne doit pas
-// garder les noms des connexions du site précédent.
+api.tabs.onActivated.addListener(() => {
+  scheduleContextMenus()
+  void updateActionBadge()
+})
+// Une navigation dans l’onglet actif change le site : le menu ne doit pas
+// garder les noms des connexions du site précédent, et le badge suit le site.
 api.tabs.onUpdated.addListener((_tabId, change, tab) => {
-  if (tab.active && (change.url !== undefined || change.status === 'loading')) {
+  if (!tab.active) return
+  if (
+    change.url !== undefined ||
+    change.status === 'loading' ||
+    change.status === 'complete'
+  ) {
     scheduleContextMenus()
+    void updateActionBadge()
   }
 })
-api.windows.onFocusChanged.addListener(() => scheduleContextMenus())
+api.windows.onFocusChanged.addListener(() => {
+  scheduleContextMenus()
+  void updateActionBadge()
+})
 
 api.windows.onRemoved.addListener((windowId) => {
   for (const request of [...pendingPasskeys.values()]) {

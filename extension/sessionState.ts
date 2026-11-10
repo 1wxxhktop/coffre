@@ -349,6 +349,15 @@ export class PendingSaveStore extends QueuedSessionStore {
     })
   }
 
+  async removeWhere(
+    predicate: (entry: StoredPendingSave) => boolean,
+  ): Promise<void> {
+    return this.run(async () => {
+      const pending = (await this.read()).filter((entry) => !predicate(entry))
+      await this.write(pending)
+    })
+  }
+
   async clear(): Promise<void> {
     return this.run(async () => {
       await this.storage.remove(PENDING_SAVES_STORAGE_KEY)
