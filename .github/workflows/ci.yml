@@ -5,8 +5,8 @@ name: CI
 # Playwright sur Chromium et WebKit. Les builds desktop complets et la
 # reproductibilité macOS (une vingtaine de minutes) tournent sur chaque push
 # vers main et à la demande (« Run workflow »), pour garder des PR rapides.
-# Un commit qui ne touche que la documentation ne lance rien ; `[skip ci]`
-# dans le message saute aussi la CI.
+# Un push sur main qui ne touche que la documentation ne relance pas la CI ;
+# les PR sont toujours vérifiées, car la protection de main l’exige.
 on:
   push:
     branches: [main]
@@ -15,12 +15,10 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - 'NOTICE'
+  # Pas de filtre sur les PR : les vérifications sont obligatoires pour fusionner
+  # dans main (protection de branche), une PR de documentation doit donc les
+  # produire aussi.
   pull_request:
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - 'NOTICE'
   workflow_dispatch:
 
 permissions:
@@ -83,13 +81,15 @@ jobs:
           retention-days: 7
 
   e2e:
-    name: Parcours Playwright
+    name: Parcours Playwright (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      # Chromium seul par défaut ; WebKit s’ajoute lors d’un lancement manuel.
-      E2E_BROWSERS: chromium webkit
-      E2E_PROJECTS: --project=chromium --project=webkit
+    # Un seul worker par navigateur (les parcours partagent le serveur et le
+    # stockage) : Chromium et WebKit tournent en parallèle, dans deux jobs.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -104,17 +104,17 @@ jobs:
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
 
-      - name: Installer les navigateurs
-        run: bunx playwright install --with-deps $E2E_BROWSERS
+      - name: Installer le navigateur
+        run: bunx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Exécuter les parcours
-        run: bunx playwright test $E2E_PROJECTS
+        run: bunx playwright test --project=${{ matrix.browser }}
 
       - name: Conserver les traces en cas d’échec
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.browser }}
           path: |
             playwright-report
             test-results
