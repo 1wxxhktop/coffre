@@ -89,7 +89,14 @@ BUILD_ARGS=(--target "$TARGET")
 if [[ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
   [[ -n "${COFFRE_UPDATER_PUBKEY:-}" ]] || fail \
     "COFFRE_UPDATER_PUBKEY est requis avec TAURI_SIGNING_PRIVATE_KEY (clé publique des mises à jour)."
-  BUILD_ARGS+=(--config '{"bundle":{"createUpdaterArtifacts":true}}')
+  # Tauri contrôle aussi la clé publique de tauri.conf.json en produisant le
+  # paquet : elle y est vide (le binaire la reçoit par COFFRE_UPDATER_PUBKEY),
+  # on la fournit donc dans la configuration du build.
+  UPDATER_CONFIG="$(node -e 'console.log(JSON.stringify({
+    bundle: { createUpdaterArtifacts: true },
+    plugins: { updater: { pubkey: process.env.COFFRE_UPDATER_PUBKEY.trim() } },
+  }))')"
+  BUILD_ARGS+=(--config "$UPDATER_CONFIG")
   echo "Paquet de mise à jour signé : activé."
 else
   echo "Avertissement : TAURI_SIGNING_PRIVATE_KEY absent, aucun paquet de mise à jour ne sera produit." >&2
