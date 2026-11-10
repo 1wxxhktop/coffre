@@ -209,7 +209,9 @@ try {
         })
         return result?.result
       },
-      { tabId: status.tabId, host, username, password },
+      // Comme l’extension, la vérification transmet l’origine de la page
+      // (schéma et port compris) : l’élément de test est enregistré avec son port.
+      { tabId: status.tabId, host: new URL(TARGET_URL).origin, username, password },
     )
 
   assert.equal(await loginState('ada', 's3cret!'), 'same')
@@ -257,9 +259,11 @@ try {
   assert.equal(values.username, 'ada')
   assert.equal(values.password, 's3cret!')
 
+  // Comme la popup et le menu, la demande de détails transmet l’URL de la page.
   const details = await extensionPage.evaluate(
-    ({ id, host }) => chrome.runtime.sendMessage({ type: 'DETAILS', itemId: id, host }),
-    { id: itemId, host },
+    ({ id, host, url }) =>
+      chrome.runtime.sendMessage({ type: 'DETAILS', itemId: id, host, url }),
+    { id: itemId, host, url: TARGET_URL },
   )
   assert.equal(details.details?.username, 'ada')
   assert.equal(details.details?.password, 's3cret!')
@@ -833,8 +837,9 @@ try {
   )
   assert.ok(savedBannerItem, 'la connexion enregistrée par le bandeau est absente')
   const savedBannerDetails = await extensionPage.evaluate(
-    ({ id, host }) => chrome.runtime.sendMessage({ type: 'DETAILS', itemId: id, host }),
-    { id: savedBannerItem.id, host: new URL(TARGET_URL).hostname },
+    ({ id, host, url }) =>
+      chrome.runtime.sendMessage({ type: 'DETAILS', itemId: id, host, url }),
+    { id: savedBannerItem.id, host: new URL(TARGET_URL).hostname, url: TARGET_URL },
   )
   assert.equal(savedBannerDetails.details?.password, 'mot-de-passe-bandeau!')
   const bannerCleared = await extensionPage.evaluate(
