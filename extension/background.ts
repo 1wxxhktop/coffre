@@ -2349,12 +2349,24 @@ async function handle(
     case 'UNLOCK_REQUEST':
       return requestUnlock().finally(() => scheduleContextMenus())
     case 'OPEN_SHORTCUTS': {
-      const firefox = /Firefox/i.test(navigator.userAgent)
-      const url = firefox
-        ? 'about:addons'
-        : 'chrome://extensions/shortcuts'
+      // Firefox refuse d’ouvrir about:addons depuis une extension : il
+      // fournit openShortcutSettings() (Firefox 137+).
+      const commands = api.commands as
+        | (typeof api.commands & { openShortcutSettings?: () => Promise<void> })
+        | undefined
+      if (commands?.openShortcutSettings) {
+        try {
+          await commands.openShortcutSettings()
+          return { ok: true }
+        } catch {
+          return { error: 'shortcuts-page' }
+        }
+      }
+      if (/Firefox/i.test(navigator.userAgent)) {
+        return { error: 'shortcuts-page' }
+      }
       try {
-        await api.tabs.create({ url })
+        await api.tabs.create({ url: 'chrome://extensions/shortcuts' })
         return { ok: true }
       } catch {
         return { error: 'shortcuts-page' }
@@ -2364,7 +2376,15 @@ async function handle(
       // Canal interne des tests de bout en bout : l’API `commands` ne permet
       // pas de déclencher une commande depuis Playwright. Il reste limité aux
       // pages d’extension et n’expose aucune opération nouvelle.
-      if (!isExtensionPage(sender)) return { error: 'forbidden' }
+      // Seuls la popup et les pages d’extension ouvertes dans leur propre
+      // onglet l’utilisent : jamais le menu ni le bandeau intégrés à un site.
+      if (
+        !isExtensionPage(sender) ||
+        (sender.tab !== undefined &&
+          !(sender.tab.url ?? '').startsWith(api.runtime.getURL('')))
+      ) {
+        return { error: 'forbidden' }
+      }
       const command =
         typeof message.command === 'string' ? message.command : ''
       if (
@@ -2683,6 +2703,13 @@ api.runtime.onInstalled.addListener((details) => {
 })
 api.runtime.onStartup.addListener(() => scheduleContextMenus())
 api.tabs.onActivated.addListener(() => scheduleContextMenus())
+// Une navigation dans le même onglet change le site : le menu ne doit pas
+// garder les noms des connexions du site précédent.
+api.tabs.onUpdated.addListener((_tabId, change, tab) => {
+  if (tab.active && (change.url !== undefined || change.status === 'loading')) {
+    scheduleContextMenus()
+  }
+})
 api.windows.onFocusChanged.addListener(() => scheduleContextMenus())
 
 api.windows.onRemoved.addListener((windowId) => {
