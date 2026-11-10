@@ -13,6 +13,7 @@ import {
   EXTENSION_BRIDGE_VERSION,
   cardLast4,
   hostFromUrl,
+  loginUrlForService,
   identityFullName,
   loginAllowsHost,
   searchCards,
@@ -235,12 +236,15 @@ export function ExtensionBridge() {
         await recordGeneratedPassword(input)
       },
       async saveLogin(input) {
-        const host = hostFromUrl(input.host) || input.host.trim().toLowerCase()
+        // `input.host` peut être une origine (`http://hôte:port`) : elle sert
+        // à la règle de domaines et à l’URL enregistrée, l’hôte au titre.
+        const service = input.host.trim()
+        const host = hostFromUrl(service) || service.toLowerCase()
         if (!host || !input.password) return null
         const username = input.username.trim()
         const assessment = assessPhishingForItems(items, {
           host,
-          url: input.host,
+          url: service,
           username,
           mode: 'save',
         })
@@ -252,7 +256,7 @@ export function ExtensionBridge() {
             item.type === 'login' &&
             !item.deletedAt &&
             item.username.trim().toLowerCase() === username.toLowerCase() &&
-            loginAllowsHost(item, host),
+            loginAllowsHost(item, service),
         )
         if (existing) {
           await updateItem({
@@ -261,7 +265,7 @@ export function ExtensionBridge() {
             urls:
               existing.urls.filter(Boolean).length > 0
                 ? existing.urls
-                : [`https://${host}`],
+                : [loginUrlForService(service)],
           })
           return { id: existing.id, updated: true }
         }
@@ -272,14 +276,14 @@ export function ExtensionBridge() {
           title: input.title?.trim() || host,
           username,
           password: input.password,
-          urls: [`https://${host}`],
+          urls: [loginUrlForService(service)],
           type: 'login',
           totp: '',
         })
         return { id: item.id, updated: false }
       },
       async checkLogin(input) {
-        const host = hostFromUrl(input.host) || input.host.trim().toLowerCase()
+        const host = input.host.trim()
         if (!host) return 'missing'
         const username = input.username.trim()
         const existing = items.filter(

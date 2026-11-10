@@ -2,6 +2,17 @@
 
 ## Non publié
 
+- Extension, correctif : l’extension transmet l’origine de la page
+  (`schéma://hôte:port`) à l’application au lieu du seul nom d’hôte. Depuis la
+  règle de domaines partagée, les connexions dont l’URL précise un port
+  (`http://localhost:3000`, routeur, NAS) n’étaient plus remplies ni
+  reconnues, et le refus d’un élément HTTPS sur une page HTTP restait sans
+  effet depuis l’extension. Une connexion enregistrée depuis l’extension garde
+  aussi le schéma et le port de la page, au lieu de `https://hôte`.
+- Extension, correctif : le bandeau d’enregistrement s’affiche aussi quand la
+  page d’arrivée d’une redirection se charge avant la fin de la vérification
+  de la proposition.
+
 - Extensions macOS : `scripts/build-coffre-core-apple.sh` assemble désormais
   `CoffreCore.xcframework` sans Xcode complet, à partir des bibliothèques
   statiques arm64/x86_64 et des en-têtes générés par UniFFI. Le xcframework a

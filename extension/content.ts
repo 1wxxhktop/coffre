@@ -557,6 +557,13 @@ api.runtime.onMessage.addListener(
       sendResponse({ ok: true })
       return
     }
+    if (message?.type === 'COFFRE_REFRESH_SAVE_BANNER') {
+      // Envoyé quand une proposition vient d’être créée : la page d’arrivée
+      // d’une redirection a pu demander le bandeau avant qu’elle existe.
+      void refreshSaveBanner()
+      sendResponse({ ok: true })
+      return
+    }
     if (message?.type === 'COFFRE_OPEN_MENU') {
       const opened = openMenuAtActiveField(commandKind(message.kind))
       sendResponse(opened ? { ok: true } : { ok: false, error: 'no-fields' })
