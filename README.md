@@ -722,7 +722,8 @@ Le dépôt est public : les runners GitHub standard sont gratuits. Le fichier
 - **Qualité** : `bun audit --audit-level=high`, lint, vérification
   TypeScript, tests Vitest, builds PWA et extension, avec l’artefact `dist`
   conservé une semaine ;
-- **Parcours** : Playwright sur Chromium et WebKit, traces et rapport
+- **Parcours** : Playwright sur Chromium et WebKit, en deux jobs parallèles
+  (un seul worker chacun), traces et rapport
   téléversés en cas d’échec ;
 - **Rust** : `cargo fmt`, `clippy`, tests de l’application, du cœur, du FFI, du
   CLI et de l’agent SSH, smoke du relais natif, `cargo audit` et `cargo deny` ;
@@ -735,9 +736,12 @@ Les bundles **Desktop** (macOS, Ubuntu, Windows) et la reproductibilité du
 bundle macOS, plus longs, tournent sur chaque push vers `main` et à la demande
 (onglet *Actions* → *CI* → *Run workflow*), pas sur les PR.
 
-Un commit qui ne touche que la documentation (`*.md`, `docs/`, `LICENSE`,
-`NOTICE`) ne lance pas la CI ; `[skip ci]` dans le message la saute aussi, et
-un nouveau push annule l’exécution en cours sur la même branche.
+Les vérifications Qualité, Parcours, Rust, `coffre-core` macOS et Windows,
+smoke de l’extension, build reproductible et SBOM sont **obligatoires** pour
+fusionner dans `main` (protection de branche) : toute modification passe par
+une PR, y compris la documentation. Un push sur `main` qui ne touche que la
+documentation ne relance pas la CI, et un nouveau push annule l’exécution en
+cours sur la même branche.
 
 `.github/workflows/release.yml` prépare une release macOS sur un tag `v*` :
 build universel signé ad hoc (sans compte Apple), DMG + SHA-256, paquet de mise
