@@ -2,6 +2,11 @@
 
 ## Non publié
 
+- Extension : la validation automatique du formulaire de connexion après
+  remplissage devient une option, « Valider le formulaire après remplissage »,
+  désactivée par défaut. Par défaut, l’utilisateur peut vérifier le compte
+  choisi avant l’envoi.
+
 - Extension, correctif : l’extension transmet l’origine de la page
   (`schéma://hôte:port`) à l’application au lieu du seul nom d’hôte. Depuis la
   règle de domaines partagée, les connexions dont l’URL précise un port
