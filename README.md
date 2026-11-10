@@ -902,8 +902,8 @@ le formulaire. Un simple formulaire de connexion `current-password` n’affiche
 pas cette proposition. L’historique du générateur (Q3) est prévu comme point
 d’extension.
 
-**Raccourcis.** La popup s’ouvre avec `⌘⇧Y` / `Ctrl+Shift+Y` ; `⌘⇧L`
-(`Option+Shift+L` sur macOS, `Ctrl+Shift+L` sur Windows/Linux) remplit la
+**Raccourcis.** La popup s’ouvre avec `⌘⇧Y` / `Ctrl+Shift+Y` ; `Option+Shift+L`
+(`Alt+Shift+L` sur Windows/Linux) remplit la
 connexion la plus pertinente — ou ouvre le menu du champ actif s’il y en a
 plusieurs. Les raccourcis « générer un mot de passe » et « remplir le code
 TOTP » n’ont pas de touche par défaut : assignez-les dans
