@@ -104,7 +104,7 @@ pub fn seal_bytes_with_nonce(
     let cipher = cipher(key)?;
     let encrypted = cipher
         .encrypt(
-            Nonce::from_slice(nonce),
+            &Nonce::from(*nonce),
             Payload {
                 msg: plaintext,
                 aad: aad.as_bytes(),
@@ -134,10 +134,12 @@ pub fn open_bytes(
     if nonce.len() != NONCE_BYTES {
         return Err(CoreError::InvalidFormat("nonce AES invalide".into()));
     }
+    let nonce = Nonce::try_from(nonce.as_slice())
+        .map_err(|_| CoreError::InvalidFormat("nonce AES invalide".into()))?;
     let ciphertext = from_base64(&sealed.c)?;
     let plaintext = cipher
         .decrypt(
-            Nonce::from_slice(&nonce),
+            &nonce,
             Payload {
                 msg: &ciphertext,
                 aad: aad.as_bytes(),

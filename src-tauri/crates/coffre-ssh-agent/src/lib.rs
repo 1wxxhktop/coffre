@@ -12,7 +12,6 @@ use ed25519_dalek::Signer as _;
 use rsa::PrivateKey as RsaPrivateKey;
 use rsa::pkcs1v15::SigningKey as RsaSigningKey;
 use rsa::signature::SignatureEncoding;
-use rsa::signature::Signer as _;
 use rsa::traits::PublicKeyParts;
 use sha2::{Sha256, Sha512};
 use ssh_key::private::{KeypairData, RsaKeypair};
