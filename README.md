@@ -722,7 +722,8 @@ Le dépôt est public : les runners GitHub standard sont gratuits. Le fichier
 - **Qualité** : `bun audit --audit-level=high`, lint, vérification
   TypeScript, tests Vitest, builds PWA et extension, avec l’artefact `dist`
   conservé une semaine ;
-- **Parcours** : Playwright sur Chromium et WebKit, traces et rapport
+- **Parcours** : Playwright sur Chromium et WebKit, en deux jobs parallèles
+  (un seul worker chacun), traces et rapport
   téléversés en cas d’échec ;
 - **Rust** : `cargo fmt`, `clippy`, tests de l’application, du cœur, du FFI, du
   CLI et de l’agent SSH, smoke du relais natif, `cargo audit` et `cargo deny` ;
