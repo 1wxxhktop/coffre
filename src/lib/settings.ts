@@ -127,6 +127,29 @@ export function loadSettings(): AppSettings {
         BACKUP_ERROR_CODES.has(parsed.backupLastError)
           ? parsed.backupLastError
           : DEFAULT_SETTINGS.backupLastError,
+      updateCheck:
+        parsed.updateCheck === 'off' ||
+        parsed.updateCheck === 'launch' ||
+        parsed.updateCheck === 'daily' ||
+        parsed.updateCheck === 'weekly'
+          ? parsed.updateCheck
+          : DEFAULT_SETTINGS.updateCheck,
+      updateChannel:
+        parsed.updateChannel === 'beta' ? 'beta' : DEFAULT_SETTINGS.updateChannel,
+      updateAutoDownload:
+        typeof parsed.updateAutoDownload === 'boolean'
+          ? parsed.updateAutoDownload
+          : DEFAULT_SETTINGS.updateAutoDownload,
+      updateInstallMode:
+        parsed.updateInstallMode === 'on-quit'
+          ? 'on-quit'
+          : DEFAULT_SETTINGS.updateInstallMode,
+      updateSkippedVersion:
+        typeof parsed.updateSkippedVersion === 'string' &&
+        /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(parsed.updateSkippedVersion)
+          ? parsed.updateSkippedVersion
+          : DEFAULT_SETTINGS.updateSkippedVersion,
+      updateLastCheckAt: optionalDate(parsed.updateLastCheckAt),
     }
   } catch {
     return { ...DEFAULT_SETTINGS }

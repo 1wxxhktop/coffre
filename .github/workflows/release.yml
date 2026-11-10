@@ -102,7 +102,30 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Mises à jour : clé privée minisign (secret) et clé publique
+          # (variable du dépôt), intégrée au binaire à la compilation.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          COFFRE_UPDATER_PUBKEY: ${{ vars.COFFRE_UPDATER_PUBKEY }}
         run: ./scripts/release-macos.sh
+
+      - name: Préparer le paquet et le manifeste de mise à jour
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          bundle="src-tauri/target/universal-apple-darwin/release/bundle/macos/Coffre.app.tar.gz"
+          if [[ ! -f "$bundle" ]]; then
+            echo "Aucun paquet de mise à jour (clé de signature absente) : release sans mise à jour automatique."
+            exit 0
+          fi
+          asset="Coffre_${version}_universal.app.tar.gz"
+          cp "$bundle" "$asset"
+          cp "$bundle.sig" "$asset.sig"
+          bun scripts/updater-manifest.ts build \
+            --version "$version" \
+            --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${asset}" \
+            --signature-file "$asset.sig" \
+            --notes "Notes de version : https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}" \
+            --out latest.json
 
       - name: Archiver le bundle .app
         run: |
@@ -116,15 +139,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="$(node -p "require('./package.json').version")"
+          update_assets=()
+          if [[ -f latest.json ]]; then
+            update_assets=(
+              "Coffre_${version}_universal.app.tar.gz"
+              "Coffre_${version}_universal.app.tar.gz.sig"
+              latest.json
+            )
+          fi
+          prerelease=()
+          if [[ "$version" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          # Brouillon : la mise à jour n’est proposée qu’une fois la release
+          # publiée par le workflow « Publier une mise à jour ».
           gh release create "$GITHUB_REF_NAME" \
             "src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.dmg \
             "src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.sha256 \
             "Coffre_${version}_universal.app.zip" \
+            "${update_assets[@]}" \
             sbom/*.cdx.json \
             sbom/SHA256SUMS \
             --title "Coffre $version" \
             --generate-notes \
             --draft \
+            "${prerelease[@]}" \
             --verify-tag
 
       - name: Supprimer le trousseau temporaire

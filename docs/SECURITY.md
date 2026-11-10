@@ -1829,11 +1829,35 @@ Le build PWA ajoute un service worker Workbox qui :
 - peut contacter le serveur d’origine pour mettre à jour ces ressources ;
 - ne met jamais le contenu du coffre dans le cache HTTP.
 
+Mises à jour de l’application desktop (Réglages → Mises à jour) :
+
+- **désactivées par défaut** : aucune requête tant que l’utilisateur n’a pas
+  cliqué sur « Rechercher maintenant » ou choisi une fréquence ;
+- la recherche lit un manifeste `latest.json` sur `github.com` (releases du
+  projet) : GitHub voit l’adresse IP et la version de Coffre ; aucune donnée
+  du coffre n’est envoyée ;
+- l’adresse et la clé publique sont fixées côté Rust (`updater.rs`) ; la
+  WebView n’a aucune permission `updater:*` ;
+- chaque paquet est signé (minisign) par une clé de release distincte du
+  certificat Apple, et sa signature est vérifiée avant installation ; un
+  manifeste ou un paquet modifié est refusé ;
+- `requireSignedVersion` exige que la signature couvre la version annoncée :
+  un manifeste modifié ne peut pas réinstaller une ancienne version
+  authentique, et le canal bêta ne recule jamais côté publication ;
+- avant d’installer, le coffre est verrouillé et les écritures en cours sont
+  terminées ; l’installation « à la fermeture » n’intervient qu’à la sortie
+  de l’application.
+
+Limite : un attaquant qui obtiendrait la clé privée de signature et l’accès
+aux releases GitHub pourrait publier une mise à jour malveillante. La clé est
+un secret de CI, sauvegardée hors ligne (voir `docs/RELEASE.md` § 3.1).
+
 Le pont natif desktop n’ouvre aucune connexion réseau : il utilise uniquement
 un socket Unix local dans le dossier de données de l’application. Aucune
 donnée du coffre n’est envoyée à un service, même pendant l’appairage de
-l’extension. La seule requête sortante possible est la plage HIBP optionnelle
-décrite en 2.12.1.
+l’extension. Les seules requêtes sortantes possibles sont la plage HIBP
+optionnelle décrite en 2.12.1 et la recherche de mises à jour décrite
+ci-dessus, toutes deux désactivées par défaut.
 
 ### 6.2 Rendu
 
