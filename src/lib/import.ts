@@ -579,6 +579,12 @@ function makeDraft(
         documentNumber: '',
         issuedAt: '',
       } as ItemDraft
+    case 'recovery-codes':
+      return {
+        ...emptyDraft('recovery-codes', vaultId),
+        ...common,
+        type: 'recovery-codes',
+      } as ItemDraft
   }
 }
 
@@ -1444,6 +1450,8 @@ function fingerprintKey(item: FingerprintItem): string {
       return `software-license|${title}|${normalizeText(item.licensedTo)}`
     case 'document':
       return `document|${title}|${normalizeText(item.documentNumber)}`
+    case 'recovery-codes':
+      return `recovery-codes|${title}|${item.codes.length}`
   }
 }
 

@@ -38,6 +38,7 @@ const TYPE_KEYS: Record<VaultItem['type'], MessageKey> = {
   'api-credential': 'itemType.apiCredential',
   'software-license': 'itemType.softwareLicense',
   document: 'itemType.document',
+  'recovery-codes': 'itemType.recoveryCodes',
 }
 
 interface ItemRowProps {

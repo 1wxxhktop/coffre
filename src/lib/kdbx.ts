@@ -17,6 +17,7 @@ import { argon2d, argon2id } from 'hash-wasm'
 import { gzipSync, gunzipSync } from 'fflate'
 import { XMLParser, XMLBuilder } from 'fast-xml-parser'
 import { chacha20Xor, salsa20Xor } from './chacha20'
+import { recoveryCodesExportText } from './recoveryCodes'
 import {
   fromBase64,
   randomBytes,
@@ -889,6 +890,9 @@ function buildEntry(
     add('Password', item.password, true)
     add('URL', item.urls.filter(Boolean).join('\n'))
     add('otp', item.totp, Boolean(item.totp))
+  }
+  if (item.type === 'recovery-codes') {
+    add('Codes de secours', recoveryCodesExportText(item), true)
   }
   add('Notes', item.notes)
   for (const field of item.customFields) {

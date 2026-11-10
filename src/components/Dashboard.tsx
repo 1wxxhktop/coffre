@@ -37,6 +37,7 @@ import {
 import type { ItemFilter } from '../lib/filters'
 import type { UsageMap } from '../lib/usage'
 import { BACKUP_ALERT_TEXTS, type BackupAlert } from '../lib/backup'
+import { lowRecoveryCodeItems } from '../lib/recoveryCodes'
 import {
   itemSubtitle,
   itemTypeLabel,
@@ -96,6 +97,7 @@ export function Dashboard({
 }: DashboardProps) {
   const { tt } = useI18n()
   const activeItems = items.filter((item) => !item.deletedAt)
+  const lowRecovery = lowRecoveryCodeItems(activeItems)
   const trashed = items.length - activeItems.length
   const logins = activeItems.filter((item) => item.type === 'login')
   const passkeys = activeItems.filter((item) => item.type === 'passkey')
@@ -334,6 +336,29 @@ export function Dashboard({
             onClick={onOpenSettings}
           >
             {tt('Réglages')}
+          </button>
+        </div>
+      )}
+
+      {lowRecovery.length > 0 && (
+        <div className="dashboard-recovery-alert" role="status">
+          <ShieldAlert size={18} />
+          <div className="dashboard-recovery-alert__body">
+            <strong>{tt('Codes de secours à renouveler')}</strong>
+            <p>
+              {lowRecovery.length === 1
+                ? tt('Un élément ne contient plus que deux codes de secours ou moins.')
+                : tt(
+                    '{count} éléments ne contiennent plus que deux codes de secours ou moins.',
+                  ).replace('{count}', String(lowRecovery.length))}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="button button--secondary button--sm"
+            onClick={() => onOpenItem(lowRecovery[0].id)}
+          >
+            {tt('Ouvrir')}
           </button>
         </div>
       )}

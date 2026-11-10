@@ -32,7 +32,7 @@ test('propose un modèle intégré pour chaque type', async ({ page }) => {
   await createVault(page)
   const settings = await openSettings(page, 'Modèles')
   const grid = settings.locator('.model-grid')
-  await expect(grid.locator('.model-card')).toHaveCount(10)
+  await expect(grid.locator('.model-card')).toHaveCount(11)
   for (const type of [
     'login',
     'note',
@@ -44,6 +44,7 @@ test('propose un modèle intégré pour chaque type', async ({ page }) => {
     'api-credential',
     'software-license',
     'document',
+    'recovery-codes',
   ]) {
     await expect(grid.locator(`[data-model="${type}"]`)).toBeVisible()
   }

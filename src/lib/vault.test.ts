@@ -37,6 +37,7 @@ import {
   MAX_ITEM_VERSIONS,
   type ItemDraft,
   type LoginItem,
+  type RecoveryCodesItem,
   type VaultFile,
 } from './types'
 
@@ -951,6 +952,36 @@ describe('déplacement entre coffres', () => {
     await expect(
       moveItem(created.file, opened.session, created.item.id, 'v_inconnu'),
     ).rejects.toBeInstanceOf(VaultValidationError)
+  })
+})
+
+describe('codes de secours', () => {
+  it('conserve les codes dans un aller-retour .coffre, sans clair', async () => {
+    const opened = await freshVault()
+    const vaultId = opened.vaults[0].id
+    const created = await createItem(opened.file, opened.session, {
+      ...emptyDraft('recovery-codes', vaultId),
+      title: 'GitHub',
+      codes: [
+        { id: 'rc_1', code: 'AAAA-BBBB', usedAt: null },
+        { id: 'rc_2', code: 'CCCC-DDDD', usedAt: '2026-11-09T10:00:00.000Z' },
+      ],
+    } as ItemDraft)
+    const signed = await signVaultFile(created.file, opened.session, opened.file)
+    const text = serializeVault(signed)
+    expect(text).not.toContain('AAAA-BBBB')
+    expect(text).not.toContain('CCCC-DDDD')
+
+    const parsed = parseVaultFileText(text)
+    const reopened = await unlockVaultFile(parsed, PASSWORD)
+    const restored = reopened.items.find((item) => item.id === created.item.id)
+    expect(restored?.type).toBe('recovery-codes')
+    expect((restored as RecoveryCodesItem).codes).toEqual([
+      { id: 'rc_1', code: 'AAAA-BBBB', usedAt: null },
+      { id: 'rc_2', code: 'CCCC-DDDD', usedAt: '2026-11-09T10:00:00.000Z' },
+    ])
+    reopened.session.lock()
+    opened.session.lock()
   })
 })
 
