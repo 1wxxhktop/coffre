@@ -227,7 +227,9 @@ mod windows_impl {
         let window = app
             .get_webview_window("main")
             .ok_or_else(|| "Fenêtre principale introuvable.".to_string())?;
-        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        // Tauri fournit un HWND d’une autre version du crate `windows` que celle
+        // de Coffre : même pointeur brut, converti dans le type attendu.
+        let hwnd = HWND(window.hwnd().map_err(|error| error.to_string())?.0);
 
         unsafe {
             WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION)
