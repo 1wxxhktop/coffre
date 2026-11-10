@@ -723,7 +723,12 @@ api.runtime.onMessage.addListener(
       password: values.password,
       totp: values.totp ?? '',
     })
-    if (filled > 0) submitLoginForm()
+    // La validation automatique n’a lieu que si l’utilisateur l’a activée.
+    if (filled > 0) {
+      void loadSettings().then((settings) => {
+        if (settings.autoSubmitLogin) submitLoginForm()
+      })
+    }
     sendResponse(filled > 0 ? { ok: true, filled } : { ok: false, error: 'no-fields' })
   },
 )

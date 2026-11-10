@@ -305,6 +305,12 @@
   "options_inlineMenu": {
     "message": "Afficher le menu dans les champs"
   },
+  "options_autoSubmit": {
+    "message": "Valider le formulaire après remplissage"
+  },
+  "options_autoSubmitCopy": {
+    "message": "Clique sur « Se connecter » à votre place. Désactivé, vous vérifiez le compte choisi avant l’envoi."
+  },
   "options_inlineMenuCopy": {
     "message": "Badge Coffre près des formulaires sur les sites autorisés."
   },

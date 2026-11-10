@@ -39,7 +39,18 @@ describe('réglages de l’extension', () => {
     expect(settings.saveBanner).toBe(true)
     expect(settings.copyTotpAfterFill).toBe(false)
     expect(settings.autofillOnLoad).toBe(false)
+    expect(settings.autoSubmitLogin).toBe(false)
     expect(settings.excludedSites).toEqual([])
+  })
+
+  it('n’active la validation automatique que sur demande explicite', async () => {
+    const storage = new FakeStorage()
+    storage.values.autoSubmitLogin = 'oui'
+    expect((await loadSettings(storage)).autoSubmitLogin).toBe(false)
+    await saveSettings({ autoSubmitLogin: true }, storage)
+    expect((await loadSettings(storage)).autoSubmitLogin).toBe(true)
+    await saveSettings({ autoSubmitLogin: false }, storage)
+    expect((await loadSettings(storage)).autoSubmitLogin).toBe(false)
   })
 
   it('normalise l’adresse et refuse les schémas dangereux', () => {

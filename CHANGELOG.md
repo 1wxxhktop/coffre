@@ -12,6 +12,10 @@
   terminées avant le redémarrage. CI : paquet et `latest.json` produits par
   « Release macOS », publication et canal bêta par « Publier une mise à
   jour » (Linux, manuel). Clé de signature à créer : `docs/RELEASE.md` § 3.1.
+- Extension : la validation automatique du formulaire de connexion après
+  remplissage devient une option, « Valider le formulaire après remplissage »,
+  désactivée par défaut. Par défaut, l’utilisateur peut vérifier le compte
+  choisi avant l’envoi.
 
 - Extension, correctif : l’extension transmet l’origine de la page
   (`schéma://hôte:port`) à l’application au lieu du seul nom d’hôte. Depuis la
