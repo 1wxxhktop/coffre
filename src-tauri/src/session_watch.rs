@@ -282,7 +282,7 @@ mod linux {
                     }
                 };
                 let session_path = current_session_path(&connection);
-                if let Err(error) = watch_lock(&connection, app, session_path.as_deref()) {
+                if let Err(error) = watch_lock(&connection, app, session_path.as_ref()) {
                     eprintln!("Surveillance du verrouillage de session indisponible : {error}");
                 }
             })

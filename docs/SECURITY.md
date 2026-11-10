@@ -402,8 +402,9 @@ appairage) est conservée dans `chrome.storage.local`.
   content script. Aucune commande ne stocke de secret.
 - Choix des touches par défaut : `⌘⇧Y` / `Ctrl+Shift+Y` pour la popup (au lieu
   de `Ctrl+Shift+K`, réservé à la console Web de Firefox) ; `⌘⇧L` est refusé
-  par Chromium sur macOS, donc `Option+Shift+L` y est utilisé et
-  `Ctrl+Shift+L` sur Windows/Linux. `generate-password` et `fill-totp` n’ont
+  par Chromium sur macOS et `Ctrl+Shift+L` n’est pas attribué par Chromium sous
+  Linux (vérifié en CI), donc `Option+Shift+L` / `Alt+Shift+L` est utilisé
+  partout. `generate-password` et `fill-totp` n’ont
   aucune touche par défaut et restent assignables dans les réglages du
   navigateur.
 - Le canal interne `RUN_COMMAND` sert uniquement aux tests Playwright (l’API
