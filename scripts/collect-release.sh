@@ -77,7 +77,8 @@ while IFS=$'\t' read -r artifact_id artifact_name; do
     && unzip -Z1 "$TMP/$artifact_name.zip" | grep -q '\.AppDir/'; then
     exclude=(-x '*.AppDir/*')
   fi
-  unzip -q -o "$TMP/$artifact_name.zip" -d "$TMP/$artifact_name" "${exclude[@]}"
+  # Forme compatible avec le bash 3.2 de macOS sous `set -u` (liste vide).
+  unzip -q -o "$TMP/$artifact_name.zip" -d "$TMP/$artifact_name" ${exclude[@]+"${exclude[@]}"}
   rm -f "$TMP/$artifact_name.zip"
 done < <(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" \
   --jq '.artifacts[] | select(.expired == false) | "\(.id)\t\(.name)"')
