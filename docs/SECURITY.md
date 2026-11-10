@@ -365,6 +365,77 @@ appairage) est conservée dans `chrome.storage.local`.
   shadow root fermé. La page ne peut ni lire son DOM, ni envoyer un message
   valide : le content script vérifie `event.source` et `event.origin`. Aucun
   identifiant n’est transmis au content script avant un clic dans ce menu.
+- Après une soumission, le **bandeau d’enregistrement** suit les mêmes règles :
+  iframe `save-banner.html` dans un shadow root fermé, URL ne contenant qu’un
+  identifiant d’offre aléatoire. Le content script ne reçoit jamais le nom
+  d’utilisateur, le mot de passe ni le domaine de l’offre : il demande
+  seulement l’identifiant à afficher. L’iframe interroge elle-même le service
+  worker et ne reçoit qu’une vue non sensible (domaine, libellé, type, mode
+  mise à jour) ; le mot de passe reste dans `storage.session`. Le bandeau ne
+  s’affiche que dans le cadre principal et se ferme après 30 secondes sans
+  interaction ; « Plus tard » conserve la proposition dans le popup. Aucune
+  permission supplémentaire n’est demandée : le bandeau n’existe que là où le
+  content script est déjà autorisé.
+- Un champ `risk` est réservé au signal anti-hameçonnage (Q1) ; tant que Q1
+  n’est pas livré, il reste absent et le bouton « Enregistrer » n’est pas
+  prioritaire par défaut en cas de signal.
+- **Mot de passe fort à l’inscription** : un champ `autocomplete="new-password"`,
+  une confirmation ou un formulaire d’inscription reconnu affiche d’abord
+  « Utiliser un mot de passe fort » dans le menu du champ. Le mot de passe est
+  généré localement selon les règles embarquées du site (aucune requête), et
+  seul un aperçu partiel est affiché. Le secret complet n’est jamais dans le
+  DOM de la page, dans l’URL ou dans un stockage : il est transmis une fois, du
+  menu d’extension au content script, uniquement après le clic, puis rempli
+  dans le champ et sa confirmation. Aucun formulaire n’est soumis
+  automatiquement. Un formulaire de connexion simple avec
+  `current-password` ne déclenche pas cette proposition.
+- Lorsque le lot Q3 sera livré, l’historique du générateur pourra être alimenté
+  depuis le service worker au moment du remplissage ; le mot de passe complet
+  n’est volontairement pas conservé par l’extension en attendant.
+- **Raccourcis clavier** : la section `commands` du manifeste n’ajoute aucune
+  permission ; l’API `commands` est disponible sans permission et les
+  commandes accordent `activeTab` lorsqu’elles sont invoquées par l’utilisateur.
+  `fill-login` cherche la connexion du site actif, remplit directement s’il n’y
+  en a qu’une, sinon ouvre le menu du champ actif. `generate-password` génère
+  localement (règles de site chargées à la demande) et remplit le champ de mot
+  de passe actif sans soumettre. `fill-totp` ne transmet que le code TOTP au
+  content script. Aucune commande ne stocke de secret.
+- Choix des touches par défaut : `⌘⇧Y` / `Ctrl+Shift+Y` pour la popup (au lieu
+  de `Ctrl+Shift+K`, réservé à la console Web de Firefox) ; `⌘⇧L` est refusé
+  par Chromium sur macOS, donc `Option+Shift+L` y est utilisé et
+  `Ctrl+Shift+L` sur Windows/Linux. `generate-password` et `fill-totp` n’ont
+  aucune touche par défaut et restent assignables dans les réglages du
+  navigateur.
+- Le canal interne `RUN_COMMAND` sert uniquement aux tests Playwright (l’API
+  `commands` ne permet pas de déclencher une commande) ; il est refusé à toute
+  page qui n’est pas une page d’extension et n’expose aucune opération
+  supplémentaire.
+- **Menu contextuel** : la permission `contextMenus` est la seule ajoutée par
+  E4 ; elle ne donne accès à aucune page, aucun secret et aucun historique.
+  Le menu est reconstruit à l’activation d’un onglet, au changement de fenêtre,
+  à l’installation et au démarrage. Les connexions sont filtrées sur l’hôte de
+  l’onglet actif avant de créer les entrées : un nom d’un autre domaine ne peut
+  pas apparaître. Coffre verrouillé : une seule entrée « Déverrouiller
+  Coffre ». Les clics utilisent `activeTab`, comme les raccourcis, et
+  n’écrivent jamais dans le coffre : « Ajouter ce site » ouvre l’application
+  pour que la saisie y soit faite. L’alias e-mail n’est inséré que si
+  l’application Web le fournit (le pont natif ne l’expose pas encore).
+- Le canal interne `RUN_CONTEXT_MENU` / `CONTEXT_MENU_SNAPSHOT` sert aux tests
+  Playwright (les menus natifs ne sont pas cliquables depuis le navigateur) ;
+  il est réservé aux pages d’extension et appelle le gestionnaire réel.
+- **Réglages et activation** : `welcome.html` s’ouvre à l’installation et une
+  note de mise à jour n’apparaît que lors d’un changement de version prévu.
+  Les réglages vivent dans `storage.local` : adresse de l’application, mode
+  (`desktop` ou `web`), activation (`site` ou `all`), menu dans les champs,
+  bandeau d’enregistrement, options futures (TOTP, remplissage au chargement)
+  et liste d’exclusions E7. Aucun secret, aucun mot de passe maître, aucun nom
+  d’élément n’y figure ; la liste d’exclusions est vide tant que E7 n’est pas
+  livré. Le mode Web ignore volontairement le pont natif.
+- L’activation site par site ne demande que l’origine du site courant ; « tous
+  les sites » demande `http://*/*` et `https://*/*`. Les content scripts sont
+  enregistrés dynamiquement sur la liste exacte des origines accordées ; les
+  permissions d’hôte restent optionnelles et révocables par l’utilisateur.
+  Aucune permission n’est ajoutée par l’accueil ou la page d’options.
 - Le remplissage vérifie l’hôte de la frame dans le content script **et** dans
   l’application (`loginAllowsHost`) ; les iframes ne sont remplies que si leur
   origine correspond à l’URL de l’élément.
@@ -398,14 +469,24 @@ appairage) est conservée dans `chrome.storage.local`.
   par inadvertance ; le déplacement entre coffres et la corbeille restent
   disponibles.
 - Après soumission d’un formulaire, l’extension propose d’enregistrer ou de
-  mettre à jour la connexion. Le mot de passe reste en mémoire du service
-  worker au plus deux minutes ; il n’est jamais écrit sur disque par
-  l’extension. Si la page navigue, le badge de l’extension et le popup
-  conservent la proposition. La mutation réelle passe par le provider Coffre
-  (desktop) ou par la passerelle de l’onglet déverrouillé.
-- Le dernier identifiant utilisé pour un onglet est mémorisé deux minutes pour
-  les connexions en plusieurs étapes ; ce n’est qu’un identifiant, pas un
-  secret.
+  mettre à jour la connexion. La proposition, qui contient le mot de passe en
+  transit, est conservée dans `storage.session` — mémoire du navigateur,
+  jamais `storage.local` — pendant **dix minutes au plus**. `setAccessLevel`
+  réserve ce stockage aux contextes de confiance (pages d’extension et service
+  worker), pas aux content scripts. La proposition est purgée à chaque
+  lecture, à la fermeture de l’onglet et au verrouillage du coffre, et seules
+  les dix plus récentes sont conservées. Elle est perdue à la fermeture du
+  navigateur, à la désinstallation ou au redémarrage de l’extension. Si la
+  page navigue, le badge de l’extension et le popup conservent la proposition.
+  La mutation réelle passe par le provider Coffre (desktop) ou par la
+  passerelle de l’onglet déverrouillé.
+- Le dernier identifiant utilisé pour un onglet est mémorisé deux minutes dans
+  `storage.session` pour les connexions en plusieurs étapes ; ce n’est qu’un
+  identifiant, pas un secret.
+- Une demande de passkey en cours ne survit pas à l’arrêt du service worker :
+  elle contient un résolveur de promesse lié à la page. Le navigateur reprend
+  alors la main (« utiliser un autre appareil »). Le badge de propositions est
+  recalculé au réveil du service worker à partir de `storage.session`.
 - Les identifiants transitent en mémoire entre l’onglet Coffre, le service
   worker et la page active ; ils ne sont ni journalisés ni persistés. Le pont
   natif les chiffre en AES-256-GCM sur le socket local.
@@ -537,6 +618,22 @@ longueur entre stdin/stdout et un socket local.
   déverrouillée. Une demande alors qu’elle est verrouillée ramène la fenêtre au
   premier plan — et déclenche Touch ID si l’option est active — puis renvoie
   `locked` sans aucun secret.
+- Le popup peut demander explicitement le déverrouillage (`UNLOCK_REQUEST`).
+  Le message natif `unlock-request` reste en clair car l’application est encore
+  verrouillée ; il ne contient aucun secret et ne libère aucune clé. La fenêtre
+  de Coffre est affichée et Touch ID n’est déclenché que si l’extension est
+  appairée et que l’option biométrique est active. Un refus ou une annulation
+  laisse le coffre verrouillé ; l’extension se contente d’interroger l’état.
+  Le mot de passe maître n’est jamais saisi dans la popup ni transmis par le
+  pont.
+- Si l’application est fermée, l’hôte natif peut la démarrer **uniquement**
+  lorsque le premier message est un `hello` portant `launch: true`, envoyé par
+  ce clic explicite. Un `hello` ordinaire (lecture d’état, recherche,
+  remplissage) ne démarre jamais l’application. L’hôte attend ensuite le
+  socket local et relaie le message initial ; il ne voit aucun secret.
+- Limite : selon le navigateur et le système, la popup peut se fermer quand
+  l’application prend le focus. Le déverrouillage continue dans Coffre ; à la
+  réouverture, la popup affiche l’état déverrouillé.
 - Le remplissage vérifie **dans l’application** que l’hôte de la page figure
   parmi les URL de l’élément (`loginAllowsHost`) ; l’extension ne peut pas
   demander les identifiants d’un autre domaine.

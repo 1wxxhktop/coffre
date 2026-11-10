@@ -107,6 +107,12 @@ for (const pattern of ['http://*/*', 'https://*/*']) {
     manifest.host_permissions.push(pattern)
   }
 }
+// Le smoke tourne sur le profil du développeur : retirer `nativeMessaging`
+// évite de démarrer une vraie application desktop installée. Le relais natif a
+// son propre smoke (`bridge:smoke`).
+manifest.permissions = manifest.permissions.filter(
+  (permission) => permission !== 'nativeMessaging',
+)
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
 
 const context = await chromium.launchPersistentContext(join(workDir, 'profile'), {
@@ -141,6 +147,9 @@ try {
   await form.getByLabel('Titre', { exact: true }).fill('Example')
   await form.getByLabel('Identifiant', { exact: true }).fill('ada')
   await form.getByLabel('Mot de passe', { exact: true }).fill('s3cret!')
+  await form
+    .getByLabel(/Code TOTP/)
+    .fill('otpauth://totp/Coffre:ada?secret=JBSWY3DPEHPK3PXP&issuer=Coffre')
   await form.getByPlaceholder('https://exemple.com').fill(TARGET_URL)
   await form.getByRole('button', { name: 'Enregistrer' }).click()
   await app
@@ -169,12 +178,19 @@ try {
     (appUrl) => chrome.storage.local.set({ appUrl }),
     APP_URL,
   )
+  await target.bringToFront()
 
   const status = await extensionPage.evaluate(() =>
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }),
   )
   assert.equal(status.appOpen, true)
   assert.equal(status.unlocked, true)
+  assert.equal(status.siteAccess, true)
+  const unlockRequest = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'UNLOCK_REQUEST' }),
+  )
+  assert.equal(unlockRequest.ok, true)
+  assert.equal(unlockRequest.mode, 'tab')
 
   const host = new URL(TARGET_URL).hostname
 
@@ -286,11 +302,303 @@ try {
   )
   assert.equal(updatePending.pending?.update, true)
   assert.equal(updatePending.pending?.username, 'ada')
+
+  // E0 : la proposition vit dans storage.session, pas dans storage.local.
+  const storedPending = await extensionPage.evaluate(async () => {
+    const key = 'coffre.pendingSaves.v1'
+    const values = await chrome.storage.session.get(key)
+    return values[key]
+  })
+  assert.equal(storedPending?.[0]?.password, 'nouveau-secret!')
+  const localStorageDump = await extensionPage.evaluate(() =>
+    chrome.storage.local.get(null),
+  )
+  assert.equal(JSON.stringify(localStorageDump).includes('nouveau-secret!'), false)
+  assert.equal(
+    Object.keys(localStorageDump).some((key) => key.includes('pending')),
+    false,
+  )
+
+  const contentSessionAccess = await extensionPage.evaluate(async (tabId) => {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: async () => {
+        try {
+          await chrome.storage.session.get(null)
+          return 'readable'
+        } catch {
+          return 'blocked'
+        }
+      },
+    })
+    return result?.result
+  }, targetTab.id)
+  assert.equal(contentSessionAccess, 'blocked')
+
+  // Simule l’arrêt du service worker par le navigateur, puis vérifie que la
+  // proposition est toujours disponible au réveil.
+  const cdp = await context.newCDPSession(extensionPage)
+  const versions = new Map()
+  cdp.on('ServiceWorker.workerVersionUpdated', ({ versions: entries }) => {
+    for (const entry of entries) versions.set(entry.versionId, entry)
+  })
+  await cdp.send('ServiceWorker.enable')
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  const running = [...versions.values()].find(
+    (entry) => entry.runningStatus === 'running',
+  )
+  assert.ok(running, 'service worker de l’extension introuvable')
+  await cdp.send('ServiceWorker.stopWorker', { versionId: running.versionId })
+  await cdp.detach()
+  await new Promise((resolve) => setTimeout(resolve, 500))
+
+  const afterRestart = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    targetTab.id,
+  )
+  assert.equal(afterRestart.pending?.username, 'ada')
+  assert.equal(afterRestart.pending?.update, true)
+
+  // Simulation de l’expiration à dix minutes : la lecture purge la proposition.
+  const expiredPending = await extensionPage.evaluate(async (tabId) => {
+    const key = 'coffre.pendingSaves.v1'
+    const values = await chrome.storage.session.get(key)
+    const entries = Array.isArray(values[key]) ? values[key] : []
+    for (const entry of entries) entry.expiresAt = Date.now() - 1
+    await chrome.storage.session.set({ [key]: entries })
+    return chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId })
+  }, targetTab.id)
+  assert.equal(expiredPending.pending, null)
+
+  // E3 : le gestionnaire de commande remplit sans ouvrir la popup. Playwright
+  // ne peut pas déclencher un raccourci de navigateur ; le canal RUN_COMMAND
+  // appelle exactement le même gestionnaire que `commands.onCommand`.
+  const commands = await extensionPage.evaluate(() => chrome.commands.getAll())
+  assert.ok(
+    commands.find((command) => command.name === '_execute_action')?.shortcut,
+    'raccourci popup non enregistré',
+  )
+  assert.ok(
+    commands.find((command) => command.name === 'fill-login')?.shortcut,
+    'raccourci fill-login non enregistré',
+  )
+  const shortcutPage = await context.newPage()
+  await shortcutPage.goto(new URL('/shortcut', TARGET_URL).toString())
+  await shortcutPage.bringToFront()
+  const commandResult = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'RUN_COMMAND', command: 'fill-login' }),
+  )
+  assert.equal(commandResult.ok, true)
+  await shortcutPage.waitForFunction(
+    () =>
+      document.querySelector('#username')?.value === 'ada' &&
+      document.querySelector('#password')?.value === 's3cret!',
+    null,
+    { timeout: 10_000 },
+  )
+
+  await shortcutPage.locator('#password').fill('')
+  const generated = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({
+      type: 'RUN_COMMAND',
+      command: 'generate-password',
+    }),
+  )
+  assert.equal(generated.ok, true)
+  await shortcutPage.waitForFunction(
+    () => (document.querySelector('#password')?.value.length ?? 0) >= 8,
+    null,
+    { timeout: 10_000 },
+  )
+  assert.notEqual(
+    await shortcutPage.locator('#password').inputValue(),
+    's3cret!',
+  )
+
+  const totp = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'RUN_COMMAND', command: 'fill-totp' }),
+  )
+  assert.equal(totp.ok, true)
+  await shortcutPage.waitForFunction(
+    () => /^\d{6}$/.test(document.querySelector('#otp')?.value ?? ''),
+    null,
+    { timeout: 10_000 },
+  )
+
+  // E4 : le menu contextuel ne contient que les connexions de ce domaine, et
+  // son gestionnaire de remplissage utilise bien l’onglet actif.
+  const menuSnapshot = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'CONTEXT_MENU_SNAPSHOT' }),
+  )
+  assert.ok(menuSnapshot.model.some((entry) => entry.id === `fill-login:${itemId}`))
+  assert.ok(menuSnapshot.model.some((entry) => entry.id === 'fill-card'))
+  assert.ok(menuSnapshot.model.some((entry) => entry.id === 'fill-identity'))
+  await shortcutPage.evaluate(() => {
+    const username = document.querySelector('#username')
+    const password = document.querySelector('#password')
+    if (username) username.value = ''
+    if (password) password.value = ''
+  })
+  const shortcutTab = await extensionPage.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    return tab
+  })
+  const menuFill = await extensionPage.evaluate(
+    ({ tabId, itemId }) =>
+      chrome.runtime.sendMessage({
+        type: 'RUN_CONTEXT_MENU',
+        menuItemId: `fill-login:${itemId}`,
+        tabId,
+        frameId: 0,
+      }),
+    { tabId: shortcutTab.id, itemId },
+  )
+  assert.equal(menuFill.ok, true)
+  await shortcutPage.waitForFunction(
+    () =>
+      document.querySelector('#username')?.value === 'ada' &&
+      document.querySelector('#password')?.value === 's3cret!',
+    null,
+    { timeout: 10_000 },
+  )
+  await shortcutPage.close()
+  await extensionPage.bringToFront()
+
+  // E6 : mot de passe fort sur un formulaire d’inscription à deux champs.
+  await target.goto(new URL('/register', TARGET_URL).toString())
+  await target.locator('#new-password').waitFor()
+  const registerTab = await extensionPage.evaluate(async () => {
+    const tabs = await chrome.tabs.query({})
+    return tabs.find((tab) => tab.url?.includes('/register'))
+  })
+  assert.ok(registerTab?.id)
+  const signupMenu = await context.newPage()
+  await signupMenu.goto(
+    `chrome-extension://${extensionId}/menu.html?tab=${registerTab.id}&frame=0&host=${host}&top=${host}&kind=login&mode=open&signup=1`,
+  )
+  await signupMenu.locator('#signup').waitFor()
+  await signupMenu
+    .locator('#signup-preview')
+    .filter({ hasText: '…' })
+    .waitFor({ timeout: 10_000 })
+  const preview = await signupMenu.locator('#signup-preview').innerText()
+  await signupMenu.locator('#signup-use').click()
+  await target.waitForFunction(
+    () => {
+      const password = document.querySelector('#new-password')
+      const confirm = document.querySelector('#confirm-password')
+      return (
+        password instanceof HTMLInputElement &&
+        confirm instanceof HTMLInputElement &&
+        password.value.length >= 8 &&
+        password.value === confirm.value
+      )
+    },
+    null,
+    { timeout: 10_000 },
+  )
+  const signupPassword = await target.locator('#new-password').inputValue()
+  assert.notEqual(preview, signupPassword)
+  assert.equal(preview.includes(signupPassword), false)
+  await signupMenu.close().catch(() => undefined)
+
+  await target.bringToFront()
+  await target.locator('#email').fill('signup@example.com')
+  await target.getByRole('button', { name: 'Créer mon compte' }).click()
+  await target.waitForURL('**/welcome*')
+  const signupPending = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    registerTab.id,
+  )
+  assert.equal(signupPending.pending?.username, 'signup@example.com')
   await extensionPage.evaluate(
     (tabId) =>
       chrome.runtime.sendMessage({ type: 'SAVE_DISMISS_PENDING', tabId }),
+    registerTab.id,
+  )
+
+  // E2 : bandeau après une inscription avec redirection.
+  await target.goto(new URL('/register', TARGET_URL).toString())
+  await target.locator('#email').fill('banner@example.com')
+  await target.locator('#new-password').fill('mot-de-passe-bandeau!')
+  await target.locator('#confirm-password').fill('mot-de-passe-bandeau!')
+  await target.getByRole('button', { name: 'Créer mon compte' }).click()
+  await target.waitForURL('**/welcome*')
+  await target
+    .locator('[data-coffre-save-banner]')
+    .waitFor({ timeout: 10_000 })
+
+  const bannerSecurity = await target.evaluate(() => {
+    const host = document.querySelector('[data-coffre-save-banner]')
+    host?.click()
+    return {
+      exists: Boolean(document.querySelector('[data-coffre-save-banner]')),
+      shadow: host?.shadowRoot ?? null,
+      text: host?.textContent ?? '',
+      visibleIframes: document.querySelectorAll('iframe[src*="save-banner"]').length,
+    }
+  })
+  assert.equal(bannerSecurity.exists, true)
+  assert.equal(bannerSecurity.shadow, null)
+  assert.equal(bannerSecurity.text, '')
+  assert.equal(bannerSecurity.visibleIframes, 0)
+
+  const bannerPending = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
     targetTab.id,
   )
+  assert.ok(bannerPending.pending?.id)
+  const laterBanner = await context.newPage()
+  await laterBanner.goto(
+    `chrome-extension://${extensionId}/save-banner.html?offer=${encodeURIComponent(
+      bannerPending.pending.id,
+    )}`,
+  )
+  await laterBanner.locator('#banner-later').click()
+  await laterBanner.close()
+  const afterLater = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    targetTab.id,
+  )
+  assert.equal(afterLater.pending?.id, bannerPending.pending.id)
+
+  const bannerPage = await context.newPage()
+  await bannerPage.goto(
+    `chrome-extension://${extensionId}/save-banner.html?offer=${encodeURIComponent(
+      bannerPending.pending.id,
+    )}`,
+  )
+  await bannerPage.locator('#banner-username').fill('banner+modifie@example.com')
+  await bannerPage.locator('#banner-save').click()
+  await bannerPage
+    .locator('#banner-message')
+    .filter({ hasText: /Enregistré|Saved/ })
+    .waitFor({ timeout: 10_000 })
+  await bannerPage.close()
+
+  const bannerSearch = await extensionPage.evaluate(
+    ({ query }) => chrome.runtime.sendMessage({ type: 'SEARCH', query }),
+    { query: 'banner+modifie@example.com' },
+  )
+  const savedBannerItem = bannerSearch.items?.find(
+    (entry) => entry.username === 'banner+modifie@example.com',
+  )
+  assert.ok(savedBannerItem, 'la connexion enregistrée par le bandeau est absente')
+  const savedBannerDetails = await extensionPage.evaluate(
+    ({ id, host }) => chrome.runtime.sendMessage({ type: 'DETAILS', itemId: id, host }),
+    { id: savedBannerItem.id, host: new URL(TARGET_URL).hostname },
+  )
+  assert.equal(savedBannerDetails.details?.password, 'mot-de-passe-bandeau!')
+  const bannerCleared = await extensionPage.evaluate(
+    (tabId) =>
+      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+    targetTab.id,
+  )
+  assert.equal(bannerCleared.pending, null)
 
   const passkeyURL = new URL('/passkey', TARGET_URL)
   if (passkeyURL.hostname === '127.0.0.1') passkeyURL.hostname = 'localhost'
@@ -374,6 +682,72 @@ try {
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }),
   )
   assert.equal(locked.unlocked, false)
+  await extensionPage.bringToFront()
+  const lockedMenu = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'CONTEXT_MENU_SNAPSHOT' }),
+  )
+  assert.deepEqual(
+    lockedMenu.model.map((entry) => entry.id),
+    ['unlock'],
+  )
+
+  // Sans application desktop, le déverrouillage ouvre/active l’onglet Coffre.
+  const tabUnlock = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'UNLOCK_REQUEST' }),
+  )
+  assert.equal(tabUnlock.ok, true)
+  assert.equal(tabUnlock.pending, true)
+  assert.equal(tabUnlock.mode, 'tab')
+
+  // E5 : l’accueil s’ouvre à l’installation et les réglages complets
+  // persistent bien les choix.
+  const installedTabs = await extensionPage.evaluate(() => chrome.tabs.query({}))
+  assert.ok(
+    installedTabs.some((tab) => tab.url?.includes('/welcome.html')),
+    'welcome.html n’a pas été ouvert à l’installation',
+  )
+  const welcome = await context.newPage()
+  await welcome.goto(
+    `chrome-extension://${extensionId}/welcome.html?mode=install`,
+  )
+  await welcome
+    .locator('h1')
+    .filter({ hasText: /Bienvenue|Welcome/ })
+    .waitFor()
+  assert.ok((await welcome.locator('#welcome-shortcuts li').count()) >= 4)
+  await welcome.locator('input[name="app-mode"][value="web"]').check()
+  await welcome.locator('input[name="activation"][value="all"]').check()
+  const welcomeClosed = welcome.waitForEvent('close', { timeout: 5000 }).catch(
+    () => null,
+  )
+  await welcome.locator('#finish').click()
+  await welcomeClosed
+  const welcomeSettings = await extensionPage.evaluate(() =>
+    chrome.storage.local.get(['appMode', 'activationMode']),
+  )
+  assert.equal(welcomeSettings.appMode, 'web')
+  assert.equal(welcomeSettings.activationMode, 'all')
+
+  const updatePage = await context.newPage()
+  await updatePage.goto(
+    `chrome-extension://${extensionId}/welcome.html?mode=update`,
+  )
+  await updatePage.locator('#update-note').waitFor()
+  assert.equal(await updatePage.locator('#install-flow').isVisible(), false)
+  await updatePage.close()
+
+  const options = await context.newPage()
+  await options.goto(`chrome-extension://${extensionId}/options.html`)
+  await options.locator('h1').waitFor()
+  await options.locator('#inline-menu').uncheck()
+  await options.locator('#save-banner').uncheck()
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  const optionSettings = await extensionPage.evaluate(() =>
+    chrome.storage.local.get(['inlineMenu', 'saveBanner']),
+  )
+  assert.equal(optionSettings.inlineMenu, false)
+  assert.equal(optionSettings.saveBanner, false)
+  await options.close()
 
   console.log('Extension : recherche, remplissage et verrouillage validés.')
 } finally {

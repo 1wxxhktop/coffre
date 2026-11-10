@@ -8,6 +8,10 @@ import {
 import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
 import { localizeDocument, t } from './i18n'
 import { mountLogos } from './logo'
+import {
+  loadSettings as loadExtensionSettings,
+  type ActivationMode,
+} from './settings'
 import { loadTheme, nextTheme, saveTheme, type ThemePreference } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
@@ -20,6 +24,7 @@ interface AppStatus {
   unlocked: boolean
   paired?: boolean
   hostAccess?: boolean
+  siteAccess?: boolean
   mode?: 'native' | 'tab'
   tabId?: number
   appUrl: string
@@ -85,6 +90,9 @@ const settingsSaveButton = $<HTMLButtonElement>('settings-save')
 const settingsTestButton = $<HTMLButtonElement>('settings-test')
 const settingsStatus = $<HTMLParagraphElement>('settings-status')
 const settingsOpenAppButton = $<HTMLButtonElement>('settings-open-app')
+const settingsOpenOptionsButton = $<HTMLButtonElement>('settings-open-options')
+const shortcutsList = $<HTMLUListElement>('shortcuts-list')
+const settingsShortcutsButton = $<HTMLButtonElement>('settings-shortcuts')
 const themeChoices = Array.from(
   document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]'),
 )
@@ -116,6 +124,10 @@ let themePreference: ThemePreference = 'system'
 let themeInitialized = false
 let settingsOpen = false
 let inlineReady = false
+let unlocking = false
+let unlockPoll: number | undefined
+let unlockHintTimer: number | undefined
+let activationMode: ActivationMode = 'site'
 
 const THEME_ICONS: Record<ThemePreference, string> = {
   system:
@@ -145,6 +157,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   'invalid-url': 'error_invalidUrl',
   'native-timeout': 'error_nativeTimeout',
   'native-unavailable': 'error_nativeUnavailable',
+  'shortcuts-page': 'error_shortcutsPage',
 }
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -217,6 +230,33 @@ function setSettingsStatus(text: string, tone: 'info' | 'ok' | 'error' = 'info')
     tone === 'info' ? 'settings-status' : `settings-status settings-status--${tone}`
 }
 
+const SHORTCUT_LABELS: Record<string, string> = {
+  _execute_action: 'shortcut_openPopup',
+  'fill-login': 'shortcut_fillLogin',
+  'generate-password': 'shortcut_generatePassword',
+  'fill-totp': 'shortcut_fillTotp',
+}
+
+async function loadShortcuts(): Promise<void> {
+  shortcutsList.replaceChildren()
+  let commands: chrome.commands.Command[] = []
+  try {
+    commands = await api.commands.getAll()
+  } catch {
+    // L’API peut manquer sur un navigateur ancien : la liste reste vide.
+  }
+  for (const [name, label] of Object.entries(SHORTCUT_LABELS)) {
+    const command = commands.find((entry) => entry.name === name)
+    const item = document.createElement('li')
+    const text = document.createElement('span')
+    text.textContent = t(label)
+    const key = document.createElement('kbd')
+    key.textContent = command?.shortcut || t('shortcut_notSet')
+    item.append(text, key)
+    shortcutsList.append(item)
+  }
+}
+
 async function loadSettings(): Promise<void> {
   try {
     const response = await send<{ appUrl: string }>({ type: 'GET_APP_URL' })
@@ -224,6 +264,7 @@ async function loadSettings(): Promise<void> {
   } catch {
     settingsAppUrl.value = status.appUrl || ''
   }
+  await loadShortcuts()
 }
 
 function openSettings(): void {
@@ -306,11 +347,96 @@ async function testSettings(): Promise<void> {
   }
 }
 
+function unlockButtonLabel(): string {
+  return status.mode === 'native'
+    ? t('popup_unlockApp')
+    : t('popup_openUnlock')
+}
+
+function stopUnlock(cancelled = false): void {
+  unlocking = false
+  if (unlockPoll !== undefined) window.clearInterval(unlockPoll)
+  unlockPoll = undefined
+  if (unlockHintTimer !== undefined) window.clearTimeout(unlockHintTimer)
+  unlockHintTimer = undefined
+  focusAppButton.textContent = unlockButtonLabel()
+  openAppButton.disabled = false
+  if (cancelled) showMessage(t('popup_unlockCancelled'), 'info')
+}
+
+async function pollUnlock(deadline: number): Promise<void> {
+  if (!unlocking) return
+  let response: AppStatus | null = null
+  try {
+    response = await send<AppStatus>({ type: 'GET_STATUS' })
+  } catch {
+    response = null
+  }
+  if (!unlocking) return
+  if (
+    response?.unlocked &&
+    (response.mode !== 'native' || response.paired !== false)
+  ) {
+    stopUnlock()
+    await init()
+    showMessage(t('popup_unlocked'), 'success')
+    return
+  }
+  if (Date.now() >= deadline) {
+    stopUnlock()
+    showMessage(t('popup_unlockTimeout'), 'error')
+  }
+}
+
+async function startUnlock(): Promise<void> {
+  if (unlocking) return
+  unlocking = true
+  focusAppButton.textContent = t('popup_unlockCancel')
+  openAppButton.disabled = true
+  showMessage(t('popup_unlocking'), 'info')
+  const deadline = Date.now() + 120_000
+  unlockHintTimer = window.setTimeout(() => {
+    if (unlocking) showMessage(t('popup_unlockHint'), 'info')
+  }, 12_000)
+  unlockPoll = window.setInterval(() => {
+    void pollUnlock(deadline)
+  }, 1_200)
+  void pollUnlock(deadline)
+  try {
+    const response = await send<{
+      ok?: boolean
+      pending?: boolean
+      mode?: 'native' | 'tab'
+      error?: string
+    }>({ type: 'UNLOCK_REQUEST' })
+    if (!unlocking) return
+    if (response.error) {
+      stopUnlock()
+      showMessage(errorText(response.error), 'error')
+      await init()
+      return
+    }
+    if (response.ok && !response.pending) {
+      stopUnlock()
+      await init()
+      showMessage(t('popup_unlocked'), 'success')
+      return
+    }
+    if (response.mode === 'tab') {
+      showMessage(t('popup_unlockTab'), 'info')
+    }
+  } catch {
+    stopUnlock()
+    showMessage(t('error_generic'), 'error')
+  }
+}
+
 function renderStatus() {
   actions.hidden = true
   pairButton.hidden = true
   activateInlineButton.hidden = true
   focusAppButton.hidden = true
+  focusAppButton.textContent = unlockButtonLabel()
   inlineStatusDot.hidden = true
   searchWrap.hidden = false
   searchInput.disabled = true
@@ -358,17 +484,23 @@ function renderStatus() {
 
   searchWrap.hidden = false
   searchInput.disabled = false
-  if (status.hostAccess === false && !inlineReady) {
-    showMessage(
-      'Activez le remplissage dans les champs pour remplir les formulaires directement.',
-      'info',
-    )
+  const siteAllowed = status.siteAccess !== false
+  if (!siteAllowed && !inlineReady) {
+    showMessage(t('popup_activateHint'), 'info')
   } else {
     hideMessage()
   }
   actions.hidden = inlineReady
   openAppButton.hidden = true
   activateInlineButton.hidden = inlineReady
+  const activateLabel = activateInlineButton.querySelector('span')
+  if (activateLabel) {
+    activateLabel.textContent = t(
+      activationMode === 'all'
+        ? 'popup_activateInline'
+        : 'popup_activateSite',
+    )
+  }
   inlineStatusDot.hidden = !inlineReady
   footerStatus.textContent =
     status.mode === 'native'
@@ -740,6 +872,11 @@ async function copyGeneratedPassword(): Promise<void> {
 
 async function init() {
   await initTheme()
+  try {
+    activationMode = (await loadExtensionSettings()).activationMode
+  } catch {
+    activationMode = 'site'
+  }
   const [tab] = await api.tabs.query({ active: true, currentWindow: true })
   currentTab = tab ?? null
   const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
@@ -797,11 +934,12 @@ copyGeneratedButton.addEventListener('click', () => {
 })
 
 openAppButton.addEventListener('click', () => {
-  void send({ type: 'OPEN_APP' }).then(() => window.close())
+  void startUnlock()
 })
 
 focusAppButton.addEventListener('click', () => {
-  void send({ type: 'FOCUS_APP' }).then(() => window.close())
+  if (unlocking) stopUnlock(true)
+  else void startUnlock()
 })
 
 async function requestHostPermission(
@@ -868,24 +1006,39 @@ activateInlineButton.addEventListener('click', () => {
     activateInlineButton.disabled = true
     let granted: boolean | null = null
     try {
-      granted = await requestHostPermission(['http://*/*', 'https://*/*'])
+      const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+      if (!tab?.id || !tab.url || !/^https?:/i.test(tab.url)) {
+        throw new Error('onglet actif sans site HTTP')
+      }
+      const origins =
+        activationMode === 'all'
+          ? ['http://*/*', 'https://*/*']
+          : [`${new URL(tab.url).origin}/*`]
+      granted = await requestHostPermission(origins)
+      if (granted === false) {
+        showMessage(t('popup_activateDenied'), 'error')
+        return
+      }
       try {
         await send({ type: 'ENABLE_INLINE' })
       } catch {
         // Orion/WebKit : l’enregistrement dynamique peut échouer ; l’injection
         // manuelle dans l’onglet courant reste tentée ci-dessous.
       }
-      const [tab] = await api.tabs.query({ active: true, currentWindow: true })
-      if (!tab?.id) throw new Error('onglet actif introuvable')
       await injectInlineScripts(tab.id)
       await init()
-      showMessage('Remplissage dans les champs activé. Rechargez les autres onglets.', 'success')
+      showMessage(
+        activationMode === 'all'
+          ? t('popup_activatedAll')
+          : t('popup_activatedSite'),
+        'success',
+      )
     } catch (error) {
       console.error('Activation du remplissage impossible', error)
       showMessage(
         granted === false
-          ? 'Permission refusée pour le remplissage dans les champs.'
-          : 'Activation impossible sur cette page.',
+          ? t('popup_activateDenied')
+          : t('popup_activateFailed'),
         'error',
       )
     } finally {
@@ -980,6 +1133,18 @@ settingsTestButton.addEventListener('click', () => {
 
 settingsOpenAppButton.addEventListener('click', () => {
   void send({ type: 'OPEN_APP' }).then(() => window.close())
+})
+
+settingsOpenOptionsButton.addEventListener('click', () => {
+  void api.runtime.openOptionsPage()
+})
+
+settingsShortcutsButton.addEventListener('click', () => {
+  void send<{ ok?: boolean; error?: string }>({ type: 'OPEN_SHORTCUTS' }).then(
+    (response) => {
+      if (response.error) setSettingsStatus(errorText(response.error), 'error')
+    },
+  )
 })
 
 for (const button of themeChoices) {
