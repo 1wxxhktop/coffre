@@ -2,6 +2,16 @@
 
 ## Non publié
 
+- Mises à jour de l’application desktop (Réglages → Mises à jour) : recherche
+  manuelle ou automatique (au démarrage, quotidienne, hebdomadaire ;
+  désactivée par défaut), canal stable ou bêta, téléchargement en
+  arrière-plan, installation sur confirmation ou à la fermeture, version
+  ignorée, notes de version et barre de progression, notification discrète
+  dans la fenêtre. Paquets signés (minisign, `requireSignedVersion`) publiés
+  sur les releases GitHub ; le coffre est verrouillé et les écritures
+  terminées avant le redémarrage. CI : paquet et `latest.json` produits par
+  « Release macOS », publication et canal bêta par « Publier une mise à
+  jour » (Linux, manuel). Clé de signature à créer : `docs/RELEASE.md` § 3.1.
 - Extension : la validation automatique du formulaire de connexion après
   remplissage devient une option, « Valider le formulaire après remplissage »,
   désactivée par défaut. Par défaut, l’utilisateur peut vérifier le compte

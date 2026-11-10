@@ -616,6 +616,21 @@ export interface AppSettings {
   backupLastSuccessAt: string | null
   /** Code d’erreur stable, jamais un chemin ni un secret. */
   backupLastError: string | null
+  /**
+   * Desktop : recherche des mises à jour. Désactivée par défaut, comme toute
+   * fonction réseau ; « Rechercher maintenant » reste disponible.
+   */
+  updateCheck: 'off' | 'launch' | 'daily' | 'weekly'
+  /** Canal suivi : versions publiées, ou aussi les préversions. */
+  updateChannel: 'stable' | 'beta'
+  /** Télécharger en arrière-plan dès qu’une mise à jour est trouvée. */
+  updateAutoDownload: boolean
+  /** Installer après confirmation, ou à la fermeture de Coffre. */
+  updateInstallMode: 'ask' | 'on-quit'
+  /** Version que l’utilisateur a choisi d’ignorer. */
+  updateSkippedVersion: string | null
+  /** Dernière vérification réussie (ISO). */
+  updateLastCheckAt: string | null
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -643,6 +658,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   backupLastRunAt: null,
   backupLastSuccessAt: null,
   backupLastError: null,
+  updateCheck: 'off',
+  updateChannel: 'stable',
+  updateAutoDownload: false,
+  updateInstallMode: 'ask',
+  updateSkippedVersion: null,
+  updateLastCheckAt: null,
 }
 
 export function isItemType(value: unknown): value is ItemType {
