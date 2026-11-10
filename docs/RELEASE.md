@@ -72,6 +72,36 @@ Supprimer ensuite les fichiers locaux :
 rm -f certificat.p12 certificat-base64.txt
 ```
 
+### 3.1 Clé de signature des mises à jour
+
+Les mises à jour automatiques sont signées par une clé minisign, distincte du
+certificat Apple. **Elle se crée une seule fois et ne doit jamais être perdue** :
+sans elle, plus aucune mise à jour ne peut être publiée pour les applications
+déjà installées (il faudrait les réinstaller à la main).
+
+```bash
+bun tauri signer generate -w ~/.tauri/coffre-updater.key
+```
+
+La commande demande un mot de passe et affiche la clé publique. Puis :
+
+```bash
+gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/coffre-updater.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+gh variable set COFFRE_UPDATER_PUBKEY < ~/.tauri/coffre-updater.key.pub
+```
+
+- `TAURI_SIGNING_PRIVATE_KEY` : clé privée chiffrée (secret).
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` : son mot de passe (secret).
+- `COFFRE_UPDATER_PUBKEY` : clé publique (variable, non secrète), intégrée au
+  binaire à la compilation. Sans elle, Réglages → Mises à jour indique que la
+  fonction n’est pas disponible dans ce build.
+
+Sauvegarder `~/.tauri/coffre-updater.key` et son mot de passe hors de la
+machine (par exemple dans Coffre lui-même et sur un support hors ligne).
+Changer de clé impose une version de transition signée par l’ancienne clé et
+contenant la nouvelle clé publique.
+
 ## 4. Construire une release locale
 
 ```bash
@@ -116,9 +146,27 @@ Le workflow :
 - importe le certificat dans un trousseau temporaire ;
 - construit, signe et notarie le bundle universel ;
 - archive le `.app` et produit le DMG + SHA-256 ;
-- crée une **release GitHub en brouillon**, à relire puis publier manuellement.
+- avec la clé de mise à jour (3.1), produit `Coffre_<version>_universal.app.tar.gz`,
+  sa signature `.sig` et le manifeste `latest.json` ;
+- crée une **release GitHub en brouillon** (marquée préversion si la version
+  contient un suffixe, par exemple `1.3.0-beta.1`).
 
 Le trousseau temporaire est supprimé même en cas d’échec.
+
+### 5.1 Publier la mise à jour
+
+Une fois le brouillon relu, lancer **Actions → Publier une mise à jour**
+(`publish-update.yml`) avec le tag. Ce workflow Linux, court :
+
+- vérifie que `latest.json` annonce bien la version du tag ;
+- publie la release : version stable marquée « latest » (canal stable), ou
+  préversion jamais « latest » ;
+- copie le manifeste dans la release roulante `canal-beta` (canal bêta), sauf
+  si celle-ci annonce déjà une version plus récente.
+
+Les applications installées voient la mise à jour à leur prochaine recherche.
+Publier le brouillon à la main dans l’interface GitHub fonctionne pour le canal
+stable, mais ne met pas à jour le canal bêta.
 
 ## 6. Vérifier une release
 

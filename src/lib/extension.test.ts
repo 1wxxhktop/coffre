@@ -5,6 +5,8 @@ import {
   hostMatches,
   identityFullName,
   loginAllowsHost,
+  loginUrlForService,
+  pageServiceFromUrl,
   searchCards,
   searchIdentities,
   searchLogins,
@@ -189,5 +191,44 @@ describe('recherche de cartes et d’identités', () => {
     })
     expect(searchIdentities(entries, 'ada@example.com')).toHaveLength(1)
     expect(searchIdentities(entries, 'inconnu')).toEqual([])
+  })
+})
+
+describe('service de page (schéma et port)', () => {
+  it('conserve le schéma et le port de la page', () => {
+    expect(pageServiceFromUrl('http://127.0.0.1:8099/login?x=1')).toBe(
+      'http://127.0.0.1:8099',
+    )
+    expect(pageServiceFromUrl('https://Example.COM/')).toBe(
+      'https://example.com',
+    )
+    expect(pageServiceFromUrl('https://example.com:443/')).toBe(
+      'https://example.com',
+    )
+    expect(pageServiceFromUrl('example.com')).toBe('')
+    expect(pageServiceFromUrl('ftp://example.com')).toBe('')
+  })
+
+  it('autorise un élément avec port quand la page envoie son origine', () => {
+    const item = { urls: ['http://127.0.0.1:8099'] }
+    expect(loginAllowsHost(item, 'http://127.0.0.1:8099')).toBe(true)
+    expect(loginAllowsHost(item, 'http://127.0.0.1:3000')).toBe(false)
+    // L’hôte seul ne porte pas le port : c’était la cause du refus.
+    expect(loginAllowsHost(item, '127.0.0.1')).toBe(false)
+  })
+
+  it('refuse un élément HTTPS sur une page HTTP grâce à l’origine', () => {
+    const item = { urls: ['https://example.com'] }
+    expect(loginAllowsHost(item, 'http://example.com')).toBe(false)
+    expect(loginAllowsHost(item, 'https://www.example.com')).toBe(true)
+  })
+
+  it('enregistre l’origine de la page plutôt que https://hôte', () => {
+    expect(loginUrlForService('http://localhost:3000')).toBe(
+      'http://localhost:3000',
+    )
+    expect(loginUrlForService('example.com')).toBe('https://example.com')
+    const saved = { urls: [loginUrlForService('http://localhost:3000')] }
+    expect(loginAllowsHost(saved, 'http://localhost:3000')).toBe(true)
   })
 })

@@ -9,6 +9,30 @@ const form = `<!doctype html><html lang="fr"><body>
     </form>
   </body></html>`
 
+const register = `<!doctype html><html lang="fr"><body>
+    <h1>Créer un compte de test</h1>
+    <form action="/welcome" method="post">
+      <input id="email" name="email" autocomplete="username" />
+      <input id="new-password" name="password" type="password" autocomplete="new-password" />
+      <input id="confirm-password" name="confirm" type="password" autocomplete="new-password" />
+      <button type="submit">Créer mon compte</button>
+    </form>
+  </body></html>`
+
+const welcome = `<!doctype html><html lang="fr"><body>
+    <h1>Bienvenue</h1>
+    <p>Compte créé sur le site de test.</p>
+  </body></html>`
+
+const shortcut = `<!doctype html><html lang="fr"><body>
+    <form onsubmit="event.preventDefault()">
+      <input id="username" name="username" autocomplete="username" />
+      <input id="password" name="password" type="password" autocomplete="current-password" />
+      <input id="otp" name="otp" autocomplete="one-time-code" inputmode="numeric" />
+      <button type="submit">Connexion</button>
+    </form>
+  </body></html>`
+
 const passkey = `<!doctype html><html lang="fr"><body>
     <h1>Passkey Coffre</h1>
     <button id="passkey-create" type="button">Créer une passkey</button>
@@ -147,7 +171,12 @@ const passkey = `<!doctype html><html lang="fr"><body>
 
 createServer((request, response) => {
   response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-  response.end(request.url?.startsWith('/passkey') ? passkey : form)
+  const url = request.url ?? '/'
+  if (url.startsWith('/passkey')) response.end(passkey)
+  else if (url.startsWith('/register')) response.end(register)
+  else if (url.startsWith('/welcome')) response.end(welcome)
+  else if (url.startsWith('/shortcut')) response.end(shortcut)
+  else response.end(form)
 }).listen(8099, '127.0.0.1', () => {
   console.log('Formulaire et passkey de test : http://127.0.0.1:8099/')
 })

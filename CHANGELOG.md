@@ -9,6 +9,32 @@
   chiffrés dans le contenu de l’élément ; l’export `.coffre` les conserve. Le
   CSV complet ajoute une colonne `recovery_codes`, CXF et KDBX les placent dans
   un champ texte long documenté, en clair comme le reste de ces exports.
+- Mises à jour de l’application desktop (Réglages → Mises à jour) : recherche
+  manuelle ou automatique (au démarrage, quotidienne, hebdomadaire ;
+  désactivée par défaut), canal stable ou bêta, téléchargement en
+  arrière-plan, installation sur confirmation ou à la fermeture, version
+  ignorée, notes de version et barre de progression, notification discrète
+  dans la fenêtre. Paquets signés (minisign, `requireSignedVersion`) publiés
+  sur les releases GitHub ; le coffre est verrouillé et les écritures
+  terminées avant le redémarrage. CI : paquet et `latest.json` produits par
+  « Release macOS », publication et canal bêta par « Publier une mise à
+  jour » (Linux, manuel). Clé de signature à créer : `docs/RELEASE.md` § 3.1.
+- Extension : la validation automatique du formulaire de connexion après
+  remplissage devient une option, « Valider le formulaire après remplissage »,
+  désactivée par défaut. Par défaut, l’utilisateur peut vérifier le compte
+  choisi avant l’envoi.
+
+- Extension, correctif : l’extension transmet l’origine de la page
+  (`schéma://hôte:port`) à l’application au lieu du seul nom d’hôte. Depuis la
+  règle de domaines partagée, les connexions dont l’URL précise un port
+  (`http://localhost:3000`, routeur, NAS) n’étaient plus remplies ni
+  reconnues, et le refus d’un élément HTTPS sur une page HTTP restait sans
+  effet depuis l’extension. Une connexion enregistrée depuis l’extension garde
+  aussi le schéma et le port de la page, au lieu de `https://hôte`.
+- Extension, correctif : le bandeau d’enregistrement s’affiche aussi quand la
+  page d’arrivée d’une redirection se charge avant la fin de la vérification
+  de la proposition.
+
 - Extensions macOS : `scripts/build-coffre-core-apple.sh` assemble désormais
   `CoffreCore.xcframework` sans Xcode complet, à partir des bibliothèques
   statiques arm64/x86_64 et des en-têtes générés par UniFFI. Le xcframework a
@@ -145,6 +171,49 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : proposition de mot de passe fort sur les formulaires
+  d’inscription et de changement de mot de passe. Génération locale selon les
+  règles du site, aperçu partiel, remplissage du champ et de sa confirmation
+  après clic, sans soumission automatique. Les formulaires de connexion simple
+  ne déclenchent pas la proposition.
+- Extension : accueil à l’installation (`welcome.html`) pour choisir
+  l’application desktop ou Web, associer ou configurer l’adresse, activer site
+  par site (défaut) ou tous les sites, puis afficher les raccourcis. Note de
+  mise à jour courte limitée aux changements de version concernés. Page
+  d’options complète (connexion, remplissage, enregistrement, raccourcis,
+  thème, permissions) avec réglages locaux sans secret.
+- Extension : activation site par site par défaut ; les content scripts sont
+  enregistrés dynamiquement sur les seules origines autorisées, et le menu dans
+  les champs peut être désactivé dans les réglages.
+- Extension : menu contextuel dans les champs (remplir une connexion du site,
+  générer un mot de passe, insérer un alias, remplir une carte ou une
+  identité) et sur la page (ouvrir Coffre, ajouter le site). Les connexions
+  sont filtrées par domaine, le menu est reconstruit à l’activation d’un
+  onglet et une seule entrée « Déverrouiller Coffre » reste disponible quand
+  le coffre est verrouillé.
+- Extension : raccourcis clavier pour ouvrir la popup (`⌘⇧Y` / `Ctrl+Shift+Y`),
+  remplir la connexion (`⌘⇧L`, ou `Option+Shift+L` sur macOS), générer un mot
+  de passe et remplir un code TOTP (sans touche par défaut). Le remplissage
+  utilise `activeTab`, ouvre le menu du champ si plusieurs connexions
+  correspondent, et la liste des raccourcis est visible dans le popup.
+- Extension : bandeau d’enregistrement après une soumission, y compris après
+  redirection. Il vit dans une iframe d’extension fermée et ne reçoit qu’un
+  identifiant d’offre ; le mot de passe reste dans `storage.session`. L’identifiant
+  est modifiable, « Plus tard » conserve la proposition dans le popup et le
+  bandeau se ferme après 30 secondes sans interaction. Le signal Q1 est prévu
+  comme point d’extension.
+- Extension : déverrouillage depuis la popup. Avec le pont natif, Coffre
+  reprend le premier plan et déclenche Touch ID si l’option est active ; le
+  mot de passe maître reste saisi dans l’application. Si l’application est
+  fermée, l’hôte natif la démarre sur ce clic explicite (jamais pour une simple
+  lecture d’état). Le popup suit l’état et affiche un message clair en cas de
+  refus ou d’expiration. Sans desktop, il ouvre l’onglet Coffre Web.
+- Extension : les propositions d’enregistrement et la dernière connexion
+  choisie survivent à l’arrêt du service worker MV3. Elles vivent dans
+  `storage.session` (dix minutes, dix propositions au plus, purge à la
+  fermeture de l’onglet et au verrouillage), restent inaccessibles aux content
+  scripts et ne touchent jamais `storage.local` ; le badge est recalculé au
+  réveil.
 - Extension : options du générateur (longueur, classes de caractères,
   caractères ambigus, entropie estimée) mémorisées localement.
 - Extension : le remplissage d’une connexion valide automatiquement le

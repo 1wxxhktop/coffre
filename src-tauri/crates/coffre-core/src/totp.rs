@@ -2,7 +2,7 @@
 //!
 //! Le secret reste dans un `Zeroizing` et n’est jamais journalisé.
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha1::Sha1;
 use sha2::{Sha256, Sha512};
 use zeroize::Zeroizing;
@@ -117,19 +117,19 @@ impl TotpConfig {
         let message = counter.to_be_bytes();
         let digest = match self.algorithm {
             TotpAlgorithm::Sha1 => {
-                let mut mac = <Hmac<Sha1> as Mac>::new_from_slice(&self.secret)
+                let mut mac = <Hmac<Sha1> as KeyInit>::new_from_slice(&self.secret)
                     .map_err(|_| CoreError::Crypto("clé TOTP invalide".into()))?;
                 mac.update(&message);
                 mac.finalize().into_bytes().to_vec()
             }
             TotpAlgorithm::Sha256 => {
-                let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(&self.secret)
+                let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(&self.secret)
                     .map_err(|_| CoreError::Crypto("clé TOTP invalide".into()))?;
                 mac.update(&message);
                 mac.finalize().into_bytes().to_vec()
             }
             TotpAlgorithm::Sha512 => {
-                let mut mac = <Hmac<Sha512> as Mac>::new_from_slice(&self.secret)
+                let mut mac = <Hmac<Sha512> as KeyInit>::new_from_slice(&self.secret)
                     .map_err(|_| CoreError::Crypto("clé TOTP invalide".into()))?;
                 mac.update(&message);
                 mac.finalize().into_bytes().to_vec()

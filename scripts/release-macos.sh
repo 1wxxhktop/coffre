@@ -59,8 +59,22 @@ fi
 
 bun run version:check
 
+# Mises à jour : avec la clé privée de signature (TAURI_SIGNING_PRIVATE_KEY),
+# Tauri produit aussi Coffre.app.tar.gz et sa signature minisign. La clé
+# publique correspondante (COFFRE_UPDATER_PUBKEY) est intégrée au binaire :
+# sans elle, l’application refuserait toute mise à jour.
+BUILD_ARGS=(--target "$TARGET")
+if [[ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  [[ -n "${COFFRE_UPDATER_PUBKEY:-}" ]] || fail \
+    "COFFRE_UPDATER_PUBKEY est requis avec TAURI_SIGNING_PRIVATE_KEY (clé publique des mises à jour)."
+  BUILD_ARGS+=(--config '{"bundle":{"createUpdaterArtifacts":true}}')
+  echo "Paquet de mise à jour signé : activé."
+else
+  echo "Avertissement : TAURI_SIGNING_PRIVATE_KEY absent, aucun paquet de mise à jour ne sera produit." >&2
+fi
+
 echo "Construction de la release macOS ($TARGET)…"
-bun run tauri build --target "$TARGET"
+bun run tauri build "${BUILD_ARGS[@]}"
 
 APP="$TARGET_DIR/release/bundle/macos/Coffre.app"
 DMG_DIR="$TARGET_DIR/release/bundle/dmg"
@@ -107,6 +121,13 @@ spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG
   cd "$DMG_DIR"
   shasum -a 256 "$(basename "$DMG")" > "$(basename "$DMG").sha256"
 )
+
+if [[ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  UPDATE_BUNDLE="$TARGET_DIR/release/bundle/macos/Coffre.app.tar.gz"
+  [[ -f "$UPDATE_BUNDLE" && -f "$UPDATE_BUNDLE.sig" ]] \
+    || fail "paquet de mise à jour ou signature introuvable : $UPDATE_BUNDLE(.sig)"
+  echo "Paquet de mise à jour : $UPDATE_BUNDLE"
+fi
 
 echo
 echo "Release prête :"

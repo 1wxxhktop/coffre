@@ -24,6 +24,8 @@ mod ssh_agent;
 mod sync_store;
 #[cfg(desktop)]
 mod tray;
+#[cfg(desktop)]
+mod updater;
 mod vault_store;
 
 pub use bridge::{is_native_host_invocation, run_native_host};
@@ -779,12 +781,22 @@ pub fn run() {
             autostart_set,
             startup_is_hidden,
             tray::tray_set_language,
-            tray::tray_set_keep_on_close
+            tray::tray_set_keep_on_close,
+            updater::updater_info,
+            updater::updater_check,
+            updater::updater_download,
+            updater::updater_install,
+            updater::updater_install_on_exit,
+            updater::updater_discard
         ]);
 
     #[cfg(desktop)]
     let builder = builder
         .manage(tray::TrayState::default())
+        .manage(updater::UpdaterState::default())
+        // Aucune permission `updater:*` n’est accordée à la WebView : les
+        // commandes de `updater.rs` fixent l’adresse et la clé côté Rust.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
@@ -867,8 +879,17 @@ pub fn run() {
         });
 
     builder
-        .run(tauri::generate_context!())
-        .expect("impossible de démarrer Coffre");
+        .build(tauri::generate_context!())
+        .expect("impossible de démarrer Coffre")
+        .run(|app, event| {
+            // Option « Installer à la fermeture » des mises à jour.
+            #[cfg(desktop)]
+            if let tauri::RunEvent::Exit = event {
+                updater::install_pending_on_exit(app);
+            }
+            #[cfg(not(desktop))]
+            let _ = (app, event);
+        });
 }
 
 #[cfg(test)]

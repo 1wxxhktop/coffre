@@ -19,6 +19,8 @@ import {
 import {
   cardLast4,
   hostFromUrl,
+  loginUrlForService,
+  pageServiceFromUrl,
   identityFullName,
   loginAllowsHost,
   searchCards,
@@ -345,8 +347,12 @@ export function NativeBridge() {
                 (candidate) => candidate.id === itemId && !candidate.deletedAt,
               )
             : undefined
+          // Schéma et port comptent : la règle refuse HTTPS → HTTP et compare
+          // le port quand l’élément en précise un.
           const normalizedHost =
-            hostFromUrl(host || url) || host.trim().toLowerCase()
+            pageServiceFromUrl(url) ||
+            pageServiceFromUrl(host) ||
+            host.trim().toLowerCase()
           return {
             type: 'phishing-assessment',
             assessment: assessPhishingForItems(itemsRef.current, {
@@ -484,10 +490,10 @@ export function NativeBridge() {
           if (!item || item.type !== 'login') {
             return { type: 'credentials', credentials: null, error: 'not-found' }
           }
+          // Le service reçu peut être une origine (`http://hôte:port`) : il est
+          // transmis tel quel à la règle de domaines.
           const host =
-            typeof payload.host === 'string'
-              ? hostFromUrl(payload.host) || payload.host.trim().toLowerCase()
-              : ''
+            typeof payload.host === 'string' ? payload.host.trim() : ''
           if (payload.allowMismatch !== true && !loginAllowsHost(item, host)) {
             return {
               type: 'credentials',
@@ -663,9 +669,7 @@ export function NativeBridge() {
         }
         case 'check-login': {
           const host =
-            typeof payload.host === 'string'
-              ? hostFromUrl(payload.host) || payload.host.trim().toLowerCase()
-              : ''
+            typeof payload.host === 'string' ? payload.host.trim() : ''
           const username =
             typeof payload.username === 'string' ? payload.username.trim() : ''
           const password =
@@ -689,10 +693,9 @@ export function NativeBridge() {
           }
         }
         case 'save-login': {
-          const host =
-            typeof payload.host === 'string'
-              ? hostFromUrl(payload.host) || payload.host.trim().toLowerCase()
-              : ''
+          const service =
+            typeof payload.host === 'string' ? payload.host.trim() : ''
+          const host = hostFromUrl(service) || service.toLowerCase()
           const username =
             typeof payload.username === 'string' ? payload.username.trim() : ''
           const password =
@@ -702,7 +705,7 @@ export function NativeBridge() {
           }
           const assessment = assessPhishingForItems(itemsRef.current, {
             host,
-            url: host,
+            url: service,
             username,
             mode: 'save',
           })
@@ -721,7 +724,7 @@ export function NativeBridge() {
               candidate.type === 'login' &&
               !candidate.deletedAt &&
               candidate.username.trim().toLowerCase() === username.toLowerCase() &&
-              loginAllowsHost(candidate, host),
+              loginAllowsHost(candidate, service),
           )
           try {
             if (existing) {
@@ -731,7 +734,7 @@ export function NativeBridge() {
                 urls:
                   existing.urls.filter(Boolean).length > 0
                     ? existing.urls
-                    : [`https://${host}`],
+                    : [loginUrlForService(service)],
               })
               return {
                 type: 'save-result',
@@ -752,7 +755,7 @@ export function NativeBridge() {
                   : host,
               username,
               password,
-              urls: [`https://${host}`],
+              urls: [loginUrlForService(service)],
               type: 'login',
               totp: '',
             })
@@ -1003,12 +1006,14 @@ export function NativeBridge() {
         if (
           message.type === 'unlock-request' &&
           statusRef.current !== 'unlocked' &&
-          biometricsRef.current
+          biometricsRef.current &&
+          Boolean(await loadSessionKey())
         ) {
           try {
             await unlockWithBiometrics()
           } catch {
-            // Touch ID annulé ou indisponible : l’utilisateur garde la main.
+            // Touch ID annulé ou indisponible : la fenêtre de déverrouillage
+            // reste au premier plan et l’utilisateur garde la main.
           }
         }
         await send(connectionId, { id: message.id, type: 'focused' })

@@ -13,9 +13,28 @@ export interface DetectedLoginFields {
   otp: HTMLInputElement | null
 }
 
+/** Champs d’un formulaire d’inscription ou de changement de mot de passe. */
+export interface DetectedSignupFields {
+  form: HTMLFormElement | null
+  username: HTMLInputElement | null
+  password: HTMLInputElement
+  confirm: HTMLInputElement | null
+}
+
 const USERNAME_PATTERN =
   /(user|email|login|ident|account|mail|phone|tel|handle)/i
 const OTP_PATTERN = /(otp|totp|one[-_ ]?time|2fa|mfa|two[-_ ]?factor|verification|security[-_ ]?code)/i
+// « Mot de passe oublié » et « Sign up » apparaissent très souvent comme liens
+// dans un formulaire de connexion : ils ne comptent pas comme contexte
+// d’inscription, et les liens sont exclus du texte analysé.
+const SIGNUP_CONTEXT_PATTERN =
+  /(sign ?up|register|registration|create.{0,24}account|inscription|inscrire|cr[ée]er.{0,24}compte|new password|nouveau mot de passe|change.{0,24}password|changer.{0,24}mot de passe)/i
+const LOGIN_ACTION_PATTERN =
+  /(log ?in|sign ?in|se connecter|connexion|identifier|s’identifier|s'identifier)/i
+const NEW_PASSWORD_PATTERN =
+  /(new.?password|nouveau mot de passe|choose.?password|choisir.{0,12}mot de passe|cr[ée]er.{0,12}mot de passe)/i
+const CONFIRM_PASSWORD_PATTERN =
+  /(confirm|repeat|again|verification|v[ée]rification|confirmer|r[ée]p[ée]ter)/i
 
 function parseOpacity(value: string): number {
   const parsed = Number.parseFloat(value)
@@ -191,6 +210,133 @@ export function detectLoginFields(document: Document): DetectedLoginFields {
   }
 }
 
+/**
+ * Détecte un formulaire d’inscription ou de changement de mot de passe.
+ *
+ * Un simple formulaire de connexion avec `current-password` n’est jamais
+ * retenu. Les signaux acceptés sont `autocomplete="new-password"`, un second
+ * champ de mot de passe, ou un formulaire dont le texte indique explicitement
+ * une création de compte (avec un identifiant et sans `current-password`).
+ */
+export function detectSignupFields(
+  document: Document,
+): DetectedSignupFields | null {
+  const passwords = visiblePasswords(document)
+  if (passwords.length === 0) return null
+  const form = passwords[0].form
+  const scoped = passwords.filter((input) => input.form === form)
+  if (scoped.length === 0) return null
+
+  const autocomplete = (input: HTMLInputElement): string =>
+    (input.getAttribute('autocomplete') ?? '').toLowerCase()
+  const isCurrent = (input: HTMLInputElement): boolean =>
+    autocomplete(input) === 'current-password'
+  const explicitNew = scoped.find(
+    (input) =>
+      autocomplete(input) === 'new-password' ||
+      NEW_PASSWORD_PATTERN.test(descriptors(input)),
+  )
+  const current = scoped.filter(isCurrent)
+  // Le champ du mot de passe actuel n’est jamais rempli avec un mot de passe
+  // généré. Sans aucun indice, un formulaire à trois champs ou plus est un
+  // changement de mot de passe : le premier champ est l’actuel.
+  let pool = scoped.filter((input) => !isCurrent(input))
+  if (!explicitNew && current.length === 0 && scoped.length >= 3) {
+    pool = scoped.slice(1)
+  }
+  if (pool.length === 0) return null
+
+  const primary = explicitNew ?? pool[0]
+  const hasUsername = chooseUsername(document, primary) !== null
+  const context = signupContext(form)
+
+  if (
+    !explicitNew &&
+    pool.length < 2 &&
+    !(
+      SIGNUP_CONTEXT_PATTERN.test(context.text) &&
+      !LOGIN_ACTION_PATTERN.test(context.actions) &&
+      hasUsername &&
+      current.length === 0
+    )
+  ) {
+    return null
+  }
+  const others = pool.filter((input) => input !== primary)
+  const confirm =
+    others.find(
+      (input) =>
+        autocomplete(input) === 'new-password' ||
+        CONFIRM_PASSWORD_PATTERN.test(descriptors(input)),
+    ) ??
+    others[0] ??
+    null
+
+  return {
+    form,
+    username: chooseUsername(document, primary),
+    password: primary,
+    confirm,
+  }
+}
+
+/**
+ * Texte qui décrit l’intention d’un formulaire : attributs, titres, légende et
+ * boutons d’envoi. Les liens (« Mot de passe oublié ? », « Créer un compte »)
+ * sont volontairement exclus, car ils accompagnent souvent une connexion.
+ */
+function signupContext(form: HTMLFormElement | null): {
+  text: string
+  actions: string
+} {
+  if (!form) return { text: '', actions: '' }
+  const attributes = [
+    form.id,
+    form.getAttribute('name') ?? '',
+    form.getAttribute('action') ?? '',
+    form.getAttribute('aria-label') ?? '',
+    form.className,
+  ].join(' ')
+  const headings = Array.from(
+    form.querySelectorAll('h1, h2, h3, legend'),
+  )
+    .map((element) => element.textContent ?? '')
+    .join(' ')
+  const actions = Array.from(
+    form.querySelectorAll(
+      'button, input[type="submit"], input[type="button"], [role="button"]',
+    ),
+  )
+    .filter((element) => !element.closest('a'))
+    .map((element) =>
+      element instanceof HTMLInputElement
+        ? element.value
+        : (element.textContent ?? ''),
+    )
+    .join(' ')
+  return {
+    text: `${attributes} ${headings} ${actions}`,
+    actions,
+  }
+}
+
+/** Remplit le champ nouveau mot de passe et sa confirmation. */
+export function fillSignupPasswords(
+  fields: DetectedSignupFields,
+  password: string,
+): number {
+  if (!password) return 0
+  let filled = 0
+  setNativeValue(fields.password, password)
+  filled += 1
+  if (fields.confirm) {
+    setNativeValue(fields.confirm, password)
+    filled += 1
+  }
+  fields.password.focus()
+  return filled
+}
+
 export interface LoginFillValues {
   username: string
   password: string
@@ -231,6 +377,64 @@ export function fillDetectedLogin(
   return filled
 }
 
+/**
+ * Remplit le champ de mot de passe actif (ou le premier champ visible).
+ * Utilisé par le raccourci « générer un mot de passe », y compris sur les
+ * formulaires d’inscription à plusieurs champs.
+ */
+export function fillPasswordField(document: Document, value: string): number {
+  if (!value) return 0
+  const active = document.activeElement
+  if (
+    active instanceof HTMLInputElement &&
+    active.type === 'password' &&
+    isVisible(active)
+  ) {
+    setNativeValue(active, value)
+    active.focus()
+    return 1
+  }
+  const detected = detectLoginFields(document)
+  const fallback = visiblePasswords(document)[0]
+  const input = detected.password ?? fallback
+  if (!input) return 0
+  setNativeValue(input, value)
+  input.focus()
+  return 1
+}
+
+/** Remplit le champ TOTP actif ou détecté. */
+export function fillOtpField(document: Document, value: string): number {
+  if (!value) return 0
+  const active = document.activeElement
+  if (
+    active instanceof HTMLInputElement &&
+    isVisible(active) &&
+    (active.getAttribute('autocomplete') === 'one-time-code' ||
+      OTP_PATTERN.test(descriptors(active)))
+  ) {
+    setNativeValue(active, value)
+    active.focus()
+    return 1
+  }
+  const detected = detectLoginFields(document).otp
+  const fallback = Array.from(
+    document.querySelectorAll<HTMLInputElement>('input'),
+  ).find(
+    (input) =>
+      isVisible(input) &&
+      !input.disabled &&
+      !input.readOnly &&
+      (input.getAttribute('autocomplete') === 'one-time-code' ||
+        OTP_PATTERN.test(descriptors(input))),
+  )
+  const input = detected ?? fallback
+  if (!input) return 0
+  setNativeValue(input, value)
+  input.focus()
+  return 1
+}
+
 /* ------------------------------------------------------------------ */
 /* Cartes bancaires et identités                                       */
 /* ------------------------------------------------------------------ */
@@ -262,6 +466,7 @@ export interface DetectedIdentityFields {
 
 export type DetectedAutofill =
   | { kind: 'login'; login: DetectedLoginFields; anchor: HTMLInputElement }
+  | { kind: 'signup'; signup: DetectedSignupFields; anchor: HTMLInputElement }
   | { kind: 'card'; card: DetectedCardFields; anchor: HTMLInputElement }
   | { kind: 'identity'; identity: DetectedIdentityFields; anchor: HTMLInputElement }
 
@@ -609,6 +814,15 @@ export function detectIdentityFields(
 
 /** Détecte le formulaire le plus pertinent de la page. */
 export function detectAutofillFields(document: Document): DetectedAutofill | null {
+  const signup = detectSignupFields(document)
+  if (signup) {
+    return {
+      kind: 'signup',
+      signup,
+      anchor: signup.password,
+    }
+  }
+
   const login = detectLoginFields(document)
   if (login.password) {
     return {

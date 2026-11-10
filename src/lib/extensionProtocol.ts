@@ -239,6 +239,37 @@ export function hostFromUrl(value: string): string {
   }
 }
 
+/**
+ * Service d’une page pour la règle de domaines : `schéma://hôte[:port]`.
+ *
+ * Contrairement à `hostFromUrl`, le schéma et le port sont conservés, car
+ * `loginAllowsHost` refuse un élément HTTPS sur une page HTTP et compare le
+ * port quand l’élément en précise un. Renvoie une chaîne vide hors http(s).
+ */
+export function pageServiceFromUrl(value: string): string {
+  const raw = value.trim()
+  if (!/^https?:\/\//i.test(raw)) return ''
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return ''
+    if (!url.hostname) return ''
+    return `${url.protocol}//${url.host.toLowerCase()}`
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * URL à enregistrer pour une nouvelle connexion : l’origine de la page quand
+ * elle est connue (schéma et port compris), sinon `https://hôte`.
+ */
+export function loginUrlForService(service: string): string {
+  const origin = pageServiceFromUrl(service)
+  if (origin) return origin
+  const host = hostFromUrl(service) || service.trim().toLowerCase()
+  return host ? `https://${host}` : ''
+}
+
 function normalizeHost(host: string): string {
   return host
     .replace(/^\[|\]$/g, '')
