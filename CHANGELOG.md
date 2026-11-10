@@ -2,6 +2,8 @@
 
 ## Non publié
 
+## 0.10.0 — 10 novembre 2026
+
 - `bun run release:collect` rassemble dans un dossier local `release/` tous
   les exécutables construits par la CI sur `main` : DMG macOS, installateurs
   Windows, paquets Linux, outils en ligne de commande (`coffre-cli`,
