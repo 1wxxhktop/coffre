@@ -662,6 +662,84 @@ try {
   await keyboardPage.close()
   await extensionPage.bringToFront()
 
+  // E10 : badge du nombre de connexions, priorité au point d’enregistrement,
+  // puis copie TOTP et effacement conditionnel.
+  const badgePage = await context.newPage()
+  await badgePage.goto(new URL('/shortcut', TARGET_URL).toString())
+  await badgePage.bringToFront()
+  const readBadge = () =>
+    extensionPage.evaluate(() => chrome.action.getBadgeText({}))
+  const waitBadge = async (expected) => {
+    const deadline = Date.now() + 8_000
+    while (Date.now() < deadline) {
+      if ((await readBadge()) === expected) return
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
+    assert.equal(await readBadge(), expected)
+  }
+  await waitBadge('1')
+
+  await badgePage.locator('#password').fill('mot-de-passe-badge!')
+  await badgePage.getByRole('button', { name: 'Connexion' }).click()
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  await waitBadge('●')
+  await extensionPage.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    return chrome.runtime.sendMessage({
+      type: 'SAVE_DISMISS_PENDING',
+      tabId: tab.id,
+    })
+  })
+  await waitBadge('1')
+
+  await extensionPage.evaluate(() =>
+    chrome.storage.local.set({ copyTotpAfterFill: true }),
+  )
+  await badgePage.bringToFront()
+  await badgePage.locator('#username').fill('')
+  await badgePage.locator('#password').fill('')
+  await badgePage.locator('#otp').fill('')
+  const clipFill = await extensionPage.evaluate(() =>
+    chrome.runtime.sendMessage({ type: 'RUN_COMMAND', command: 'fill-login' }),
+  )
+  assert.equal(clipFill.ok, true)
+  await badgePage.waitForFunction(
+    () => /^\d{6}$/.test(document.querySelector('#otp')?.value ?? ''),
+    null,
+    { timeout: 10_000 },
+  )
+  const otp = await badgePage.locator('#otp').inputValue()
+  await extensionPage.bringToFront()
+  const clipboard = await extensionPage.evaluate(async () => {
+    try {
+      return await navigator.clipboard.readText()
+    } catch (error) {
+      return `error:${error.name}`
+    }
+  })
+  if (clipboard.startsWith('error:')) {
+    // Xvfb et certains profils Linux refusent la lecture du presse-papiers.
+    console.log(`E10 : presse-papiers indisponible (${clipboard}), effacement non vérifié.`)
+  } else {
+    assert.equal(clipboard, otp)
+    await badgePage.bringToFront()
+    await new Promise((resolve) => setTimeout(resolve, 31_000))
+    await extensionPage.bringToFront()
+    const cleared = await extensionPage.evaluate(async () => {
+      try {
+        return await navigator.clipboard.readText()
+      } catch (error) {
+        return `error:${error.name}`
+      }
+    })
+    assert.equal(cleared, '')
+  }
+  await extensionPage.evaluate(() =>
+    chrome.storage.local.set({ copyTotpAfterFill: false }),
+  )
+  await badgePage.close()
+  await extensionPage.bringToFront()
+
   // E2 : bandeau après une inscription avec redirection.
   await target.goto(new URL('/register', TARGET_URL).toString())
   await target.locator('#email').fill('banner@example.com')

@@ -137,6 +137,12 @@
   "welcome_allFailed": {
     "message": "Activation impossible sur tous les sites."
   },
+  "welcome_allRevoked": {
+    "message": "Accès à tous les sites révoqué. Le remplissage reste site par site."
+  },
+  "welcome_revokeFailed": {
+    "message": "Révocation impossible. Retirez l’autorisation depuis les réglages du navigateur."
+  },
   "welcome_shortcutsHeading": {
     "message": "Raccourcis et épinglage"
   },
@@ -428,11 +434,20 @@
   "options_copyTotp": {
     "message": "Copier le code TOTP après remplissage"
   },
+  "options_copyTotpCopy": {
+    "message": "Le code est effacé après 30 secondes s’il n’a pas été remplacé. Coffre lit le presse-papiers uniquement pour ce contrôle."
+  },
+  "options_allSitesCopy": {
+    "message": "« Tous les sites » demande une seule fois l’accès aux pages HTTP et HTTPS. L’autorisation reste révocable ici à tout moment ; Coffre ne lit aucune page en dehors du remplissage et du menu que vous déclenchez."
+  },
+  "options_revokeAll": {
+    "message": "Révoquer l’accès à tous les sites"
+  },
   "options_autofillOnLoad": {
     "message": "Remplir au chargement"
   },
   "options_soon": {
-    "message": "Disponible dans un prochain lot (E10/E11)."
+    "message": "Disponible dans un prochain lot (E11)."
   },
   "options_activation": {
     "message": "Activation"
@@ -501,7 +516,7 @@
     "message": "Permissions"
   },
   "options_permissionsCopy": {
-    "message": "L’extension demande l’accès à l’onglet actif au moment du remplissage, aux sites que vous autorisez, et à l’adresse de Coffre. Elle n’a pas accès aux autres onglets en dehors de vos actions. La permission contextMenus ne sert qu’à afficher le menu du clic droit ; aucune donnée n’est transmise."
+    "message": "L’extension demande l’accès à l’onglet actif au moment du remplissage, aux sites que vous autorisez, et à l’adresse de Coffre. Elle n’a pas accès aux autres onglets en dehors de vos actions. La permission contextMenus ne sert qu’à afficher le menu du clic droit ; clipboardRead n’est utilisé que pour effacer un code TOTP copié s’il n’a pas changé, et clipboardWrite pour les copies que vous déclenchez. Aucune donnée n’est transmise."
   },
   "saveBanner_pageTitle": {
     "message": "Enregistrer dans Coffre"
@@ -829,6 +844,9 @@
   },
   "settings_appearance": {
     "message": "Apparence"
+  },
+  "settings_behavior": {
+    "message": "Comportement"
   },
   "settings_exclusions": {
     "message": "Exclusions"

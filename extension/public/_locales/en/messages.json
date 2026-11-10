@@ -137,6 +137,12 @@
   "welcome_allFailed": {
     "message": "Could not enable all sites."
   },
+  "welcome_allRevoked": {
+    "message": "All-sites access revoked. Filling remains site by site."
+  },
+  "welcome_revokeFailed": {
+    "message": "Could not revoke access. Remove the permission from the browser settings."
+  },
   "welcome_shortcutsHeading": {
     "message": "Shortcuts and pinning"
   },
@@ -428,11 +434,20 @@
   "options_copyTotp": {
     "message": "Copy the TOTP code after filling"
   },
+  "options_copyTotpCopy": {
+    "message": "The code is cleared after 30 seconds if it has not been replaced. Coffre reads the clipboard only for this check."
+  },
+  "options_allSitesCopy": {
+    "message": "“All sites” asks once for access to HTTP and HTTPS pages. You can revoke it here at any time; Coffre never reads a page outside the fill or menu you trigger."
+  },
+  "options_revokeAll": {
+    "message": "Revoke access to all sites"
+  },
   "options_autofillOnLoad": {
     "message": "Fill on page load"
   },
   "options_soon": {
-    "message": "Available in a later batch (E10/E11)."
+    "message": "Available in a later batch (E11)."
   },
   "options_activation": {
     "message": "Activation"
@@ -501,7 +516,7 @@
     "message": "Permissions"
   },
   "options_permissionsCopy": {
-    "message": "The extension requests access to the active tab when filling, to the sites you allow, and to the Coffre address. It has no access to other tabs outside your actions. The contextMenus permission only displays the right-click menu; no data is transmitted."
+    "message": "The extension requests access to the active tab when filling, to the sites you allow, and to the Coffre address. It has no access to other tabs outside your actions. The contextMenus permission only displays the right-click menu; clipboardRead is used only to clear a copied TOTP code if it has not changed, and clipboardWrite for copies you trigger. No data is transmitted."
   },
   "saveBanner_pageTitle": {
     "message": "Save to Coffre"
@@ -829,6 +844,9 @@
   },
   "settings_appearance": {
     "message": "Appearance"
+  },
+  "settings_behavior": {
+    "message": "Behavior"
   },
   "settings_exclusions": {
     "message": "Exclusions"

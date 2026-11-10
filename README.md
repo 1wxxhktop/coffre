@@ -88,9 +88,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   ne sont remplis qu’après une action explicite ; une carte est refusée hors
   HTTPS et dans une iframe tierce qui n’est pas un prestataire de paiement
   connu. Les pages sont autorisées explicitement via les permissions
-  optionnelles. L’extension ne stocke aucun identifiant et ne copie rien dans le
-  presse-papiers ; seule la clé de session du pont natif est conservée dans son
-  stockage local.
+  optionnelles. L’extension ne stocke aucun identifiant et ne copie dans le
+  presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
+  l’option est activée, pour le code TOTP après un remplissage ; seule la clé
+  de session du pont natif est conservée dans son stockage local.
 - **Recherche** insensible aux accents, filtres par type et favoris, étiquettes ;
   elle inclut les champs personnalisés et les noms de pièces jointes.
 - **Tri de la liste** : utilisation récente, nom, date de création, date de
@@ -757,6 +758,15 @@ recherche et le bouton du générateur restent ancrés en haut pendant le
 défilement ; la recherche est focalisée à l’ouverture. Le bouton « Remplir »
 remplit la connexion puis valide automatiquement le formulaire de connexion ;
 les cartes et identités ne sont jamais soumises automatiquement.
+
+**Badge et copie TOTP.** Le badge de la barre d’action affiche le nombre de
+connexions du site actif lorsque le coffre est déverrouillé et le site autorisé ;
+le point ambre d’une proposition d’enregistrement reste prioritaire. L’option
+« Copier le code TOTP après remplissage », désactivée par défaut, copie le code
+puis l’efface après 30 secondes s’il n’a pas été remplacé. C’est la seule
+lecture du presse-papiers par l’extension : elle sert uniquement à comparer ce
+code, rien n’est conservé ni transmis.
+
 Après une soumission de formulaire, l’extension ne propose d’enregistrer que si
 les identifiants sont absents du coffre ; si le mot de passe a changé, elle
 propose une mise à jour. La proposition survit à l’arrêt du service worker :
@@ -833,7 +843,9 @@ d’options (`chrome-extension://…/options.html`, aussi accessible depuis le
 popup) regroupe la connexion, le remplissage, l’enregistrement, les exclusions,
 les raccourcis, le thème et les permissions. Les réglages sont locaux : aucun
 secret, aucun nom d’élément, aucune télémétrie. Seules les exclusions
-contiennent des noms de domaines.
+contiennent des noms de domaines. L’accès « Tous les sites » demandé une fois
+peut être révoqué depuis cette page, qui rebascule alors sur l’activation site
+par site.
 
 **Exclusions par site.** Deux listes indépendantes sont modifiables depuis le
 popup ou la page d’options : « Ne jamais remplir ce site » masque le menu,

@@ -69,10 +69,10 @@
           </span>
         </label>
         <label class="toggle">
-          <input id="copy-totp" type="checkbox" disabled />
+          <input id="copy-totp" type="checkbox" />
           <span>
             <strong data-i18n="options_copyTotp">Copier le code TOTP après remplissage</strong>
-            <small data-i18n="options_soon">Disponible dans un prochain lot (E10).</small>
+            <small data-i18n="options_copyTotpCopy">Le code est effacé après 30 secondes s’il n’a pas été remplacé. Coffre lit le presse-papiers uniquement pour ce contrôle.</small>
           </span>
         </label>
         <label class="toggle">
@@ -100,8 +100,14 @@
             </span>
           </label>
         </div>
+        <p class="muted" data-i18n="options_allSitesCopy">
+          « Tous les sites » demande une seule fois l’accès aux pages HTTP et HTTPS. L’autorisation reste révocable ici à tout moment ; Coffre ne lit aucune page en dehors du remplissage et du menu que vous déclenchez.
+        </p>
         <button id="request-all" class="button" type="button" hidden>
           <span data-i18n="welcome_requestAll">Autoriser tous les sites maintenant</span>
+        </button>
+        <button id="revoke-all" class="button" type="button" hidden>
+          <span data-i18n="options_revokeAll">Révoquer l’accès à tous les sites</span>
         </button>
         <p id="fill-status" class="status" role="status"></p>
       </section>
