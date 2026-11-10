@@ -1,3 +1,7 @@
+// L’agent SSH utilise un socket Unix : sous Windows, le binaire se contente
+// d’un message d’erreur, vérifié par `tests/windows.rs`.
+#![cfg(unix)]
+
 use coffre_core::{VaultFile, create_item, open, sign};
 use getrandom::SysRng;
 use ssh_key::rand_core::UnwrapErr;
