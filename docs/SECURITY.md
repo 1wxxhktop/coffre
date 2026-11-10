@@ -771,6 +771,33 @@ mutation les réécrit en manifeste 2. Le cœur Rust et le code TypeScript
 partagent un vecteur croisé qui vérifie l’égalité octet pour octet du manifeste
 canonique.
 
+### 2.12.3 Codes de secours 2FA
+
+Le type d’élément `recovery-codes` stocke une liste de codes à usage unique
+dans le contenu chiffré de l’élément, avec leur identifiant aléatoire, leur
+valeur et, le cas échéant, la date à laquelle ils ont été marqués utilisés.
+
+- L’import par collage est entièrement local. Le parseur accepte un code par
+  ligne ou des codes séparés par des espaces, virgules ou points-virgules,
+  ignore les puces, numéros de liste et doublons, et plafonne la liste à
+  100 codes. Aucun code n’est envoyé sur le réseau ni écrit dans le journal
+  d’activité.
+- Les codes ne sont pas inclus dans l’index de recherche de l’interface. Ils
+  ne sont affichés en clair que dans la fiche de l’élément et dans les exports
+  explicitement demandés.
+- « Copier » utilise le presse-papiers temporaire existant, puis propose de
+  marquer le code utilisé ; la date est stockée dans le contenu chiffré. Le
+  marquage est réversible depuis la fiche.
+- Le tableau de bord affiche une alerte pour chaque élément actif dont il reste
+  au plus deux codes non utilisés. La corbeille est ignorée.
+- L’export `.coffre` conserve le type et l’état des codes. Le CSV complet
+  ajoute une colonne `recovery_codes` (codes et dates d’utilisation) ; CXF et
+  KDBX placent les codes dans un champ texte long, en clair, comme le reste de
+  ces formats d’export. Ces fichiers doivent être protégés comme des secrets.
+- CXF, KDBX et le CSV générique n’ont pas de type « codes de secours » : à la
+  réimportation, les codes reviennent dans une note ou un champ texte, sans le
+  suivi « utilisé ». Pour un aller-retour fidèle, utiliser le fichier `.coffre`.
+
 ### 2.13 Rappels d’échéance
 
 Les dates d’échéance (révision d’un mot de passe, expiration d’une carte ou

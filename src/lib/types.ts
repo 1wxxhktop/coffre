@@ -17,6 +17,7 @@ export const ITEM_TYPES = [
   'api-credential',
   'software-license',
   'document',
+  'recovery-codes',
 ] as const
 
 export const WIFI_SECURITY = ['WPA', 'WEP', 'nopass'] as const
@@ -205,6 +206,20 @@ export interface DocumentItem extends ItemBase {
   issuedAt: string
 }
 
+/** Code de secours à usage unique, avec sa date d’utilisation éventuelle. */
+export interface RecoveryCode {
+  id: string
+  code: string
+  /** Date ISO à laquelle le code a été marqué utilisé, ou `null`. */
+  usedAt: string | null
+}
+
+/** Liste de codes de secours 2FA d’un service. */
+export interface RecoveryCodesItem extends ItemBase {
+  type: 'recovery-codes'
+  codes: RecoveryCode[]
+}
+
 export type VaultItem =
   | LoginItem
   | NoteItem
@@ -216,6 +231,7 @@ export type VaultItem =
   | ApiCredentialItem
   | SoftwareLicenseItem
   | DocumentItem
+  | RecoveryCodesItem
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -782,6 +798,8 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         documentNumber: '',
         issuedAt: '',
       }
+    case 'recovery-codes':
+      return { ...base, type: 'recovery-codes', codes: [] }
   }
 }
 
@@ -809,6 +827,12 @@ export function itemSubtitle(item: VaultItem): string {
       return item.licensedTo || item.version || 'Licence logicielle'
     case 'document':
       return item.issuer || item.documentNumber || 'Document'
+    case 'recovery-codes': {
+      const remaining = item.codes.filter((code) => !code.usedAt).length
+      return remaining === 0
+        ? 'Aucun code restant'
+        : `${remaining} code${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''}`
+    }
   }
 }
 
@@ -834,5 +858,7 @@ export function itemTypeLabel(type: ItemType): string {
       return 'Licence logicielle'
     case 'document':
       return 'Document'
+    case 'recovery-codes':
+      return 'Codes de secours'
   }
 }

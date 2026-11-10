@@ -789,6 +789,36 @@ export const EN_TEXT: Record<string, string> = {
     'The last backup is more than two periods old.',
   'Pensez à exporter une sauvegarde manuelle.':
     'Remember to export a manual backup.',
+  'Ajouter les codes': 'Add codes',
+  'Ajouter un code': 'Add a code',
+  'Aucun code détecté dans le texte.': 'No code detected in the text.',
+  'Aucun code enregistré.': 'No code saved.',
+  'Aucun code pour le moment.': 'No code yet.',
+  'Ces codes sont déjà présents.': 'These codes are already present.',
+  'Code de secours': 'Recovery code',
+  'Codes de secours à renouveler': 'Recovery codes to renew',
+  'Coller des codes de secours': 'Paste recovery codes',
+  'Copier ce code': 'Copy this code',
+  'Marquer ce code comme utilisé ?': 'Mark this code as used?',
+  'Marquer utilisé': 'Mark used',
+  'Mise à jour impossible': 'Update failed',
+  'Rétablir': 'Restore',
+  'Supprimer ce code': 'Remove this code',
+  'Un code par ligne ou séparés par des espaces':
+    'One code per line or separated by spaces',
+  'Un élément ne contient plus que deux codes de secours ou moins.':
+    'One item has only two recovery codes or fewer left.',
+  '{count} éléments ne contiennent plus que deux codes de secours ou moins.':
+    '{count} items have only two recovery codes or fewer left.',
+  Utilisé: 'Used',
+  'Utilisé le': 'Used on',
+  Disponible: 'Available',
+  'Codes restants': 'Remaining codes',
+  'Ouvrir': 'Open',
+  'Les puces, numéros de liste et doublons sont ignorés. Les codes restent chiffrés dans le coffre.':
+    'Bullets, list numbers and duplicates are ignored. Codes stay encrypted in the vault.',
+  'Le code copié sera daté et ne sera plus proposé. Vous pourrez le rétablir depuis la fiche.':
+    'The copied code will be dated and no longer offered. You can restore it from the item.',
   "Mises à jour":
     "Updates",
   "Nouvelles versions publiées sur GitHub, signées et vérifiées avant installation.":
