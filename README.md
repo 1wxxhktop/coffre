@@ -8,14 +8,15 @@ La synchronisation et la vérification des fuites sont optionnelles ; cette
 dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
 L’interface est en français.
 
-> **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
-> La version web/PWA est fonctionnelle et couverte par 676 tests unitaires et
-> 79 parcours Playwright exécutés sur Chromium et WebKit (158 exécutions, 8 ignorées). Une
-> intégration continue vérifie lint, types, tests et build sur Linux, macOS et
-> Windows ; les bundles desktop sont compilés à chaque push sur `main`. Le
-> desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
-> rapide optionnel par le trousseau du système et une disposition en colonnes
-> proche de 1Password ; le mobile n’est pas encore initialisé.
+> **État du projet — 0.10.0 (mises à jour automatiques, anti-hameçonnage, extension complétée).**
+> La version web/PWA est fonctionnelle et couverte par 738 tests unitaires et
+> des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
+> continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;
+> les bundles desktop des trois systèmes sont compilés à chaque push sur
+> `main`. Le desktop Tauri v2 est distribué signé ad hoc (sans compte Apple),
+> avec mises à jour automatiques signées, déverrouillage par Touch ID ou
+> Windows Hello et une disposition en colonnes proche de 1Password ; le mobile
+> n’est pas encore initialisé (iOS hors programme faute de compte Apple).
 > Voir [Plateformes](#plateformes).
 
 ---
