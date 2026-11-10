@@ -94,6 +94,21 @@ certificat Apple. **Elle se crée une seule fois et ne doit jamais être perdue*
 sans elle, plus aucune mise à jour ne peut être publiée pour les applications
 déjà installées (il faudrait les réinstaller à la main).
 
+**État : clé créée le 10 novembre 2026** (`~/.tauri/coffre-updater.key`),
+secrets et variable enregistrés dans GitHub.
+
+Le script `scripts/setup-updater-key.sh` fait tout en une fois : il refuse de
+remplacer une clé existante, crée la clé (mot de passe demandé deux fois, sans
+affichage), enregistre la clé privée et la clé publique dans GitHub, puis
+demande une troisième fois le mot de passe pour le secret correspondant. Le
+mot de passe n’est jamais lu ni écrit par le script.
+
+```bash
+./scripts/setup-updater-key.sh
+```
+
+Équivalent manuel :
+
 ```bash
 bun tauri signer generate -w ~/.tauri/coffre-updater.key
 ```
