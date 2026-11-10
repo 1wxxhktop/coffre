@@ -2,6 +2,11 @@
 
 ## Non publié
 
+- CI : le dépôt étant public, les runners GitHub sont gratuits. Chaque PR et
+  chaque push lancent de nouveau les tests sur macOS et Windows et les
+  parcours Playwright sur WebKit ; les bundles desktop et la reproductibilité
+  macOS tournent sur chaque push vers `main`.
+
 - Releases macOS sans compte Apple : `scripts/release-macos.sh` et la CI
   produisent par défaut un bundle universel signé ad hoc (hardened runtime),
   sans Developer ID ni notarisation, avec le paquet de mise à jour signé par
