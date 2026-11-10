@@ -1,3 +1,5 @@
+> **Mise à jour du 10 novembre 2026 :** S1 et S2 sont faits. Pas de compte Apple Developer : S0, S3, S4 et S5 sont **hors programme**, ne les commence pas. Restent S6 (Windows) puis S7 (Linux). Le plan de référence est `docs/PLAN-INTEGRATION-SYSTEME.md` sur `origin/main`.
+
 Tu vas implémenter l’intégration de Coffre au système d’exploitation sur desktop, en suivant le plan donné en fin de message (« PLAN D’INTÉGRATION AU SYSTÈME »). Lis-le en entier avant d’écrire du code, ainsi que `docs/PLAN-IMPLEMENTATION.md` § 0 et § 2, `docs/MACOS-AUTOFILL.md`, `docs/SECURITY.md` et `docs/RELEASE-READINESS.md`.
 
 ## Démarrage
