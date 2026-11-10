@@ -95,6 +95,22 @@ describe('passerelle extension', () => {
   it('liste les connexions actives sans requête', () => {
     const results = searchLogins(items, '')
     expect(results.map((entry) => entry.id).sort()).toEqual(['1', '2', '3'])
+    expect(results[0]).toMatchObject({
+      favorite: false,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+  })
+
+  it('place les favoris puis les plus récents en tête', () => {
+    const recent = login('5', 'Récent', 'ada', [], {
+      updatedAt: '2026-03-01T00:00:00.000Z',
+    })
+    const favorite = login('6', 'Favori', 'ada', [], {
+      favorite: true,
+      updatedAt: '2025-12-01T00:00:00.000Z',
+    })
+    const results = searchLogins([...items, recent, favorite], '')
+    expect(results.map((entry) => entry.id).slice(0, 2)).toEqual(['6', '5'])
   })
 
   it('ne renvoie rien pour un domaine inconnu', () => {

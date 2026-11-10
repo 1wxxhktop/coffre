@@ -171,6 +171,21 @@
   à la demande sur le port 47823 et fusion par `reconcileVaultFiles`. Aucun
   serveur ni connexion Internet ; annonce et découverte mDNS `_coffre._tcp`
   pendant la fenêtre de réception, mobile restant à faire.
+- Extension : badge du nombre de connexions du site actif, avec priorité au
+  point d’une proposition d’enregistrement ; copie optionnelle du code TOTP
+  après remplissage, effacée après 30 secondes s’il n’a pas changé, avec la
+  permission `clipboardRead` réservée à ce contrôle ; révocation de l’accès
+  « Tous les sites » depuis les réglages.
+- Extension : popup en sections « Pour ce site », « Favoris » et « Récents »,
+  icônes SVG locales sans favicon, navigation complète au clavier (flèches,
+  Entrée, Échap, `/`, copies `⌘C` / `⌘⇧C` / `⌘⌥C`) et états guidés avec action
+  principale pour l’application fermée, l’appairage, le verrouillage, le site
+  non autorisé et l’absence de résultat. Aucune permission ajoutée.
+- Extension : exclusions par site « ne jamais remplir » et « ne jamais
+  proposer d’enregistrer », modifiables depuis le bandeau, le menu du champ, le
+  popup et la page d’options. Les listes ne contiennent que des domaines
+  enregistrables ; une exclusion purge les propositions en attente et le
+  retrait reprend effet sans recharger l’extension.
 - Extension : proposition de mot de passe fort sur les formulaires
   d’inscription et de changement de mot de passe. Génération locale selon les
   règles du site, aperçu partiel, remplissage du champ et de sa confirmation

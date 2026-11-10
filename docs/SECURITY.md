@@ -410,6 +410,27 @@ appairage) est conservée dans `chrome.storage.local`.
   `commands` ne permet pas de déclencher une commande) ; il est refusé à toute
   page qui n’est pas une page d’extension et n’expose aucune opération
   supplémentaire.
+- **Popup (E8)** : les icônes de type et les pastilles d’initiale sont des SVG
+  embarqués ; aucune favicon n’est téléchargée et le rendu ne fait aucune
+  requête réseau. Les raccourcis de copie (`⌘C`, `⌘⇧C`, `⌘⌥C`) passent par le
+  message `DETAILS` existant, uniquement après une action explicite de
+  l’utilisateur, et utilisent la permission `clipboardWrite` déjà déclarée. La
+  sélection clavier ne conserve aucun secret dans le DOM : le mot de passe
+  n’est demandé qu’au moment de la copie, jamais affiché dans la liste. Les
+  états guidés ne font qu’ouvrir l’application, demander l’appairage, le
+  déverrouillage ou l’activation de l’hôte ; ils n’ajoutent aucune permission
+  et n’écrivent jamais dans le coffre.
+- **Badge et copie TOTP (E10)** : le badge ne contient qu’un nombre de
+  connexions pour l’hôte actif (ou le point d’une proposition d’enregistrement)
+  et n’est renseigné que si le coffre est déverrouillé, le site autorisé et
+  l’hôte non exclu. La copie TOTP après remplissage est désactivée par défaut.
+  Lorsqu’elle est activée, le code est écrit dans le presse-papiers puis effacé
+  après 30 secondes uniquement si une relecture montre qu’il n’a pas changé.
+  `clipboardRead` est la seule permission ajoutée par E10 et sert exclusivement
+  à cette comparaison ; le contenu lu n’est ni journalisé, ni stocké, ni
+  transmis. Si la relecture échoue, l’effacement est abandonné plutôt que de
+  risquer d’écraser un autre contenu. C’est l’exception documentée au principe
+  « l’extension ne copie rien ».
 - **Menu contextuel** : la permission `contextMenus` est la seule ajoutée par
   E4 ; elle ne donne accès à aucune page, aucun secret et aucun historique.
   Le menu est reconstruit à l’activation d’un onglet, au changement de fenêtre,
@@ -427,15 +448,30 @@ appairage) est conservée dans `chrome.storage.local`.
   note de mise à jour n’apparaît que lors d’un changement de version prévu.
   Les réglages vivent dans `storage.local` : adresse de l’application, mode
   (`desktop` ou `web`), activation (`site` ou `all`), menu dans les champs,
-  bandeau d’enregistrement, options futures (TOTP, remplissage au chargement)
-  et liste d’exclusions E7. Aucun secret, aucun mot de passe maître, aucun nom
-  d’élément n’y figure ; la liste d’exclusions est vide tant que E7 n’est pas
-  livré. Le mode Web ignore volontairement le pont natif.
+  bandeau d’enregistrement, copie TOTP, remplissage au chargement (E11) et
+  les deux listes d’exclusions. Aucun secret, aucun mot de passe maître,
+  aucun nom d’élément n’y figure ; les exclusions ne contiennent que des
+  domaines, jamais d’URL, de chemin ni d’identifiant. Le mode Web ignore
+  volontairement le pont natif.
 - L’activation site par site ne demande que l’origine du site courant ; « tous
   les sites » demande `http://*/*` et `https://*/*`. Les content scripts sont
   enregistrés dynamiquement sur la liste exacte des origines accordées ; les
   permissions d’hôte restent optionnelles et révocables par l’utilisateur.
-  Aucune permission n’est ajoutée par l’accueil ou la page d’options.
+  La page d’options propose de révoquer l’accès global, puis rebascule sur
+  l’activation site par site et resynchronise les content scripts. Aucune
+  permission n’est ajoutée par l’accueil ou la page d’options.
+- **Exclusions par site** : deux listes locales, `neverFillSites` et
+  `neverSaveSites`, contiennent uniquement des domaines normalisés. Le domaine
+  retenu est le domaine enregistrable usuel (`login.example.com` →
+  `example.com`) à partir d’une liste bornée de suffixes multi-étiquettes ;
+  la liste publique complète n’est pas embarquée. Une exclusion « remplissage »
+  bloque le menu, les raccourcis, la génération et les messages de remplissage
+  dans le content script et dans le service worker ; une exclusion
+  « enregistrement » bloque la création et la conservation des propositions
+  dans `storage.session`. Ajouter une exclusion d’enregistrement purge les
+  propositions du domaine ; retirer une exclusion prend effet à chaud via
+  `storage.onChanged`, sans recharger l’extension. Aucune donnée de coffre
+  n’est lue pour gérer ces listes.
 - Le remplissage vérifie l’hôte de la frame dans le content script **et** dans
   l’application (`loginAllowsHost`) ; les iframes ne sont remplies que si leur
   origine correspond à l’URL de l’élément.

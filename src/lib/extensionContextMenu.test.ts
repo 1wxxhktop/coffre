@@ -79,6 +79,18 @@ describe('menu contextuel', () => {
     ).toBe('Adresse perso')
   })
 
+  it('masque les actions de remplissage quand le site est exclu', () => {
+    const model = buildContextMenuModel({
+      unlocked: true,
+      fillAllowed: false,
+      host: 'github.com',
+      logins,
+      cards,
+      identities,
+    })
+    expect(model.map((entry) => entry.id)).toEqual(['open-app', 'add-site'])
+  })
+
   it('ne garde que « Déverrouiller Coffre » quand le coffre est verrouillé', () => {
     const model = buildContextMenuModel({
       unlocked: false,

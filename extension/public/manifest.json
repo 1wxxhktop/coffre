@@ -11,6 +11,7 @@
     "storage",
     "nativeMessaging",
     "clipboardWrite",
+    "clipboardRead",
     "contextMenus"
   ],
   "host_permissions": [

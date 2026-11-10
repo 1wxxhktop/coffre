@@ -574,3 +574,20 @@ body {
 .signup .button {
   width: 100%;
 }
+
+.link-button {
+  margin-top: 8px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10.5px;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--text);
+}
