@@ -507,11 +507,18 @@ try {
   await target.locator('#email').fill('signup@example.com')
   await target.getByRole('button', { name: 'Créer mon compte' }).click()
   await target.waitForURL('**/welcome*')
-  const signupPending = await extensionPage.evaluate(
-    (tabId) =>
-      chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
-    registerTab.id,
-  )
+  // La proposition est créée après la vérification dans l’application et
+  // l’évaluation anti-hameçonnage : elle peut arriver après la redirection.
+  let signupPending = { pending: null }
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    signupPending = await extensionPage.evaluate(
+      (tabId) =>
+        chrome.runtime.sendMessage({ type: 'GET_PENDING_SAVE', tabId }),
+      registerTab.id,
+    )
+    if (signupPending.pending) break
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
   assert.equal(signupPending.pending?.username, 'signup@example.com')
   await extensionPage.evaluate(
     (tabId) =>
