@@ -24,8 +24,13 @@ export interface DetectedSignupFields {
 const USERNAME_PATTERN =
   /(user|email|login|ident|account|mail|phone|tel|handle)/i
 const OTP_PATTERN = /(otp|totp|one[-_ ]?time|2fa|mfa|two[-_ ]?factor|verification|security[-_ ]?code)/i
+// « Mot de passe oublié » et « Sign up » apparaissent très souvent comme liens
+// dans un formulaire de connexion : ils ne comptent pas comme contexte
+// d’inscription, et les liens sont exclus du texte analysé.
 const SIGNUP_CONTEXT_PATTERN =
-  /(sign ?up|signup|register|registration|create.{0,24}account|inscription|cr[ée]er.{0,24}compte|new password|nouveau mot de passe|change.{0,24}password|changer.{0,24}mot de passe|mot de passe oubli[ée])/i
+  /(sign ?up|register|registration|create.{0,24}account|inscription|inscrire|cr[ée]er.{0,24}compte|new password|nouveau mot de passe|change.{0,24}password|changer.{0,24}mot de passe)/i
+const LOGIN_ACTION_PATTERN =
+  /(log ?in|sign ?in|se connecter|connexion|identifier|s’identifier|s'identifier)/i
 const NEW_PASSWORD_PATTERN =
   /(new.?password|nouveau mot de passe|choose.?password|choisir.{0,12}mot de passe|cr[ée]er.{0,12}mot de passe)/i
 const CONFIRM_PASSWORD_PATTERN =
@@ -224,39 +229,40 @@ export function detectSignupFields(
 
   const autocomplete = (input: HTMLInputElement): string =>
     (input.getAttribute('autocomplete') ?? '').toLowerCase()
+  const isCurrent = (input: HTMLInputElement): boolean =>
+    autocomplete(input) === 'current-password'
   const explicitNew = scoped.find(
     (input) =>
       autocomplete(input) === 'new-password' ||
       NEW_PASSWORD_PATTERN.test(descriptors(input)),
   )
-  const current = scoped.filter(
-    (input) => autocomplete(input) === 'current-password',
-  )
-  const formContext = form?.textContent ?? ''
-  const strongContext =
-    form !== null && SIGNUP_CONTEXT_PATTERN.test(formContext)
-  const primary =
-    explicitNew ??
-    scoped.find((input) => autocomplete(input) !== 'current-password') ??
-    scoped[0]
-  if (!primary) return null
+  const current = scoped.filter(isCurrent)
+  // Le champ du mot de passe actuel n’est jamais rempli avec un mot de passe
+  // généré. Sans aucun indice, un formulaire à trois champs ou plus est un
+  // changement de mot de passe : le premier champ est l’actuel.
+  let pool = scoped.filter((input) => !isCurrent(input))
+  if (!explicitNew && current.length === 0 && scoped.length >= 3) {
+    pool = scoped.slice(1)
+  }
+  if (pool.length === 0) return null
+
+  const primary = explicitNew ?? pool[0]
   const hasUsername = chooseUsername(document, primary) !== null
+  const context = signupContext(form)
 
   if (
     !explicitNew &&
-    scoped.length < 2 &&
-    !(strongContext && hasUsername && current.length === 0)
+    pool.length < 2 &&
+    !(
+      SIGNUP_CONTEXT_PATTERN.test(context.text) &&
+      !LOGIN_ACTION_PATTERN.test(context.actions) &&
+      hasUsername &&
+      current.length === 0
+    )
   ) {
     return null
   }
-  if (
-    !explicitNew &&
-    scoped.length >= 2 &&
-    current.length === scoped.length
-  ) {
-    return null
-  }
-  const others = scoped.filter((input) => input !== primary)
+  const others = pool.filter((input) => input !== primary)
   const confirm =
     others.find(
       (input) =>
@@ -271,6 +277,46 @@ export function detectSignupFields(
     username: chooseUsername(document, primary),
     password: primary,
     confirm,
+  }
+}
+
+/**
+ * Texte qui décrit l’intention d’un formulaire : attributs, titres, légende et
+ * boutons d’envoi. Les liens (« Mot de passe oublié ? », « Créer un compte »)
+ * sont volontairement exclus, car ils accompagnent souvent une connexion.
+ */
+function signupContext(form: HTMLFormElement | null): {
+  text: string
+  actions: string
+} {
+  if (!form) return { text: '', actions: '' }
+  const attributes = [
+    form.id,
+    form.getAttribute('name') ?? '',
+    form.getAttribute('action') ?? '',
+    form.getAttribute('aria-label') ?? '',
+    form.className,
+  ].join(' ')
+  const headings = Array.from(
+    form.querySelectorAll('h1, h2, h3, legend'),
+  )
+    .map((element) => element.textContent ?? '')
+    .join(' ')
+  const actions = Array.from(
+    form.querySelectorAll(
+      'button, input[type="submit"], input[type="button"], [role="button"]',
+    ),
+  )
+    .filter((element) => !element.closest('a'))
+    .map((element) =>
+      element instanceof HTMLInputElement
+        ? element.value
+        : (element.textContent ?? ''),
+    )
+    .join(' ')
+  return {
+    text: `${attributes} ${headings} ${actions}`,
+    actions,
   }
 }
 

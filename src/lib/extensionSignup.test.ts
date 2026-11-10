@@ -99,4 +99,56 @@ describe('détection de l’inscription', () => {
     `)
     expect(detectSignupFields(document)?.password.id).toBe('password')
   })
+
+  it('ignore le lien « Mot de passe oublié » d’une connexion', () => {
+    const document = mount(`
+      <form>
+        <input id="email" type="email" name="email" />
+        <input id="password" type="password" name="password" />
+        <a href="#">Mot de passe oublié ?</a>
+        <button>Se connecter</button>
+      </form>
+    `)
+    expect(detectSignupFields(document)).toBeNull()
+    expect(detectAutofillFields(document)?.kind).toBe('login')
+  })
+
+  it('ignore le lien « Sign up » d’une connexion', () => {
+    const document = mount(`
+      <form>
+        <input id="username" name="username" />
+        <input id="password" type="password" name="password" />
+        <button>Log in</button>
+        <p>No account? <a href="#">Sign up</a></p>
+      </form>
+    `)
+    expect(detectSignupFields(document)).toBeNull()
+    expect(detectAutofillFields(document)?.kind).toBe('login')
+  })
+
+  it('ne retient pas le champ actuel d’un changement sans indices', () => {
+    const document = mount(`
+      <form>
+        <input id="old" type="password" />
+        <input id="new" type="password" />
+        <input id="again" type="password" />
+      </form>
+    `)
+    const fields = detectSignupFields(document)
+    expect(fields?.password.id).toBe('new')
+    expect(fields?.confirm?.id).toBe('again')
+  })
+
+  it('ne remplit jamais un champ marqué current-password', () => {
+    const document = mount(`
+      <form>
+        <input id="old" type="password" autocomplete="current-password" />
+        <input id="new" type="password" autocomplete="new-password" />
+        <input id="again" type="password" />
+      </form>
+    `)
+    const fields = detectSignupFields(document)
+    expect(fields?.password.id).toBe('new')
+    expect(fields?.confirm?.id).toBe('again')
+  })
 })
