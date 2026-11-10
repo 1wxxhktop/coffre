@@ -151,7 +151,7 @@ pub fn encrypt_file(source: &Path, target: &Path, key: &[u8; 32]) -> Result<Blob
         let block_nonce = nonce(&prefix, index, last);
         let ciphertext = cipher
             .encrypt(
-                Nonce::from_slice(&block_nonce),
+                &Nonce::from(block_nonce),
                 Payload {
                     msg: &buffer[..filled],
                     aad: &block_aad,
@@ -257,7 +257,7 @@ pub fn decrypt_file(source: &Path, target: &Path, key: &[u8; 32]) -> Result<Blob
         let block_nonce = nonce(&prefix, index, is_last);
         let plaintext = cipher
             .decrypt(
-                Nonce::from_slice(&block_nonce),
+                &Nonce::from(block_nonce),
                 Payload {
                     msg: &ciphertext,
                     aad: &block_aad,
@@ -326,7 +326,7 @@ pub fn decrypt_preview(source: &Path, key: &[u8; 32], max_bytes: usize) -> Resul
             .map_err(|_| "Blob tronqué".to_string())?;
         let plaintext = cipher
             .decrypt(
-                Nonce::from_slice(&nonce(&prefix, index, is_last)),
+                &Nonce::from(nonce(&prefix, index, is_last)),
                 Payload {
                     msg: &ciphertext,
                     aad: &aad(&header, index, is_last),
