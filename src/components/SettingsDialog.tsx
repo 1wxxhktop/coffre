@@ -14,6 +14,7 @@ import {
   Languages,
   LoaderCircle,
   Monitor,
+  RefreshCw,
   Share2,
   ShieldAlert,
   ShieldCheck,
@@ -26,6 +27,7 @@ import { SyncSettings } from './SyncSettings'
 import { TemplateSettings } from './TemplateSettings'
 import { ActivitySettings } from './ActivitySettings'
 import { BlobStorageSettings } from './BlobStorageSettings'
+import { UpdateSettings } from './UpdateSettings'
 import { BackupSettings } from './BackupSettings'
 import { SshAgentSettings } from './SshAgentSettings'
 import { SharingSettings } from './SharingSettings'
@@ -83,6 +85,7 @@ type SettingsPage =
   | 'activity'
   | 'backup'
   | 'storage'
+  | 'updates'
   | 'danger'
 
 const SETTINGS_PAGES: Array<{
@@ -97,6 +100,7 @@ const SETTINGS_PAGES: Array<{
   { id: 'activity', label: 'Journal d’activité', icon: FileKey2 },
   { id: 'backup', label: 'Sauvegarde et import', icon: FileKey2 },
   { id: 'storage', label: 'Stockage', icon: HardDrive },
+  { id: 'updates', label: 'Mises à jour', icon: RefreshCw },
   { id: 'danger', label: 'Zone dangereuse', icon: Trash2 },
 ]
 
@@ -2187,6 +2191,12 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     </p>
                   )}
                 </section>
+              </section>
+            )}
+
+            {page === 'updates' && (
+              <section className="settings__page" aria-labelledby="settings-updates">
+                <UpdateSettings />
               </section>
             )}
 

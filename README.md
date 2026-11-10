@@ -284,6 +284,13 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   Sauvegarde et import, Stockage, Zone dangereuse).
 - **Accès rapide global (desktop)** : `⌘⇧Espace` (macOS) ou
   `Ctrl+Shift+Espace` affiche la fenêtre et place le curseur dans la recherche.
+- **Mises à jour (desktop)** : Réglages → Mises à jour. Recherche manuelle ou
+  automatique (au démarrage, chaque jour, chaque semaine ; désactivée par
+  défaut), canal stable ou bêta, téléchargement en arrière-plan optionnel,
+  installation sur confirmation ou à la fermeture, « Ignorer cette version »,
+  notes de version et progression. Paquets publiés sur les releases GitHub,
+  signés (minisign) et vérifiés avant installation ; le coffre est verrouillé
+  avant le redémarrage. Sur le Web, la PWA se met à jour à chaque visite.
 - **Trousseau natif (desktop)** : déverrouillage rapide optionnel par le
   trousseau macOS, Windows ou Linux. La clé maîtresse n’y est écrite que si
   l’option est activée et elle est supprimée au verrouillage.

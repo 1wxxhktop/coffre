@@ -57,5 +57,11 @@
       "signingIdentity": "-",
       "hardenedRuntime": true
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "requireSignedVersion": true
+    }
   }
 }
