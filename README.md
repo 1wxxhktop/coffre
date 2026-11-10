@@ -11,8 +11,8 @@ L’interface est en français.
 > **État du projet — 0.9.0 (extension enrichie, thème, générateur et remplissage).**
 > La version web/PWA est fonctionnelle et couverte par 676 tests unitaires et
 > 79 parcours Playwright exécutés sur Chromium et WebKit (158 exécutions, 8 ignorées). Une
-> intégration continue vérifie lint, types, tests et build ; les bundles desktop
-> sont compilés à la demande. Le
+> intégration continue vérifie lint, types, tests et build sur Linux, macOS et
+> Windows ; les bundles desktop sont compilés à chaque push sur `main`. Le
 > desktop Tauri v2 compile et se lance sur macOS arm64, avec un déverrouillage
 > rapide optionnel par le trousseau du système et une disposition en colonnes
 > proche de 1Password ; le mobile n’est pas encore initialisé.
@@ -716,33 +716,28 @@ dernier sert de proxy pour le moteur des WebViews macOS/iOS.
 
 ### Intégration continue
 
-Le fichier `.github/workflows/ci.yml` est réglé pour tenir dans le quota
-mensuel gratuit de GitHub Actions, sans dépassement payant. Sur chaque PR et
-chaque push sur `main`, il ne lance que des jobs Linux :
+Le dépôt est public : les runners GitHub standard sont gratuits. Le fichier
+`.github/workflows/ci.yml` lance sur chaque PR et chaque push sur `main` :
 
 - **Qualité** : `bun audit --audit-level=high`, lint, vérification
   TypeScript, tests Vitest, builds PWA et extension, avec l’artefact `dist`
   conservé une semaine ;
-- **Parcours** : Playwright sur Chromium, traces et rapport téléversés en cas
-  d’échec ;
+- **Parcours** : Playwright sur Chromium et WebKit, traces et rapport
+  téléversés en cas d’échec ;
 - **Rust** : `cargo fmt`, `clippy`, tests de l’application, du cœur, du FFI, du
-  CLI et de l’agent SSH, smoke du relais natif et `cargo audit` ;
-- **Extension** : smoke test Chromium avec la CSP de production.
+  CLI et de l’agent SSH, smoke du relais natif, `cargo audit` et `cargo deny` ;
+- **`coffre-core` sur macOS et Windows** : formatage, clippy, tests et
+  vecteurs croisés ;
+- **Extension** : smoke test Chromium avec la CSP de production ;
+- **Builds reproductibles** et **SBOM**.
 
-Un lancement manuel (onglet *Actions* → *CI* → *Run workflow*) ajoute les jobs
-coûteux : Playwright sur WebKit, `coffre-core` sur macOS et Windows, et les
-bundles **Desktop** sur macOS, Ubuntu et Windows. Une minute macOS compte
-environ 10 minutes Linux sur le quota, une minute Windows environ 2 : lancez-les
-avant une release, pas à chaque modification.
+Les bundles **Desktop** (macOS, Ubuntu, Windows) et la reproductibilité du
+bundle macOS, plus longs, tournent sur chaque push vers `main` et à la demande
+(onglet *Actions* → *CI* → *Run workflow*), pas sur les PR.
 
-Pour économiser le quota :
-
-- un commit qui ne touche que la documentation (`*.md`, `docs/`, `LICENSE`,
-  `NOTICE`) ne lance pas la CI ;
-- `[skip ci]` dans le message d’un commit intermédiaire saute la CI ;
-- un nouveau push annule l’exécution en cours sur la même branche ;
-- vérifiez en local avant de pousser (`bun run lint`, `bun run test`,
-  `bun run test:e2e`, `cargo test`) et regroupez les commits.
+Un commit qui ne touche que la documentation (`*.md`, `docs/`, `LICENSE`,
+`NOTICE`) ne lance pas la CI ; `[skip ci]` dans le message la saute aussi, et
+un nouveau push annule l’exécution en cours sur la même branche.
 
 `.github/workflows/release.yml` prépare une release macOS sur un tag `v*` :
 build universel signé ad hoc (sans compte Apple), DMG + SHA-256, paquet de mise

@@ -1,11 +1,12 @@
 name: CI
 
-# Budget : le compte dispose d’un quota mensuel de minutes Actions, sans
-# dépassement payant. Une minute macOS coûte environ 10 fois une minute Linux,
-# une minute Windows environ 2 fois. Les PR et les push ne lancent donc que des
-# jobs Linux ; macOS, Windows, WebKit et les builds desktop ne tournent qu’à la
-# demande (« Run workflow »). Un commit qui ne touche que la documentation ne
-# lance rien ; `[skip ci]` dans le message saute aussi la CI.
+# Dépôt public : les runners GitHub standard sont gratuits. Chaque PR et chaque
+# push lancent les tests sur Linux, macOS et Windows, et les parcours
+# Playwright sur Chromium et WebKit. Les builds desktop complets et la
+# reproductibilité macOS (une vingtaine de minutes) tournent sur chaque push
+# vers main et à la demande (« Run workflow »), pour garder des PR rapides.
+# Un commit qui ne touche que la documentation ne lance rien ; `[skip ci]`
+# dans le message saute aussi la CI.
 on:
   push:
     branches: [main]
@@ -87,8 +88,8 @@ jobs:
     timeout-minutes: 20
     env:
       # Chromium seul par défaut ; WebKit s’ajoute lors d’un lancement manuel.
-      E2E_BROWSERS: ${{ github.event_name == 'workflow_dispatch' && 'chromium webkit' || 'chromium' }}
-      E2E_PROJECTS: ${{ github.event_name == 'workflow_dispatch' && '--project=chromium --project=webkit' || '--project=chromium' }}
+      E2E_BROWSERS: chromium webkit
+      E2E_PROJECTS: --project=chromium --project=webkit
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -189,9 +190,7 @@ jobs:
 
   core:
     name: coffre-core (${{ matrix.os }})
-    # Linux est couvert par le job Rust. macOS et Windows, coûteux, ne
-    # tournent qu’à la demande.
-    if: github.event_name == 'workflow_dispatch'
+    # Linux est couvert par le job Rust ; ici macOS et Windows.
     strategy:
       fail-fast: false
       matrix:
@@ -247,8 +246,8 @@ jobs:
 
   desktop-reproducible:
     name: Desktop reproductible (macOS)
-    # Le bundle macOS coûte cher en minutes : contrôle manuel uniquement.
-    if: github.event_name == 'workflow_dispatch'
+    # Long (deux bundles complets) : push vers main et à la demande.
+    if: github.event_name != 'pull_request'
     runs-on: macos-latest
     timeout-minutes: 40
     env:
@@ -358,8 +357,8 @@ jobs:
 
   desktop:
     name: Desktop (${{ matrix.os }})
-    # Builds complets sur les trois systèmes : à la demande uniquement.
-    if: github.event_name == 'workflow_dispatch'
+    # Builds complets sur les trois systèmes : push vers main et à la demande.
+    if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
