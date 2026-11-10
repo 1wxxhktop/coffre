@@ -2,6 +2,13 @@
 
 ## Non publié
 
+- Correctifs révélés par la première CI complète : l’application desktop
+  compile de nouveau sous Linux (type du chemin de session logind) ; les tests
+  du binaire de l’agent SSH ne tournent que sous Unix et un test vérifie le
+  message d’indisponibilité sous Windows ; le raccourci « remplir la
+  connexion » passe à `Alt+Shift+L` sur tous les systèmes, `Ctrl+Shift+L`
+  n’étant pas attribué par Chromium sous Linux.
+
 - Releases macOS sans compte Apple : `scripts/release-macos.sh` et la CI
   produisent par défaut un bundle universel signé ad hoc (hardened runtime),
   sans Developer ID ni notarisation, avec le paquet de mise à jour signé par
