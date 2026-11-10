@@ -744,10 +744,10 @@ Pour économiser le quota :
 - vérifiez en local avant de pousser (`bun run lint`, `bun run test`,
   `bun run test:e2e`, `cargo test`) et regroupez les commits.
 
-`.github/workflows/release.yml` prépare une release macOS signée et notariée sur
-un tag `v*` : certificat Developer ID, build universel, vérification `spctl`,
-DMG + SHA-256 et release GitHub en brouillon. Voir
-[docs/RELEASE.md](docs/RELEASE.md).
+`.github/workflows/release.yml` prépare une release macOS sur un tag `v*` :
+build universel signé ad hoc (sans compte Apple), DMG + SHA-256, paquet de mise
+à jour signé et release GitHub en brouillon. Un certificat Developer ID reste
+possible mais optionnel. Voir [docs/RELEASE.md](docs/RELEASE.md).
 
 `.github/dependabot.yml` propose chaque semaine les mises à jour npm et Cargo,
 et chaque mois celles des actions GitHub. L’audit échoue au niveau `high` et
@@ -790,7 +790,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run repro:desktop` | Compare deux bundles macOS après recompilation de la caisse applicative |
 | `bun run desktop:dev` | Lance l’application desktop Tauri |
 | `bun run desktop:build` | Produit les paquets desktop Tauri |
-| `./scripts/release-macos.sh` | Build macOS universel signé et notarié (certificat requis) |
+| `./scripts/release-macos.sh` | Build macOS universel signé ad hoc (ou Developer ID et notarisé si configuré) |
 | `bun run tauri:icons` | Régénère les icônes Tauri depuis `public/icon.svg` |
 
 Chaque modification livrée incrémente la version dans `package.json`,
@@ -1271,17 +1271,18 @@ au premier lancement. macOS associe l’autorisation « Always Allow » du trous
 à la signature : une signature ad hoc change à chaque compilation, donc
 l’autorisation peut être redemandée après un nouveau build.
 
-La chaîne de release signée est prête : `scripts/release-macos.sh` construit
-une version universelle, vérifie la signature Developer ID et le hardened
-runtime, contrôle l’agrafage, puis produit le DMG et son SHA-256. Le workflow
-`.github/workflows/release.yml` fait la même chose sur un tag `v*` et crée une
-release GitHub en brouillon. Il manque seulement le certificat Apple et les
-secrets de notarisation ; la procédure complète est dans
-[docs/RELEASE.md](docs/RELEASE.md).
+Les releases sont distribuées **sans compte Apple** : `scripts/release-macos.sh`
+construit une version universelle signée ad hoc avec hardened runtime, produit
+le DMG, son SHA-256 et le paquet de mise à jour signé par la clé de Coffre. Le
+workflow `.github/workflows/release.yml` fait la même chose sur un tag `v*` et
+crée une release GitHub en brouillon. À la première installation, macOS
+demande de confirmer l’ouverture (Réglages Système → Confidentialité et
+sécurité → « Ouvrir quand même ») ; les mises à jour suivantes s’installent
+depuis l’application. La signature Developer ID et la notarisation restent
+possibles si un certificat est un jour disponible
+([docs/RELEASE.md](docs/RELEASE.md)).
 
 ```bash
-APPLE_SIGNING_IDENTITY="Developer ID Application: …" \
-APPLE_ID="…" APPLE_PASSWORD="mot-de-passe-application" APPLE_TEAM_ID="…" \
 ./scripts/release-macos.sh
 ```
 

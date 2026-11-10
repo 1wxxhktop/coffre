@@ -2,6 +2,15 @@
 
 ## Non publié
 
+- Releases macOS sans compte Apple : `scripts/release-macos.sh` et la CI
+  produisent par défaut un bundle universel signé ad hoc (hardened runtime),
+  sans Developer ID ni notarisation, avec le paquet de mise à jour signé par
+  la clé de Coffre. Les notes de release expliquent la première ouverture
+  (« Ouvrir quand même ») ; les mises à jour suivantes s’installent depuis
+  l’application. Le mode Developer ID reste disponible si un certificat est
+  fourni. Plans : S0, S3, S4 et S5 (AutoFill macOS, passkeys système,
+  extension Safari) sont hors programme.
+
 - Codes de secours 2FA : nouveau type d’élément avec import par collage (un
   code par ligne ou séparés par des espaces, puces et doublons ignorés), suivi
   « utilisé » avec date, copie avec proposition de marquer le code utilisé, et
