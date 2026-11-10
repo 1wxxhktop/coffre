@@ -5,8 +5,8 @@ name: CI
 # Playwright sur Chromium et WebKit. Les builds desktop complets et la
 # reproductibilité macOS (une vingtaine de minutes) tournent sur chaque push
 # vers main et à la demande (« Run workflow »), pour garder des PR rapides.
-# Un commit qui ne touche que la documentation ne lance rien ; `[skip ci]`
-# dans le message saute aussi la CI.
+# Un push sur main qui ne touche que la documentation ne relance pas la CI ;
+# les PR sont toujours vérifiées, car la protection de main l’exige.
 on:
   push:
     branches: [main]
@@ -15,12 +15,10 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - 'NOTICE'
+  # Pas de filtre sur les PR : les vérifications sont obligatoires pour fusionner
+  # dans main (protection de branche), une PR de documentation doit donc les
+  # produire aussi.
   pull_request:
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - 'NOTICE'
   workflow_dispatch:
 
 permissions:
