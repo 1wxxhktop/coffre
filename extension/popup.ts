@@ -12,6 +12,7 @@ import { mountLogos } from './logo'
 import { groupLogins, type PopupGroup } from './popupModel'
 import {
   loadSettings as loadExtensionSettings,
+  saveSettings as saveExtensionSettings,
   type ActivationMode,
 } from './settings'
 import { isSiteExcluded } from './siteExclusions'
@@ -97,6 +98,7 @@ const settingsStatus = $<HTMLParagraphElement>('settings-status')
 const settingsOpenAppButton = $<HTMLButtonElement>('settings-open-app')
 const settingsOpenOptionsButton = $<HTMLButtonElement>('settings-open-options')
 const settingsExclusionHost = $<HTMLParagraphElement>('settings-exclusion-host')
+const copyTotpInput = $<HTMLInputElement>('copy-totp-setting')
 const excludeFillInput = $<HTMLInputElement>('exclude-fill')
 const excludeSaveInput = $<HTMLInputElement>('exclude-save')
 const shortcutsList = $<HTMLUListElement>('shortcuts-list')
@@ -307,6 +309,7 @@ async function loadShortcuts(): Promise<void> {
 async function loadExclusions(): Promise<void> {
   const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
   const settings = await loadExtensionSettings()
+  copyTotpInput.checked = settings.copyTotpAfterFill
   const supported = Boolean(host) && /^https?:/i.test(currentTab?.url ?? '')
   settingsExclusionHost.textContent = supported
     ? t('settings_exclusionHost', [host])
@@ -1318,6 +1321,9 @@ settingsOpenOptionsButton.addEventListener('click', () => {
   void api.runtime.openOptionsPage()
 })
 
+copyTotpInput.addEventListener('change', () => {
+  void saveExtensionSettings({ copyTotpAfterFill: copyTotpInput.checked })
+})
 excludeFillInput.addEventListener('change', () => {
   void updateExclusion('fill', excludeFillInput)
 })

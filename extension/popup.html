@@ -151,6 +151,17 @@
           </section>
 
           <section class="settings-group">
+            <h3 data-i18n="settings_behavior">Comportement</h3>
+            <label class="settings-check">
+              <input id="copy-totp-setting" type="checkbox" />
+              <span data-i18n="options_copyTotp">Copier le code TOTP après remplissage</span>
+            </label>
+            <p class="settings-note" data-i18n="options_copyTotpCopy">
+              Le code est effacé après 30 secondes s’il n’a pas été remplacé. Coffre lit le presse-papiers uniquement pour ce contrôle.
+            </p>
+          </section>
+
+          <section class="settings-group">
             <h3 data-i18n="settings_exclusions">Exclusions</h3>
             <p id="settings-exclusion-host" class="settings-note"></p>
             <label class="settings-check">

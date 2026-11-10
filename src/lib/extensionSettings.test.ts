@@ -58,6 +58,7 @@ describe('réglages de l’extension', () => {
       activationMode: 'all',
       inlineMenu: false,
       saveBanner: false,
+      copyTotpAfterFill: true,
       neverFillSites: ['www.Example.com', 'example.com', '  ', 42],
       neverSaveSites: ['login.example.com'],
     })
@@ -67,6 +68,7 @@ describe('réglages de l’extension', () => {
       activationMode: 'all',
       inlineMenu: false,
       saveBanner: false,
+      copyTotpAfterFill: true,
       neverFillSites: ['example.com'],
       neverSaveSites: ['example.com'],
     })

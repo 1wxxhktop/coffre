@@ -17,6 +17,7 @@ import {
   generatePassword,
 } from '../src/lib/password'
 import { isValidRpId } from '../src/lib/passkeys'
+import { badgeText } from './badge'
 import {
   matchingLoginSummaries,
   totpLoginSummary,
@@ -489,6 +490,82 @@ async function credentialsFromTab(
   }
 }
 
+const TOTP_CLIPBOARD_TTL_MS = 30_000
+
+/**
+ * Copie le code TOTP dans le presse-papiers puis l’efface après 30 secondes
+ * seulement si le contenu n’a pas changé. `clipboardRead` est réservée à ce
+ * contrôle ; si la lecture échoue, le presse-papiers n’est jamais vidé.
+ */
+async function copyTotpToClipboard(
+  tabId: number,
+  code: string,
+): Promise<boolean> {
+  if (!code) return false
+  try {
+    const [result] = await api.scripting.executeScript({
+      target: { tabId },
+      func: async (value: string, ttl: number) => {
+        const write = async (text: string): Promise<boolean> => {
+          try {
+            await navigator.clipboard.writeText(text)
+            return true
+          } catch {
+            // Repli pour les contextes sans API asynchrone.
+          }
+          try {
+            const host = document.createElement('div')
+            host.style.cssText =
+              'position:fixed;left:-1000px;top:-1000px;width:1px;height:1px;opacity:0'
+            const root = host.attachShadow({ mode: 'closed' })
+            const area = document.createElement('textarea')
+            area.value = text
+            area.setAttribute('readonly', '')
+            root.append(area)
+            document.documentElement.append(host)
+            area.select()
+            const copied = document.execCommand('copy')
+            host.remove()
+            return copied
+          } catch {
+            return false
+          }
+        }
+        const read = async (): Promise<string | null> => {
+          try {
+            return await navigator.clipboard.readText()
+          } catch {
+            return null
+          }
+        }
+        if (!(await write(value))) return false
+        window.setTimeout(() => {
+          void (async () => {
+            const current = await read()
+            if (current === value) await write('')
+          })()
+        }, ttl)
+        return true
+      },
+      args: [code, TOTP_CLIPBOARD_TTL_MS],
+    })
+    return result?.result === true
+  } catch {
+    return false
+  }
+}
+
+async function maybeCopyTotp(tabId: number, code: string): Promise<void> {
+  if (!code) return
+  try {
+    const settings = await loadSettings()
+    if (!settings.copyTotpAfterFill) return
+    await copyTotpToClipboard(tabId, code)
+  } catch {
+    // La copie ne doit jamais faire échouer le remplissage.
+  }
+}
+
 async function injectCredentials(
   targetId: number,
   data: ExtensionCredentials,
@@ -586,6 +663,7 @@ async function injectCredentials(
       (result?.result as { filled?: number } | undefined)?.filled ?? 0,
     )
     if (filled > 0) {
+      await maybeCopyTotp(targetId, data.totp)
       try {
         await api.scripting.executeScript({
           target: { tabId: targetId },
@@ -888,6 +966,8 @@ async function fill(
 }
 
 let badgeTimer: ReturnType<typeof setTimeout> | undefined
+let badgeUpdating = false
+let badgeQueued = false
 
 function scheduleBadgeRefresh(entries: StoredPendingSave[]): void {
   if (badgeTimer) clearTimeout(badgeTimer)
@@ -900,16 +980,59 @@ function scheduleBadgeRefresh(entries: StoredPendingSave[]): void {
   )
 }
 
+async function badgeLoginCount(host: string): Promise<number> {
+  const result = await search(host, 'login')
+  return result.items?.length ?? 0
+}
+
 async function updateActionBadge(): Promise<void> {
+  // `search` passe par `readStatus`, qui purge la session verrouillée et
+  // rappelle cette fonction : le garde évite une récursion, et la demande
+  // suivante est rejouée à la fin pour ne pas perdre un changement d’état.
+  if (badgeUpdating) {
+    badgeQueued = true
+    return
+  }
+  badgeUpdating = true
   try {
     const entries = await pendingSaveStore.list()
     scheduleBadgeRefresh(entries)
-    await api.action.setBadgeBackgroundColor({ color: '#d97706' })
+    if (entries.length > 0) {
+      await api.action.setBadgeBackgroundColor({ color: '#d97706' })
+      await api.action.setBadgeText({
+        text: badgeText(entries.length, 0, false),
+      })
+      return
+    }
+
+    const settings = await loadSettings()
+    const siteAccess = await hasSiteAccess()
+    const native = usesNativeBridge(settings.appMode)
+      ? await nativeStatus()
+      : null
+    const unlocked = native
+      ? Boolean(native.unlocked) && native.paired !== false
+      : (await readTabStatus()).unlocked
+    const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+    const host = tab?.url ? hostFromUrl(tab.url) : ''
+    const allowed =
+      unlocked &&
+      siteAccess &&
+      Boolean(host) &&
+      !isSiteExcluded(settings.neverFillSites, host)
+    const count = allowed ? await badgeLoginCount(host) : 0
+    await api.action.setBadgeBackgroundColor({ color: '#3f3f46' })
     await api.action.setBadgeText({
-      text: entries.length > 0 ? '●' : '',
+      text: badgeText(0, count, allowed),
     })
   } catch {
     // Certains navigateurs ne supportent pas le badge : le popup reste usable.
+  } finally {
+    badgeUpdating = false
+    if (badgeQueued) {
+      badgeQueued = false
+      void updateActionBadge()
+    }
   }
 }
 
@@ -1020,6 +1143,9 @@ async function menuFill(
     }
     if (kind === 'login') {
       await recentSelectionStore.set(tabId, itemId, host)
+      if (credentials.kind === 'login') {
+        await maybeCopyTotp(tabId, credentials.totp)
+      }
     }
     return { ok: true }
   } catch {
@@ -2049,6 +2175,7 @@ async function onContextMenuClicked(
     const result = await requestUnlock()
     if (result.error) flashActionBadge()
     scheduleContextMenus()
+    void updateActionBadge()
     return
   }
   if (id === 'open-app' || id === 'add-site') {
@@ -2134,7 +2261,10 @@ async function handle(
     case 'FOCUS_APP':
       return openApp()
     case 'UNLOCK_REQUEST':
-      return requestUnlock().finally(() => scheduleContextMenus())
+      return requestUnlock().finally(() => {
+        scheduleContextMenus()
+        void updateActionBadge()
+      })
     case 'OPEN_SHORTCUTS': {
       const firefox = /Firefox/i.test(navigator.userAgent)
       const url = firefox
@@ -2253,6 +2383,7 @@ async function handle(
         await updateActionBadge()
       }
       scheduleContextMenus()
+      void updateActionBadge()
       return {
         ok: true,
         host,
@@ -2264,6 +2395,7 @@ async function handle(
       return nativePair()
     case 'ENABLE_INLINE':
       await syncContentScriptRegistration()
+      void updateActionBadge()
       return { ok: true, hostAccess: await hasHostAccess() }
     case 'CONTENT_CONTEXT':
       return contentContext(sender)
@@ -2479,8 +2611,20 @@ api.runtime.onInstalled.addListener((details) => {
   }
 })
 api.runtime.onStartup.addListener(() => scheduleContextMenus())
-api.tabs.onActivated.addListener(() => scheduleContextMenus())
-api.windows.onFocusChanged.addListener(() => scheduleContextMenus())
+api.tabs.onActivated.addListener(() => {
+  scheduleContextMenus()
+  void updateActionBadge()
+})
+api.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+  if (changeInfo.status === 'complete' || changeInfo.url) {
+    scheduleContextMenus()
+    void updateActionBadge()
+  }
+})
+api.windows.onFocusChanged.addListener(() => {
+  scheduleContextMenus()
+  void updateActionBadge()
+})
 
 api.windows.onRemoved.addListener((windowId) => {
   for (const request of [...pendingPasskeys.values()]) {
