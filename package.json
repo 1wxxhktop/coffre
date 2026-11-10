@@ -32,6 +32,7 @@
     "icons": "bun run scripts/generate-icons.mjs",
     "version:check": "node scripts/check-versions.mjs",
     "sbom": "./scripts/generate-sbom.sh",
+    "release:collect": "./scripts/collect-release.sh",
     "repro:check": "./scripts/check-reproducible-build.sh",
     "repro:desktop": "./scripts/check-reproducible-desktop.sh",
     "tauri": "tauri",

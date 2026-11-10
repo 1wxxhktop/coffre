@@ -743,6 +743,15 @@ une PR, y compris la documentation. Un push sur `main` qui ne touche que la
 documentation ne relance pas la CI, et un nouveau push annule l’exécution en
 cours sur la même branche.
 
+**Exécutables en local.** `bun run release:collect` télécharge les artefacts
+de la dernière CI réussie sur `main` et les range dans
+`release/coffre-<version>-<commit>/` (lien `release/latest`) : DMG macOS,
+installateurs Windows (MSI, NSIS), paquets Linux (.deb, .rpm, AppImage),
+outils en ligne de commande pour chaque système, extension, application Web et
+SBOM, avec `SHA256SUMS` et un `LISEZMOI.txt`. Les artefacts sont conservés
+30 jours ; au-delà, relancer la CI (`gh workflow run ci.yml --ref main`). Ce
+sont des builds de développement, sans paquet de mise à jour signé.
+
 `.github/workflows/release.yml` prépare une release macOS sur un tag `v*` :
 build universel signé ad hoc (sans compte Apple), DMG + SHA-256, paquet de mise
 à jour signé et release GitHub en brouillon. Un certificat Developer ID reste
@@ -784,6 +793,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run icons` | Régénère les icônes PWA |
 | `bun run version:check` | Vérifie la cohérence des versions package/Tauri/extension/Cargo/cœur/CLI |
 | `bun run sbom` | Génère les SBOM CycloneDX Rust et web dans `sbom/` |
+| `bun run release:collect` | Rassemble dans `release/` tous les exécutables de la dernière CI réussie sur `main` (macOS, Windows, Linux, outils, extension, Web, SBOM) |
 | `bun run lint:security` | Vérifie `/.well-known/security.txt` |
 | `bun run repro:check` | Compare deux builds Web et extension avec `SOURCE_DATE_EPOCH=0` |
 | `bun run repro:desktop` | Compare deux bundles macOS après recompilation de la caisse applicative |
