@@ -148,6 +148,9 @@
 - `.gitignore` exclut les coffres locaux, fichiers `.env`, certificats et clés.
 - Le script de release vérifie le lockfile (`cargo fetch --locked`) et sélectionne
   le DMG de la version courante.
+- Le job de release génère une **attestation de provenance** GitHub pour le DMG,
+  l’archive `.app.zip` et le paquet de mise à jour, vérifiable avec
+  `gh attestation verify`.
 
 ## 0.13.0 — 11 novembre 2026
 

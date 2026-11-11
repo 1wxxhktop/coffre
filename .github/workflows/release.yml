@@ -26,6 +26,8 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -150,6 +152,14 @@ jobs:
           app="src-tauri/target/universal-apple-darwin/release/bundle/macos/Coffre.app"
           ditto -c -k --sequesterRsrc --keepParent "$app" \
             "Coffre_${version}_universal.app.zip"
+
+      - name: Attester la provenance des artefacts
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            Coffre_*_universal.app.zip
+            Coffre_*_universal.app.tar.gz
 
       - name: Créer la release GitHub
         env:
