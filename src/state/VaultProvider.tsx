@@ -140,11 +140,14 @@ import {
   openSharedSyncIO,
 } from '../lib/sharedSyncStorage'
 import {
+  SHARED_SYNC_CONFIG_KEY,
   getSharedSyncConfig,
   listSharedSyncConfigs,
   saveSharedSyncConfig,
   type SharedSyncConfig,
 } from '../lib/sharedSyncConfig'
+import { clearSecurityHistory } from '../lib/securityHistory'
+import { setAliasDefaults } from '../lib/emailAlias'
 import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
 import { isTauriRuntime } from '../lib/external'
 import { SYSTEM_LOCK_EVENT, isStartedHidden, systemLockShouldLock } from '../lib/systemIntegration'
@@ -460,6 +463,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     stateRef.current = next
     setState(next)
   }, [])
+
+  /** Vrai si un verrouillage a eu lieu depuis la capture de `epoch`. */
+  const isStaleEpoch = useCallback(
+    (epoch: number) =>
+      epochRef.current !== epoch || stateRef.current.status !== 'unlocked',
+    [],
+  )
 
   const enqueue = useCallback(<T,>(task: () => Promise<T>): Promise<T> => {
     const result = queueRef.current.then(task, task)
@@ -1275,6 +1285,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (current.readOnly) {
           throw new Error('Le coffre est ouvert en lecture seule.')
         }
+        const epoch = epochRef.current
         let file = current.file
         let identity: SharingIdentity
         if (file.sharing) {
@@ -1289,6 +1300,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             file.id,
           )
           identity = made.identity
+          if (isStaleEpoch(epoch)) {
+            current.session.lock()
+            throw new Error('Coffre verrouillé pendant l’import.')
+          }
           file = await persist(file, { ...file, sharing: made.record })
           apply((previous) => ({ ...previous, file }))
         }
@@ -1312,8 +1327,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             vaultName,
           )
           const signed = await persist(file, result.file)
+          if (isStaleEpoch(epoch)) {
+            current.session.lock()
+            throw new Error('Coffre verrouillé pendant l’import.')
+          }
           const masterKey = current.session.masterKey
           const opened = await openVaultFileWithMasterKey(signed, masterKey)
+          if (isStaleEpoch(epoch)) {
+            opened.session.lock()
+            current.session.lock()
+            throw new Error('Coffre verrouillé pendant l’import.')
+          }
           current.session.lock()
           epochRef.current += 1
           apply((previous) => ({
@@ -1345,6 +1369,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           adminFingerprint: imported.admin.fingerprint,
         })
         const signed = await persist(file, added.file)
+        if (isStaleEpoch(epoch)) {
+          current.session.lock()
+          throw new Error('Coffre verrouillé pendant l’import.')
+        }
         apply((previous) => ({
           ...previous,
           file: signed,
@@ -1353,7 +1381,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           syncRevision: previous.syncRevision + 1,
         }))
       }),
-    [apply, enqueue, persist],
+    [apply, enqueue, isStaleEpoch, persist],
   )
 
   const createSharingBundle = useCallback(
@@ -1583,19 +1611,26 @@ export function VaultProvider({ children }: { children: ReactNode }) {
    */
   const lockWith = useCallback((forgetQuickUnlock: boolean) => {
     const current = stateRef.current
-    if (current.status !== 'unlocked') return
     epochRef.current += 1
     revisionFloorRef.current = 0
     const session = current.session
     if (session) {
-      // L’interface passe immédiatement à « verrouillé ». Les clés sont
-      // effacées dès que les tâches déjà en file sont terminées : une écriture
-      // lancée avant le verrouillage est enregistrée au lieu d’être perdue.
-      drainingRef.current = { session, readOnly: current.readOnly }
-      void queueRef.current.then(() => {
-        if (drainingRef.current?.session === session) drainingRef.current = null
+      if (current.status === 'unlocked') {
+        // L’interface passe immédiatement à « verrouillé ». Les clés sont
+        // effacées dès que les tâches déjà en file sont terminées : une
+        // écriture lancée avant le verrouillage est enregistrée au lieu
+        // d’être perdue.
+        drainingRef.current = { session, readOnly: current.readOnly }
+        void queueRef.current.then(() => {
+          if (drainingRef.current?.session === session) drainingRef.current = null
+          session.lock()
+        })
+      } else {
+        // Session ressuscitée par une opération qui s’est terminée après le
+        // verrouillage : on l’efface immédiatement.
+        drainingRef.current = null
         session.lock()
-      })
+      }
     }
     releaseVaultLock()
     void clearClipboardIfLastCopied()
@@ -1614,6 +1649,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       session: null,
       vaults: [],
       items: [],
+      templates: [],
+      activity: [],
+      generatorHistory: [],
+      aliasKeys: {},
       warnings: [],
       readOnly: false,
       syncPending: false,
@@ -1691,6 +1730,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (current.readOnly) {
           throw new Error('Le coffre est ouvert en lecture seule.')
         }
+        const epoch = epochRef.current
         const config = getSharedSyncConfig(current.file.id, vaultId)
         if (!config) throw new Error('Aucun dossier de synchronisation configuré.')
         if (sharedSyncBusyRef.current.has(vaultId)) {
@@ -1728,6 +1768,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           })
           const warnings = [...result.warnings]
           let opened: OpenedVault | null = null
+          if (isStaleEpoch(epoch)) {
+            current.session.lock()
+            throw new Error('Coffre verrouillé pendant la synchronisation.')
+          }
           if (result.changed) {
             const next = await persist(current.file, result.file)
             try {
@@ -1746,6 +1790,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               throw new Error(
                 'Le coffre partagé synchronisé n’a pas pu être rouvert.',
               )
+            }
+            if (isStaleEpoch(epoch)) {
+              opened.session.lock()
+              current.session.lock()
+              throw new Error('Coffre verrouillé pendant la synchronisation.')
             }
             const open = opened
             current.session.lock()
@@ -1768,6 +1817,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               syncRevision: previous.syncRevision + 1,
             }))
           } else {
+            if (isStaleEpoch(epoch)) {
+              current.session.lock()
+              throw new Error('Coffre verrouillé pendant la synchronisation.')
+            }
             apply((previous) => ({
               ...previous,
               syncRevision: previous.syncRevision + 1,
@@ -1811,7 +1864,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           sharedSyncBusyRef.current.delete(vaultId)
         }
       }),
-    [apply, enqueue, lock, persist],
+    [apply, enqueue, isStaleEpoch, lock, persist],
   )
 
   const sharedSyncFileId =
@@ -2020,20 +2073,35 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (hidden.length === 0) {
           throw new Error('Tous les coffres sont déjà marqués sûrs pour le voyage.')
         }
+        // Sans source de restauration, retirer les coffres du fichier et des
+        // sauvegardes rendrait leur récupération impossible.
+        if (!getSyncConfig(current.file.id)) {
+          throw new Error(
+            'Configurez une source de synchronisation avant d’activer le mode voyage.',
+          )
+        }
 
         const stripped = stripVaultForTravel(current.file, safeVaultIds)
         const signed = await signVaultFile(stripped, current.session, current.file, {
           minimumRevision: revisionFloorRef.current,
           createTombstones: false,
         })
-        await saveVaultFile(signed)
-        await overwriteVaultBackups(signed)
-        await acceptRevision(signed)
-        for (const id of hidden) current.session.removeVaultKey(id)
+        // Le marqueur est écrit avant toute écriture destructive : si le
+        // stockage local échoue, le fichier n’a pas encore été modifié.
         setTravelMode(current.file.id, {
           enabled: true,
           safeVaultIds: Array.from(safe),
         })
+        try {
+          await saveVaultFile(signed)
+          // Les sauvegardes tournantes ne sont volontairement pas écrasées :
+          // elles conservent une copie des coffres masqués.
+          await acceptRevision(signed)
+        } catch (error) {
+          clearTravelMode(current.file.id)
+          throw error
+        }
+        for (const id of hidden) current.session.removeVaultKey(id)
         apply((previous) => ({
           ...previous,
           file: signed,
@@ -2054,6 +2122,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (current.readOnly) {
           throw new Error('Le coffre est ouvert en lecture seule.')
         }
+        const epoch = epochRef.current
         const travel = getTravelMode(current.file.id)
         if (!travel?.enabled) {
           throw new Error('Le mode voyage n’est pas actif.')
@@ -2119,6 +2188,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           password: remotePassword ?? password,
         })
         warnings.push(...result.warnings)
+        if (isStaleEpoch(epoch)) {
+          if (result.session !== current.session) result.session.lock()
+          current.session.lock()
+          throw new Error('Coffre verrouillé pendant la restauration.')
+        }
         let signed = current.file
         let opened: OpenedVault | null = null
         if (result.session !== current.session || result.file !== current.file) {
@@ -2154,6 +2228,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           )
         }
 
+        if (isStaleEpoch(epoch)) {
+          opened.session.lock()
+          current.session.lock()
+          if (result.session !== current.session) result.session.lock()
+          throw new Error('Coffre verrouillé pendant la restauration.')
+        }
         clearTravelMode(current.file.id)
         const previousSession = current.session
         current.session.lock()
@@ -2181,7 +2261,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           adoptedEpoch: result.adoptedEpoch,
         }
       }),
-    [apply, enqueue, lock, persistWithSession],
+    [apply, enqueue, isStaleEpoch, lock, persistWithSession],
   )
 
   const consumeGeneratedPassword = useCallback(
@@ -2637,6 +2717,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           throw new VaultValidationError('Import limité à 5 000 éléments à la fois')
         }
 
+        const epoch = epochRef.current
         let draft = current.file
         const created: VaultItem[] = []
         const warnings: string[] = []
@@ -2657,9 +2738,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         if (created.length === 0) return { imported: 0, warnings }
 
-        const epoch = epochRef.current
+        if (isStaleEpoch(epoch)) {
+          current.session.lock()
+          return { imported: 0, warnings }
+        }
         const file = await persist(current.file, draft)
-        if (epochRef.current !== epoch) return { imported: created.length, warnings }
+        if (isStaleEpoch(epoch)) {
+          current.session.lock()
+          return { imported: created.length, warnings }
+        }
 
         apply((previous) => {
           const items = [...previous.items, ...created]
@@ -2676,7 +2763,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         return { imported: created.length, warnings }
       }),
-    [apply, enqueue, persist],
+    [apply, enqueue, isStaleEpoch, persist],
   )
 
   const changePassword = useCallback(
@@ -2699,6 +2786,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const draft = await changeMasterPassword(current.file, current.session, newPassword)
         // Une enveloppe PRF scellée avec l’ancienne clé maîtresse est invalide.
         delete draft.prf
+        if (isStaleEpoch(epoch)) {
+          current.session.lock()
+          return
+        }
         let file: VaultFile
         try {
           file = await persist(current.file, draft)
@@ -2732,7 +2823,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
       }),
-    [apply, enqueue, lock, persist],
+    [apply, enqueue, isStaleEpoch, lock, persist],
   )
 
   const setRecoveryPhrase = useCallback(
@@ -2745,6 +2836,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const draft = phrase
           ? await enableRecovery(current.file, current.session, phrase)
           : disableRecovery(current.file, current.session)
+        if (isStaleEpoch(epoch)) {
+          current.session.lock()
+          return
+        }
         let file: VaultFile
         try {
           file = await persist(current.file, draft)
@@ -2755,7 +2850,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (epochRef.current !== epoch) return
         apply((previous) => ({ ...previous, file }))
       }),
-    [apply, enqueue, lock, persist],
+    [apply, enqueue, isStaleEpoch, lock, persist],
   )
 
   const recoverWithPhrase = useCallback(
@@ -2978,12 +3073,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const current = stateRef.current
         await clearVaultStorage()
         clearUsage()
+        clearSecurityHistory()
+        try {
+          setAliasDefaults({ baseEmail: '', mode: 'plus' })
+          localStorage.removeItem('coffre:expiry-notified:v1')
+          localStorage.removeItem(SHARED_SYNC_CONFIG_KEY)
+        } catch {
+          // Le stockage local peut être indisponible : l’effacement du coffre
+          // reste prioritaire.
+        }
         epochRef.current += 1
         revisionFloorRef.current = 0
         current.session?.lock()
         releaseVaultLock()
         void clearClipboardIfLastCopied()
         if (current.file) {
+          clearTravelMode(current.file.id)
           biometricKeyFileRef.current = null
           await deleteVaultKey(current.file.id)
           await deleteBiometricKey(current.file.id)
@@ -3171,6 +3276,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (current.readOnly) {
           throw new Error('Le coffre est ouvert en lecture seule.')
         }
+        const epoch = epochRef.current
         if (getTravelMode(current.file.id)?.enabled) {
           throw new Error(
             'Le mode voyage est actif. Désactivez-le pour synchroniser sans écraser les coffres masqués.',
@@ -3231,6 +3337,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        if (isStaleEpoch(epoch)) {
+          current.session.lock()
+          throw new Error('Coffre verrouillé pendant la synchronisation.')
+        }
         const result = await reconcileVaultFiles({
           local: current.file,
           session: current.session,
@@ -3238,6 +3348,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           password,
         })
         warnings.push(...result.warnings)
+        if (isStaleEpoch(epoch)) {
+          if (result.session !== current.session) result.session.lock()
+          current.session.lock()
+          throw new Error('Coffre verrouillé pendant la synchronisation.')
+        }
 
         let signed = current.file
         let opened: OpenedVault | null = null
@@ -3299,6 +3414,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        if (isStaleEpoch(epoch)) {
+          opened?.session.lock()
+          current.session.lock()
+          if (result.session !== current.session) result.session.lock()
+          throw new Error('Coffre verrouillé pendant la synchronisation.')
+        }
         if (opened) {
           const previousSession = current.session
           current.session.lock()
@@ -3334,7 +3455,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           adoptedEpoch: result.adoptedEpoch,
         }
       }),
-    [apply, enqueue, lock, persistWithSession],
+    [apply, enqueue, isStaleEpoch, lock, persistWithSession],
   )
 
   const lanSync = useCallback(
@@ -3345,6 +3466,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (current.readOnly) {
           throw new Error('Le coffre est ouvert en lecture seule.')
         }
+        const epoch = epochRef.current
         let remote: VaultFile
         try {
           remote = parseVaultFileText(remoteText)
@@ -3359,6 +3481,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           password,
         })
         const warnings = [...result.warnings]
+        if (isStaleEpoch(epoch)) {
+          if (result.session !== current.session) result.session.lock()
+          current.session.lock()
+          throw new Error('Coffre verrouillé pendant la synchronisation.')
+        }
         let signed = current.file
         let opened: OpenedVault | null = null
         if (result.session !== current.session || result.file !== current.file) {
@@ -3388,6 +3515,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
 
         syncIgnoreUntilRef.current = Date.now() + 2_000
+        if (isStaleEpoch(epoch)) {
+          opened?.session.lock()
+          current.session.lock()
+          if (result.session !== current.session) result.session.lock()
+          throw new Error('Coffre verrouillé pendant la synchronisation.')
+        }
         if (opened) {
           const previousSession = current.session
           current.session.lock()
@@ -3423,7 +3556,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           adoptedEpoch: result.adoptedEpoch,
         }
       }),
-    [apply, enqueue, lock, persistWithSession],
+    [apply, enqueue, isStaleEpoch, lock, persistWithSession],
   )
 
   const confirmMasterPassword = useCallback(

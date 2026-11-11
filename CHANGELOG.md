@@ -67,6 +67,19 @@
   `COFFRE_BRIDGE_SOCKET` n’est active qu’en build de débogage.
 - Les identifiants de blobs et de synchronisation refusent les noms réservés
   Windows (`CON`, `NUL`, `COM1`, etc.).
+- **Verrouillage** : les opérations longues (sync, import, restauration voyage)
+  vérifient l’époque de verrouillage avant d’appliquer leur résultat ; une
+  session ressuscitée est effacée immédiatement et les sidecars déchiffrés
+  (activité, historique du générateur, clés d’alias, modèles) sont vidés.
+- **Presse-papiers** : une copie qui se termine après le verrouillage est
+  immédiatement effacée ; le code d’appairage LAN utilise le même mécanisme.
+- **Mode voyage** : activation impossible sans source de synchronisation, le
+  marqueur est écrit avant toute écriture destructive et les sauvegardes
+  tournantes ne sont plus écrasées par la version strippée.
+- **Exports en clair** : CXF, KDBX et journal d’activité exigent à nouveau le
+  mot de passe maître.
+- « Tout effacer » supprime aussi l’historique de sécurité, les préférences
+  d’alias, les notifications d’échéance et la configuration de partage local.
 
 ## 0.13.0 — 11 novembre 2026
 

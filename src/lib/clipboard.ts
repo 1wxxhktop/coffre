@@ -17,6 +17,7 @@ import { isTauriRuntime } from './external'
 
 let clearTimer: ReturnType<typeof setTimeout> | null = null
 let lastCopied: string | null = null
+let lockEpoch = 0
 
 async function webCopy(text: string): Promise<boolean> {
   try {
@@ -114,12 +115,18 @@ export async function copySensitive(
   clearSeconds: number,
   onCleared?: () => void,
 ): Promise<boolean> {
+  const epoch = lockEpoch
   const success = await copyToClipboard(text)
-  if (success) {
-    lastCopied = text
-    scheduleClipboardClear(text, clearSeconds, onCleared)
+  if (!success) return false
+  // Un verrouillage survenu pendant l’écriture asynchrone doit gagner : on
+  // efface immédiatement le secret qui vient d’être déposé.
+  if (epoch !== lockEpoch) {
+    await clearClipboardIfMatches(text)
+    return false
   }
-  return success
+  lastCopied = text
+  scheduleClipboardClear(text, clearSeconds, onCleared)
+  return true
 }
 
 /**
@@ -127,6 +134,7 @@ export async function copySensitive(
  * toujours celui copié par Coffre.
  */
 export async function clearClipboardIfLastCopied(): Promise<void> {
+  lockEpoch += 1
   const expected = lastCopied
   if (!expected) return
   lastCopied = null

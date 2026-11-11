@@ -3,6 +3,7 @@ import { AlertTriangle, Download, LoaderCircle, ShieldCheck } from 'lucide-react
 import { Modal } from './Modal'
 import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
+import { useVault } from '../state/VaultProvider'
 import { writeKdbx } from '../lib/kdbx'
 import { downloadBytes } from '../lib/settings'
 import type { VaultItem, VaultSummary } from '../lib/types'
@@ -21,8 +22,10 @@ interface KdbxExportDialogProps {
 export function KdbxExportDialog({ items, vaults, onClose }: KdbxExportDialogProps) {
   const { tt } = useI18n()
   const { toast } = useToast()
+  const { confirmMasterPassword } = useVault()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [masterPassword, setMasterPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,6 +34,7 @@ export function KdbxExportDialog({ items, vaults, onClose }: KdbxExportDialogPro
     active.length > 0 &&
     password.length >= 8 &&
     password === confirmPassword &&
+    masterPassword.length > 0 &&
     !busy
 
   const exportFile = async () => {
@@ -38,6 +42,11 @@ export function KdbxExportDialog({ items, vaults, onClose }: KdbxExportDialogPro
     setBusy(true)
     setError(null)
     try {
+      if (!(await confirmMasterPassword(masterPassword))) {
+        setError(tt('Mot de passe maître incorrect'))
+        return
+      }
+      setMasterPassword('')
       const bytes = await writeKdbx({
         password,
         items: active,
@@ -51,6 +60,7 @@ export function KdbxExportDialog({ items, vaults, onClose }: KdbxExportDialogPro
       setError(
         caught instanceof Error ? caught.message : tt('Export KDBX impossible'),
       )
+    } finally {
       setBusy(false)
     }
   }
@@ -89,6 +99,18 @@ export function KdbxExportDialog({ items, vaults, onClose }: KdbxExportDialogPro
             'Le fichier .kdbx contient tous les éléments actifs. Les pièces jointes et l’historique ne sont pas inclus.',
           )}
         </p>
+
+        <label className="field field--full">
+          <span className="field__label">{tt('Mot de passe maître')}</span>
+          <input
+            className="input"
+            type="password"
+            value={masterPassword}
+            onChange={(event) => setMasterPassword(event.target.value)}
+            autoComplete="current-password"
+            placeholder={tt('Ressaisissez votre mot de passe maître')}
+          />
+        </label>
 
         <label className="field field--full">
           <span className="field__label">{tt('Mot de passe KDBX')}</span>
