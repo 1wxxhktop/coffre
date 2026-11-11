@@ -178,6 +178,9 @@ interface ExtensionMessage {
   decision?: string
   signals?: string[]
   choice?: string
+  token?: string
+  topHost?: string
+  mode?: string
 }
 
 interface AppStatus {
@@ -2573,9 +2576,53 @@ const CONTENT_SCRIPT_MESSAGES = new Set<string>([
   'CONTENT_CONTEXT',
   'FORM_SUBMITTED',
   'GET_PENDING_BANNER',
+  'MENU_REGISTER',
   'PASSKEY_CANCEL',
   'PASSKEY_REQUEST',
 ])
+
+interface MenuTokenContext {
+  tabId: number
+  frameId: number
+  host: string
+  topHost: string
+  url: string
+  kind: ExtensionAutofillKind
+  mode: string
+  expiresAt: number
+}
+
+const MENU_TOKEN_TTL_MS = 120_000
+const MENU_TOKEN_PATTERN = /^[a-f0-9]{32}$/
+const menuTokens = new Map<string, MenuTokenContext>()
+
+function pruneMenuTokens(): void {
+  const now = Date.now()
+  for (const [token, context] of menuTokens) {
+    if (context.expiresAt < now) menuTokens.delete(token)
+  }
+}
+
+function menuContextFor(
+  sender: chrome.runtime.MessageSender,
+  token: unknown,
+): MenuTokenContext | null {
+  if (!isMenuPage(sender) || typeof token !== 'string') return null
+  if (!MENU_TOKEN_PATTERN.test(token)) return null
+  const context = menuTokens.get(token)
+  if (!context || context.expiresAt < Date.now()) {
+    if (context) menuTokens.delete(token)
+    return null
+  }
+  // Dans le cas normal, le menu est une iframe de l’onglet cible : son
+  // `sender.tab` est celui de la page. Un menu ouvert dans son propre onglet
+  // (parcours de test) est une page d’extension de confiance et peut utiliser
+  // le contexte enregistré.
+  const topLevelMenu =
+    sender.tab?.url?.startsWith(api.runtime.getURL('menu.html')) ?? false
+  if (!topLevelMenu && sender.tab?.id !== context.tabId) return null
+  return context
+}
 
 async function handle(
   message: ExtensionMessage,
@@ -2589,6 +2636,10 @@ async function handle(
       return { error: 'forbidden' }
     }
   }
+  const menuContext = menuContextFor(sender, message.token)
+  if (isMenuPage(sender) && !menuContext) {
+    return { error: 'forbidden' }
+  }
   switch (message.type) {
     case 'GET_STATUS':
       return readStatus()
@@ -2599,8 +2650,8 @@ async function handle(
     case 'DETAILS':
       return itemDetails(
         message.itemId ?? '',
-        message.host ?? '',
-        message.url ?? '',
+        menuContext?.host ?? message.host ?? '',
+        menuContext?.url ?? message.url ?? '',
       )
     case 'OPEN_APP':
     case 'FOCUS_APP':
@@ -2687,24 +2738,15 @@ async function handle(
       return { ok: true }
     }
     case 'FILL_SIGNUP': {
-      if (!isMenuPage(sender)) return { error: 'forbidden' }
-      const tabId = Number(message.tabId)
-      const frameId = Number(message.frameId)
+      const context = menuContext!
       const password =
         typeof message.password === 'string' ? message.password : ''
-      if (
-        !Number.isInteger(tabId) ||
-        tabId < 0 ||
-        !Number.isInteger(frameId) ||
-        frameId < 0 ||
-        password.length < 4 ||
-        password.length > 128
-      ) {
+      if (password.length < 4 || password.length > 128) {
         return { error: 'invalid' }
       }
+      const { tabId, frameId, host } = context
       const tab = await api.tabs.get(tabId).catch(() => undefined)
-      const host = tab?.url ? hostFromUrl(tab.url) : ''
-      if (!host) return { error: 'no-tab' }
+      if (!tab) return { error: 'no-tab' }
       if (!(await fillAllowedForHost(host))) return { error: 'excluded' }
       if (!(await ensureContentScript(tabId, frameId))) {
         return { error: 'permission' }
@@ -2726,7 +2768,7 @@ async function handle(
     }
     case 'SET_SITE_EXCLUSION': {
       if (!isExtensionPage(sender)) return { error: 'forbidden' }
-      const host = siteKey(message.host ?? '')
+      const host = siteKey(menuContext?.host ?? message.host ?? '')
       const kind = message.kind === 'save' ? 'save' : 'fill'
       if (!host) return { error: 'invalid' }
       const excluded = message.excluded !== false
@@ -2812,32 +2854,75 @@ async function handle(
       )
     case 'ALIAS_GENERATE':
       return aliasForHost(message.host ?? '')
-    case 'MENU_SEARCH':
+    case 'MENU_REGISTER': {
+      // Le content script enregistre le menu qu’il crée ; une page de
+      // l’extension peut aussi le faire pour les parcours de test. Une page
+      // web ne peut pas envoyer de message runtime.
+      if (
+        typeof message.token !== 'string' ||
+        !MENU_TOKEN_PATTERN.test(message.token)
+      ) {
+        return { error: 'invalid' }
+      }
+      const tabId = Number(message.tabId)
+      const frameId = Number(message.frameId)
+      const host =
+        typeof message.host === 'string' ? message.host.slice(0, 253) : ''
+      if (
+        !Number.isInteger(tabId) ||
+        tabId < 0 ||
+        !Number.isInteger(frameId) ||
+        frameId < 0 ||
+        !host
+      ) {
+        return { error: 'invalid' }
+      }
+      const kind: ExtensionAutofillKind =
+        message.kind === 'card' ||
+        message.kind === 'identity' ||
+        message.kind === 'custom'
+          ? message.kind
+          : 'login'
+      pruneMenuTokens()
+      menuTokens.set(message.token, {
+        tabId,
+        frameId,
+        host,
+        topHost:
+          typeof message.topHost === 'string'
+            ? message.topHost.slice(0, 253)
+            : '',
+        url:
+          typeof message.url === 'string' ? message.url.slice(0, 2048) : '',
+        kind,
+        mode:
+          typeof message.mode === 'string' ? message.mode.slice(0, 16) : 'badge',
+        expiresAt: Date.now() + MENU_TOKEN_TTL_MS,
+      })
+      return { ok: true }
+    }
+    case 'MENU_SEARCH': {
+      const context = menuContext!
       return menuSearch(
-        Number(message.tabId),
-        message.host ?? '',
+        context.tabId,
+        context.host,
         message.query ?? '',
-        message.kind === 'card' ||
-        message.kind === 'identity' ||
-        message.kind === 'custom'
-          ? message.kind
-          : 'login',
+        context.kind,
       )
-    case 'MENU_FILL':
+    }
+    case 'MENU_FILL': {
+      const context = menuContext!
       return menuFill(
-        Number(message.tabId),
-        Number(message.frameId),
-        message.host ?? '',
-        message.url ?? '',
+        context.tabId,
+        context.frameId,
+        context.host,
+        context.url,
         message.itemId ?? '',
-        message.kind === 'card' ||
-        message.kind === 'identity' ||
-        message.kind === 'custom'
-          ? message.kind
-          : 'login',
+        context.kind,
         message.includeSensitive === true,
         message.overridePhishing === true,
       )
+    }
     case 'FORM_SUBMITTED':
       return formSubmitted(sender, message)
     case 'GET_PENDING_BANNER': {
@@ -2895,7 +2980,8 @@ async function handle(
     }
     case 'SAVE_STATUS': {
       if (!(await pendingSessionUnlocked())) return { pending: null }
-      const key = saveKey(Number(message.tabId), Number(message.frameId))
+      const context = menuContext!
+      const key = saveKey(context.tabId, context.frameId)
       const pending = await pendingSaveStore.get(key)
       if (!pending) return { pending: null }
       if (!(await saveAllowedForHost(pending.host))) {
@@ -2912,12 +2998,14 @@ async function handle(
         },
       }
     }
-    case 'SAVE_NOW':
+    case 'SAVE_NOW': {
+      const context = menuContext!
       return menuSave(
-        Number(message.tabId),
-        Number(message.frameId),
+        context.tabId,
+        context.frameId,
         message.overridePhishing === true,
       )
+    }
     case 'GET_PENDING_SAVE': {
       if (!(await pendingSessionUnlocked())) return { pending: null }
       const tabId = Number(message.tabId)
@@ -2951,7 +3039,7 @@ async function handle(
       )
     }
     case 'PHISHING_CHOICE': {
-      const host = message.host ?? ''
+      const host = menuContext?.host ?? message.host ?? ''
       const choice =
         message.choice === 'continue'
           ? 'continue'
@@ -2969,7 +3057,8 @@ async function handle(
       return { ok: true }
     }
     case 'SAVE_DISMISS': {
-      const key = saveKey(Number(message.tabId), Number(message.frameId))
+      const context = menuContext!
+      const key = saveKey(context.tabId, context.frameId)
       await clearPendingSave(key)
       return { ok: true }
     }

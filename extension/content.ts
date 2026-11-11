@@ -34,6 +34,13 @@ import { isSiteExcluded } from './siteExclusions'
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 const MENU_ORIGIN = new URL(api.runtime.getURL('menu.html')).origin
 
+/** Jeton imprévisible liant un menu à son onglet et à son cadre. */
+function menuToken(): string {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
 // Le script du monde MAIN peut ainsi vérifier que le relais est déjà à
 // l’écoute avant d’intercepter une requête WebAuthn très précoce.
 document.documentElement.setAttribute('data-coffre-webauthn-ready', '')
@@ -349,7 +356,27 @@ function showMenu(
   url.searchParams.set('kind', kind)
   url.searchParams.set('mode', mode)
   if (signup) url.searchParams.set('signup', '1')
-  iframe.src = url.toString()
+  const token = menuToken()
+  url.searchParams.set('token', token)
+  // Le menu ne peut agir que si son jeton est enregistré pour cet onglet.
+  // On attend l’enregistrement avant de charger l’iframe pour éviter que le
+  // menu n’envoie sa première requête avant que le jeton soit connu.
+  void api.runtime
+    .sendMessage({
+      type: 'MENU_REGISTER',
+      token,
+      tabId: context.tabId,
+      frameId: context.frameId,
+      host: context.host,
+      topHost: context.topHost,
+      url: location.href.slice(0, 2048),
+      kind,
+      mode,
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      if (iframe.isConnected) iframe.src = url.toString()
+    })
   shadow.append(iframe)
   const initialWidth =
     mode === 'badge' ? 40 : Math.min(340, Math.max(40, window.innerWidth - 16))

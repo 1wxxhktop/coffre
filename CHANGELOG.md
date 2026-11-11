@@ -128,6 +128,9 @@
   `FORM_SUBMITTED`, `GET_PENDING_BANNER`, `PASSKEY_REQUEST` et
   `PASSKEY_CANCEL` ; recherche, détails, remplissage, appairage et sauvegarde
   sont réservés aux pages de l’extension.
+- **Menu inline** : chaque menu reçoit un jeton aléatoire lié à son onglet et à
+  son cadre, enregistré avant le chargement de l’iframe. Un `menu.html` encadré
+  directement par un site ne peut plus agir sans ce jeton.
 
 ### CI et release
 
