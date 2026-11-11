@@ -2569,10 +2569,26 @@ async function onContextMenuClicked(
   }
 }
 
+const CONTENT_SCRIPT_MESSAGES = new Set<string>([
+  'CONTENT_CONTEXT',
+  'FORM_SUBMITTED',
+  'GET_PENDING_BANNER',
+  'PASSKEY_CANCEL',
+  'PASSKEY_REQUEST',
+])
+
 async function handle(
   message: ExtensionMessage,
   sender: chrome.runtime.MessageSender,
 ): Promise<unknown> {
+  // Les content scripts ne peuvent envoyer que les messages liés à leur page.
+  // Tout le reste (recherche, détails, appairage, sauvegarde…) est réservé aux
+  // pages de l’extension.
+  if (!isExtensionPage(sender)) {
+    if (!sender.tab || !CONTENT_SCRIPT_MESSAGES.has(message.type ?? '')) {
+      return { error: 'forbidden' }
+    }
+  }
   switch (message.type) {
     case 'GET_STATUS':
       return readStatus()

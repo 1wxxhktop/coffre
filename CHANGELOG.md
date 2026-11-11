@@ -118,6 +118,17 @@
   manifeste ; les pierres tombales de modèles sont validées ; `addAttachment`
   relit le contenu existant pour appliquer les plafonds.
 
+### Tauri
+
+- **AppManifest** : les 67 commandes applicatives sont déclarées et couvertes
+  par la capacité `default` de la fenêtre principale. Une WebView non locale
+  ne peut plus appeler ces commandes par défaut.
+- Les permissions générées par `tauri-build` sont ignorées par Git.
+- **Extension** : les content scripts ne peuvent envoyer que `CONTENT_CONTEXT`,
+  `FORM_SUBMITTED`, `GET_PENDING_BANNER`, `PASSKEY_REQUEST` et
+  `PASSKEY_CANCEL` ; recherche, détails, remplissage, appairage et sauvegarde
+  sont réservés aux pages de l’extension.
+
 ### CI et release
 
 - Toutes les actions GitHub sont épinglées par SHA, y compris le job de
