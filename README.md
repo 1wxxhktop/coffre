@@ -9,7 +9,7 @@ dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 cara
 L’interface est en français.
 
 > **État du projet — 0.13.0 (comptes partageant un mot de passe réutilisé).**
-> La version web/PWA est fonctionnelle et couverte par 763 tests unitaires et
+> La version web/PWA est fonctionnelle et couverte par 785 tests unitaires et
 > des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
 > continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;
 > les bundles desktop des trois systèmes sont compilés à chaque push sur
@@ -23,10 +23,11 @@ L’interface est en français.
 
 ## Pourquoi pas un fork de Proton Pass ?
 
-Un audit complet de la version 0.8.0 est disponible dans
-[docs/AUDIT-2026-11-07.md](docs/AUDIT-2026-11-07.md) : constats, sévérités,
-corrections appliquées et plan de remédiation. L’état de préparation grand
-public et les bloquants de distribution sont détaillés dans
+Un audit complet de la version 0.12.0 est disponible dans
+[docs/AUDIT-2026-11-11.md](docs/AUDIT-2026-11-11.md) : constats, sévérités,
+corrections appliquées et plan de remédiation. L’audit précédent (0.8.0) reste
+disponible dans [docs/AUDIT-2026-11-07.md](docs/AUDIT-2026-11-07.md). L’état de
+préparation grand public et les bloquants de distribution sont détaillés dans
 [docs/RELEASE-READINESS.md](docs/RELEASE-READINESS.md).
 
 Le point de départ demandé était
@@ -793,9 +794,9 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run dev` | Serveur de développement Vite sur le port 1420 |
 | `bun run build` | Vérification TypeScript puis build PWA |
 | `bun run preview` | Prévisualisation du build |
-| `bun run test` | Tests Vitest (676 tests) |
+| `bun run test` | Tests Vitest (780 tests) |
 | `bun run test:watch` | Tests en mode surveillance |
-| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (156 exécutions) |
+| `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (168 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |

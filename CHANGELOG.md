@@ -109,6 +109,10 @@
   désormais le rôle local.
 - **TOTP** : les algorithmes inconnus sont refusés ; les chiffres (6–8) et la
   période (1–300 s) sont validés de la même façon en TypeScript et en Rust.
+- **Biométrie** : le texte du dialogue système est fixe côté Rust ; une page
+  compromise ne peut plus présenter une demande trompeuse.
+- `setAliasDefaults` tolère un stockage local indisponible ; `NOTICE` et le
+  README reflètent les dépendances et compteurs actuels.
 - `setVaultKey` efface l’ancienne clé ; `addVault` vérifie la clé de récupération
   avant toute mutation ; la vérification compte tous les enregistrements du
   manifeste ; les pierres tombales de modèles sont validées ; `addAttachment`
