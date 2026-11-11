@@ -208,6 +208,22 @@ pub fn item_version_aad(vault_id: &str, item_id: &str, version_id: &str) -> Stri
 pub fn item_attachment_aad(vault_id: &str, item_id: &str, attachment_id: &str) -> String {
     format!("coffre:v1:item-attachment:{vault_id}:{item_id}:{attachment_id}")
 }
+pub fn alias_key_aad(service: &str) -> String {
+    format!("coffre:v1:alias-key:{service}")
+}
+
+pub fn activity_aad(event_id: &str) -> String {
+    format!("coffre:v1:activity:{event_id}")
+}
+
+pub fn generator_history_aad(entry_id: &str) -> String {
+    format!("coffre:v1:generator-history:{entry_id}")
+}
+
+pub fn template_key_aad(template_id: &str) -> String {
+    format!("coffre:v1:template-key:{template_id}")
+}
+
 pub fn integrity_key_aad() -> &'static str {
     "coffre:v1:integrity-key"
 }

@@ -1,4 +1,7 @@
-use coffre_core::{CoreError, IntegrityState, Manifest, VaultFile, open, sign};
+use coffre_core::{
+    CoreError, IntegrityState, Manifest, RecoveryTemplateWrap, SealedValue, VaultFile,
+    derive_master_key, open, open_bytes, sign,
+};
 
 const PASSWORD: &str = "phrase de passe de test solide";
 
@@ -346,6 +349,110 @@ fn change_le_mot_de_passe_et_reenveloppe_les_cles() {
         open(&signed, PASSWORD),
         Err(CoreError::WrongPassword)
     ));
+}
+
+#[test]
+fn rotation_reescelle_les_sidecars_et_preserve_template_wraps() {
+    let mut base = fixture("v4.coffre.json");
+    let master = derive_master_key(PASSWORD, &base.kdf).expect("clé maîtresse");
+    let entry_id = "gen_test";
+    let payload = serde_json::json!({
+        "password": "genere-pour-le-test-42",
+        "state": "available"
+    });
+    let data = coffre_core::seal_bytes(
+        &serde_json::to_vec(&payload).expect("payload JSON"),
+        &master,
+        &format!("coffre:v1:generator-history:{entry_id}"),
+    )
+    .expect("scellement générateur");
+    base.generator_history.push(serde_json::json!({
+        "id": entry_id,
+        "data": data,
+        "createdAt": "2026-11-11T09:59:00.000Z"
+    }));
+    base.recovery
+        .as_mut()
+        .expect("enveloppe de récupération")
+        .template_wraps
+        .push(RecoveryTemplateWrap {
+            template_id: "tpl_test".into(),
+            key: SealedValue {
+                n: "n".into(),
+                c: "c".into(),
+            },
+        });
+
+    let mut opened = open(&base, PASSWORD).expect("ouverture");
+    let new_password = "nouveau mot de passe de test solide";
+    let rotated = coffre_core::rotate_password(
+        &opened.file,
+        &mut opened.session,
+        new_password,
+        &opened.file.kdf,
+        "2026-11-11T10:00:00.000Z",
+    )
+    .expect("rotation");
+    let signed = sign(
+        rotated,
+        &mut opened.session,
+        Some(&base),
+        "w_rotation_sidecars",
+        "2026-11-11T10:01:00.000Z",
+    )
+    .expect("signature");
+    assert_eq!(
+        signed
+            .recovery
+            .as_ref()
+            .expect("récupération")
+            .template_wraps
+            .len(),
+        1
+    );
+
+    let new_master = derive_master_key(new_password, &signed.kdf).expect("nouvelle clé");
+    let entry = signed
+        .generator_history
+        .iter()
+        .find(|entry| entry["id"].as_str() == Some(entry_id))
+        .expect("entrée générateur");
+    let sealed: SealedValue =
+        serde_json::from_value(entry["data"].clone()).expect("ciphertext générateur");
+    let plaintext = open_bytes(
+        &sealed,
+        &new_master,
+        &format!("coffre:v1:generator-history:{entry_id}"),
+    )
+    .expect("déchiffrement avec la nouvelle clé");
+    let payload: serde_json::Value = serde_json::from_slice(&plaintext).expect("payload JSON");
+    assert!(payload.get("password").is_some());
+}
+
+#[test]
+fn rotation_refuse_partage_et_urgence_non_reenveloppables() {
+    let mut base = fixture("v4.coffre.json");
+    base.emergency = Some(serde_json::json!({
+        "version": 1,
+        "mode": "immediate",
+        "contact": {
+            "encryptionPublicKey": "enc",
+            "signingPublicKey": "sign",
+            "fingerprint": "fp"
+        },
+        "sealed": { "enc": "enc", "ciphertext": "ciphertext" },
+        "createdAt": "2026-11-11T10:00:00.000Z"
+    }));
+    let mut opened = open(&base, PASSWORD).expect("ouverture");
+    let error = coffre_core::rotate_password(
+        &opened.file,
+        &mut opened.session,
+        "nouveau mot de passe de test solide",
+        &opened.file.kdf,
+        "2026-11-11T10:00:00.000Z",
+    )
+    .expect_err("rotation refusée");
+    assert!(error.to_string().contains("accès d’urgence"));
 }
 
 #[test]

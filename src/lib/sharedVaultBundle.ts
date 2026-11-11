@@ -40,6 +40,10 @@ import {
   adoptVaultKey,
   adoptVaultSharingMembers,
   canonicalJson,
+  parseBundleAttachmentRecord,
+  parseBundleItemRecord,
+  parseBundleTombstone,
+  parseBundleVersionRecord,
   readVaultSharing,
   type VaultSession,
 } from './vault'
@@ -152,6 +156,24 @@ export async function signSharedVaultBundle(
   }
 }
 
+function assertDate(value: string, label: string): void {
+  if (Number.isNaN(Date.parse(value))) throw new Error(`${label} invalide`)
+}
+
+function assertSealed(value: unknown, label: string): asserts value is Sealed {
+  if (!value || typeof value !== 'object') throw new Error(`${label} invalide`)
+  const sealed = value as Record<string, unknown>
+  if (
+    typeof sealed.n !== 'string' ||
+    sealed.n.length === 0 ||
+    sealed.n.length > 64 ||
+    typeof sealed.c !== 'string' ||
+    sealed.c.length === 0
+  ) {
+    throw new Error(`${label} invalide`)
+  }
+}
+
 /** Valide un paquet de contenu reçu avant import. */
 export async function parseSharedVaultBundle(
   value: unknown,
@@ -174,6 +196,7 @@ export async function parseSharedVaultBundle(
     !Array.isArray(record.items) ||
     !Array.isArray(record.attachments) ||
     !Array.isArray(record.versions) ||
+    (record.tombstones !== undefined && !Array.isArray(record.tombstones)) ||
     !record.vault ||
     typeof record.vault !== 'object'
   ) {
@@ -198,41 +221,111 @@ export async function parseSharedVaultBundle(
   ) {
     throw new Error('Paquet de contenu trop volumineux')
   }
-  const items = record.items as EncryptedItemRecord[]
-  if (
-    items.some(
-      (item) =>
-        !item ||
-        typeof item.id !== 'string' ||
-        item.vaultId !== vault.id ||
-        !item.key ||
-        !item.content,
-    )
-  ) {
-    throw new Error('Élément partagé invalide')
+  assertDate(record.exportedAt, 'date d’export')
+  assertDate(vault.createdAt, 'date de création du coffre')
+  assertDate(vault.updatedAt, 'date de mise à jour du coffre')
+  assertSealed(vault.name, 'nom du coffre')
+
+  const items: EncryptedItemRecord[] = []
+  const itemIds = new Set<string>()
+  for (const raw of record.items) {
+    let item: EncryptedItemRecord
+    try {
+      item = parseBundleItemRecord(raw)
+    } catch {
+      throw new Error('Élément partagé invalide')
+    }
+    if (item.vaultId !== vault.id) {
+      throw new Error('Élément rattaché à un autre coffre')
+    }
+    if (itemIds.has(item.id)) throw new Error('Élément partagé en double')
+    assertDate(item.createdAt, 'date de création d’un élément')
+    assertDate(item.updatedAt, 'date de mise à jour d’un élément')
+    itemIds.add(item.id)
+    items.push(item)
   }
+
+  const attachments: EncryptedAttachmentRecord[] = []
+  const attachmentIds = new Set<string>()
+  for (const raw of record.attachments) {
+    let attachment: EncryptedAttachmentRecord
+    try {
+      attachment = parseBundleAttachmentRecord(raw)
+    } catch {
+      throw new Error('Pièce jointe partagée invalide')
+    }
+    if (
+      attachment.vaultId !== vault.id ||
+      !itemIds.has(attachment.itemId)
+    ) {
+      throw new Error('Pièce jointe rattachée à un élément inconnu')
+    }
+    if (attachmentIds.has(attachment.id)) {
+      throw new Error('Pièce jointe partagée en double')
+    }
+    assertDate(attachment.createdAt, 'date de création d’une pièce jointe')
+    attachmentIds.add(attachment.id)
+    attachments.push(attachment)
+  }
+
+  const versions: EncryptedVersionRecord[] = []
+  const versionIds = new Set<string>()
+  for (const raw of record.versions) {
+    let version: EncryptedVersionRecord
+    try {
+      version = parseBundleVersionRecord(raw)
+    } catch {
+      throw new Error('Version partagée invalide')
+    }
+    if (version.vaultId !== vault.id || !itemIds.has(version.itemId)) {
+      throw new Error('Version rattachée à un élément inconnu')
+    }
+    if (versionIds.has(version.id)) {
+      throw new Error('Version partagée en double')
+    }
+    assertDate(version.createdAt, 'date de création d’une version')
+    versionIds.add(version.id)
+    versions.push(version)
+  }
+
+  const tombstones: VaultTombstone[] = []
+  const tombstoneIds = new Set<string>()
+  for (const raw of record.tombstones ?? []) {
+    let tombstone: VaultTombstone
+    try {
+      tombstone = parseBundleTombstone(raw)
+    } catch {
+      throw new Error('Pierre tombale partagée invalide')
+    }
+    if (tombstone.kind !== 'item') {
+      throw new Error('Pierre tombale partagée invalide')
+    }
+    if (tombstoneIds.has(tombstone.id)) {
+      throw new Error('Pierre tombale partagée en double')
+    }
+    assertDate(tombstone.deletedAt, 'date de suppression d’une pierre tombale')
+    const item = items.find((candidate) => candidate.id === tombstone.id)
+    if (item && Date.parse(tombstone.deletedAt) >= Date.parse(item.updatedAt)) {
+      throw new Error('Pierre tombale incohérente avec un élément présent')
+    }
+    tombstoneIds.add(tombstone.id)
+    tombstones.push(tombstone)
+  }
+
   const bundle: SharedVaultBundle = {
     format: 'coffre-shared-vault',
     version: 1,
     package: pkg,
     vault: {
       id: vault.id,
-      name: vault.name as Sealed,
+      name: vault.name,
       createdAt: vault.createdAt,
       updatedAt: vault.updatedAt,
     },
     items,
-    attachments: record.attachments as EncryptedAttachmentRecord[],
-    versions: record.versions as EncryptedVersionRecord[],
-    tombstones: Array.isArray(record.tombstones)
-      ? (record.tombstones as VaultTombstone[]).filter(
-          (tombstone) =>
-            tombstone &&
-            tombstone.kind === 'item' &&
-            typeof tombstone.id === 'string' &&
-            typeof tombstone.deletedAt === 'string',
-        )
-      : [],
+    attachments,
+    versions,
+    tombstones,
     exportedAt: record.exportedAt,
   }
   if (record.sender !== undefined) {
@@ -292,9 +385,20 @@ export async function importSharedVaultBundle(
     role: member.role.role,
   }))
   const existing = file.vaults.find((vault) => vault.id === vaultId)
+  const localSharing = existing
+    ? await readVaultSharing(file, session, vaultId)
+    : null
+  const localAdmin =
+    localSharing?.adminFingerprint ??
+    localSharing?.package?.admin.fingerprint
+  if (localAdmin && localAdmin !== bundle.package.admin.fingerprint) {
+    throw new Error(
+      'Changement d’administrateur du coffre partagé refusé : seul l’administrateur actuel peut transférer ce rôle.',
+    )
+  }
   let previousPackage: SharedVaultPackage | undefined
   if (existing) {
-    const localSharing = await readVaultSharing(file, session, vaultId)
+    if (!localSharing) throw new Error('Métadonnées de partage illisibles')
     const localKey = session.vaultKey(vaultId)
     if (!equalBytes(localKey, vaultKey)) {
       if (
@@ -421,6 +525,11 @@ export async function importSharedVaultBundle(
       if (itemKey) wipe(itemKey)
     }
     const local = itemsById.get(candidate.id)
+    if (local && local.vaultId !== vaultId) {
+      throw new Error(
+        'Collision d’identifiant avec un élément d’un autre coffre : bundle refusé.',
+      )
+    }
     if (!local) {
       itemsById.set(candidate.id, candidate)
       importedIds.add(candidate.id)
@@ -452,6 +561,14 @@ export async function importSharedVaultBundle(
     if (!importedIds.has(attachment.itemId)) continue
     const local = attachmentsById.get(attachment.id)
     if (
+      local &&
+      (local.itemId !== attachment.itemId || local.vaultId !== vaultId)
+    ) {
+      throw new Error(
+        'Collision d’identifiant avec une pièce jointe d’un autre coffre : bundle refusé.',
+      )
+    }
+    if (
       !local ||
       (canonicalJson(local) !== canonicalJson(attachment) &&
         newer(attachment, local))
@@ -463,6 +580,14 @@ export async function importSharedVaultBundle(
   for (const version of bundle.versions) {
     if (!importedIds.has(version.itemId)) continue
     const local = versionsById.get(version.id)
+    if (
+      local &&
+      (local.itemId !== version.itemId || local.vaultId !== vaultId)
+    ) {
+      throw new Error(
+        'Collision d’identifiant avec une version d’un autre coffre : bundle refusé.',
+      )
+    }
     if (
       !local ||
       (canonicalJson(local) !== canonicalJson(version) &&

@@ -474,10 +474,12 @@ export function ItemDialog({
     setAttachmentBusy(true)
     setAttachmentError(null)
     try {
+      const updated = await removeAttachment(current, attachmentToDelete.id)
+      // Le blob n’est retiré qu’après l’écriture signée réussie : un échec ne
+      // doit pas laisser une métadonnée pointant vers un fichier disparu.
       if (attachmentToDelete.storage === 'blob' && attachmentToDelete.blobId) {
         await removeBlob(attachmentToDelete.blobId).catch(() => undefined)
       }
-      const updated = await removeAttachment(current, attachmentToDelete.id)
       setCurrent(updated)
       setDraft((previous) => ({ ...previous, attachments: updated.attachments }))
       setAttachmentToDelete(null)

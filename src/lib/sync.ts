@@ -37,6 +37,7 @@ export type VaultSyncErrorCode =
   | 'file-id'
   | 'epoch-mismatch'
   | 'kdf-mismatch'
+  | 'key-rotation'
   | 'limits'
   | 'no-vault'
 
@@ -376,6 +377,10 @@ export function mergeVaultFiles(
   const files = validateFiles(local, remotes)
   const conflicts: SyncConflict[] = []
 
+  // Une rotation de clé de coffre partagé change le ciphertext de `vault.key`.
+  // La fusion ne peut pas savoir quelles clés d’éléments correspondent à
+  // l’ancienne ou à la nouvelle clé : elle refuse plutôt que de produire un
+  // fichier dont certains éléments deviendraient illisibles.
   // Coffres : sélection par horloge, puis suppression par pierre tombale.
   const vaultRecords = new Map<string, EncryptedVaultRecord[]>()
   for (const file of files) {
@@ -607,6 +612,12 @@ export function mergeVaultFiles(
   const recovery = selectRecovery(files, liveVaultIds)
   if (recovery.warning) warnings.push(recovery.warning)
   const sharing = local.sharing ?? files.find((file) => file.sharing)?.sharing
+  // Ces enveloppes sont locales au fichier : on conserve la copie locale si
+  // elle existe, sinon la première copie distante. Les fusionner n’aurait pas
+  // de sens cryptographique, mais les supprimer ferait perdre la configuration.
+  const emergency =
+    local.emergency ?? files.find((file) => file.emergency)?.emergency
+  const prf = local.prf ?? files.find((file) => file.prf)?.prf
 
   const revision = Math.max(...files.map((file) => file.revision ?? 0))
   const writer = files
@@ -654,6 +665,8 @@ export function mergeVaultFiles(
     keyEpoch: local.keyEpoch as number,
     recovery: recovery.recovery,
     ...(sharing ? { sharing } : {}),
+    ...(emergency ? { emergency } : {}),
+    ...(prf ? { prf } : {}),
   }
   delete merged.integrity
 

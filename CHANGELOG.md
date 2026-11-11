@@ -20,6 +20,28 @@
   multi-appareils.
 - `bun run version:check` vérifie désormais le format `.coffre`, le manifeste et
   les versions de protocoles en plus des versions produit.
+- **Bundles de coffres partagés** : validation complète des identifiants, dates,
+  doublons, relations élément/pièce jointe/version et pierres tombales avant
+  import. Un bundle invalide est rejeté en entier et ne peut plus rendre le
+  fichier local illisible.
+- **Administrateur de coffre partagé épinglé** : un membre `write` ne peut plus
+  se nommer administrateur avec un paquet plus récent. Le changement
+  d’administrateur est refusé tant qu’une rotation signée par l’administrateur
+  actuel n’est pas explicitement prise en charge.
+- **Adoption d’époque** : les modèles, le journal d’activité, l’historique du
+  générateur, les clés d’alias, l’identité de partage et l’accès d’urgence sont
+  ré-enveloppés sous la nouvelle clé maîtresse. L’enveloppe PRF est retirée et
+  doit être ré-enrôlée.
+- **Fusion** : les enveloppes `emergency` et `prf` sont conservées au lieu
+  d’être supprimées à chaque synchronisation.
+- **Pièces jointes blob** : elles survivent au verrouillage, aux modifications
+  et à la vérification ; leur suppression ne dépend plus d’un enregistrement
+  inline et leur taille n’est plus plafonnée à 5 Mio.
+- **Rotation Rust** : les sidecars modèles/activité/générateur/clés d’alias sont
+  rescellés ; la rotation refuse explicitement le partage et l’accès d’urgence
+  que le cœur Rust ne sait pas ré-envelopper, au lieu de les laisser sous
+  l’ancienne clé. `templateWraps` est préservé.
+- Une dégradation connue `v4 → v3` ouvre désormais le coffre en lecture seule.
 
 ## 0.13.0 — 11 novembre 2026
 

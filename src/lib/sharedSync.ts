@@ -191,6 +191,13 @@ export async function syncSharedVault(
         lastImports[entry.name] = hash
         continue
       }
+      if (bundle.package.admin.fingerprint !== pkg.admin.fingerprint) {
+        warnings.push(
+          `« ${entry.name} » : Rotation refusée — administrateur différent, bundle ignoré`,
+        )
+        lastImports[entry.name] = hash
+        continue
+      }
 
       const result = await importSharedVaultBundle(
         bundle,

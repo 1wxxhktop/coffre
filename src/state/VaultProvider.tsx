@@ -34,6 +34,7 @@ import {
   setAliasKey as setAliasKeyInFile,
   changeMasterPassword,
   checkVaultRollback,
+  isVaultDowngrade,
   createItem,
   createTemplate as createTemplateInFile,
   createVaultFile,
@@ -640,6 +641,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       let next = rollback
         ? { ...opened, warnings: [rollback, ...opened.warnings] }
         : opened
+      if (!options.acceptRollback && isVaultDowngrade(opened.file, state)) {
+        next = { ...next, readOnly: true }
+      }
       if (!rollback) {
         next = await applyTrashRetention(next)
         next = await applyGeneratorRetention(next)

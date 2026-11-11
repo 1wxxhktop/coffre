@@ -553,4 +553,48 @@ describe('intégration avec le format réel', () => {
     opened.session.lock()
     reopened.session.lock()
   })
+
+  it('préserve les enveloppes d’urgence et PRF lors d’une fusion', async () => {
+    const opened = await createVaultFile('phrase de passe de test solide', 'Personnel', {
+      memoryKiB: 8_192,
+      iterations: 1,
+      parallelism: 1,
+    })
+    const base = await signVaultFile(opened.file, opened.session, opened.file)
+    const emergency = {
+      version: 1 as const,
+      mode: 'immediate' as const,
+      contact: {
+        encryptionPublicKey: 'contact-enc',
+        signingPublicKey: 'contact-sign',
+        fingerprint: 'contact-fp',
+      },
+      sealed: { enc: 'enc', ciphertext: 'ciphertext' },
+      createdAt: T0,
+    }
+    const prf = {
+      version: 1 as const,
+      credentialId: 'credential',
+      salt: 'salt',
+      createdAt: T0,
+      wrap: sealed('prf'),
+    }
+    const withLocal: VaultFile = { ...base, emergency, prf }
+    const remoteOnly: VaultFile = { ...base }
+    delete remoteOnly.emergency
+    delete remoteOnly.prf
+
+    const mergedLocal = mergeVaultFiles(withLocal, [remoteOnly]).file
+    expect(mergedLocal.emergency).toEqual(emergency)
+    expect(mergedLocal.prf).toEqual(prf)
+
+    const localWithout: VaultFile = { ...base }
+    delete localWithout.emergency
+    delete localWithout.prf
+    const mergedRemote = mergeVaultFiles(localWithout, [withLocal]).file
+    expect(mergedRemote.emergency).toEqual(emergency)
+    expect(mergedRemote.prf).toEqual(prf)
+
+    opened.session.lock()
+  })
 })

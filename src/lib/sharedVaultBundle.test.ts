@@ -161,6 +161,113 @@ describe('paquet de contenu partagé', () => {
     member.session.lock()
   })
 
+  it('refuse un bundle avec un identifiant invalide ou dupliqué', async () => {
+    const { bundle } = await setup()
+    const invalidId = {
+      ...bundle,
+      items: [{ ...bundle.items[0], id: 'bad:id' }],
+    }
+    await expect(
+      parseSharedVaultBundle(JSON.stringify(invalidId)),
+    ).rejects.toThrow(/invalide/i)
+
+    const duplicate = {
+      ...bundle,
+      items: [bundle.items[0], { ...bundle.items[0] }],
+    }
+    await expect(
+      parseSharedVaultBundle(JSON.stringify(duplicate)),
+    ).rejects.toThrow(/double/i)
+
+    const orphanAttachment = {
+      ...bundle,
+      attachments: [
+        {
+          id: 'a_orpheline',
+          itemId: 'i_inconnu',
+          vaultId: bundle.vault.id,
+          data: { n: 'n', c: 'c' },
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    }
+    await expect(
+      parseSharedVaultBundle(JSON.stringify(orphanAttachment)),
+    ).rejects.toThrow(/inconnu/i)
+  })
+
+  it('refuse une collision d’identifiant avec un autre coffre', async () => {
+    const { member, memberIdentity, vaultId, pkg, created } = await setup()
+    const first = await importSharedVaultBundle(
+      createSharedVaultBundle(created.file, vaultId, pkg),
+      memberIdentity,
+      member.file,
+      member.session,
+    )
+    const firstSigned = await signVaultFile(first.file, member.session, member.file)
+    const firstOpened = await unlockVaultFile(firstSigned, memberPassword)
+
+    const collision = {
+      ...firstOpened.file,
+      items: firstOpened.file.items.map((item) =>
+        item.id === created.item.id
+          ? { ...item, vaultId: member.vaults[0].id }
+          : item,
+      ),
+    }
+    await expect(
+      importSharedVaultBundle(
+        createSharedVaultBundle(created.file, vaultId, pkg),
+        memberIdentity,
+        collision,
+        firstOpened.session,
+      ),
+    ).rejects.toThrow(/Collision/i)
+
+    firstOpened.session.lock()
+    member.session.lock()
+  })
+
+  it('refuse qu’un membre write se nomme administrateur', async () => {
+    const { admin, member, memberIdentity, vaultId, pkg, created } = await setup()
+    const first = await importSharedVaultBundle(
+      createSharedVaultBundle(created.file, vaultId, pkg),
+      memberIdentity,
+      member.file,
+      member.session,
+    )
+    const firstSigned = await signVaultFile(first.file, member.session, member.file)
+    const firstOpened = await unlockVaultFile(firstSigned, memberPassword)
+
+    const evilPackage = await createSharedVaultPackage({
+      vaultId,
+      vaultKey: firstOpened.session.vaultKey(vaultId),
+      admin: memberIdentity,
+      members: [
+        { identity: publicSharingIdentity(memberIdentity), role: 'write' },
+      ],
+      createdAt: '2999-01-01T00:00:00.000Z',
+    })
+    const evilBundle = createSharedVaultBundle(
+      firstOpened.file,
+      vaultId,
+      evilPackage,
+    )
+
+    await expect(
+      importSharedVaultBundle(
+        evilBundle,
+        memberIdentity,
+        firstOpened.file,
+        firstOpened.session,
+      ),
+    ).rejects.toThrow(/administrateur/i)
+
+    firstOpened.session.lock()
+    admin.session.lock()
+    member.session.lock()
+  })
+
   it('met à jour un élément avec un paquet plus récent', async () => {
     const { admin, member, memberIdentity, vaultId, pkg, created } = await setup()
     const first = await importSharedVaultBundle(
