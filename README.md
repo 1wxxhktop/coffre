@@ -8,8 +8,8 @@ La synchronisation et la vérification des fuites sont optionnelles ; cette
 dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
 L’interface est en français.
 
-> **État du projet — 0.11.0 (duplication, clé TOTP directe, 13 types de champs, en-tête responsive).**
-> La version web/PWA est fonctionnelle et couverte par 748 tests unitaires et
+> **État du projet — 0.12.0 (palette de commandes, accès rapide, fiche plus lisible).**
+> La version web/PWA est fonctionnelle et couverte par 763 tests unitaires et
 > des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
 > continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;
 > les bundles desktop des trois systèmes sont compilés à chaque push sur

@@ -2,6 +2,8 @@
 
 ## Non publié
 
+## 0.12.0 — 11 novembre 2026
+
 - Palette de commandes : `⌘K` / `Ctrl+K` ouvre une recherche unique pour
   ouvrir un élément ou lancer une action (nouvel élément, générateur, bilan de
   sécurité, réglages, verrouillage…). Elle ne cherche que dans le titre,
