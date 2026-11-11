@@ -170,6 +170,10 @@ function showPhishing(
   pendingPhishing = { assessment, action, itemId }
   phishingText.textContent = phishingTextFor(assessment)
   phishing.hidden = false
+  // Un remplissage sur un hôte qui n’est pas celui de l’élément est refusé
+  // sans échappatoire : le bouton « Continuer » ne concerne que
+  // l’enregistrement d’un mot de passe, qui n’expose aucun secret.
+  phishingContinue.hidden = action === 'fill'
   actions.hidden = true
   if (action === 'save') results.hidden = true
 }
@@ -201,11 +205,9 @@ async function cancelPhishing() {
 function continuePhishing() {
   const pending = pendingPhishing
   if (!pending) return
-  const { action, itemId } = pending
+  const { action } = pending
   hidePhishing()
-  if (action === 'fill' && itemId) {
-    void fill(itemId, true)
-  } else if (action === 'save') {
+  if (action === 'save') {
     void save(true)
   }
 }

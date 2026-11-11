@@ -85,6 +85,9 @@
   l’appelant. Les recherches vides ne renvoient plus tout le coffre, la
   passerelle est révoquée au verrouillage et les passkeys demandent une
   confirmation.
+- **Remplissage forcé** : un hôte différent de celui de l’élément est refusé
+  même après l’avertissement anti-hameçonnage ; « Continuer » ne reste proposé
+  que pour l’enregistrement, qui n’expose aucun secret.
 - **Autofill** : l’origine et le port sont vérifiés dans le document cible juste
   avant l’injection, ce qui bloque le changement d’onglet pendant la
   récupération des identifiants.
