@@ -1,3 +1,4 @@
+import { isSecretFieldType } from '../lib/customFields'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import {
@@ -123,7 +124,13 @@ function searchableText(item: ReturnType<typeof useVault>['items'][number]): str
     itemSubtitle(item),
     item.tags.join(' '),
     item.notes,
-    item.customFields.map((field) => `${field.label} ${field.value}`).join(' '),
+    // Les valeurs secrètes (masqué, mot de passe, PIN, TOTP) ne sont pas
+    // indexées : seul leur nom est cherchable.
+    item.customFields
+      .map((field) =>
+        isSecretFieldType(field.type) ? field.label : `${field.label} ${field.value}`,
+      )
+      .join(' '),
     item.attachments.map((attachment) => attachment.name).join(' '),
   ]
 
@@ -235,6 +242,8 @@ export function VaultApp() {
   }>({ scope: '', mode: false, ids: EMPTY_SELECTION })
   const [limitState, setLimitState] = useState({ scope: '', value: 200 })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Élément à ouvrir directement en modification (copie d’un « Dupliquer »).
+  const [editOnOpenId, setEditOnOpenId] = useState<string | null>(null)
   const [createType, setCreateType] = useState<ItemType | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [securityOpen, setSecurityOpen] = useState(false)
@@ -1459,7 +1468,15 @@ export function VaultApp() {
                   defaultVaultId={selectedItem.vaultId}
                   securityReport={securityReport}
                   onClose={() => setSelectedId(null)}
-                  onSaved={(item) => setSelectedId(item.id)}
+                  initialEditing={editOnOpenId === selectedItem.id}
+                  onSaved={(item) => {
+                    setEditOnOpenId(null)
+                    setSelectedId(item.id)
+                  }}
+                  onDuplicated={(item) => {
+                    setEditOnOpenId(item.id)
+                    setSelectedId(item.id)
+                  }}
                   onUsed={() => markUsed(selectedItem.id)}
                 />
               </Suspense>

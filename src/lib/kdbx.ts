@@ -12,6 +12,7 @@
  * convertir la base en Argon2 dans KeePassXC avant l’import.
  */
 
+import { isSecretFieldType } from './customFields'
 import { ModeOfOperation } from 'aes-js'
 import { argon2d, argon2id } from 'hash-wasm'
 import { gzipSync, gunzipSync } from 'fflate'
@@ -897,7 +898,7 @@ function buildEntry(
   add('Notes', item.notes)
   for (const field of item.customFields) {
     if (!field.label.trim()) continue
-    add(field.label, field.value, field.type === 'hidden')
+    add(field.label, field.value, isSecretFieldType(field.type))
   }
 
   return {
