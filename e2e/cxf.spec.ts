@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, closeDialog, createVault, openSettings } from './helpers'
+import { PASSWORD, addLogin, closeDialog, createVault, openSettings } from './helpers'
 
 test('exporte en CXF puis réimporte le fichier', async ({ page }, testInfo) => {
   await createVault(page)
@@ -12,6 +12,7 @@ test('exporte en CXF puis réimporte le fichier', async ({ page }, testInfo) => 
   const exportDialog = page.getByRole('dialog').filter({
     has: page.getByRole('heading', { name: 'Exporter en CXF', level: 2 }),
   })
+  await exportDialog.getByLabel('Mot de passe maître').fill(PASSWORD)
   await exportDialog.getByRole('checkbox').check()
 
   const downloadPromise = page.waitForEvent('download')

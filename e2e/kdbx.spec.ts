@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, closeDialog, createVault, openSettings } from './helpers'
+import { PASSWORD, addLogin, closeDialog, createVault, openSettings } from './helpers'
 
 test('exporte un coffre en KDBX 4 puis le réimporte', async ({ page }, testInfo) => {
   await createVault(page)
@@ -12,6 +12,7 @@ test('exporte un coffre en KDBX 4 puis le réimporte', async ({ page }, testInfo
   const exportDialog = page.getByRole('dialog').filter({
     has: page.getByRole('heading', { name: 'Exporter en KDBX', level: 2 }),
   })
+  await exportDialog.getByLabel('Mot de passe maître').fill(PASSWORD)
   await exportDialog.getByLabel('Mot de passe KDBX').fill('mot de passe kdbx')
   await exportDialog.getByLabel('Confirmer le mot de passe').fill('mot de passe kdbx')
 
