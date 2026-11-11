@@ -3,7 +3,7 @@ use coffre_core::derive_master_key;
 use coffre_core_ffi::{
     core_create_item, core_credential_identities, core_logins_for_service, core_merge_vaults,
     core_open_vault, core_open_vault_with_key, core_passkey_assert, core_passkey_create,
-    core_reveal_login, core_verify_vault,
+    core_remove_item, core_reveal_login, core_update_item, core_verify_vault,
 };
 use serde_json::json;
 
@@ -189,4 +189,55 @@ fn refuse_de_remplir_un_fichier_en_lecture_seule() {
     let file = file.to_string();
     let key = master_key(&fixture());
     assert!(core_logins_for_service(file, key, "github.com".into()).is_err());
+}
+
+#[test]
+fn refuse_les_mutations_ffi_sur_un_fichier_en_lecture_seule() {
+    let original: serde_json::Value = serde_json::from_str(&fixture()).unwrap();
+    let vault_id = original["vaults"][0]["id"].as_str().unwrap().to_string();
+    let mut file = original.clone();
+    file["integrity"]["mac"] = json!("AAAA");
+    let file = file.to_string();
+    let content = json!({
+        "type": "note",
+        "title": "Interdit",
+        "favorite": false,
+        "notes": "",
+        "tags": [],
+        "customFields": [],
+        "attachments": [],
+        "deletedAt": null,
+        "expiresAt": "",
+    });
+
+    for result in [
+        core_create_item(
+            file.clone(),
+            PASSWORD.into(),
+            vault_id,
+            content.to_string(),
+            "w_ffi".into(),
+            "2026-11-11T10:00:00.000Z".into(),
+        ),
+        core_update_item(
+            file.clone(),
+            PASSWORD.into(),
+            "i_inconnu".into(),
+            content.to_string(),
+            "w_ffi".into(),
+            "2026-11-11T10:00:00.000Z".into(),
+        ),
+        core_remove_item(
+            file.clone(),
+            PASSWORD.into(),
+            "i_inconnu".into(),
+            "w_ffi".into(),
+            "2026-11-11T10:00:00.000Z".into(),
+        ),
+    ] {
+        assert!(
+            result.unwrap_err().to_string().contains("lecture seule"),
+            "la mutation doit être refusée"
+        );
+    }
 }

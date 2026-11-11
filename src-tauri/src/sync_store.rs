@@ -105,6 +105,7 @@ fn validate_name(name: &str) -> Result<(), String> {
         .or_else(|| name.strip_suffix(".coffre-shared.json"))
         .ok_or_else(|| "Nom de fichier de synchronisation invalide".to_string())?;
     if stem.is_empty()
+        || crate::blob_store::is_windows_reserved(stem)
         || !stem
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')

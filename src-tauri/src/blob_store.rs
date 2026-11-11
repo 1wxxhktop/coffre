@@ -19,6 +19,7 @@ use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::Engine;
 use sha2::{Digest, Sha256};
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 
 const MAGIC: &[u8; 8] = b"COFFBLOB";
 const VERSION: u8 = 1;
@@ -33,6 +34,42 @@ pub struct BlobInfo {
     pub size: u64,
     pub sha256: String,
     pub path: String,
+    pub name: String,
+}
+
+/// Supprime le fichier temporaire si l’opération échoue avant le renommage.
+struct TempGuard {
+    path: PathBuf,
+    armed: bool,
+}
+
+impl TempGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path, armed: true }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for TempGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
+}
+
+fn create_private_file(path: &Path) -> Result<File, String> {
+    let mut options = OpenOptions::new();
+    options.create(true).truncate(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options.open(path).map_err(|error| error.to_string())
 }
 
 fn decode_key(value: &str) -> Result<[u8; 32], String> {
@@ -60,9 +97,27 @@ pub(crate) fn blob_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+/// Noms réservés par Windows (CON, NUL, COM1…) : un chemin `dir.join("CON")`
+/// ouvre un périphérique au lieu d’un fichier.
+pub(crate) fn is_windows_reserved(name: &str) -> bool {
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or(name)
+        .trim_end_matches([' ', '.'])
+        .to_ascii_lowercase();
+    if matches!(stem.as_str(), "con" | "prn" | "aux" | "nul") {
+        return true;
+    }
+    stem.len() == 4
+        && (stem.starts_with("com") || stem.starts_with("lpt"))
+        && matches!(stem.as_bytes()[3], b'1'..=b'9')
+}
+
 pub(crate) fn valid_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 80
+        && !is_windows_reserved(id)
         && id
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
@@ -122,12 +177,8 @@ pub fn encrypt_file(source: &Path, target: &Path, key: &[u8; 32]) -> Result<Blob
     let input = File::open(source).map_err(|error| error.to_string())?;
     let mut reader = BufReader::new(input);
     let temporary = target.with_extension("tmp");
-    let output = OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .write(true)
-        .open(&temporary)
-        .map_err(|error| error.to_string())?;
+    let mut guard = TempGuard::new(temporary.clone());
+    let output = create_private_file(&temporary)?;
     let mut writer = BufWriter::new(output);
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|_| "Clé AES invalide".to_string())?;
     let mut prefix = [0u8; 7];
@@ -175,6 +226,7 @@ pub fn encrypt_file(source: &Path, target: &Path, key: &[u8; 32]) -> Result<Blob
     writer.flush().map_err(|error| error.to_string())?;
     drop(writer);
     std::fs::rename(&temporary, target).map_err(|error| error.to_string())?;
+    guard.disarm();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -188,6 +240,10 @@ pub fn encrypt_file(source: &Path, target: &Path, key: &[u8; 32]) -> Result<Blob
             .map(|byte| format!("{byte:02x}"))
             .collect(),
         path: target.to_string_lossy().to_string(),
+        name: source
+            .file_name()
+            .map(|value| value.to_string_lossy().to_string())
+            .unwrap_or_else(|| "document".into()),
     })
 }
 
@@ -222,12 +278,8 @@ pub fn decrypt_file(source: &Path, target: &Path, key: &[u8; 32]) -> Result<Blob
     let (prefix, header) = open_header(&mut reader)?;
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|_| "Clé AES invalide".to_string())?;
     let temporary = target.with_extension("tmp");
-    let output = OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .write(true)
-        .open(&temporary)
-        .map_err(|error| error.to_string())?;
+    let mut guard = TempGuard::new(temporary.clone());
+    let output = create_private_file(&temporary)?;
     let mut writer = BufWriter::new(output);
     let mut hasher = Sha256::new();
     let mut size = 0u64;
@@ -286,6 +338,12 @@ pub fn decrypt_file(source: &Path, target: &Path, key: &[u8; 32]) -> Result<Blob
     writer.flush().map_err(|error| error.to_string())?;
     drop(writer);
     std::fs::rename(&temporary, target).map_err(|error| error.to_string())?;
+    guard.disarm();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(target, std::fs::Permissions::from_mode(0o600));
+    }
     Ok(BlobInfo {
         size,
         sha256: hasher
@@ -294,6 +352,10 @@ pub fn decrypt_file(source: &Path, target: &Path, key: &[u8; 32]) -> Result<Blob
             .map(|byte| format!("{byte:02x}"))
             .collect(),
         path: target.to_string_lossy().to_string(),
+        name: target
+            .file_name()
+            .map(|value| value.to_string_lossy().to_string())
+            .unwrap_or_else(|| "document".into()),
     })
 }
 
@@ -349,12 +411,20 @@ pub fn decrypt_preview(source: &Path, key: &[u8; 32], max_bytes: usize) -> Resul
 pub async fn blob_encrypt(
     app: tauri::AppHandle,
     id: String,
-    source: String,
     key: String,
 ) -> Result<BlobInfo, String> {
+    // Le chemin vient exclusivement du dialogue natif : la WebView ne peut pas
+    // demander la lecture d’un fichier arbitraire.
+    let Some(selected) = app.dialog().file().blocking_pick_file() else {
+        return Err("Sélection annulée".into());
+    };
+    let source = selected.into_path().map_err(|error| error.to_string())?;
+    let metadata = std::fs::metadata(&source).map_err(|error| error.to_string())?;
+    if !metadata.is_file() {
+        return Err("Le fichier sélectionné n’est pas un fichier régulier".into());
+    }
     let key = decode_key(&key)?;
     let target = blob_path(&app, &id)?;
-    let source = PathBuf::from(source);
     tauri::async_runtime::spawn_blocking(move || encrypt_file(&source, &target, &key))
         .await
         .map_err(|error| error.to_string())?
@@ -364,12 +434,19 @@ pub async fn blob_encrypt(
 pub async fn blob_decrypt(
     app: tauri::AppHandle,
     id: String,
-    target: String,
     key: String,
+    suggested_name: Option<String>,
 ) -> Result<BlobInfo, String> {
     let key = decode_key(&key)?;
     let source = blob_path(&app, &id)?;
-    let target = PathBuf::from(target);
+    let mut dialog = app.dialog().file();
+    if let Some(name) = suggested_name.filter(|name| !name.trim().is_empty()) {
+        dialog = dialog.set_file_name(name);
+    }
+    let Some(target) = dialog.blocking_save_file() else {
+        return Err("Enregistrement annulé".into());
+    };
+    let target = target.into_path().map_err(|error| error.to_string())?;
     tauri::async_runtime::spawn_blocking(move || decrypt_file(&source, &target, &key))
         .await
         .map_err(|error| error.to_string())?
@@ -530,6 +607,38 @@ mod tests {
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(blob);
         let _ = std::fs::remove_file(target);
+    }
+
+    #[test]
+    fn refuse_les_noms_reserves_windows() {
+        for name in ["CON", "nul", "COM1", "lpt9", "AUX.txt", "PRN "] {
+            assert!(is_windows_reserved(name), "{name} doit être réservé");
+            assert!(
+                !valid_id(name),
+                "{name} ne doit pas être un identifiant valide"
+            );
+        }
+        assert!(!is_windows_reserved("contenu"));
+        assert!(!is_windows_reserved("COM0"));
+        assert!(valid_id("blob_1"));
+    }
+
+    #[test]
+    fn nettoie_le_temporaire_et_ne_cree_pas_de_cible_en_echec() {
+        let source = temp("source-cleanup");
+        let blob = temp("blob-cleanup");
+        let target = temp("target-cleanup");
+        std::fs::write(&source, vec![4u8; BLOCK_SIZE * 2]).unwrap();
+        encrypt_file(&source, &blob, &key()).unwrap();
+        let bytes = std::fs::read(&blob).unwrap();
+        std::fs::write(&blob, &bytes[..bytes.len() - 10]).unwrap();
+
+        assert!(decrypt_file(&blob, &target, &key()).is_err());
+        assert!(!target.exists());
+        assert!(!target.with_extension("tmp").exists());
+
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(blob);
     }
 
     #[test]

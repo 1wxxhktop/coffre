@@ -940,7 +940,10 @@ reste sur l’implémentation TypeScript.
   jamais mot de passe, TOTP ni clé privée ; `core_reveal_login` ne renvoie le
   mot de passe et le code TOTP que pour l’élément explicitement demandé ;
 - un fichier en lecture seule (MAC invalide ou retour en arrière) fait échouer
-  ces opérations : l’extension doit renvoyer vers l’application ;
+  ces opérations : l’extension doit renvoyer vers l’application. Toutes les
+  mutations FFI (`core_create_item`, `core_update_item`, `core_remove_item`,
+  `core_rotate_password`) et le démarrage de l’agent SSH refusent aussi un
+  fichier en lecture seule ;
 - passkeys natives : `core_passkey_assert` et `core_passkey_create` partagent
   les validations de `src/lib/passkeys.ts` (RP ID, origine sécurisée, challenge
   base64url, PKCS#8, ES256 DER). Les clés privées restent dans des buffers
@@ -1079,7 +1082,9 @@ par défaut :
   demandée, pendant au plus deux minutes ; aucun port n’est maintenu ouvert
   entre deux synchronisations ;
 - les fichiers échangés sont déjà chiffrés par le format `.coffre` ; Noise
-  ajoute la confidentialité et l’authentification du transport ;
+  chiffre et authentifie **chaque trame post-handshake** (appairage,
+  synchronisation, blobs), pas seulement la poignée de main. Le protocole LAN
+  est en version 2 et refuse les anciennes versions ;
 - pendant la fenêtre de réception, l’appareil s’annonce en mDNS sous
   `_coffre._tcp.local.` avec son identifiant et son nom ; la découverte ne
   renvoie que des adresses et des identifiants, jamais de secret ;
@@ -1284,8 +1289,9 @@ Les blobs sont des fichiers chiffrés séparés du `.coffre` :
 - la clé de blob est stockée dans les métadonnées de la pièce jointe, elles-mêmes
   chiffrées avec la clé de l’élément ; elle n’apparaît jamais en clair dans le
   fichier `.coffre` ;
-- l’ajout et le téléchargement passent par des dialogues natifs explicites ;
-  la suppression de la pièce jointe retire aussi le blob ;
+- l’ajout et le téléchargement passent par des dialogues natifs ouverts côté
+  Rust ; la WebView ne fournit aucun chemin de fichier. La suppression de la
+  pièce jointe retire aussi le blob, après l’écriture signée ;
 - la synchronisation par dossier copie les blobs chiffrés dans
   `Coffre/<idFichier>/blobs/` et importe les blobs absents ; aucun clair n’est
   écrit ; les réglages de stockage listent les blobs et permettent de supprimer

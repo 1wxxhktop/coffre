@@ -532,12 +532,18 @@ fn is_local_url(url: &tauri::Url) -> bool {
 }
 
 fn is_local_url_for(url: &tauri::Url, allow_dev_server: bool) -> bool {
+    if !url.username().is_empty() || url.password().is_some() {
+        return false;
+    }
+    let host = url.host_str();
+    let port = url.port_or_known_default();
     match url.scheme() {
-        "tauri" => true,
-        "http" | "https" => {
-            let host = url.host_str();
-            let port = url.port_or_known_default();
-            host == Some("tauri.localhost")
+        // Origine exacte de la WebView empaquetée sur macOS/Linux.
+        "tauri" => host == Some("localhost") && url.port().is_none(),
+        // Origine exacte de la WebView empaquetée sur Windows. Aucun port
+        // arbitraire ni schéma https ne doit être accepté.
+        "http" => {
+            (host == Some("tauri.localhost") && (url.port().is_none() || url.port() == Some(80)))
                 || allow_dev_server
                     && (host == Some("localhost") || host == Some("127.0.0.1"))
                     && port == Some(1420)
@@ -924,6 +930,26 @@ mod tests {
             assert!(!is_local_url_for(&url("https://example.com/"), allow_dev));
             assert!(!is_local_url_for(&url("http://localhost:9999/"), allow_dev));
             assert!(!is_local_url_for(&url("file:///etc/passwd"), allow_dev));
+            assert!(!is_local_url_for(
+                &url("tauri://evil/index.html"),
+                allow_dev
+            ));
+            assert!(!is_local_url_for(
+                &url("tauri://localhost:1234/index.html"),
+                allow_dev
+            ));
+            assert!(!is_local_url_for(
+                &url("http://tauri.localhost:8080/"),
+                allow_dev
+            ));
+            assert!(!is_local_url_for(
+                &url("https://tauri.localhost/"),
+                allow_dev
+            ));
+            assert!(!is_local_url_for(
+                &url("http://user@tauri.localhost/"),
+                allow_dev
+            ));
         }
     }
 

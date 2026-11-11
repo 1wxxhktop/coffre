@@ -18,6 +18,7 @@ use serde::Serialize;
 use tauri::{Emitter, Manager};
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
+const MAX_BRIDGE_CONNECTIONS: usize = 16;
 const SOCKET_FILE: &str = "bridge.sock";
 /// Identifiant stable de l’extension Chromium (dérivé de la clé du manifeste).
 pub const CHROME_EXTENSION_ID: &str = "dmajddgmehhebmpcdooifjdakjjngdla";
@@ -78,8 +79,9 @@ pub(crate) fn app_data_root() -> Result<PathBuf, String> {
 }
 
 fn socket_path() -> Result<PathBuf, String> {
-    // Variable réservée aux tests d’intégration du relais ; elle ne transporte
-    // aucun secret et ne change que l’emplacement du socket local.
+    // Variable réservée aux tests d’intégration du relais ; elle ne doit pas
+    // être active dans un binaire de production.
+    #[cfg(debug_assertions)]
     if let Some(path) = std::env::var_os("COFFRE_BRIDGE_SOCKET") {
         return Ok(PathBuf::from(path));
     }
@@ -198,7 +200,25 @@ pub fn start_server(app: tauri::AppHandle) -> Result<(), String> {
     std::thread::spawn(move || {
         for stream in listener.incoming() {
             match stream {
-                Ok(stream) => spawn_connection(app.clone(), stream),
+                Ok(stream) => {
+                    let at_capacity = app
+                        .try_state::<BridgeState>()
+                        .and_then(|state| {
+                            state
+                                .connections
+                                .lock()
+                                .ok()
+                                .map(|connections| connections.len() >= MAX_BRIDGE_CONNECTIONS)
+                        })
+                        .unwrap_or(true);
+                    if at_capacity {
+                        // Une connexion excédentaire est fermée immédiatement :
+                        // un processus local ne doit pas épuiser les threads.
+                        drop(stream);
+                        continue;
+                    }
+                    spawn_connection(app.clone(), stream);
+                }
                 Err(_) => break,
             }
         }
