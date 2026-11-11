@@ -155,6 +155,10 @@
 - Le job de release génère une **attestation de provenance** GitHub pour le DMG,
   l’archive `.app.zip` et le paquet de mise à jour, vérifiable avec
   `gh attestation verify`.
+- Le **SBOM web** est complété depuis `bun pm licenses --json` pour inclure les
+  paquets que cyclonedx-npm omet (dont `@tauri-apps/api` et
+  `@tauri-apps/plugin-dialog`) ; `scripts/check-sbom.mjs` vérifie les
+  composants runtime attendus dans les SBOM web, cœur et FFI.
 
 ## 0.13.0 — 11 novembre 2026
 
