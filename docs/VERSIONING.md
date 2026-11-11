@@ -1,7 +1,7 @@
 # Politique de versioning de Coffre
 
 **Date :** 11 novembre 2026  
-**Version de référence :** 0.13.0 (`efa23f0`)  
+**Version de référence :** 0.14.0  
 **Portée :** version produit, format `.coffre`, manifeste d’intégrité, protocoles
 locaux et stockage navigateur.
 
@@ -21,7 +21,7 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
   dans `CHANGELOG.md`, dans les notes de release et, si nécessaire, dans
   l’interface.
 - **En phase 0.x, une rupture est une version mineure** (`0.13.0 → 0.14.0`).
-  Un correctif purement compatible reste un patch (`0.13.1`).
+  Un correctif purement compatible reste un patch (`0.14.1`).
 - **Lecture large, écriture étroite.** Une version récente lit les anciens
   formats ; elle n’écrit que le format courant.
 - **Les anciennes applications ne doivent jamais corrompre un fichier récent.**
@@ -34,14 +34,14 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
 
 | Élément | Version | Emplacement |
 | --- | --- | --- |
-| Application | `0.13.0` | `package.json`, `src-tauri/Cargo.toml`, `tauri.conf.json` |
-| Extension | `0.13.0` | `extension/public/manifest.json` |
-| Crates | `0.13.0` | `src-tauri/crates/*/Cargo.toml` |
+| Application | `0.14.0` | `package.json`, `src-tauri/Cargo.toml`, `tauri.conf.json` |
+| Extension | `0.14.0` | `extension/public/manifest.json` |
+| Crates | `0.14.0` | `src-tauri/crates/*/Cargo.toml` |
 | Format `.coffre` | `4` | `VAULT_FILE_VERSION`, `format.rs` |
 | Manifeste d’intégrité | `3` (lecture `3`, `2`, `1`) | `VAULT_MANIFEST_VERSION`, `format.rs` |
-| Pont natif | `2` (branche 0.13) | `BRIDGE_PROTOCOL_VERSION` |
-| Extension ↔ application | `2` (branche 0.13) | `EXTENSION_BRIDGE_VERSION` |
-| LAN | `2` (branche 0.13) | `LAN_PROTOCOL_VERSION` |
+| Pont natif | `2` (0.14) | `BRIDGE_PROTOCOL_VERSION` |
+| Extension ↔ application | `2` (0.14) | `EXTENSION_BRIDGE_VERSION` |
+| LAN | `2` (0.14) | `LAN_PROTOCOL_VERSION` |
 | Bundle partagé | `1` | `format: 'coffre-shared-vault'` |
 
 > Le manifeste `3` est introduit par le correctif de sécurité `AUD-01`. Il
@@ -102,7 +102,7 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
 
 Trois protocoles indépendants, versionnés séparément :
 
-| Protocole | Constante | Version 0.13 | Version cible 0.14 |
+| Protocole | Constante | Version 0.13 | Version 0.14 |
 | --- | --- | --- | --- |
 | Pont natif | `BRIDGE_PROTOCOL_VERSION` | `1` | `2` |
 | Extension ↔ application | `EXTENSION_BRIDGE_VERSION` | `1` | `2` |

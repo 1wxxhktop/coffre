@@ -1,6 +1,6 @@
 # Journal des changements
 
-## Non publié
+## 0.14.0 — 11 novembre 2026
 
 - Documentation : `docs/RELEASE.md` et `docs/RELEASE-READINESS.md` décrivent
   désormais les mises à jour signées (B-02), la publication stable/bêta et la
