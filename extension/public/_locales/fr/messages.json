@@ -59,6 +59,9 @@
   "welcome_pairCode": {
     "message": "Code $1 — confirmez-le dans Coffre."
   },
+  "welcome_pairFingerprint": {
+    "message": "Empreinte de l’extension : $1"
+  },
   "welcome_pairing": {
     "message": "Demande envoyée. Confirmez le code affiché dans Coffre."
   },
@@ -385,6 +388,9 @@
   },
   "popup_pairCode": {
     "message": "Code $1 — confirmez-le dans Coffre."
+  },
+  "popup_pairFingerprint": {
+    "message": "Empreinte : $1"
   },
   "popup_updated": {
     "message": "Mot de passe mis à jour."

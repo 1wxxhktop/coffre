@@ -10,6 +10,7 @@
 import {
   BRIDGE_HOST_NAME,
   BRIDGE_SESSION_STORAGE_KEY,
+  bridgePublicKeyFingerprint,
   bridgeRandomId,
   createBridgeKeyPair,
   decodeBase64,
@@ -119,10 +120,13 @@ async function handleMessage(message: Record<string, unknown>): Promise<void> {
     }
     if (typeof message.code === 'string') {
       pairingAttempt.code = message.code
+      const fingerprint = await bridgePublicKeyFingerprint(
+        pairingAttempt.publicKey,
+      )
       // Le popup peut rester ouvert pendant que l’utilisateur confirme dans
       // l’application desktop.
       void api.runtime
-        .sendMessage({ type: 'PAIRING_CODE', code: message.code })
+        .sendMessage({ type: 'PAIRING_CODE', code: message.code, fingerprint })
         .catch(() => undefined)
     }
     return

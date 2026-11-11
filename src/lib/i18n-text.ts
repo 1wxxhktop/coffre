@@ -422,6 +422,7 @@ export const EN_TEXT: Record<string, string> = {
   'Appareils sur le même réseau Wi-Fi, sans serveur ni Internet. Le port n’est ouvert que pendant une réception.':
     'Devices on the same Wi-Fi network, with no server or Internet. The port is only open while receiving.',
   'Empreinte de cet appareil': 'This device’s fingerprint',
+  'Empreinte de l’extension': 'Extension fingerprint',
   'Nom de cet appareil': 'This device’s name',
   'Créer un code d’appairage': 'Create a pairing code',
   'Recevoir une synchronisation': 'Receive a sync',

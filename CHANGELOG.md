@@ -135,6 +135,10 @@
   `www.example.com` ↔ `example.com`. Les relations parent/sous-domaine
   (`example.com` ↔ `login.example.com`) ne sont plus acceptées ; les vecteurs
   TypeScript/Rust et le smoke test sont alignés.
+- **Appairage du pont natif** : l’application et l’extension affichent une
+  empreinte courte de la clé publique de l’extension. L’utilisateur peut la
+  comparer des deux côtés au lieu de traiter le code envoyé au demandeur comme
+  une authentification.
 
 ### CI et release
 

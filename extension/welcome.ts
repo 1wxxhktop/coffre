@@ -254,7 +254,11 @@ api.runtime.onMessage.addListener((message: unknown) => {
     typeof (message as { code?: unknown }).code === 'string'
   ) {
     pairedCode = (message as { code: string }).code
-    pairCode.textContent = t('welcome_pairCode', [pairedCode])
+    const fingerprint = (message as { fingerprint?: unknown }).fingerprint
+    pairCode.textContent =
+      typeof fingerprint === 'string'
+        ? `${t('welcome_pairCode', [pairedCode])} · ${t('welcome_pairFingerprint', [fingerprint])}`
+        : t('welcome_pairCode', [pairedCode])
     pairCode.hidden = false
     setStatus(pairStatus, t('welcome_pairConfirm'), 'info')
   }

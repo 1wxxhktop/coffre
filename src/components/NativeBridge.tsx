@@ -37,6 +37,7 @@ import {
 import {
   BRIDGE_KEYCHAIN_ACCOUNT,
   bridgePairingCode,
+  bridgePublicKeyFingerprint,
   bridgeRandomId,
   createBridgeKeyPair,
   decryptBridgePayload,
@@ -64,6 +65,7 @@ interface PendingPairing {
   id: string
   code: string
   extensionPublicKey: string
+  extensionFingerprint: string
   appPrivateKey: CryptoKey
   appPublicKey: string
 }
@@ -266,6 +268,7 @@ export function NativeBridge() {
         id: message.id,
         code: bridgePairingCode(),
         extensionPublicKey: message.publicKey,
+        extensionFingerprint: await bridgePublicKeyFingerprint(message.publicKey),
         appPrivateKey: pair.privateKey,
         appPublicKey: pair.publicKey,
       }
@@ -1130,9 +1133,9 @@ export function NativeBridge() {
     >
       <div style={{ display: 'grid', gap: '14px', justifyItems: 'center' }}>
         <p>
-          Vérifiez que le code affiché dans l’extension est identique, puis
-          autorisez l’accès. L’extension pourra demander des identifiants
-          uniquement lorsque ce coffre est déverrouillé.
+          Vérifiez que le code et l’empreinte affichés dans l’extension sont
+          identiques, puis autorisez l’accès. L’extension pourra demander des
+          identifiants uniquement lorsque ce coffre est déverrouillé.
         </p>
         <strong
           className="mono"
@@ -1145,6 +1148,10 @@ export function NativeBridge() {
         >
           {pendingPairing.code}
         </strong>
+        <p className="field__hint">
+          {tt('Empreinte de l’extension')} :{' '}
+          <span className="mono">{pendingPairing.extensionFingerprint}</span>
+        </p>
         {pairingError && <p className="form-error">{pairingError}</p>}
       </div>
     </Modal>
