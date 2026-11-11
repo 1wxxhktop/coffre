@@ -2,6 +2,19 @@
 
 ## Non publié
 
+- Duplication en un clic : bouton à côté du titre et raccourci `⌘D` /
+  `Ctrl+D` ; la copie s’ouvre directement en modification.
+- TOTP : saisie directe de la clé secrète fournie par le site (espaces et
+  minuscules acceptés), enregistrée comme lien `otpauth://` avec le site et
+  l’identifiant ; un lien `otpauth://` reste accepté et ses réglages
+  particuliers sont conservés.
+- Champs personnalisés : 13 types (texte, texte long, texte masqué, mot de
+  passe, code PIN, code 2FA avec code en direct, adresse web, e-mail,
+  téléphone, nombre, date, mois et année, oui / non), avec saisie adaptée,
+  affichage formaté et validation indicative. Les valeurs secrètes ne sont plus
+  indexées par la recherche. Un type inconnu est lu comme du texte au lieu de
+  rendre l’élément illisible.
+
 ## 0.10.0 — 10 novembre 2026
 
 - `bun run release:collect` rassemble dans un dossier local `release/` tous

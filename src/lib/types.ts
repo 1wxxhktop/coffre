@@ -36,7 +36,25 @@ export const DOCUMENT_KINDS = [
 
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number]
 
-export const CUSTOM_FIELD_TYPES = ['text', 'hidden', 'url', 'multiline'] as const
+/**
+ * Types de champs personnalisés. Un type inconnu (fichier écrit par une
+ * version plus récente) est lu comme `text` : voir `customFieldSchema`.
+ */
+export const CUSTOM_FIELD_TYPES = [
+  'text',
+  'multiline',
+  'hidden',
+  'password',
+  'pin',
+  'totp',
+  'url',
+  'email',
+  'phone',
+  'number',
+  'date',
+  'month',
+  'checkbox',
+] as const
 
 export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number]
 

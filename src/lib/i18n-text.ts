@@ -911,6 +911,36 @@ export const EN_TEXT: Record<string, string> = {
     "Download the update before installing it.",
   "Une opération de mise à jour est déjà en cours.":
     "An update operation is already in progress.",
+  "Texte masqué":
+    "Hidden text",
+  "Code 2FA (TOTP)":
+    "2FA code (TOTP)",
+  "Nombre":
+    "Number",
+  "Mois et année":
+    "Month and year",
+  "Oui / non":
+    "Yes / no",
+  "Clé TOTP invalide":
+    "Invalid TOTP key",
+  "champ":
+    "field",
+  "Valeur inhabituelle pour ce type de champ.":
+    "Unusual value for this field type.",
+  "Clé TOTP (2FA)":
+    "TOTP key (2FA)",
+  "Clé invalide : lettres A à Z et chiffres 2 à 7 (au moins 8 caractères), ou lien otpauth://.":
+    "Invalid key: letters A to Z and digits 2 to 7 (at least 8 characters), or an otpauth:// link.",
+  "Saisissez la clé affichée par le site lors de l’activation de la 2FA (souvent sous le QR code). Un lien otpauth:// fonctionne aussi.":
+    "Enter the key the site shows when you turn on 2FA (often below the QR code). An otpauth:// link works too.",
+  "{title} (copie)":
+    "{title} (copy)",
+  "Élément dupliqué":
+    "Item duplicated",
+  "Élément dupliqué, sans les pièces jointes":
+    "Item duplicated, without attachments",
+  "Dupliquer (⌘D)":
+    "Duplicate (⌘D)",
 }
 
 /** Traduit un texte source ; renvoie le texte tel quel s’il est inconnu. */

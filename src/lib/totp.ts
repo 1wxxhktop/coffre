@@ -91,7 +91,7 @@ export function parseTotpUri(uri: string): TotpConfig {
  * Normalise un secret TOTP base32 en URI `otpauth://` quand c’est possible.
  * Les valeurs déjà au format URI sont renvoyées telles quelles.
  */
-export function normalizeTotpUri(raw: string, title: string): string {
+export function normalizeTotpUri(raw: string, title: string, account = ''): string {
   const value = raw.trim()
   if (!value) return ''
   if (/^otpauth:\/\//i.test(value)) return value
@@ -99,9 +99,42 @@ export function normalizeTotpUri(raw: string, title: string): string {
   const secret = value.replace(/[\s-]/g, '').toUpperCase()
   if (secret.length < 8 || !/^[A-Z2-7]+=*$/.test(secret)) return value
 
-  const label = encodeURIComponent(title || 'Compte')
-  const issuer = encodeURIComponent(title || 'Coffre')
-  return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}`
+  const issuerName = title.trim() || 'Coffre'
+  const accountName = account.trim()
+  const label = accountName
+    ? `${encodeURIComponent(issuerName)}:${encodeURIComponent(accountName)}`
+    : encodeURIComponent(title.trim() || 'Compte')
+  return `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(issuerName)}`
+}
+
+/**
+ * Valeur à afficher dans le champ de saisie : la clé secrète seule, groupée
+ * par quatre, quand le lien n’utilise que les réglages par défaut (SHA-1,
+ * 6 chiffres, 30 s). Sinon le lien complet, pour ne pas perdre ses réglages.
+ */
+export function totpInputValue(stored: string): string {
+  const value = stored.trim()
+  if (!/^otpauth:\/\//i.test(value)) return stored
+  try {
+    const url = new URL(value)
+    const params = url.searchParams
+    const secret = params.get('secret')
+    const algorithm = (params.get('algorithm') ?? 'SHA1').toUpperCase()
+    const digits = params.get('digits') ?? '6'
+    const period = params.get('period') ?? '30'
+    if (
+      !secret ||
+      url.hostname.toLowerCase() !== 'totp' ||
+      algorithm !== 'SHA1' ||
+      digits !== '6' ||
+      period !== '30'
+    ) {
+      return stored
+    }
+    return secret.replace(/=+$/, '').toUpperCase().match(/.{1,4}/g)?.join(' ') ?? secret
+  } catch {
+    return stored
+  }
 }
 
 export function isTotpUri(value: string): boolean {

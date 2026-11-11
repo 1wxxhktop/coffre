@@ -148,7 +148,7 @@ try {
   await form.getByLabel('Identifiant', { exact: true }).fill('ada')
   await form.getByLabel('Mot de passe', { exact: true }).fill('s3cret!')
   await form
-    .getByLabel(/Code TOTP/)
+    .getByLabel(/Clé TOTP/)
     .fill('otpauth://totp/Coffre:ada?secret=JBSWY3DPEHPK3PXP&issuer=Coffre')
   await form.getByPlaceholder('https://exemple.com').fill(TARGET_URL)
   await form.getByRole('button', { name: 'Enregistrer' }).click()
