@@ -766,7 +766,10 @@ de la dernière CI réussie sur `main` et les range dans
 `release/coffre-<version>-<commit>/` (lien `release/latest`) : DMG macOS,
 installateurs Windows (MSI, NSIS), paquets Linux (.deb, .rpm, AppImage),
 outils en ligne de commande pour chaque système, extension, application Web et
-SBOM, avec `SHA256SUMS` et un `LISEZMOI.txt`. Les artefacts sont conservés
+SBOM, avec `SHA256SUMS` et un `LISEZMOI.txt`. Le dossier `release/` est
+toujours celui de la racine du dépôt, même depuis un worktree, et les versions
+précédentes en sont retirées pour ne garder qu’un exemplaire (`--keep` pour les
+conserver). Les artefacts sont conservés
 30 jours ; au-delà, relancer la CI (`gh workflow run ci.yml --ref main`). Ce
 sont des builds de développement, sans paquet de mise à jour signé.
 

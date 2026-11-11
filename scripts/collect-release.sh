@@ -7,24 +7,36 @@
 #   ./scripts/collect-release.sh                 # dernière CI réussie sur main
 #   ./scripts/collect-release.sh --run 1234567   # une exécution précise
 #   ./scripts/collect-release.sh --out ~/Coffre  # autre dossier de sortie
+#   ./scripts/collect-release.sh --keep          # garder les versions précédentes
 #
 # Résultat : release/coffre-<version>-<commit>/ (et release/latest), avec
-# SHA256SUMS et LISEZMOI.txt. Les artefacts de la CI sont conservés 30 jours ;
-# au-delà, relancer la CI : gh workflow run ci.yml --ref main
+# SHA256SUMS et LISEZMOI.txt. Le dossier release/ est toujours celui de la
+# racine du dépôt, même si le script est lancé depuis un worktree, et les
+# versions précédentes en sont retirées (sauf --keep) pour ne pas accumuler de
+# doublons. Les artefacts de la CI sont conservés 30 jours ; au-delà, relancer
+# la CI : gh workflow run ci.yml --ref main
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 REPO="${COFFRE_REPO:-1wxxhktop/coffre}"
-OUT="$ROOT/release"
+# Racine du dépôt principal : un worktree partage son .git avec elle.
+MAIN_ROOT="$ROOT"
+if COMMON_DIR="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+  && [[ "$(basename "$COMMON_DIR")" == ".git" ]]; then
+  MAIN_ROOT="$(dirname "$COMMON_DIR")"
+fi
+OUT="$MAIN_ROOT/release"
 RUN_ID=""
+KEEP=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --run) RUN_ID="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    --keep) KEEP=1; shift ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "Option inconnue : $1" >&2; exit 2 ;;
   esac
 done
@@ -158,6 +170,16 @@ EOF
 )
 
 ln -sfn "$(basename "$DEST")" "$OUT/latest"
+
+# Une seule version sur le disque : les dossiers précédents sont retirés.
+if [[ "$KEEP" -eq 0 ]]; then
+  for previous in "$OUT"/coffre-*; do
+    [[ -d "$previous" && ! -L "$previous" ]] || continue
+    [[ "$previous" == "$DEST" ]] && continue
+    rm -rf "$previous"
+    echo "Ancienne version retirée : $(basename "$previous")"
+  done
+fi
 
 echo
 echo "Dossier prêt : $DEST"
