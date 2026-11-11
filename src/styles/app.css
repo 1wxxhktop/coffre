@@ -205,11 +205,7 @@ body:has(.app-shell) {
   height: 7px;
   flex: none;
   border-radius: var(--radius-full);
-  background: linear-gradient(
-    135deg,
-    var(--accent-strong),
-    var(--accent-muted)
-  );
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent-muted));
 }
 
 .sidebar__vault-name {
@@ -354,8 +350,7 @@ body:has(.app-shell) {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-5) clamp(var(--space-4), 3vw, var(--space-7))
-    var(--space-4);
+  padding: var(--space-5) clamp(var(--space-4), 3vw, var(--space-7)) var(--space-4);
   border-bottom: 1px solid var(--border-1);
   background: var(--surface-topbar);
   -webkit-backdrop-filter: blur(14px);
@@ -554,8 +549,7 @@ body:has(.app-shell) {
 
 .content {
   flex: 1;
-  padding: var(--space-5) clamp(var(--space-4), 3vw, var(--space-7))
-    var(--space-7);
+  padding: var(--space-5) clamp(var(--space-4), 3vw, var(--space-7)) var(--space-7);
   overflow-y: auto;
 }
 
@@ -828,6 +822,7 @@ body:has(.app-shell) {
   }
 }
 
+
 .item-row--trash {
   border-style: dashed;
   border-color: var(--state-danger-line);
@@ -885,8 +880,7 @@ body:has(.app-shell) {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3) var(--space-4);
-  padding: var(--space-4) clamp(var(--space-4), 2.4vw, var(--space-7))
-    var(--space-3);
+  padding: var(--space-4) clamp(var(--space-4), 2.4vw, var(--space-7)) var(--space-3);
   border-bottom: 1px solid var(--border-1);
   background: var(--surface-toolbar);
   -webkit-backdrop-filter: blur(14px);
@@ -1020,8 +1014,7 @@ body:has(.app-shell) {
 }
 
 .item-panel__body {
-  padding: var(--space-5) clamp(var(--space-4), 2.4vw, var(--space-7))
-    var(--space-8);
+  padding: var(--space-5) clamp(var(--space-4), 2.4vw, var(--space-7)) var(--space-8);
 }
 
 .item-panel .item-detail__identity {
@@ -2102,9 +2095,9 @@ body:has(.app-shell) {
     flex-basis: 100%;
   }
 
+
   .item-panel__body {
-    padding: var(--space-4) var(--space-4)
-      calc(var(--space-10) + var(--space-6));
+    padding: var(--space-4) var(--space-4) calc(var(--space-10) + var(--space-6));
   }
 
   .alert-banner {
@@ -2124,6 +2117,8 @@ body:has(.app-shell) {
     align-self: stretch;
   }
 
+
+
   .app-main--detail {
     padding-bottom: 0;
   }
@@ -2135,6 +2130,10 @@ body:has(.app-shell) {
   .app-main--detail .item-panel__body {
     padding-bottom: var(--space-8);
   }
+
+
+
+
 
   .mobile-tabs {
     position: fixed;
@@ -2190,11 +2189,13 @@ body:has(.app-shell) {
   }
 }
 
+
 @media (pointer: coarse) {
   .search__hint {
     display: none;
   }
 }
+
 
 @container (max-width: 359px) {
   .item-row__vault {
