@@ -71,13 +71,14 @@ describe('passerelle extension', () => {
     expect(hostFromUrl('https://www.Example.com/login')).toBe('example.com')
     expect(hostFromUrl('example.com')).toBe('example.com')
     expect(hostFromUrl('pas une url')).toBe('')
-    expect(hostMatches('example.com', 'login.example.com')).toBe(true)
+    expect(hostMatches('example.com', 'login.example.com')).toBe(false)
+    expect(hostMatches('example.com', 'www.example.com')).toBe(true)
     expect(hostMatches('example.com', 'example.org')).toBe(false)
   })
 
   it('retrouve les connexions par domaine', () => {
     const results = searchLogins(items, 'github.com')
-    expect(results.map((entry) => entry.id).sort()).toEqual(['1', '2'])
+    expect(results.map((entry) => entry.id).sort()).toEqual(['1'])
     expect(results[0]).toMatchObject({ title: expect.any(String), host: expect.any(String) })
   })
 
@@ -121,7 +122,8 @@ describe('passerelle extension', () => {
     const github = items[0] as LoginItem
     const proton = items[2] as LoginItem
     expect(loginAllowsHost(github, 'github.com')).toBe(true)
-    expect(loginAllowsHost(github, 'https://login.github.com/')).toBe(true)
+    expect(loginAllowsHost(github, 'https://www.github.com/')).toBe(true)
+    expect(loginAllowsHost(github, 'https://login.github.com/')).toBe(false)
     expect(loginAllowsHost(github, 'github.io')).toBe(false)
     expect(loginAllowsHost(github, 'evil.example')).toBe(false)
     expect(loginAllowsHost(proton, 'proton.me')).toBe(false)

@@ -131,6 +131,10 @@
 - **Menu inline** : chaque menu reçoit un jeton aléatoire lié à son onglet et à
   son cadre, enregistré avant le chargement de l’iframe. Un `menu.html` encadré
   directement par un site ne peut plus agir sans ce jeton.
+- **Domaines** : correspondance exacte par défaut, avec la seule exception
+  `www.example.com` ↔ `example.com`. Les relations parent/sous-domaine
+  (`example.com` ↔ `login.example.com`) ne sont plus acceptées ; les vecteurs
+  TypeScript/Rust et le smoke test sont alignés.
 
 ### CI et release
 
