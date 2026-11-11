@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- `bun run release:collect` écrit toujours dans le dossier `release/` de la
+  racine du dépôt, même lancé depuis un worktree, et retire les versions
+  précédentes pour ne garder qu’un exemplaire (`--keep` pour les conserver).
+
 ## 0.12.0 — 11 novembre 2026
 
 - Palette de commandes : `⌘K` / `Ctrl+K` ouvre une recherche unique pour
