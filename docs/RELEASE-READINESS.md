@@ -12,6 +12,12 @@ assurance externe. Ces points ne sont pas tous du code : ils demandent des
 certificats Apple, une infrastructure de release, du matériel de test et un
 audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 
+> **Mise à jour du 11 novembre 2026 (0.13.0) :** ce bilan reste celui de la
+> 0.8.0, mais **B-02 (mises à jour signées) est désormais traité** : releases
+> macOS signées, canaux stable et bêta, vérification et installation depuis
+> l’application. Voir [RELEASE.md](RELEASE.md). Les autres constats restent
+> valables, notamment B-01 et B-04 à B-08.
+
 ---
 
 ## 1. Verdict par plateforme
@@ -150,11 +156,26 @@ Il manque le certificat **Developer ID Application** et les secrets de
 notarisation. Sans eux, un utilisateur non technique ne peut toujours pas
 installer Coffre sans manipulation.
 
-### B-02 — Mises à jour
+### B-02 — Mises à jour — **traité en 0.13.0**
 
-Aucun mécanisme de mise à jour n’est présent. Un gestionnaire de mots de passe
-grand public doit pouvoir corriger une faille rapidement. Il faut un canal de
-release signé (Tauri Updater ou serveur statique) et une politique de versions.
+La version desktop utilise le **Tauri Updater** avec un manifeste
+`latest.json` publié dans les releases GitHub. Chaque paquet est signé
+(minisign) par la clé de mise à jour de Coffre ; la clé publique est intégrée
+au binaire à la compilation, et l’application vérifie la signature et la
+version avant toute installation. Le canal **stable** lit la dernière release
+publiée, le canal **bêta** lit la release roulante `canal-beta`.
+
+La chaîne de publication est documentée dans [RELEASE.md](RELEASE.md) :
+création du tag `v*`, build macOS universel et release en brouillon par
+`release.yml`, puis publication par `publish-update.yml` qui marque la version
+stable comme « latest » et met à jour le canal bêta. La vérification
+automatique est **désactivée par défaut** : l’utilisateur peut cliquer sur
+« Rechercher maintenant » ou choisir une fréquence dans les réglages.
+
+Il reste à valider le parcours complet sur une installation réelle (mise à
+jour d’une version précédente, redémarrage et intégrité du coffre), à packager
+les mises à jour Windows/Linux et à formaliser la conservation et la rotation
+de la clé minisign.
 
 ### B-03 — Stockage durable des données — **traité en 0.8.0**
 
@@ -233,7 +254,7 @@ d’écran et navigation clavier complète reste à faire.
 
 1. Bundle macOS signé Developer ID, notarié, agrafé et validé `spctl`
    (chaîne prête ; certificat et secrets à fournir).
-2. Mécanisme de mise à jour signé et documenté.
+2. ~~Mécanisme de mise à jour signé et documenté.~~ Fait en 0.13.0.
 3. Stockage natif atomique + sauvegardes + export/restauration validés sur une
    installation réelle (code et tests unitaires déjà en place).
 4. AutoFill macOS/iOS et Safari (ou périmètre officiellement limité).
@@ -249,15 +270,16 @@ d’écran et navigation clavier complète reste à faire.
 
 ## 5. Recommandation
 
-- **Aujourd’hui** : distribuer comme **bêta technique 0.8**, avec un avertissement
-  clair sur Gatekeeper, l’absence d’AutoFill système et l’absence d’audit
-  externe.
+- **Aujourd’hui** : distribuer comme **bêta technique 0.13**, avec un
+  avertissement clair sur Gatekeeper, l’absence d’AutoFill système et l’absence
+  d’audit externe. Les mises à jour signées sont disponibles sur macOS.
 - **Prochaine étape recommandée** : fournir le certificat Developer ID et les
-  secrets Apple, exécuter la release signée, puis intégrer les mises à jour
-  signées, l’AutoFill macOS et l’audit externe.
+  secrets Apple, exécuter la release signée et notariée, valider la mise à jour
+  depuis une version précédente, puis traiter l’AutoFill macOS et l’audit
+  externe.
 - **Ne pas présenter** Coffre comme un remplaçant grand public de 1Password ou
-  Mots de passe d’Apple tant que les bloquants restants (B-01, B-02, B-04 à
-  B-08 et B-10) ne sont pas traités.
+  Mots de passe d’Apple tant que les bloquants restants (B-01, B-04 à B-08 et
+  B-10) ne sont pas traités.
 
 La sécurité du coffre local, de la cryptographie, du format et des tests est
 déjà d’un bon niveau. Les bloquants restants sont principalement des sujets de

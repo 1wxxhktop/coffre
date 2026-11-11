@@ -186,7 +186,13 @@ Le trousseau temporaire est supprimé même en cas d’échec.
 ### 5.1 Publier la mise à jour
 
 Une fois le brouillon relu, lancer **Actions → Publier une mise à jour**
-(`publish-update.yml`) avec le tag. Ce workflow Linux, court :
+(`publish-update.yml`) avec le tag. En ligne de commande :
+
+```bash
+gh workflow run publish-update.yml -f tag=v0.13.0
+```
+
+Ce workflow Linux, court :
 
 - vérifie que `latest.json` annonce bien la version du tag ;
 - publie la release : version stable marquée « latest » (canal stable), ou
@@ -195,12 +201,16 @@ Une fois le brouillon relu, lancer **Actions → Publier une mise à jour**
   si celle-ci annonce déjà une version plus récente.
 
 Les applications installées voient la mise à jour à leur prochaine recherche.
-Publier le brouillon à la main dans l’interface GitHub fonctionne pour le canal
-stable, mais ne met pas à jour le canal bêta.
+La vérification automatique est **désactivée par défaut** : il faut cliquer sur
+« Rechercher maintenant » ou choisir une fréquence dans les réglages. Publier le
+brouillon à la main dans l’interface GitHub fonctionne pour le canal stable,
+mais ne met pas à jour le canal bêta.
 
 ## 6. Vérifier une release
 
-Sur une machine vierge ou après téléchargement :
+Sur une machine vierge ou après téléchargement. En mode **ad hoc** (sans compte
+Apple), `spctl` refuse le bundle et la première ouverture demande « Ouvrir quand
+même » : c’est attendu. En mode **Developer ID**, vérifier :
 
 ```bash
 spctl --assess --type execute --verbose=4 Coffre.app
@@ -210,8 +220,41 @@ shasum -a 256 Coffre_0.9.0_universal.dmg
 ```
 
 Le résultat attendu de `spctl` mentionne `accepted` et
-`source=Notarized Developer ID`. Comparer l’empreinte avec le fichier
-`.sha256` publié.
+`source=Notarized Developer ID`. En mode ad hoc, cette vérification échoue :
+comparer au minimum l’empreinte SHA-256 du DMG avec le fichier `.sha256` publié
+et vérifier la signature du paquet de mise à jour par l’application.
+
+### 6.1 Vérifier une mise à jour depuis l’application
+
+Cette vérification se fait avec une **installation macOS empaquetée**, jamais
+avec `bun run desktop:dev` : les builds de développement n’intègrent pas la clé
+publique de mise à jour et affichent « non configurée ».
+
+1. Installer la version précédente (par exemple 0.12.0), puis ouvrir Coffre.
+2. Dans **Réglages → Mises à jour**, vérifier que l’état est « configuré » et
+   que la version affichée correspond à la version installée.
+3. Cliquer sur **« Rechercher maintenant »**. La nouvelle version doit être
+   proposée avec ses notes.
+4. Télécharger puis installer. L’application vérifie la signature, verrouille
+   le coffre, s’arrête et redémarre sur la nouvelle version.
+5. Après redémarrage, vérifier la version affichée, l’intégrité du coffre et
+   l’ouverture d’un élément.
+6. Refaire le test sur le **canal bêta** : Réglages → Mises à jour → canal bêta,
+   puis « Rechercher maintenant ». Le manifeste lu doit être celui de
+   `canal-beta`.
+
+Les manifestes publics peuvent être contrôlés sans l’application :
+
+```bash
+curl -fsSL https://github.com/1wxxhktop/coffre/releases/latest/download/latest.json
+curl -fsSL https://github.com/1wxxhktop/coffre/releases/download/canal-beta/latest.json
+```
+
+Ils doivent annoncer la version attendue, une URL
+`Coffre_<version>_universal.app.tar.gz` et une signature non vide. Une version
+déjà installée, ou ignorée par l’utilisateur, n’est pas proposée. Les retours
+en arrière ne sont pas installés : la signature doit couvrir la version
+annoncée.
 
 ## 7. Dépannage
 
@@ -229,10 +272,13 @@ Le résultat attendu de `spctl` mentionne `accepted` et
 
 ## 8. Limites actuelles
 
-- La release signée n’est produite que pour **macOS** ; Windows et Linux sont
-  compilés par la CI mais pas encore empaquetés/signés pour une release.
-- Aucun mécanisme de **mise à jour signée** n’est encore intégré (B-02). La
-  release GitHub permet le téléchargement manuel, pas la mise à jour
-  automatique.
+- Les mises à jour signées sont disponibles pour l’application **macOS**
+  empaquetée. Windows et Linux sont compilés par la CI mais pas encore
+  empaquetés/signés pour une release.
+- Les builds de développement (`bun run desktop:dev`) n’ont pas la clé publique
+  et affichent « non configurée ».
+- La vérification des mises à jour est **désactivée par défaut** : l’utilisateur
+  doit cliquer sur « Rechercher maintenant » ou choisir une fréquence. La clé
+  minisign doit être conservée : sa perte impose une réinstallation manuelle.
 - L’AutoFill macOS, le mobile et l’audit externe restent des chantiers séparés.
 - Les secrets Apple ne doivent jamais être commités dans le dépôt.
