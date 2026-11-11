@@ -2,6 +2,8 @@
 
 ## Non publié
 
+## 0.11.0 — 11 novembre 2026
+
 - Duplication en un clic : bouton à côté du titre et raccourci `⌘D` /
   `Ctrl+D` ; la copie s’ouvre directement en modification.
 - TOTP : saisie directe de la clé secrète fournie par le site (espaces et
