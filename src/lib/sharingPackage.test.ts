@@ -9,7 +9,7 @@ import {
   publicSharingIdentity,
 } from './sharing'
 import { emptyDraft } from './types'
-import { randomBytes } from './crypto'
+import { fromBase64, randomBytes, toBase64 } from './crypto'
 
 const vaultKey = new Uint8Array(32).fill(5)
 
@@ -95,7 +95,11 @@ describe('paquet de partage', () => {
               ...member,
               wrap: {
                 ...member.wrap,
-                ciphertext: `${member.wrap.ciphertext.slice(0, -2)}AA`,
+                ciphertext: (() => {
+                  const bytes = fromBase64(member.wrap.ciphertext)
+                  bytes[0] ^= 0xff
+                  return toBase64(bytes)
+                })(),
               },
             }
           : member,

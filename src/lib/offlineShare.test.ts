@@ -6,6 +6,7 @@ import {
   openOfflineShare,
   parseShareKey,
 } from './offlineShare'
+import { fromBase64, toBase64 } from './crypto'
 import type { LoginItem } from './types'
 
 const NOW = '2026-11-08T10:00:00.000Z'
@@ -89,7 +90,9 @@ describe('partage hors ligne', () => {
     const parsed = JSON.parse(share.content) as {
       cipher: { c: string }
     }
-    parsed.cipher.c = `${parsed.cipher.c.slice(0, -4)}AAAA`
+    const cipherBytes = fromBase64(parsed.cipher.c)
+    cipherBytes[0] ^= 0xff
+    parsed.cipher.c = toBase64(cipherBytes)
     await expect(
       openOfflineShare(JSON.stringify(parsed), share.keyWords),
     ).rejects.toThrow(OfflineShareError)
