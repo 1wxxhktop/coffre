@@ -840,6 +840,21 @@ export function VaultApp() {
     markUsed(itemId)
   }
 
+  /** Ouvre un compte lié sans perdre le filtre courant s’il y figure déjà. */
+  const openRelatedItem = (itemId: string) => {
+    if (itemId === selectedId) return
+    if (!filteredItems.some((entry) => entry.id === itemId)) {
+      setView('vault')
+      setSecurityCategory(null)
+      setFilter('all')
+      setVaultFilter('all')
+      setSearch('')
+    }
+    setCreateType(null)
+    setSelectedId(itemId)
+    markUsed(itemId)
+  }
+
   const openDashboardFilter = (next: ItemFilter) => {
     setView('vault')
     setSecurityCategory(null)
@@ -1608,6 +1623,7 @@ export function VaultApp() {
                     setSelectedId(item.id)
                   }}
                   onUsed={() => markUsed(selectedItem.id)}
+                  onOpenItem={openRelatedItem}
                 />
               </Suspense>
             ) : singleEmpty ? (

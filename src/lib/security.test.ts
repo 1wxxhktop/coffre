@@ -409,7 +409,11 @@ describe('faits de sécurité d’une fiche', () => {
 
   it('compte les autres comptes qui partagent le mot de passe', () => {
     expect(facts('a')).toMatchObject({ reusedWith: 2, weak: false, breached: false })
-    expect(facts('ok')).toMatchObject({ reusedWith: 0 })
+    expect(facts('a')!.reusedWithItems.map((item) => item.id).sort()).toEqual([
+      'b',
+      'c',
+    ])
+    expect(facts('ok')).toMatchObject({ reusedWith: 0, reusedWithItems: [] })
   })
 
   it('signale la faiblesse, l’ancienneté et l’âge en jours', () => {

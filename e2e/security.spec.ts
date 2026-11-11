@@ -2,6 +2,37 @@ import { expect, test } from '@playwright/test'
 import { addLogin, closeDialog, createVault, openSettings } from './helpers'
 
 test.describe('sécurité de l’interface', () => {
+  test('liste les comptes qui partagent le mot de passe et permet de les ouvrir', async ({
+    page,
+  }) => {
+    await createVault(page)
+    await addLogin(
+      page,
+      'Compte partagé A',
+      'ada',
+      'MotDePassePartagé!42',
+      'https://a.example.com',
+    )
+    const panel = await addLogin(
+      page,
+      'Compte partagé B',
+      'grace',
+      'MotDePassePartagé!42',
+      'https://b.example.com',
+    )
+
+    await expect(
+      panel.getByText('Comptes qui partagent ce mot de passe'),
+    ).toBeVisible()
+    await panel.getByRole('button', { name: 'Ouvrir Compte partagé A' }).click()
+    await expect(
+      panel.getByRole('heading', { name: 'Compte partagé A' }),
+    ).toBeVisible()
+    await expect(
+      panel.getByRole('button', { name: 'Ouvrir Compte partagé B' }),
+    ).toBeVisible()
+  })
+
   test('aucune requête tierce et neutralisation des URL dangereuses', async ({
     page,
     baseURL,

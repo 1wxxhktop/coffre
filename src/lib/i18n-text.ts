@@ -983,6 +983,10 @@ export const EN_TEXT: Record<string, string> = {
     "Used by 1 other account",
   "Utilisé par {count} autres comptes":
     "Used by {count} other accounts",
+  "Comptes qui partagent ce mot de passe":
+    "Accounts sharing this password",
+  "Ouvrir {title}":
+    "Open {title}",
   "Vérification désactivée":
     "Check turned off",
   "Présent dans une fuite":
