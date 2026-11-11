@@ -2,6 +2,24 @@
 
 ## Non publié
 
+- Palette de commandes : `⌘K` / `Ctrl+K` ouvre une recherche unique pour
+  ouvrir un élément ou lancer une action (nouvel élément, générateur, bilan de
+  sécurité, réglages, verrouillage…). Elle ne cherche que dans le titre,
+  l’identifiant, les adresses et les étiquettes, jamais dans les secrets.
+- Accès rapide : les éléments utilisés récemment apparaissent en tête de la
+  liste complète.
+- Fiche d’un élément : un clic sur une ligne copie sa valeur, avec « Copié »
+  affiché sur place ; la robustesse et l’alerte éventuelle sont sous le mot de
+  passe ; un bloc « Sécurité » résume robustesse, ancienneté, réutilisation,
+  fuites connues et double authentification.
+- Icônes : un compte sans site reconnu reçoit une pastille à initiale teintée,
+  calculée localement d’après son nom, sans aucune requête réseau.
+- Champs personnalisés : réordonnables par glisser-déposer ou avec les flèches
+  haut et bas sur la poignée.
+- En-tête étroit : libellés courts (« Copier », « Alias ») avant de passer aux
+  icônes seules.
+- Les notifications ne recouvrent plus la barre d’état.
+
 ## 0.11.0 — 11 novembre 2026
 
 - Duplication en un clic : bouton à côté du titre et raccourci `⌘D` /

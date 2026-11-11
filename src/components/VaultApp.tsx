@@ -12,6 +12,7 @@ import {
   History,
   KeyRound,
   LayoutDashboard,
+  ListChecks,
   LockKeyhole,
   Menu as MenuIcon,
   Plus,
@@ -21,6 +22,7 @@ import {
   ShieldCheck,
   Star,
   Trash2,
+  Wand2,
   X,
 } from 'lucide-react'
 import { Sidebar } from './Sidebar'
@@ -34,6 +36,9 @@ import {
   type ItemSort,
 } from '../lib/filters'
 import { ItemRow } from './ItemRow'
+import { ItemIcon } from './ItemIcon'
+import { CommandPalette, type PaletteCommand } from './CommandPalette'
+import { quickAccessItems } from '../lib/palette'
 import { AutoTypePicker } from './AutoTypePicker'
 import { SshAgentBridge } from './SshAgentBridge'
 import { VaultFormDialog } from './VaultFormDialog'
@@ -212,7 +217,7 @@ export function VaultApp() {
     recordGeneratedPassword,
   } = useVault()
   const { settings } = useSettings()
-  const { t, intl } = useI18n()
+  const { t, tt, intl } = useI18n()
   const { toast } = useToast()
   const layout = useLayoutPreferences()
   const desktopLayout = useMediaQuery('(min-width: 1100px)')
@@ -279,6 +284,7 @@ export function VaultApp() {
   const [vaultToDelete, setVaultToDelete] = useState<VaultSummary | null>(null)
   const [showEmptyTrash, setShowEmptyTrash] = useState(false)
   const [generatorOpen, setGeneratorOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const breachRevision = useMemo(
     () =>
       items
@@ -505,8 +511,7 @@ export function VaultApp() {
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k' && !dialogOpen) {
         event.preventDefault()
-        searchRef.current?.focus()
-        searchRef.current?.select()
+        setPaletteOpen(true)
         return
       }
 
@@ -850,6 +855,98 @@ export function VaultApp() {
     setVaultFilter(vaultId)
   }
 
+  const paletteCommands: PaletteCommand[] = [
+    ...(readOnly
+      ? []
+      : [
+          {
+            id: 'new',
+            label: t('vault.newItem'),
+            keywords: 'creer ajouter nouveau new add',
+            shortcut: 'N',
+            icon: <Plus size={16} />,
+            run: () => {
+              setView('vault')
+              setSecurityCategory(null)
+              setCreateType('login')
+            },
+          },
+        ]),
+    {
+      id: 'generator',
+      label: tt('Générer un mot de passe'),
+      keywords: 'generateur password aleatoire',
+      icon: <Wand2 size={16} />,
+      run: () => setGeneratorOpen(true),
+    },
+    {
+      id: 'dashboard',
+      label: tt('Tableau de bord'),
+      keywords: 'accueil dashboard home',
+      icon: <LayoutDashboard size={16} />,
+      run: () => setView('dashboard'),
+    },
+    {
+      id: 'all',
+      label: tt('Tous les éléments'),
+      keywords: 'liste all items',
+      icon: <KeyRound size={16} />,
+      run: () => openDashboardFilter('all'),
+    },
+    {
+      id: 'favorites',
+      label: tt('Favoris'),
+      keywords: 'favorites etoile',
+      icon: <Star size={16} />,
+      run: () => openDashboardFilter('favorites'),
+    },
+    {
+      id: 'recent',
+      label: tt('Récents'),
+      keywords: 'recent historique',
+      icon: <History size={16} />,
+      run: () => openDashboardFilter('recent'),
+    },
+    {
+      id: 'trash',
+      label: tt('Corbeille'),
+      keywords: 'trash supprimes',
+      icon: <Trash2 size={16} />,
+      run: () => openDashboardFilter('trash'),
+    },
+    {
+      id: 'security',
+      label: tt('Bilan de sécurité'),
+      keywords: 'security audit faibles fuites',
+      icon: <ShieldCheck size={16} />,
+      run: () => setSecurityOpen(true),
+    },
+    {
+      id: 'select',
+      label: tt('Sélectionner plusieurs éléments'),
+      keywords: 'selection multiple bulk',
+      icon: <ListChecks size={16} />,
+      run: () => {
+        setView('vault')
+        setSelectionMode(true)
+      },
+    },
+    {
+      id: 'settings',
+      label: tt('Réglages'),
+      keywords: 'settings preferences options',
+      icon: <Settings size={16} />,
+      run: () => setSettingsOpen(true),
+    },
+    {
+      id: 'lock',
+      label: tt('Verrouiller le coffre'),
+      keywords: 'lock fermer',
+      icon: <LockKeyhole size={16} />,
+      run: () => lock(),
+    },
+  ]
+
   const closeDetail = () => {
     if (createType) {
       setCreateType(null)
@@ -936,6 +1033,12 @@ export function VaultApp() {
         return t('vault.dateGroup.unknown')
     }
   }
+
+  // Rangée « Accès rapide » : seulement sur la liste complète, sans recherche.
+  const quickAccess =
+    filter === 'all' && !search.trim() && !securityCategory && !selectionMode
+      ? quickAccessItems(filteredItems, usage)
+      : []
 
   const renderItemRow = (item: VaultItem) => (
     <ItemRow
@@ -1308,6 +1411,32 @@ export function VaultApp() {
                   >
                     {t('vault.emptyTrash')}
                   </button>
+                </div>
+              )}
+
+              {quickAccess.length >= 2 && (
+                <div className="quick-access" role="group" aria-label={tt('Accès rapide')}>
+                  <span className="quick-access__title">{tt('Accès rapide')}</span>
+                  <div className="quick-access__items">
+                    {quickAccess.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`quick-access__item ${selectedId === item.id ? 'is-active' : ''}`}
+                        title={item.title}
+                        onClick={() => {
+                          setCreateType(null)
+                          setSelectedId(item.id)
+                          markUsed(item.id)
+                        }}
+                      >
+                        <span className={`item-icon item-icon--${item.type}`}>
+                          <ItemIcon type={item.type} item={item} size={14} />
+                        </span>
+                        <span className="quick-access__name">{item.title}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1741,6 +1870,16 @@ export function VaultApp() {
             }}
           />
         </Suspense>
+      )}
+
+      {paletteOpen && (
+        <CommandPalette
+          items={activeItems}
+          usage={usage}
+          commands={paletteCommands}
+          onOpenItem={openDashboardItem}
+          onClose={() => setPaletteOpen(false)}
+        />
       )}
 
       {generatorOpen && (

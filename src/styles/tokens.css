@@ -112,6 +112,26 @@
   --accent-soft-2: rgba(255, 255, 255, 0.1);
   --accent-soft-3: rgba(255, 255, 255, 0.12);
 
+  /* Teintes des pastilles à initiale (monogrammes). */
+  --tint-1: hsl(212 78% 76%);
+  --tint-1-soft: hsl(212 70% 60% / 0.14);
+  --tint-1-border: hsl(212 70% 65% / 0.28);
+  --tint-2: hsl(262 78% 76%);
+  --tint-2-soft: hsl(262 70% 60% / 0.14);
+  --tint-2-border: hsl(262 70% 65% / 0.28);
+  --tint-3: hsl(330 78% 76%);
+  --tint-3-soft: hsl(330 70% 60% / 0.14);
+  --tint-3-border: hsl(330 70% 65% / 0.28);
+  --tint-4: hsl(24 78% 76%);
+  --tint-4-soft: hsl(24 70% 60% / 0.14);
+  --tint-4-border: hsl(24 70% 65% / 0.28);
+  --tint-5: hsl(152 78% 76%);
+  --tint-5-soft: hsl(152 70% 60% / 0.14);
+  --tint-5-border: hsl(152 70% 65% / 0.28);
+  --tint-6: hsl(188 78% 76%);
+  --tint-6-soft: hsl(188 70% 60% / 0.14);
+  --tint-6-border: hsl(188 70% 65% / 0.28);
+
   /* Interaction et surfaces translucides ----------------------------- */
   --hover-1: rgba(255, 255, 255, 0.045);
   --hover-2: rgba(255, 255, 255, 0.06);

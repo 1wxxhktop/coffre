@@ -781,6 +781,43 @@ select.input option {
   text-transform: uppercase;
 }
 
+/* Pastille teintée : la couleur dépend du nom, pas d’une requête réseau. */
+.item-icon:has(> .item-icon__monogram[data-tint='1']) {
+  border-color: var(--tint-1-border);
+  background: var(--tint-1-soft);
+  color: var(--tint-1);
+}
+
+.item-icon:has(> .item-icon__monogram[data-tint='2']) {
+  border-color: var(--tint-2-border);
+  background: var(--tint-2-soft);
+  color: var(--tint-2);
+}
+
+.item-icon:has(> .item-icon__monogram[data-tint='3']) {
+  border-color: var(--tint-3-border);
+  background: var(--tint-3-soft);
+  color: var(--tint-3);
+}
+
+.item-icon:has(> .item-icon__monogram[data-tint='4']) {
+  border-color: var(--tint-4-border);
+  background: var(--tint-4-soft);
+  color: var(--tint-4);
+}
+
+.item-icon:has(> .item-icon__monogram[data-tint='5']) {
+  border-color: var(--tint-5-border);
+  background: var(--tint-5-soft);
+  color: var(--tint-5);
+}
+
+.item-icon:has(> .item-icon__monogram[data-tint='6']) {
+  border-color: var(--tint-6-border);
+  background: var(--tint-6-soft);
+  color: var(--tint-6);
+}
+
 .item-icon--login,
 .item-icon--card,
 .item-icon--note {
@@ -1287,7 +1324,8 @@ body:has(.app-shell)::before {
 .toast-stack {
   position: fixed;
   right: var(--space-6);
-  bottom: var(--space-6);
+  /* Au-dessus de la barre d’état (version, mises à jour). */
+  bottom: calc(var(--space-6) + var(--space-7));
   z-index: var(--z-toast);
   display: flex;
   flex-direction: column;

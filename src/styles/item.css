@@ -369,7 +369,8 @@
   min-height: 38px;
 }
 
-.custom-field .icon-button {
+.custom-field__tools .icon-button,
+.custom-field__secret .icon-button {
   margin-top: 3px;
 }
 
@@ -750,9 +751,6 @@
     grid-column: 1 / -1;
   }
 
-  .custom-field .icon-button {
-    justify-self: end;
-  }
 }
 
 .blob-preview {
@@ -924,4 +922,194 @@
 .recovery-code-row__status {
   color: var(--text-3);
   font-size: var(--text-xs);
+}
+
+/* ------------------------------------------------------------------ */
+/* Copie au clic sur la ligne                                          */
+/* ------------------------------------------------------------------ */
+
+.detail-row--copyable {
+  cursor: copy;
+  transition: background 0.12s ease;
+}
+
+/* Survol réservé aux pointeurs réels : sur tactile, il resterait collé. */
+@media (hover: hover) {
+  .detail-row--copyable:hover {
+    background: var(--surface-subtle);
+  }
+}
+
+.detail-row.is-copied {
+  background: var(--state-ok-soft);
+}
+
+/* Le fond teinté réduit le contraste : libellé un cran plus foncé. */
+.detail-row--copyable:hover .detail-row__label,
+.detail-row.is-copied .detail-row__label {
+  color: var(--text-2);
+}
+
+.detail-row__copied {
+  align-self: center;
+  padding-right: var(--space-1);
+  color: var(--state-ok-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.detail-row__copied:empty {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Robustesse et alerte sous le mot de passe                           */
+/* ------------------------------------------------------------------ */
+
+.detail-health {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Aligné sur la colonne des valeurs. */
+  padding: 0 var(--space-3) var(--space-3) calc(var(--space-3) + 112px + var(--space-4));
+}
+
+.detail-health .strength {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: 0;
+}
+
+.detail-health .strength__bars {
+  width: 132px;
+  flex: none;
+}
+
+.detail-health .strength__meta {
+  font-size: var(--text-xs);
+}
+
+.alert-banner--inline {
+  align-items: center;
+  margin-bottom: 0;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+}
+
+.alert-banner--inline > svg {
+  margin-top: 0;
+}
+
+.alert-banner--inline p {
+  display: none;
+}
+
+.alert-banner--inline .alert-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bloc « Sécurité » de la fiche                                       */
+/* ------------------------------------------------------------------ */
+
+.security-facts__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-1) var(--space-5);
+  margin-top: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.security-fact {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.security-fact__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: var(--radius-full);
+  background: var(--text-4);
+  transform: translateY(-1px);
+}
+
+.security-fact--ok .security-fact__dot {
+  background: var(--state-ok);
+}
+
+.security-fact--warn .security-fact__dot {
+  background: var(--state-warn);
+}
+
+.security-fact--danger .security-fact__dot {
+  background: var(--state-danger);
+}
+
+.security-fact__label {
+  flex: none;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+}
+
+.security-fact__value {
+  min-width: 0;
+  margin-left: auto;
+  color: var(--text-1);
+  text-align: right;
+}
+
+.security-fact--warn .security-fact__value {
+  color: var(--state-warn-text);
+}
+
+.security-fact--danger .security-fact__value {
+  color: var(--state-danger-text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Réordonner les champs personnalisés                                 */
+/* ------------------------------------------------------------------ */
+
+.custom-field__tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.custom-field__grip {
+  cursor: grab;
+  color: var(--text-3);
+}
+
+.custom-field__grip:active {
+  cursor: grabbing;
+}
+
+.custom-field.is-dragging {
+  opacity: 0.45;
+}
+
+.custom-field.is-drop-target {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+@media (max-width: 639px) {
+  .detail-health {
+    padding-left: var(--space-3);
+  }
+
+  .custom-field__tools {
+    justify-self: end;
+  }
 }

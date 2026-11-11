@@ -32,6 +32,7 @@ export function ItemIcon({ type, item, size = 18 }: ItemIconProps) {
         <span
           className="item-icon__monogram"
           data-service={service.id}
+          data-tint={service.tint}
           style={{ fontSize: Math.max(10, Math.round(size * 0.62)) }}
           aria-hidden="true"
         >

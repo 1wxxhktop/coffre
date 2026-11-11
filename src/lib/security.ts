@@ -470,6 +470,49 @@ const ISSUE_SHORT_LABELS: Record<SecurityCategory, string> = {
  * Problème le plus important d’un élément, pour la pastille de liste et le
  * bandeau du détail. Les cartes, notes et identités n’ont pas de mot de passe.
  */
+/** Résumé de sécurité d’une connexion, affiché en bas de sa fiche. */
+export interface ItemSecurityFacts {
+  weak: boolean
+  /** Nombre d’autres connexions qui partagent ce mot de passe. */
+  reusedWith: number
+  similar: boolean
+  breached: boolean
+  /** Mot de passe inchangé depuis plus d’un an. */
+  old: boolean
+  /** Jours écoulés depuis la dernière modification ; `null` si inconnue. */
+  ageDays: number | null
+}
+
+export function itemSecurityFacts(
+  item: VaultItem,
+  report: SecurityReport,
+  now: number = Date.now(),
+): ItemSecurityFacts | null {
+  if (item.type !== 'login' || item.deletedAt) return null
+  const has = (items: VaultItem[]) => items.some((candidate) => candidate.id === item.id)
+  const group = report.reused.find((candidate) => has(candidate.items))
+  const updated = Date.parse(item.updatedAt)
+  return {
+    weak: has(report.weak),
+    reusedWith: group ? group.items.length - 1 : 0,
+    similar: report.similar.some((candidate) => has(candidate.items)),
+    breached: has(report.breached),
+    old: has(report.old),
+    ageDays: Number.isFinite(updated)
+      ? Math.max(0, Math.floor((now - updated) / 86_400_000))
+      : null,
+  }
+}
+
+/** Catégories qui concernent le mot de passe lui-même. */
+export const PASSWORD_ISSUE_CATEGORIES: readonly SecurityCategory[] = [
+  'breached',
+  'weak',
+  'reused',
+  'similar',
+  'old',
+]
+
 export function itemSecurityIssue(
   item: VaultItem,
   report: SecurityReport,

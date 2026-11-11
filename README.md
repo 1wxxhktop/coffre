@@ -286,6 +286,14 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   l’édition restent dans le panneau, avec menu d’actions secondaires,
   déplacement entre coffres, duplication (bouton à côté du titre ou `⌘D` /
   `Ctrl+D`, la copie s’ouvre en modification) et navigation clavier.
+- **Palette de commandes et accès rapide** : `⌘K` / `Ctrl+K` ouvre une
+  recherche unique pour ouvrir un élément ou lancer une action (nouvel élément,
+  générateur, bilan de sécurité, réglages, verrouillage). Elle ne lit jamais les
+  secrets. Les éléments utilisés récemment restent en tête de la liste.
+- **Fiche lisible d’un coup d’œil** : clic sur une ligne pour copier, robustesse
+  et alerte sous le mot de passe, bloc « Sécurité » (ancienneté, réutilisation,
+  fuites connues, double authentification), pastilles à initiale teintées
+  calculées localement, champs personnalisés réordonnables.
 - **Tableau de bord** : page d’accueil par défaut après le déverrouillage, avec
   score de santé, statistiques, points d’attention, éléments prioritaires,
   récents, coffres, échéances et état du stockage local (dernière écriture,

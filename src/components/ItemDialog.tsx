@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react'
 import {
   AtSign,
   CalendarClock,
@@ -10,6 +16,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  GripVertical,
   FileUp,
   FolderInput,
   Globe,
@@ -40,6 +47,7 @@ import { AutoTypeDialog } from './AutoTypeDialog'
 import { EmailAliasDialog } from './EmailAliasDialog'
 import { TotpCode } from './TotpCode'
 import { ItemIcon } from './ItemIcon'
+import { PasswordStrength } from './PasswordStrength'
 import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
@@ -60,10 +68,16 @@ import {
 } from '../lib/expiry'
 import {
   analyzeSecurity,
+  itemSecurityFacts,
   itemSecurityIssue,
+  PASSWORD_ISSUE_CATEGORIES,
+  type ItemSecurityFacts,
   type ItemSecurityIssue,
   type SecurityReport,
 } from '../lib/security'
+import { estimateEntropy, passwordStrength } from '../lib/strength'
+import { cx } from '../lib/cx'
+import { moveEntry } from '../lib/palette'
 import { changePasswordUrl, safeExternalUrl as safeUrl } from '../lib/url'
 import { handleExternalClick, isTauriRuntime, openExternal } from '../lib/external'
 import { hostFromUrl } from '../lib/extensionProtocol'
@@ -308,6 +322,8 @@ export function ItemDialog({
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
   // Texte tapé dans le champ TOTP (clé ou lien), tant qu’il correspond au
   // lien actuellement dans le brouillon : évite que le curseur saute.
+  const [dragFieldId, setDragFieldId] = useState<string | null>(null)
+  const [dropFieldId, setDropFieldId] = useState<string | null>(null)
   const [totpTyped, setTotpTyped] = useState<{ text: string; uri: string } | null>(
     null,
   )
@@ -338,6 +354,10 @@ export function ItemDialog({
     [securityReport, items],
   )
   const issue = current ? itemSecurityIssue(current, report) : null
+  const facts = useMemo(
+    () => (current ? itemSecurityFacts(current, report) : null),
+    [current, report],
+  )
   const hasPasskeyForItem = useMemo(() => {
     if (!current || current.type !== 'login') return false
     const domains = new Set(
@@ -386,6 +406,13 @@ export function ItemDialog({
         field.id === id ? { ...field, ...partial } : field,
       ),
     })
+  }
+
+  const moveCustomField = (fromId: string, toIndex: number) => {
+    const fields = draft.customFields ?? []
+    const from = fields.findIndex((field) => field.id === fromId)
+    const next = moveEntry(fields, from, toIndex)
+    if (next !== fields) patch({ customFields: next })
   }
 
   const deleteCustomField = (id: string) => {
@@ -580,7 +607,11 @@ export function ItemDialog({
     }
   }
 
-  const copyValue = async (value: string, label: string) => {
+  const copyValue = async (
+    value: string,
+    label: string,
+    options: { quiet?: boolean } = {},
+  ) => {
     if (!value) return
     const success = await copySensitive(value, settings.clipboardClearSeconds, () =>
       toast(tt('Presse-papiers effacé'), 'info'),
@@ -596,7 +627,8 @@ export function ItemDialog({
       settings.clipboardClearSeconds > 0
         ? ` · effacement dans ${settings.clipboardClearSeconds} s`
         : ''
-    toast(`${label} copié${suffix}`, 'success')
+    // Les lignes de la fiche affichent « Copié » sur place.
+    if (!options.quiet) toast(`${label} copié${suffix}`, 'success')
   }
 
   const importRecoveryCodes = (replace: boolean) => {
@@ -1048,7 +1080,15 @@ export function ItemDialog({
 
   // Libellé masquable : le bouton devient une icône quand la place manque
   // (requêtes de conteneur sur le panneau), avec un nom accessible conservé.
-  const label = (text: string) => <span className="button__label">{text}</span>
+  const label = (text: string, short?: string) =>
+    short ? (
+      <>
+        <span className="button__label button__label--full">{text}</span>
+        <span className="button__label button__label--short">{short}</span>
+      </>
+    ) : (
+      <span className="button__label">{text}</span>
+    )
 
   const primaryAction = editing ? (
     <>
@@ -1110,7 +1150,7 @@ export function ItemDialog({
             title={tt('Copier le mot de passe')}
           >
             <Copy size={16} />
-            {label(tt('Copier le mot de passe'))}
+            {label(tt('Copier le mot de passe'), tt('Copier'))}
           </button>
           {isTauriRuntime() && (
             <button
@@ -1121,7 +1161,7 @@ export function ItemDialog({
               title={tt('Saisie automatique')}
             >
               <Keyboard size={16} />
-              {label(tt('Saisie automatique'))}
+              {label(tt('Saisie automatique'), tt('Saisie'))}
             </button>
           )}
           <button
@@ -1132,7 +1172,7 @@ export function ItemDialog({
             title={tt('Alias e-mail')}
           >
             <AtSign size={16} />
-            {label(tt('Alias e-mail'))}
+            {label(tt('Alias e-mail'), tt('Alias'))}
           </button>
         </>
       )}
@@ -1991,8 +2031,30 @@ export function ItemDialog({
                   </p>
                 ) : (
                   <div className="custom-fields__list">
-                    {(draft.customFields ?? []).map((field) => (
-                      <div className="custom-field" key={field.id}>
+                    {(draft.customFields ?? []).map((field, fieldIndex) => (
+                      <div
+                        className={cx(
+                          'custom-field',
+                          dragFieldId === field.id && 'is-dragging',
+                          dropFieldId === field.id &&
+                            dragFieldId !== field.id &&
+                            'is-drop-target',
+                        )}
+                        key={field.id}
+                        onDragOver={(event) => {
+                          if (!dragFieldId) return
+                          event.preventDefault()
+                          event.dataTransfer.dropEffect = 'move'
+                          if (dropFieldId !== field.id) setDropFieldId(field.id)
+                        }}
+                        onDrop={(event) => {
+                          if (!dragFieldId) return
+                          event.preventDefault()
+                          moveCustomField(dragFieldId, fieldIndex)
+                          setDragFieldId(null)
+                          setDropFieldId(null)
+                        }}
+                      >
                         <input
                           className="input"
                           value={field.label}
@@ -2023,14 +2085,47 @@ export function ItemDialog({
                           field={field}
                           onChange={(value) => updateCustomField(field.id, { value })}
                         />
-                        <button
-                          type="button"
-                          className="icon-button icon-button--sm"
-                          onClick={() => deleteCustomField(field.id)}
-                          aria-label={`Supprimer le champ ${field.label || 'sans nom'}`}
-                        >
-                          <X size={15} />
-                        </button>
+                        <div className="custom-field__tools">
+                          {(draft.customFields ?? []).length > 1 && (
+                            <button
+                              type="button"
+                              className="icon-button icon-button--sm custom-field__grip"
+                              draggable
+                              onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed = 'move'
+                                event.dataTransfer.setData('text/plain', field.id)
+                                const row = event.currentTarget.closest('.custom-field')
+                                if (row) event.dataTransfer.setDragImage(row, 12, 12)
+                                setDragFieldId(field.id)
+                              }}
+                              onDragEnd={() => {
+                                setDragFieldId(null)
+                                setDropFieldId(null)
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'ArrowUp') {
+                                  event.preventDefault()
+                                  moveCustomField(field.id, fieldIndex - 1)
+                                } else if (event.key === 'ArrowDown') {
+                                  event.preventDefault()
+                                  moveCustomField(field.id, fieldIndex + 1)
+                                }
+                              }}
+                              aria-label={`${tt('Déplacer le champ')} ${field.label || tt('sans nom')}`}
+                              title={tt('Glisser pour déplacer (ou flèches haut et bas)')}
+                            >
+                              <GripVertical size={15} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="icon-button icon-button--sm"
+                            onClick={() => deleteCustomField(field.id)}
+                            aria-label={`Supprimer le champ ${field.label || 'sans nom'}`}
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2095,6 +2190,8 @@ export function ItemDialog({
                 toggleReveal={toggleReveal}
                 copyValue={copyValue}
                 copied={copied}
+                facts={facts}
+                breachCheck={settings.breachCheck}
                 onToggleFavorite={() => void toggleFavorite()}
                 readOnly={trashed || vault?.role === 'read'}
                 vaultReadOnly={vault?.role === 'read'}
@@ -2238,8 +2335,14 @@ interface ItemDetailsProps {
   vaultName: string
   revealed: Set<string>
   toggleReveal: (key: string) => void
-  copyValue: (value: string, label: string) => Promise<void>
+  copyValue: (
+    value: string,
+    label: string,
+    options?: { quiet?: boolean },
+  ) => Promise<void>
   copied: string | null
+  facts: ItemSecurityFacts | null
+  breachCheck: boolean
   onToggleFavorite: () => void
   /** Élément en corbeille : lecture seule, ni favori ni pièces jointes modifiables. */
   readOnly?: boolean
@@ -2262,8 +2365,10 @@ function ItemDetails({
   vaultName,
   revealed,
   toggleReveal,
-  copyValue,
+  copyValue: copyWithToast,
   copied,
+  facts,
+  breachCheck,
   onToggleFavorite,
   readOnly = false,
   vaultReadOnly = false,
@@ -2281,6 +2386,9 @@ function ItemDetails({
 }: ItemDetailsProps) {
   const { tt, intl } = useI18n()
   const [showWifiQr, setShowWifiQr] = useState(false)
+  // Dans la fiche, la copie se confirme dans la ligne, sans notification.
+  const copyValue = (value: string, label: string) =>
+    copyWithToast(value, label, { quiet: true })
   const changeUrl = item.type === 'login' ? changePasswordUrl(item.urls) : null
   const siteInfo =
     item.type === 'login'
@@ -2296,6 +2404,65 @@ function ItemDetails({
     item.type === 'login'
       ? item.urls.map((url) => safeUrl(url)).find((url) => Boolean(url)) ?? null
       : null
+
+  const passwordIssue =
+    issue && PASSWORD_ISSUE_CATEGORIES.includes(issue.category) ? issue : null
+  const otherIssue = issue && !passwordIssue ? issue : null
+  const strength =
+    item.type === 'login' && item.password
+      ? passwordStrength(estimateEntropy(item.password))
+      : null
+  const issueBanner = (current: ItemSecurityIssue, inline: boolean) => (
+    <div
+      className={cx(
+        'alert-banner',
+        inline && 'alert-banner--inline',
+        (current.category === 'weak' || current.category === 'breached') &&
+          'alert-banner--danger',
+      )}
+      role="status"
+      title={inline ? current.description : undefined}
+    >
+      <ShieldAlert size={17} />
+      <div className="alert-banner__body">
+        <strong>{current.label}</strong>
+        <p>{current.description}</p>
+      </div>
+      <div className="alert-banner__actions">
+        {current.category === 'weak' ||
+        current.category === 'reused' ||
+        current.category === 'similar' ? (
+          <button
+            type="button"
+            className="button button--secondary button--sm"
+            onClick={onGeneratePassword}
+          >
+            <Wand2 size={15} />
+            Générer
+          </button>
+        ) : current.category === 'no2fa' || current.category === 'incomplete' ? (
+          <button
+            type="button"
+            className="button button--secondary button--sm"
+            onClick={onEditItem}
+          >
+            <Pencil size={15} />
+            Compléter
+          </button>
+        ) : null}
+        {changeUrl && (
+          <button
+            type="button"
+            className="button button--secondary button--sm"
+            onClick={() => void openExternal(changeUrl)}
+          >
+            <ExternalLink size={15} />
+            Changer sur le site
+          </button>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <div className="item-detail">
@@ -2327,51 +2494,7 @@ function ItemDetails({
         )}
       </div>
 
-      {issue && (
-        <div
-          className={`alert-banner ${issue.category === 'weak' ? 'alert-banner--danger' : ''}`}
-          role="status"
-        >
-          <ShieldAlert size={17} />
-          <div className="alert-banner__body">
-            <strong>{issue.label}</strong>
-            <p>{issue.description}</p>
-          </div>
-          <div className="alert-banner__actions">
-            {issue.category === 'weak' ||
-            issue.category === 'reused' ||
-            issue.category === 'similar' ? (
-              <button
-                type="button"
-                className="button button--secondary button--sm"
-                onClick={onGeneratePassword}
-              >
-                <Wand2 size={15} />
-                Générer
-              </button>
-            ) : issue.category === 'no2fa' || issue.category === 'incomplete' ? (
-              <button
-                type="button"
-                className="button button--secondary button--sm"
-                onClick={onEditItem}
-              >
-                <Pencil size={15} />
-                Compléter
-              </button>
-            ) : null}
-            {changeUrl && (
-              <button
-                type="button"
-                className="button button--secondary button--sm"
-                onClick={() => void openExternal(changeUrl)}
-              >
-                <ExternalLink size={15} />
-                Changer sur le site
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {otherIssue && issueBanner(otherIssue, false)}
 
       {item.type === 'login' && (
         <div className="detail-list">
@@ -2389,6 +2512,12 @@ function ItemDetails({
             onCopy={() => void copyValue(item.password, 'Mot de passe')}
             copied={copied === 'Mot de passe'}
           />
+          {strength && (
+            <div className="detail-health">
+              <PasswordStrength entropy={estimateEntropy(item.password)} />
+              {passwordIssue && issueBanner(passwordIssue, true)}
+            </div>
+          )}
           {item.urls.filter(Boolean).length > 0 && (
             <div className="detail-row">
               <span className="detail-row__label">{tt("Adresses")}</span>
@@ -2849,7 +2978,7 @@ function ItemDetails({
                       <button
                         type="button"
                         className="icon-button icon-button--sm"
-                        onClick={() => void copyValue(field.value, field.label)}
+                        onClick={() => void copyWithToast(field.value, field.label)}
                         aria-label={`Copier ${field.label}`}
                       >
                         {copied === field.label ? <Check size={15} /> : <Copy size={15} />}
@@ -2912,6 +3041,16 @@ function ItemDetails({
         onDelete={onDeleteAttachment}
       />
 
+      {item.type === 'login' && facts && (
+        <SecurityFacts
+          facts={facts}
+          strength={strength}
+          breachCheck={breachCheck}
+          hasTotp={Boolean(item.totp.trim())}
+          twoFactorAvailable={Boolean(siteInfo && siteInfo.twoFactor.length > 0)}
+        />
+      )}
+
       <div className="detail-meta">
         <Clock size={14} />
         Créé le {formatDateTime(item.createdAt)} · modifié le {formatDateTime(item.updatedAt)}
@@ -2933,13 +3072,18 @@ function DetailRow({
   copied?: boolean
   mono?: boolean
 }) {
+  const copyable = Boolean(value && onCopy)
   return (
-    <div className="detail-row">
+    <div
+      className={cx('detail-row', copyable && 'detail-row--copyable', copied && 'is-copied')}
+      onClick={copyable ? (event) => copyFromRow(event, onCopy) : undefined}
+    >
       <span className="detail-row__label">{label}</span>
       <span className={`detail-row__value ${mono ? 'mono' : ''} ${value ? '' : 'is-empty'}`}>
         <span className="detail-row__text">{value || '—'}</span>
         {value && onCopy && (
           <span className="detail-row__actions">
+            <CopiedHint copied={copied} />
             <button
               type="button"
               className="icon-button icon-button--sm"
@@ -2952,6 +3096,24 @@ function DetailRow({
         )}
       </span>
     </div>
+  )
+}
+
+/** Copie au clic sur la ligne, sauf sur un bouton, un lien ou une sélection. */
+function copyFromRow(event: ReactMouseEvent<HTMLElement>, onCopy?: () => void) {
+  if (!onCopy) return
+  const target = event.target as HTMLElement
+  if (target.closest('button, a, input, select, textarea')) return
+  if (window.getSelection()?.toString()) return
+  onCopy()
+}
+
+function CopiedHint({ copied }: { copied?: boolean }) {
+  const { tt } = useI18n()
+  return (
+    <span className="detail-row__copied" role="status">
+      {copied ? tt('Copié') : ''}
+    </span>
   )
 }
 
@@ -2973,7 +3135,10 @@ function SecretRow({
   mono?: boolean
 }) {
   return (
-    <div className="detail-row">
+    <div
+      className={cx('detail-row', value && 'detail-row--copyable', copied && 'is-copied')}
+      onClick={value ? (event) => copyFromRow(event, onCopy) : undefined}
+    >
       <span className="detail-row__label">{label}</span>
       <span className={`detail-row__value ${mono || !revealed ? 'mono' : ''}`}>
         <span className="detail-row__text">
@@ -2981,6 +3146,7 @@ function SecretRow({
         </span>
         {value && (
           <span className="detail-row__actions">
+            <CopiedHint copied={copied} />
             <button
               type="button"
               className="icon-button icon-button--sm"
@@ -3001,6 +3167,99 @@ function SecretRow({
         )}
       </span>
     </div>
+  )
+}
+
+type FactTone = 'ok' | 'warn' | 'danger' | 'neutral'
+
+function SecurityFacts({
+  facts,
+  strength,
+  breachCheck,
+  hasTotp,
+  twoFactorAvailable,
+}: {
+  facts: ItemSecurityFacts
+  strength: { score: number; label: string } | null
+  breachCheck: boolean
+  hasTotp: boolean
+  twoFactorAvailable: boolean
+}) {
+  const { tt } = useI18n()
+  const age =
+    facts.ageDays === null
+      ? tt('Inconnue')
+      : facts.ageDays === 0
+        ? tt('Aujourd’hui')
+        : facts.ageDays === 1
+          ? tt('Hier')
+          : facts.ageDays < 60
+            ? tt('Il y a {count} jours').replace('{count}', String(facts.ageDays))
+            : facts.ageDays < 365
+              ? tt('Il y a {count} mois').replace(
+                  '{count}',
+                  String(Math.floor(facts.ageDays / 30)),
+                )
+              : tt('Il y a plus d’un an')
+  const rows: { label: string; value: string; tone: FactTone }[] = [
+    {
+      label: tt('Robustesse'),
+      value: strength ? tt(strength.label) : tt('Aucun mot de passe'),
+      tone: !strength ? 'neutral' : strength.score <= 1 ? 'danger' : strength.score === 2 ? 'warn' : 'ok',
+    },
+    {
+      label: tt('Dernière modification'),
+      value: age,
+      tone: facts.old ? 'warn' : 'neutral',
+    },
+    {
+      label: tt('Réutilisation'),
+      value:
+        facts.reusedWith === 0
+          ? facts.similar
+            ? tt('Proche d’un autre mot de passe')
+            : tt('Mot de passe unique')
+          : facts.reusedWith === 1
+            ? tt('Utilisé par 1 autre compte')
+            : tt('Utilisé par {count} autres comptes').replace(
+                '{count}',
+                String(facts.reusedWith),
+              ),
+      tone: facts.reusedWith > 0 ? 'danger' : facts.similar ? 'warn' : 'ok',
+    },
+    {
+      label: tt('Fuites connues'),
+      value: !breachCheck
+        ? tt('Vérification désactivée')
+        : facts.breached
+          ? tt('Présent dans une fuite')
+          : tt('Aucune fuite connue'),
+      tone: !breachCheck ? 'neutral' : facts.breached ? 'danger' : 'ok',
+    },
+    {
+      label: tt('Double authentification'),
+      value: hasTotp
+        ? tt('Configurée')
+        : twoFactorAvailable
+          ? tt('Disponible, non configurée')
+          : tt('Non renseignée'),
+      tone: hasTotp ? 'ok' : twoFactorAvailable ? 'warn' : 'neutral',
+    },
+  ]
+
+  return (
+    <section className="detail-section security-facts" aria-label={tt('Sécurité')}>
+      <span className="detail-row__label">{tt('Sécurité')}</span>
+      <ul className="security-facts__list">
+        {rows.map((row) => (
+          <li key={row.label} className={`security-fact security-fact--${row.tone}`}>
+            <span className="security-fact__dot" aria-hidden="true" />
+            <span className="security-fact__label">{row.label}</span>
+            <span className="security-fact__value">{row.value}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
