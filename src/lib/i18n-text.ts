@@ -953,6 +953,98 @@ export const EN_TEXT: Record<string, string> = {
     "Check for updates",
   "À jour":
     "Up to date",
+  "Saisie":
+    "Type",
+  "Alias":
+    "Alias",
+  "Inconnue":
+    "Unknown",
+  "Aujourd’hui":
+    "Today",
+  "Hier":
+    "Yesterday",
+  "Il y a {count} jours":
+    "{count} days ago",
+  "Il y a {count} mois":
+    "{count} months ago",
+  "Il y a plus d’un an":
+    "More than a year ago",
+  "Robustesse":
+    "Strength",
+  "Aucun mot de passe":
+    "No password",
+  "Réutilisation":
+    "Reuse",
+  "Proche d’un autre mot de passe":
+    "Similar to another password",
+  "Mot de passe unique":
+    "Unique password",
+  "Utilisé par 1 autre compte":
+    "Used by 1 other account",
+  "Utilisé par {count} autres comptes":
+    "Used by {count} other accounts",
+  "Vérification désactivée":
+    "Check turned off",
+  "Présent dans une fuite":
+    "Found in a breach",
+  "Aucune fuite connue":
+    "No known breach",
+  "Double authentification":
+    "Two-factor authentication",
+  "Configurée":
+    "Set up",
+  "Disponible, non configurée":
+    "Available, not set up",
+  "Non renseignée":
+    "Not recorded",
+  "Palette de commandes":
+    "Command palette",
+  "Rechercher un élément ou une action":
+    "Search for an item or an action",
+  "Rechercher un élément ou une action…":
+    "Search for an item or an action…",
+  "Échap":
+    "Esc",
+  "Aucun résultat":
+    "No results",
+  "Actions":
+    "Actions",
+  "Éléments":
+    "Items",
+  "Utilisés récemment":
+    "Recently used",
+  "Tableau de bord":
+    "Dashboard",
+  "Tous les éléments":
+    "All items",
+  "Favoris":
+    "Favorites",
+  "Corbeille":
+    "Trash",
+  "Bilan de sécurité":
+    "Security review",
+  "Sélectionner plusieurs éléments":
+    "Select several items",
+  "Verrouiller le coffre":
+    "Lock the vault",
+  "Accès rapide":
+    "Quick access",
+  "Déplacer le champ":
+    "Move field",
+  "sans nom":
+    "unnamed",
+  "Glisser pour déplacer (ou flèches haut et bas)":
+    "Drag to move (or up and down arrows)",
+  "Très faible":
+    "Very weak",
+  "Faible":
+    "Weak",
+  "Moyen":
+    "Fair",
+  "Solide":
+    "Strong",
+  "Excellent":
+    "Excellent",
 }
 
 /** Traduit un texte source ; renvoie le texte tel quel s’il est inconnu. */

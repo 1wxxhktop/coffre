@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   analyzeSecurity,
   incompleteReason,
+  itemSecurityFacts,
   itemSecurityIssue,
   securityCategoryItems,
   securityLabel,
@@ -389,5 +390,40 @@ describe('score honnête et catégories', () => {
       label: 'Mot de passe compromis',
       shortLabel: 'Compromis',
     })
+  })
+})
+
+describe('faits de sécurité d’une fiche', () => {
+  const items: VaultItem[] = [
+    login({ id: 'a', password: 'tR8!wZq4@nB1-réutilisé' }),
+    login({ id: 'b', password: 'tR8!wZq4@nB1-réutilisé' }),
+    login({ id: 'c', password: 'tR8!wZq4@nB1-réutilisé' }),
+    login({ id: 'old', password: 'abc123', updatedAt: '2020-01-01T00:00:00.000Z' }),
+    login({ id: 'ok', password: 'Très-long-mot-de-passe-aléatoire-42!' }),
+    login({ id: 'trash', password: 'abc', deletedAt: '2026-11-07T00:00:00.000Z' }),
+    note(),
+  ]
+  const report = analyzeSecurity(items, NOW_MS, new Set(['ok']))
+  const facts = (id: string) =>
+    itemSecurityFacts(items.find((item) => item.id === id)!, report, NOW_MS)
+
+  it('compte les autres comptes qui partagent le mot de passe', () => {
+    expect(facts('a')).toMatchObject({ reusedWith: 2, weak: false, breached: false })
+    expect(facts('ok')).toMatchObject({ reusedWith: 0 })
+  })
+
+  it('signale la faiblesse, l’ancienneté et l’âge en jours', () => {
+    expect(facts('old')).toMatchObject({ weak: true, old: true })
+    expect(facts('old')!.ageDays).toBeGreaterThan(365)
+    expect(facts('ok')).toMatchObject({ weak: false, old: false, ageDays: 0 })
+  })
+
+  it('reprend les fuites connues', () => {
+    expect(facts('ok')).toMatchObject({ breached: true })
+  })
+
+  it('ne renvoie rien hors connexion active', () => {
+    expect(facts('trash')).toBeNull()
+    expect(itemSecurityFacts(note(), report, NOW_MS)).toBeNull()
   })
 })

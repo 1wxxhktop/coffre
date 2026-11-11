@@ -24,6 +24,26 @@
   --accent-soft: rgba(9, 9, 11, 0.05); --accent-soft-2: rgba(9, 9, 11, 0.08);
   --accent-soft-3: rgba(9, 9, 11, 0.1);
 
+  /* Teintes des pastilles à initiale. */
+  --tint-1: hsl(212 62% 36%);
+  --tint-1-soft: hsl(212 70% 50% / 0.1);
+  --tint-1-border: hsl(212 60% 40% / 0.24);
+  --tint-2: hsl(262 62% 36%);
+  --tint-2-soft: hsl(262 70% 50% / 0.1);
+  --tint-2-border: hsl(262 60% 40% / 0.24);
+  --tint-3: hsl(330 62% 36%);
+  --tint-3-soft: hsl(330 70% 50% / 0.1);
+  --tint-3-border: hsl(330 60% 40% / 0.24);
+  --tint-4: hsl(24 62% 36%);
+  --tint-4-soft: hsl(24 70% 50% / 0.1);
+  --tint-4-border: hsl(24 60% 40% / 0.24);
+  --tint-5: hsl(152 62% 36%);
+  --tint-5-soft: hsl(152 70% 50% / 0.1);
+  --tint-5-border: hsl(152 60% 40% / 0.24);
+  --tint-6: hsl(188 62% 36%);
+  --tint-6-soft: hsl(188 70% 50% / 0.1);
+  --tint-6-border: hsl(188 60% 40% / 0.24);
+
   --hover-1: rgba(9, 9, 11, 0.045);
   --hover-2: rgba(9, 9, 11, 0.06);
   --hover-3: rgba(9, 9, 11, 0.08);

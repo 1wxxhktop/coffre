@@ -182,6 +182,19 @@ export interface ServiceVisual {
   label: string
   path?: string
   monogram?: string
+  /** Teinte de la pastille (1 à 6), stable pour un même nom. */
+  tint?: number
+}
+
+export const MONOGRAM_TINTS = 6
+
+/** Teinte stable (1 à 6) dérivée d’un nom, sans aléa ni réseau. */
+export function tintFor(seed: string): number {
+  let hash = 0
+  for (const char of seed) {
+    hash = (hash * 31 + (char.codePointAt(0) ?? 0)) >>> 0
+  }
+  return (hash % MONOGRAM_TINTS) + 1
 }
 
 function normalizeHost(value: string): string {
@@ -240,6 +253,24 @@ function monogramForHost(host: string): ServiceVisual {
     id: `domain:${host}`,
     label: host,
     monogram: (label.charAt(0) || '?').toUpperCase(),
+    tint: tintFor(label),
+  }
+}
+
+/** Initiale du titre quand aucun site n’est renseigné. */
+function monogramForTitle(title: string): ServiceVisual | null {
+  const normalized = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+  const initial = normalized.match(/[a-z0-9]/)?.[0]
+  if (!initial) return null
+  return {
+    id: `title:${normalized}`,
+    label: title.trim(),
+    monogram: initial.toUpperCase(),
+    tint: tintFor(normalized),
   }
 }
 
@@ -286,6 +317,7 @@ export function serviceForItem(item: VaultItem): ServiceVisual | null {
     if (entry) {
       return { id: entry.id, label: entry.label, path: entry.icon.path }
     }
+    return monogramForTitle(item.title)
   }
   return null
 }
