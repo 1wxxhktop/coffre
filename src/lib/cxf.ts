@@ -95,7 +95,25 @@ function field(
 }
 
 function customFieldType(type: CustomField['type']): string {
-  return type === 'hidden' ? 'concealed-string' : 'string'
+  switch (type) {
+    case 'hidden':
+    case 'password':
+    case 'pin':
+    case 'totp':
+      return 'concealed-string'
+    case 'email':
+      return 'email'
+    case 'number':
+      return 'number'
+    case 'checkbox':
+      return 'boolean'
+    case 'date':
+      return 'date'
+    case 'month':
+      return 'year-month'
+    default:
+      return 'string'
+  }
 }
 
 function customFieldsCredential(fields: CxfEditableField[]): CxfCredential | null {
@@ -365,7 +383,22 @@ function credentialType(credential: Record<string, unknown>): string {
 }
 
 function importFieldType(value: unknown): CustomField['type'] {
-  return value === 'concealed-string' ? 'hidden' : 'text'
+  switch (value) {
+    case 'concealed-string':
+      return 'hidden'
+    case 'email':
+      return 'email'
+    case 'number':
+      return 'number'
+    case 'boolean':
+      return 'checkbox'
+    case 'date':
+      return 'date'
+    case 'year-month':
+      return 'month'
+    default:
+      return 'text'
+  }
 }
 
 function customFieldsFromCxf(credential: Record<string, unknown>): CustomField[] {

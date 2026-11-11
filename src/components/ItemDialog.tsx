@@ -69,7 +69,14 @@ import { handleExternalClick, isTauriRuntime, openExternal } from '../lib/extern
 import { hostFromUrl } from '../lib/extensionProtocol'
 import { normalizeHostname, registrableDomain } from '../lib/domains'
 import { siteSecurityForHost } from '../lib/siteSecurity'
-import { isTotpUri } from '../lib/totp'
+import { isTotpUri, normalizeTotpUri, totpInputValue } from '../lib/totp'
+import {
+  CUSTOM_FIELD_TYPE_LABELS,
+  formatCustomDate,
+  formatCustomMonth,
+  isCustomFieldValueValid,
+  isSecretFieldType,
+} from '../lib/customFields'
 import { qrDataUrl } from '../lib/qr'
 import { wifiQrPayload } from '../lib/wifi'
 import {
@@ -126,6 +133,8 @@ interface ItemDialogProps {
   presentation?: 'dialog' | 'panel'
   /** Notifie la création ou la mise à jour d’un élément. */
   onSaved?: (item: VaultItem) => void
+  /** Copie créée par « Dupliquer » : le panneau l’ouvre en modification. */
+  onDuplicated?: (item: VaultItem) => void
   /** Signale une utilisation réelle (copie d’un champ, par exemple). */
   onUsed?: () => void
   /** Analyse déjà calculée par la vue principale. */
@@ -201,12 +210,6 @@ function formatCardNumber(value: string): string {
   return value.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim()
 }
 
-const CUSTOM_FIELD_LABELS: Record<CustomFieldType, string> = {
-  text: 'Texte',
-  hidden: 'Masqué',
-  url: 'Adresse web',
-  multiline: 'Texte long',
-}
 
 function formatBytes(value: number): string {
   if (value < 1024) return `${value} o`
@@ -267,6 +270,7 @@ export function ItemDialog({
   initialEditing = false,
   presentation = 'dialog',
   onSaved,
+  onDuplicated,
   onUsed,
   securityReport,
 }: ItemDialogProps) {
@@ -295,6 +299,11 @@ export function ItemDialog({
   const [tagsInput, setTagsInput] = useState(item?.tags.join(', ') ?? '')
   const [showPassword, setShowPassword] = useState(false)
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
+  // Texte tapé dans le champ TOTP (clé ou lien), tant qu’il correspond au
+  // lien actuellement dans le brouillon : évite que le curseur saute.
+  const [totpTyped, setTotpTyped] = useState<{ text: string; uri: string } | null>(
+    null,
+  )
   const [showGenerator, setShowGenerator] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [showPermanentDelete, setShowPermanentDelete] = useState(false)
@@ -671,6 +680,20 @@ export function ItemDialog({
       .filter(Boolean)
 
     const nextDraft: ItemDraft = { ...draft, tags }
+    // Une clé TOTP saisie devient un lien otpauth:// avec le titre et
+    // l’identifiant définitifs ; un lien existant est conservé tel quel.
+    if (
+      nextDraft.type === 'login' &&
+      draft.type === 'login' &&
+      totpTyped &&
+      totpTyped.uri === draft.totp
+    ) {
+      nextDraft.totp = normalizeTotpUri(
+        totpTyped.text,
+        nextDraft.title,
+        nextDraft.username,
+      )
+    }
     if (nextDraft.type === 'recovery-codes') {
       nextDraft.codes = nextDraft.codes
         .map((entry) => ({
@@ -759,6 +782,8 @@ export function ItemDialog({
   const startEditing = () => {
     if (!current) return
     setDraft({ ...current })
+    // Repartir de la valeur enregistrée : la clé TOTP s’affiche normalisée.
+    setTotpTyped(null)
     setTagsInput(current.tags.join(', '))
     setEditing(true)
   }
@@ -796,17 +821,18 @@ export function ItemDialog({
       const created = await addItem({
         ...content,
         vaultId: current.vaultId,
-        title: `${current.title} (copie)`,
+        title: tt('{title} (copie)').replace('{title}', current.title),
         favorite: false,
         attachments: [],
       } as ItemDraft)
       toast(
         current.attachments.length > 0
-          ? 'Élément dupliqué, sans les pièces jointes'
-          : 'Élément dupliqué',
+          ? tt('Élément dupliqué, sans les pièces jointes')
+          : tt('Élément dupliqué'),
         'success',
       )
-      onSaved?.(created)
+      if (onDuplicated) onDuplicated(created)
+      else onSaved?.(created)
     } catch (caught) {
       toast(caught instanceof Error ? caught.message : tt('Duplication impossible'), 'error')
     }
@@ -877,8 +903,40 @@ export function ItemDialog({
     </span>
   )
 
+  const canDuplicate = Boolean(
+    current && !editing && !trashed && current.type !== 'passkey',
+  )
+
+  // ⌘D / Ctrl+D duplique l’élément affiché dans le panneau de détail.
+  useEffect(() => {
+    if (presentation !== 'panel' || !canDuplicate) return
+    const handler = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
+      if (event.key.toLowerCase() !== 'd') return
+      if (document.querySelector('.modal-overlay')) return
+      event.preventDefault()
+      void duplicateCurrent()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  })
+
+  const duplicateButton = canDuplicate ? (
+    <button
+      type="button"
+      className="icon-button icon-button--sm"
+      onClick={() => void duplicateCurrent()}
+      aria-label={tt('Dupliquer')}
+      title={tt('Dupliquer (⌘D)')}
+    >
+      <CopyPlus size={17} />
+    </button>
+  ) : null
+
   const favoriteButton =
     current && !editing && !trashed ? (
+      <>
+      {duplicateButton}
       <button
         type="button"
         className={`icon-button icon-button--sm ${current.favorite ? 'is-favorite' : ''}`}
@@ -890,6 +948,7 @@ export function ItemDialog({
       >
         <Star size={17} fill={current.favorite ? 'currentColor' : 'none'} />
       </button>
+      </>
     ) : undefined
 
   const overflowItems = current ? (
@@ -1245,22 +1304,35 @@ export function ItemDialog({
                   </div>
 
                   <label className="field field--full">
-                    <span className="field__label">{tt("Code TOTP (otpauth://)")}</span>
+                    <span className="field__label">{tt('Clé TOTP (2FA)')}</span>
                     <input
                       className="input input--mono"
-                      value={draft.totp}
-                      onChange={(event) => patch({ totp: event.target.value })}
-                      placeholder="otpauth://totp/…"
+                      value={
+                        totpTyped && totpTyped.uri === draft.totp
+                          ? totpTyped.text
+                          : totpInputValue(draft.totp)
+                      }
+                      onChange={(event) => {
+                        const text = event.target.value
+                        const uri = normalizeTotpUri(text, draft.title, draft.username)
+                        setTotpTyped({ text, uri })
+                        patch({ totp: uri })
+                      }}
+                      placeholder="JBSW Y3DP EHPK 3PXP"
                       autoComplete="off"
                       spellCheck={false}
                     />
                     {draft.totp.trim() && !isTotpUri(draft.totp) ? (
                       <span className="field__hint field__hint--error">
-                        URI invalide. Format attendu : otpauth://totp/…
+                        {tt(
+                          'Clé invalide : lettres A à Z et chiffres 2 à 7 (au moins 8 caractères), ou lien otpauth://.',
+                        )}
                       </span>
                     ) : (
                       <span className="field__hint">
-                        Collez l’URI fournie par le service lors de l’activation de la 2FA.
+                        {tt(
+                          'Saisissez la clé affichée par le site lors de l’activation de la 2FA (souvent sous le QR code). Un lien otpauth:// fonctionne aussi.',
+                        )}
                       </span>
                     )}
                     {isTotpUri(draft.totp) && <TotpCode uri={draft.totp} compact />}
@@ -1901,35 +1973,14 @@ export function ItemDialog({
                         >
                           {CUSTOM_FIELD_TYPES.map((type) => (
                             <option key={type} value={type}>
-                              {CUSTOM_FIELD_LABELS[type]}
+                              {tt(CUSTOM_FIELD_TYPE_LABELS[type])}
                             </option>
                           ))}
                         </select>
-                        {field.type === 'multiline' ? (
-                          <textarea
-                            className="input textarea custom-field__value"
-                            value={field.value}
-                            onChange={(event) =>
-                              updateCustomField(field.id, { value: event.target.value })
-                            }
-                            rows={2}
-                            maxLength={10_000}
-                            placeholder={tt('Valeur')}
-                            aria-label={`Valeur de ${field.label || 'champ'}`}
-                          />
-                        ) : (
-                          <input
-                            className="input custom-field__value"
-                            value={field.value}
-                            onChange={(event) =>
-                              updateCustomField(field.id, { value: event.target.value })
-                            }
-                            maxLength={10_000}
-                            placeholder={tt('Valeur')}
-                            autoComplete="off"
-                            aria-label={`Valeur de ${field.label || 'champ'}`}
-                          />
-                        )}
+                        <CustomFieldInput
+                          field={field}
+                          onChange={(value) => updateCustomField(field.id, { value })}
+                        />
                         <button
                           type="button"
                           className="icon-button icon-button--sm"
@@ -2267,7 +2318,7 @@ function ItemDetails({
   onCopyRecoveryCode,
   onToggleRecoveryCode,
 }: ItemDetailsProps) {
-  const { tt } = useI18n()
+  const { tt, intl } = useI18n()
   const [showWifiQr, setShowWifiQr] = useState(false)
   const changeUrl = item.type === 'login' ? changePasswordUrl(item.urls) : null
   const siteInfo =
@@ -2750,7 +2801,48 @@ function ItemDetails({
       {item.customFields.length > 0 && (
         <div className="detail-list detail-list--custom">
           {item.customFields.map((field) => {
-            if (field.type === 'hidden') {
+            if (field.type === 'totp') {
+              return (
+                <div className="detail-row" key={field.id}>
+                  <span className="detail-row__label">{field.label}</span>
+                  <div className="detail-row__value">
+                    {isTotpUri(field.value) ? (
+                      <TotpCode uri={field.value} />
+                    ) : (
+                      <span className="is-empty">{tt('Clé TOTP invalide')}</span>
+                    )}
+                  </div>
+                </div>
+              )
+            }
+
+            if (field.type === 'checkbox') {
+              return (
+                <DetailRow
+                  key={field.id}
+                  label={field.label}
+                  value={field.value === 'true' ? tt('Oui') : tt('Non')}
+                />
+              )
+            }
+
+            if (field.type === 'date' || field.type === 'month') {
+              return (
+                <DetailRow
+                  key={field.id}
+                  label={field.label}
+                  value={
+                    field.type === 'date'
+                      ? formatCustomDate(field.value, intl)
+                      : formatCustomMonth(field.value, intl)
+                  }
+                  onCopy={() => void copyValue(field.value, field.label)}
+                  copied={copied === field.label}
+                />
+              )
+            }
+
+            if (isSecretFieldType(field.type)) {
               return (
                 <SecretRow
                   key={field.id}
@@ -2823,6 +2915,7 @@ function ItemDetails({
                 value={field.value}
                 onCopy={() => void copyValue(field.value, field.label)}
                 copied={copied === field.label}
+                mono={field.type === 'number' || field.type === 'phone'}
               />
             )
           })}
@@ -3087,5 +3180,116 @@ function AttachmentsSection({
         </p>
       )}
     </div>
+  )
+}
+
+/** Saisie d’une valeur de champ personnalisé, adaptée à son type. */
+function CustomFieldInput({
+  field,
+  onChange,
+}: {
+  field: CustomField
+  onChange: (value: string) => void
+}) {
+  const { tt } = useI18n()
+  const [visible, setVisible] = useState(false)
+  const label = `${tt('Valeur de')} ${field.label || tt('champ')}`
+  const invalid = !isCustomFieldValueValid(field.type, field.value)
+
+  let control: ReactNode
+  if (field.type === 'multiline') {
+    control = (
+      <textarea
+        className="input textarea custom-field__value"
+        value={field.value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={2}
+        maxLength={10_000}
+        placeholder={tt('Valeur')}
+        aria-label={label}
+      />
+    )
+  } else if (field.type === 'checkbox') {
+    control = (
+      <label className="checkbox custom-field__value">
+        <input
+          type="checkbox"
+          checked={field.value === 'true'}
+          onChange={(event) => onChange(event.target.checked ? 'true' : 'false')}
+          aria-label={label}
+        />
+        <span>{tt('Oui')}</span>
+      </label>
+    )
+  } else if (isSecretFieldType(field.type) && field.type !== 'totp') {
+    control = (
+      <span className="custom-field__secret">
+        <input
+          className="input input--mono custom-field__value"
+          type={visible ? 'text' : 'password'}
+          value={field.value}
+          onChange={(event) => onChange(event.target.value)}
+          maxLength={field.type === 'pin' ? 12 : 10_000}
+          inputMode={field.type === 'pin' ? 'numeric' : undefined}
+          placeholder={tt('Valeur')}
+          autoComplete="off"
+          aria-label={label}
+        />
+        <button
+          type="button"
+          className="icon-button icon-button--sm"
+          onClick={() => setVisible((value) => !value)}
+          aria-label={tt(visible ? 'Masquer' : 'Afficher')}
+        >
+          {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      </span>
+    )
+  } else {
+    const inputType =
+      field.type === 'url'
+        ? 'url'
+        : field.type === 'email'
+          ? 'email'
+          : field.type === 'phone'
+            ? 'tel'
+            : field.type === 'date'
+              ? 'date'
+              : field.type === 'month'
+                ? 'month'
+                : 'text'
+    control = (
+      <input
+        className={`input custom-field__value ${
+          field.type === 'totp' || field.type === 'number' ? 'input--mono' : ''
+        }`}
+        type={inputType}
+        value={field.type === 'totp' ? totpInputValue(field.value) : field.value}
+        onChange={(event) => onChange(event.target.value)}
+        maxLength={10_000}
+        inputMode={field.type === 'number' ? 'decimal' : undefined}
+        placeholder={
+          field.type === 'totp'
+            ? 'JBSW Y3DP EHPK 3PXP'
+            : field.type === 'email'
+              ? 'nom@exemple.fr'
+              : tt('Valeur')
+        }
+        autoComplete="off"
+        spellCheck={false}
+        aria-label={label}
+      />
+    )
+  }
+
+  return (
+    <span className="custom-field__input">
+      {control}
+      {invalid && (
+        <span className="field__hint field__hint--error">
+          {tt('Valeur inhabituelle pour ce type de champ.')}
+        </span>
+      )}
+    </span>
   )
 }

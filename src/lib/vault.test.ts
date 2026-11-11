@@ -13,6 +13,7 @@ import {
   moveItem,
   openAttachment,
   openVaultFileWithMasterKey,
+  parseItemContent,
   parseVaultFile,
   parseVaultFileText,
   removeAttachment,
@@ -425,6 +426,47 @@ describe('champs personnalisés', () => {
       },
     ])
     unlocked.session.lock()
+  })
+
+  it('enregistre les nouveaux types et normalise TOTP et case à cocher', async () => {
+    const opened = await freshVault()
+    const vaultId = opened.vaults[0].id
+    const created = await createItem(opened.file, opened.session, {
+      ...emptyDraft('login', vaultId),
+      title: 'Banque',
+      customFields: [
+        { id: 'f_pin', label: 'Code carte', value: '1234', type: 'pin' },
+        { id: 'f_otp', label: '2FA', value: 'jbsw y3dp ehpk 3pxp', type: 'totp' },
+        { id: 'f_ok', label: 'Actif', value: 'oui', type: 'checkbox' },
+        { id: 'f_date', label: 'Ouverture', value: '2027-02-28', type: 'date' },
+      ],
+    } as ItemDraft)
+
+    const unlocked = await unlockVaultFile(created.file, PASSWORD)
+    expect(unlocked.items[0].customFields).toEqual([
+      { id: 'f_pin', label: 'Code carte', value: '1234', type: 'pin' },
+      {
+        id: 'f_otp',
+        label: '2FA',
+        value: 'otpauth://totp/Banque:2FA?secret=JBSWY3DPEHPK3PXP&issuer=Banque',
+        type: 'totp',
+      },
+      { id: 'f_ok', label: 'Actif', value: 'false', type: 'checkbox' },
+      { id: 'f_date', label: 'Ouverture', value: '2027-02-28', type: 'date' },
+    ])
+    unlocked.session.lock()
+  })
+
+  it('lit un type de champ inconnu comme du texte au lieu de refuser l’élément', () => {
+    const { vaultId: _vaultId, ...content } = emptyDraft('login', 'v_test')
+    const parsed = parseItemContent({
+      ...content,
+      title: 'Écrit par une version future',
+      customFields: [{ id: 'f_x', label: 'Signature', value: 'abc', type: 'signature' }],
+    })
+    expect(parsed.customFields).toEqual([
+      { id: 'f_x', label: 'Signature', value: 'abc', type: 'text' },
+    ])
   })
 })
 

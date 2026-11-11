@@ -41,6 +41,8 @@ const ALLOW = new Set([
   'Le fichier',
   'Coffre/&lt;id&gt;/',
   'local-first',
+  // Exemple de clé TOTP (base32) affiché en indication de saisie.
+  'JBSW Y3DP EHPK 3PXP',
 ])
 
 const problems = []
