@@ -77,8 +77,18 @@ jobs:
               --prerelease --latest=false
           fi
           mkdir -p "$RUNNER_TEMP/beta"
-          gh release download canal-beta --repo "$GITHUB_REPOSITORY" \
-            --pattern latest.json --dir "$RUNNER_TEMP/beta" 2>/dev/null || true
+          if gh release view canal-beta --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if ! gh release download canal-beta --repo "$GITHUB_REPOSITORY" \
+              --pattern latest.json --dir "$RUNNER_TEMP/beta" 2>/dev/null; then
+              # Un manifeste existant mais illisible ne doit jamais être
+              # remplacé par une version plus ancienne : on échoue fermé.
+              if gh release view canal-beta --repo "$GITHUB_REPOSITORY" \
+                --json assets --jq '.assets[].name' | grep -qx 'latest.json'; then
+                echo "Manifeste bêta courant illisible : publication refusée." >&2
+                exit 1
+              fi
+            fi
+          fi
           if bun scripts/updater-manifest.ts should-replace \
             --current "$RUNNER_TEMP/beta/latest.json" \
             --next "$RUNNER_TEMP/manifest/latest.json"; then

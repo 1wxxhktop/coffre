@@ -103,13 +103,16 @@ else
 fi
 
 echo "Construction de la release macOS ($TARGET, $MODE)…"
+cargo fetch --manifest-path src-tauri/Cargo.toml --locked
+export CARGO_NET_OFFLINE=true
 bun run tauri build "${BUILD_ARGS[@]}"
 
 APP="$TARGET_DIR/release/bundle/macos/Coffre.app"
 DMG_DIR="$TARGET_DIR/release/bundle/dmg"
+VERSION="$(node -p "require('./package.json').version")"
 [[ -d "$APP" ]] || fail "bundle introuvable : $APP"
-DMG="$(find "$DMG_DIR" -maxdepth 1 -name '*.dmg' -print -quit)"
-[[ -n "$DMG" ]] || fail "DMG introuvable dans $DMG_DIR"
+DMG="$(find "$DMG_DIR" -maxdepth 1 -name "Coffre_${VERSION}_*.dmg" -print -quit)"
+[[ -n "$DMG" ]] || fail "DMG de la version $VERSION introuvable dans $DMG_DIR"
 
 echo "Vérification de la signature et du hardened runtime…"
 codesign --verify --deep --strict --verbose=2 "$APP"
