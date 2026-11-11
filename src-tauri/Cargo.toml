@@ -1,6 +1,6 @@
 [package]
 name = "coffre"
-version = "0.11.0"
+version = "0.12.0"
 description = "Gestionnaire de mots de passe local-first, chiffré et hors ligne"
 authors = ["Contributeurs de Coffre"]
 license = "GPL-3.0-only"
