@@ -189,7 +189,7 @@ bun run build
 ```
 
 Les tests `e2e/design.spec.ts` vérifient l’absence de débordement à 1280, 1024,
-768 et 375 px, l’inertie du menu mobile, la barre d’actions mobile, le menu du
+768 et 375 px, l’inertie du menu mobile, les actions de l’en-tête, le menu du
 détail, le thème clair, la navigation aux flèches, le parcours
 créer en modale → lire et modifier dans le panneau de détail, la génération d’un
 mot de passe depuis le bandeau de sécurité, les gestes de retour et la
