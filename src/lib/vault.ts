@@ -19,6 +19,7 @@
  * jamais les éléments.
  */
 
+import { normalizeCustomFieldValue } from './customFields'
 import {
   CryptoError,
   deriveMasterKey,
@@ -65,6 +66,7 @@ import type {
   ActivityEvent,
   AliasKeyService,
   AttachmentMeta,
+  CustomFieldType,
   EncryptedAliasKeyRecord,
   EncryptedActivityRecord,
   EncryptedGeneratorRecord,
@@ -573,7 +575,12 @@ const customFieldSchema = z.object({
   id: z.string().min(1).max(80),
   label: z.string().min(1).max(80),
   value: z.string().max(10_000),
-  type: z.enum(['text', 'hidden', 'url', 'multiline']),
+  // Tolérant : un type inconnu (écrit par une version plus récente) est lu
+  // comme du texte au lieu de rendre l’élément illisible.
+  type: z
+    .string()
+    .max(40)
+    .transform((type): CustomFieldType => (isCustomFieldType(type) ? type : 'text')),
 })
 
 const attachmentMetaSchema = z.object({
@@ -2233,7 +2240,12 @@ function cleanDraft(draft: ItemDraft): ItemContent {
       .map((field) => ({
         id: cleanText(field.id, 80) || randomId('f'),
         label: cleanText(field.label, 80),
-        value: (field.value ?? '').slice(0, 10_000),
+        value: normalizeCustomFieldValue(
+          isCustomFieldType(field.type) ? field.type : 'text',
+          field.value ?? '',
+          cleanText(draft.title ?? '', 200),
+          cleanText(field.label, 80),
+        ),
         type: isCustomFieldType(field.type) ? field.type : 'text',
       }))
       .filter((field) => field.label)

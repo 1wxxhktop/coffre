@@ -68,8 +68,13 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   demandé (mot de passe et code TOTP), les identités AutoFill sans secret, et
   les assertions/créations de passkeys ES256. La façade UniFFI est commune à
   l’application, aux extensions natives et aux tests croisés TypeScript ↔ Rust.
-- **Champs personnalisés** : texte, texte masqué, adresse web et texte long,
-  jusqu’à 30 champs par élément.
+- **Champs personnalisés** : jusqu’à 30 par élément, de 13 types — texte,
+  texte long, texte masqué, mot de passe, code PIN, code 2FA (TOTP, avec code
+  en direct), adresse web, e-mail, téléphone, nombre, date, mois et année,
+  oui / non. Les secrets (masqué, mot de passe, PIN, TOTP) sont masqués à
+  l’affichage, protégés à l’export KDBX et exclus de la recherche ; une valeur
+  inhabituelle pour le type est signalée sans être refusée. Un type inconnu
+  (écrit par une version plus récente) est lu comme du texte.
 - **Pièces jointes chiffrées** : ajout, téléchargement et suppression de
   fichiers, avec chiffrement séparé par la clé de l’élément.
 - **Import** : exports JSON non chiffrés de Bitwarden, Proton Pass, Enpass et
@@ -135,7 +140,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   du générateur permet de copier, créer une connexion, supprimer ou tout
   effacer. Aucun mot de passe n’est écrit en clair ni envoyé sur le réseau.
   [Capture de l’écran](docs/screenshots/generator-history.png).
-- **TOTP** (RFC 6238) : import d’une URI `otpauth://`, codes SHA-1/256/512,
+- **TOTP** (RFC 6238) : saisie directe de la clé fournie par le site
+  (`JBSW Y3DP EHPK 3PXP`, espaces et minuscules acceptés) ou d’un lien
+  `otpauth://` ; la clé est enregistrée comme lien avec le site et
+  l’identifiant. Codes SHA-1/256/512,
   compte à rebours.
 - **Codes de secours 2FA** : élément dédié, import par collage d’un bloc de
   codes, suivi « utilisé » avec date, copie avec proposition de marquer le
@@ -276,7 +284,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
   de détail persistant. La création passe par une modale ; la lecture et
   l’édition restent dans le panneau, avec menu d’actions secondaires,
-  déplacement entre coffres, duplication et navigation clavier.
+  déplacement entre coffres, duplication (bouton à côté du titre ou `⌘D` /
+  `Ctrl+D`, la copie s’ouvre en modification) et navigation clavier.
 - **Tableau de bord** : page d’accueil par défaut après le déverrouillage, avec
   score de santé, statistiques, points d’attention, éléments prioritaires,
   récents, coffres, échéances et état du stockage local (dernière écriture,
