@@ -205,7 +205,11 @@ body:has(.app-shell) {
   height: 7px;
   flex: none;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent-muted));
+  background: linear-gradient(
+    135deg,
+    var(--accent-strong),
+    var(--accent-muted)
+  );
 }
 
 .sidebar__vault-name {
@@ -350,7 +354,8 @@ body:has(.app-shell) {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-5) clamp(var(--space-4), 3vw, var(--space-7)) var(--space-4);
+  padding: var(--space-5) clamp(var(--space-4), 3vw, var(--space-7))
+    var(--space-4);
   border-bottom: 1px solid var(--border-1);
   background: var(--surface-topbar);
   -webkit-backdrop-filter: blur(14px);
@@ -549,7 +554,8 @@ body:has(.app-shell) {
 
 .content {
   flex: 1;
-  padding: var(--space-5) clamp(var(--space-4), 3vw, var(--space-7)) var(--space-7);
+  padding: var(--space-5) clamp(var(--space-4), 3vw, var(--space-7))
+    var(--space-7);
   overflow-y: auto;
 }
 
@@ -822,7 +828,6 @@ body:has(.app-shell) {
   }
 }
 
-
 .item-row--trash {
   border-style: dashed;
   border-color: var(--state-danger-line);
@@ -867,6 +872,8 @@ body:has(.app-shell) {
   flex: 1;
   flex-direction: column;
   min-height: 100%;
+  /* Les actions s’adaptent à la largeur du panneau, pas de la fenêtre. */
+  container: item-panel / inline-size;
 }
 
 .item-panel__toolbar {
@@ -878,7 +885,8 @@ body:has(.app-shell) {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3) var(--space-4);
-  padding: var(--space-4) clamp(var(--space-4), 2.4vw, var(--space-7)) var(--space-3);
+  padding: var(--space-4) clamp(var(--space-4), 2.4vw, var(--space-7))
+    var(--space-3);
   border-bottom: 1px solid var(--border-1);
   background: var(--surface-toolbar);
   -webkit-backdrop-filter: blur(14px);
@@ -887,7 +895,7 @@ body:has(.app-shell) {
 
 .item-panel__identity {
   display: flex;
-  flex: 1 1 240px;
+  flex: 1 1 100%;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
@@ -928,29 +936,92 @@ body:has(.app-shell) {
   white-space: nowrap;
 }
 
-.item-panel__actions {
+/* Action principale (Modifier, Enregistrer, Restaurer) : sur la ligne du titre. */
+.item-panel__primary {
   display: flex;
-  flex: 0 1 auto;
-  flex-wrap: wrap;
+  flex: none;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--space-1);
+  margin-left: auto;
 }
 
-.item-panel__actions .button {
+/* Autres actions : une seule ligne, sur toute la largeur, sans retour. */
+.item-panel__actions {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.item-panel__actions > .button {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+}
+
+.item-panel__actions > :not(.button) {
+  flex: none;
+}
+
+.item-panel__actions .button,
+.item-panel__primary .button {
   height: 34px;
   padding: 0 var(--space-3);
   gap: var(--space-1);
   font-size: var(--text-xs);
 }
 
-.item-panel__actions .button svg {
+.item-panel__actions .button svg,
+.item-panel__primary .button svg {
+  flex: none;
   width: 15px;
   height: 15px;
 }
 
+.button__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Icône « fermer » de Annuler : seulement en mode compact. */
+.button__icon-compact {
+  display: none;
+}
+
+/* Panneau étroit : les actions secondaires passent en icônes. */
+@container item-panel (max-width: 620px) {
+  .item-panel__actions .button__label {
+    display: none;
+  }
+
+  .item-panel__actions > .button {
+    padding: 0;
+  }
+}
+
+/* Très étroit : l’action principale aussi. */
+@container item-panel (max-width: 420px) {
+  .item-panel__primary .button__label {
+    display: none;
+  }
+
+  .item-panel__primary .button {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .item-panel__primary .button__icon-compact {
+    display: inline-block;
+  }
+}
+
 .item-panel__body {
-  padding: var(--space-5) clamp(var(--space-4), 2.4vw, var(--space-7)) var(--space-8);
+  padding: var(--space-5) clamp(var(--space-4), 2.4vw, var(--space-7))
+    var(--space-8);
 }
 
 .item-panel .item-detail__identity {
@@ -1053,13 +1124,6 @@ body:has(.app-shell) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Barre d’actions mobile                                              */
-/* ------------------------------------------------------------------ */
-
-.detail-actionbar {
-  display: none;
-}
-
 /* ------------------------------------------------------------------ */
 /* Corbeille                                                           */
 /* ------------------------------------------------------------------ */
@@ -1173,6 +1237,53 @@ body:has(.app-shell) {
 
 .app-footer__spacer {
   flex: 1;
+}
+
+/* Bas à droite : état des mises à jour puis version. */
+.update-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.update-status__version {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.update-status__text,
+.update-status__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.update-status__button {
+  padding: 2px var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  cursor: pointer;
+}
+
+.update-status__button:hover,
+.update-status__button:focus-visible {
+  border-color: var(--border-2);
+  color: var(--text-1);
+}
+
+.update-status__button--accent {
+  border-color: var(--border-2);
+  color: var(--text-1);
+}
+
+.update-status__button--warning {
+  color: var(--warning);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1848,7 +1959,8 @@ body:has(.app-shell) {
   .detail-pane--active {
     position: absolute;
     inset: 0;
-    z-index: var(--z-raised);
+    /* Au-dessus des titres de groupe collants de la liste. */
+    z-index: var(--z-dropdown);
     display: flex;
     background: var(--surface-1);
   }
@@ -1990,12 +2102,9 @@ body:has(.app-shell) {
     flex-basis: 100%;
   }
 
-  .item-panel__actions {
-    display: none;
-  }
-
   .item-panel__body {
-    padding: var(--space-4) var(--space-4) calc(var(--space-10) + var(--space-6));
+    padding: var(--space-4) var(--space-4)
+      calc(var(--space-10) + var(--space-6));
   }
 
   .alert-banner {
@@ -2015,26 +2124,6 @@ body:has(.app-shell) {
     align-self: stretch;
   }
 
-  .detail-actionbar {
-    position: fixed;
-    right: 0;
-    bottom: 62px;
-    left: 0;
-    z-index: var(--z-sticky);
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--space-1);
-    padding: var(--space-2);
-    border-top: 1px solid var(--border-1);
-    background: var(--surface-toolbar);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
-  }
-
-  .app-main--detail .detail-actionbar {
-    bottom: 0;
-  }
-
   .app-main--detail {
     padding-bottom: 0;
   }
@@ -2044,36 +2133,7 @@ body:has(.app-shell) {
   }
 
   .app-main--detail .item-panel__body {
-    padding-bottom: calc(var(--space-10) + var(--space-7));
-  }
-
-  .detail-actionbar--simple {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .detail-actionbar .button {
-    flex-direction: column;
-    gap: 2px;
-    min-height: 52px;
-    padding: var(--space-1);
-    font-size: var(--text-xs);
-  }
-
-  .detail-actionbar .icon-button {
-    width: 100%;
-    min-width: 0;
-    height: 52px;
-  }
-
-  .detail-actionbar__menu {
-    position: static;
-  }
-
-  .detail-actionbar__menu .menu__panel {
-    top: auto;
-    right: var(--space-2);
-    bottom: calc(100% + var(--space-1));
-    left: var(--space-2);
+    padding-bottom: var(--space-8);
   }
 
   .mobile-tabs {
@@ -2130,13 +2190,11 @@ body:has(.app-shell) {
   }
 }
 
-
 @media (pointer: coarse) {
   .search__hint {
     display: none;
   }
 }
-
 
 @container (max-width: 359px) {
   .item-row__vault {
