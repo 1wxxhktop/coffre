@@ -1,6 +1,6 @@
 fn main() {
-    let attributes = tauri_build::Attributes::new().app_manifest(
-        tauri_build::AppManifest::new().commands(&[
+    let attributes =
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
             "keychain_store",
             "keychain_load",
             "keychain_delete",
@@ -68,7 +68,6 @@ fn main() {
             "updater_install",
             "updater_install_on_exit",
             "updater_discard",
-        ]),
-    );
+        ]));
     tauri_build::try_build(attributes).expect("tauri-build");
 }
