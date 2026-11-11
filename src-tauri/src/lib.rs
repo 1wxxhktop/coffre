@@ -259,6 +259,7 @@ async fn biometric_load(account: String) -> Result<BiometricResult, String> {
 /// une demande trompeuse pour une autre action.
 #[tauri::command]
 async fn biometric_confirm(_reason: String) -> Result<bool, String> {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     let reason = "confirmer une action sensible dans Coffre";
     #[cfg(target_os = "macos")]
     {
