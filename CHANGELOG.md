@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- Documentation : `docs/RELEASE.md` et `docs/RELEASE-READINESS.md` décrivent
+  désormais les mises à jour signées (B-02), la publication stable/bêta et la
+  vérification d’une mise à jour depuis l’application.
+
 ## 0.13.0 — 11 novembre 2026
 
 - Fiche d’une connexion : le bloc « Sécurité » liste désormais les autres

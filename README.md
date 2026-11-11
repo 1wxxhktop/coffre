@@ -775,8 +775,11 @@ sont des builds de développement, sans paquet de mise à jour signé.
 
 `.github/workflows/release.yml` prépare une release macOS sur un tag `v*` :
 build universel signé ad hoc (sans compte Apple), DMG + SHA-256, paquet de mise
-à jour signé et release GitHub en brouillon. Un certificat Developer ID reste
-possible mais optionnel. Voir [docs/RELEASE.md](docs/RELEASE.md).
+à jour signé et release GitHub en brouillon. Le workflow `publish-update.yml`
+publie ensuite cette release (canal stable) et met à jour `canal-beta` ; la
+vérification des mises à jour reste désactivée par défaut et se règle dans
+Réglages → Mises à jour. Un certificat Developer ID reste possible mais
+optionnel. Voir [docs/RELEASE.md](docs/RELEASE.md).
 
 `.github/dependabot.yml` propose chaque semaine les mises à jour npm et Cargo,
 et chaque mois celles des actions GitHub. L’audit échoue au niveau `high` et
