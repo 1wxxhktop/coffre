@@ -9,6 +9,7 @@ import {
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cx } from '../lib/cx'
+import { lockRootInert, unlockRootInert } from '../lib/rootInert'
 import { useI18n } from '../state/I18nProvider'
 
 interface ModalProps {
@@ -28,7 +29,6 @@ interface ModalProps {
  * visibles au-dessus de l’interface.
  */
 const modalStack: string[] = []
-let previousOverflow = ''
 let previousFocus: HTMLElement | null = null
 
 const FOCUSABLE =
@@ -50,6 +50,8 @@ export function Modal({
   const modalId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef(onClose)
+  /** Élément à re-focaliser à la fermeture, y compris pour une modale imbriquée. */
+  const returnFocusRef = useRef<HTMLElement | null>(null)
 
   useLayoutEffect(() => {
     closeRef.current = onClose
@@ -61,11 +63,13 @@ export function Modal({
     if (!panel) return
 
     if (modalStack.length === 0) {
-      previousOverflow = document.body.style.overflow
       previousFocus = document.activeElement as HTMLElement | null
-      document.body.style.overflow = 'hidden'
-      document.getElementById('root')?.setAttribute('inert', '')
+    } else {
+      // Modale imbriquée : le focus doit revenir au déclencheur de la modale
+      // parente, et non au document, une fois celle-ci refermée.
+      returnFocusRef.current = document.activeElement as HTMLElement | null
     }
+    lockRootInert()
     modalStack.push(id)
 
     const focusInitial = () => {
@@ -122,11 +126,16 @@ export function Modal({
 
       const index = modalStack.lastIndexOf(id)
       if (index !== -1) modalStack.splice(index, 1)
+      unlockRootInert()
 
       if (modalStack.length === 0) {
-        document.body.style.overflow = previousOverflow
-        document.getElementById('root')?.removeAttribute('inert')
         previousFocus?.focus?.({ preventScroll: true })
+      } else {
+        const target = returnFocusRef.current
+        returnFocusRef.current = null
+        if (target && document.contains(target)) {
+          target.focus({ preventScroll: true })
+        }
       }
     }
   }, [modalId])

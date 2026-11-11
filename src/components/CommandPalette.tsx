@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { createPortal } from 'react-dom'
 import { CornerDownLeft, Search } from 'lucide-react'
 import { searchPalette, type PaletteAction } from '../lib/palette'
+import { lockRootInert, unlockRootInert } from '../lib/rootInert'
 import type { VaultItem } from '../lib/types'
 import type { UsageMap } from '../lib/usage'
 import { useI18n } from '../state/I18nProvider'
@@ -51,6 +52,13 @@ export function CommandPalette({
     [results],
   )
   const activeIndex = Math.min(active, Math.max(0, options.length - 1))
+
+  // Déclaré avant la restitution du focus : le déverrouillage doit précéder
+  // le retour du focus vers un élément situé dans #root.
+  useEffect(() => {
+    lockRootInert()
+    return unlockRootInert
+  }, [])
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null

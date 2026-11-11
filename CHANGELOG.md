@@ -117,6 +117,14 @@
   avant toute mutation ; la vérification compte tous les enregistrements du
   manifeste ; les pierres tombales de modèles sont validées ; `addAttachment`
   relit le contenu existant pour appliquer les plafonds.
+- **Accessibilité** : les notifications sont rendues hors de `#root`, donc
+  annoncées même lorsqu’une modale est ouverte ; le focus revient au déclencheur
+  après la fermeture d’une modale imbriquée ; la palette de commandes rend
+  l’arrière-plan inerte via un verrou partagé ; le menu mobile ne reprend plus
+  le focus à chaque rendu et se présente comme une boîte de dialogue.
+- **Anglais** : les derniers libellés `tt()` sans traduction sont couverts, et
+  `check-i18n.mjs` vérifie désormais chaque littéral `tt()` contre le
+  dictionnaire anglais au lieu de laisser passer les clés non citées.
 
 ### Tauri
 

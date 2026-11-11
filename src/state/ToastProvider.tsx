@@ -2,11 +2,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react'
+import { useI18n } from './I18nProvider'
 
 type ToastTone = 'success' | 'error' | 'info'
 
@@ -23,6 +26,7 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useI18n()
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const counter = useRef(0)
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>())
@@ -44,31 +48,42 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismiss],
   )
 
+  useEffect(
+    () => () => {
+      for (const timer of timers.current.values()) clearTimeout(timer)
+      timers.current.clear()
+    },
+    [],
+  )
+
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="toast-stack" aria-live="polite" aria-atomic="false">
-        {toasts.map((item) => (
-          <div key={item.id} className={`toast toast--${item.tone}`} role="status">
-            {item.tone === 'success' ? (
-              <CheckCircle2 size={18} />
-            ) : item.tone === 'error' ? (
-              <CircleAlert size={18} />
-            ) : (
-              <Info size={18} />
-            )}
-            <span>{item.message}</span>
-            <button
-              type="button"
-              className="toast__close"
-              onClick={() => dismiss(item.id)}
-              aria-label="Fermer la notification"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
+      {createPortal(
+        <div className="toast-stack" aria-live="polite" aria-atomic="false">
+          {toasts.map((item) => (
+            <div key={item.id} className={`toast toast--${item.tone}`} role="status">
+              {item.tone === 'success' ? (
+                <CheckCircle2 size={18} />
+              ) : item.tone === 'error' ? (
+                <CircleAlert size={18} />
+              ) : (
+                <Info size={18} />
+              )}
+              <span>{item.message}</span>
+              <button
+                type="button"
+                className="toast__close"
+                onClick={() => dismiss(item.id)}
+                aria-label={t('common.closeNotification')}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>,
+        document.body,
+      )}
     </ToastContext.Provider>
   )
 }
