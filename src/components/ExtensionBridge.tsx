@@ -52,15 +52,20 @@ export function ExtensionBridge() {
       return
     }
 
+    // Une passerelle capturée avant le verrouillage ne doit plus répondre.
+    let revoked = false
     const bridge: CoffreExtensionBridge = {
       version: EXTENSION_BRIDGE_VERSION,
       async search(query) {
+        if (revoked || !query.trim()) return []
         return searchLogins(items, query)
       },
       async searchCards(query) {
+        if (revoked || !query.trim()) return []
         return searchCards(items, query)
       },
       async searchIdentities(query) {
+        if (revoked || !query.trim()) return []
         return searchIdentities(items, query)
       },
       async generateAlias(site) {
@@ -77,6 +82,7 @@ export function ExtensionBridge() {
         }
       },
       async searchCustom(query) {
+        if (revoked || !query.trim()) return []
         const text = query.trim().toLowerCase()
         return items
           .filter(
@@ -101,15 +107,19 @@ export function ExtensionBridge() {
           })
       },
       async fillItem(itemId, options) {
+        if (revoked) return null
         const item = items.find(
           (candidate) => candidate.id === itemId && !candidate.deletedAt,
         )
         if (!item) return null
+        const requestedHost = options?.host?.trim() ?? ''
         if (item.type === 'login') {
-          const host = options?.host ?? ''
-          if (host && !options?.allowMismatch && !loginAllowsHost(item, host)) {
+          // L’hôte est obligatoire : sans lui, un script de l’onglet Coffre
+          // pourrait énumérer et extraire tous les identifiants.
+          if (!requestedHost || !loginAllowsHost(item, requestedHost)) {
             return null
           }
+          const host = requestedHost
           let totp = ''
           if (item.totp && isTotpUri(item.totp)) {
             try {
@@ -129,6 +139,7 @@ export function ExtensionBridge() {
           }
         }
         if (item.type === 'card') {
+          if (!requestedHost) return null
           if (
             options?.includeSensitive &&
             !(await confirmSensitiveFill(
@@ -150,6 +161,7 @@ export function ExtensionBridge() {
           }
         }
         if (item.type === 'note' && item.templateId) {
+          if (!requestedHost) return null
           const template = templates.find((entry) => entry.id === item.templateId)
           const fields = template
             ? template.fields.filter((field) => field.fillable)
@@ -169,6 +181,7 @@ export function ExtensionBridge() {
           }
         }
         if (item.type === 'identity') {
+          if (!requestedHost) return null
           return {
             kind: 'identity',
             id: item.id,
@@ -186,12 +199,14 @@ export function ExtensionBridge() {
         }
         return null
       },
-      async fill(itemId, host, options) {
+      async fill(itemId, host) {
+        if (revoked) return null
         const item = items.find(
           (candidate) => candidate.id === itemId && !candidate.deletedAt,
         )
         if (!item || item.type !== 'login') return null
-        if (host && !options?.allowMismatch && !loginAllowsHost(item, host)) {
+        const requestedHost = host?.trim() ?? ''
+        if (!requestedHost || !loginAllowsHost(item, requestedHost)) {
           return null
         }
 
@@ -204,7 +219,7 @@ export function ExtensionBridge() {
           }
         }
 
-        void recordActivity('extension-fill', item.title, host)
+        void recordActivity('extension-fill', item.title, requestedHost)
         return {
           id: item.id,
           title: item.title,
@@ -391,6 +406,14 @@ export function ExtensionBridge() {
         return { id: item.id, updated: false }
       },
       async passkeyCreate(input) {
+        if (revoked) return null
+        if (
+          !(await confirmSensitiveFill(
+            `Créer une passkey pour ${input.rpId}`,
+          ))
+        ) {
+          return null
+        }
         try {
           const result = await createPasskeyInVault(
             { items, vaults, addItem },
@@ -409,6 +432,14 @@ export function ExtensionBridge() {
         }
       },
       async passkeyGet(input) {
+        if (revoked) return null
+        if (
+          !(await confirmSensitiveFill(
+            `Signer une passkey pour ${input.rpId}`,
+          ))
+        ) {
+          return null
+        }
         try {
           const result = await getPasskeyAssertion(items, {
             rpId: input.rpId,
@@ -425,6 +456,7 @@ export function ExtensionBridge() {
 
     window.__coffreExtension = bridge
     return () => {
+      revoked = true
       if (window.__coffreExtension === bridge) {
         delete window.__coffreExtension
       }

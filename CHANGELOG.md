@@ -80,6 +80,18 @@
   mot de passe maître.
 - « Tout effacer » supprime aussi l’historique de sécurité, les préférences
   d’alias, les notifications d’échéance et la configuration de partage local.
+- **Passerelle extension** : un hôte non vide est obligatoire pour remplir un
+  identifiant ; `allowMismatch` n’est plus une autorisation fournie par
+  l’appelant. Les recherches vides ne renvoient plus tout le coffre, la
+  passerelle est révoquée au verrouillage et les passkeys demandent une
+  confirmation.
+- **Autofill** : l’origine et le port sont vérifiés dans le document cible juste
+  avant l’injection, ce qui bloque le changement d’onglet pendant la
+  récupération des identifiants.
+- **Popup** : `DETAILS` transmet l’URL complète, le mode Web n’appelle plus le
+  pont natif, et les propositions d’enregistrement sont purgées dès que le
+  coffre est verrouillé.
+- Les protocoles du pont natif et de l’extension passent en version 2.
 
 ## 0.13.0 — 11 novembre 2026
 
