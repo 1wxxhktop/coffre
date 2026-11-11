@@ -2,6 +2,12 @@
 
 ## Non publié
 
+## 0.13.0 — 11 novembre 2026
+
+- Fiche d’une connexion : le bloc « Sécurité » liste désormais les autres
+  comptes qui utilisent exactement le même mot de passe, avec leur identifiant
+  et leur site. Un clic ouvre le compte concerné pour changer son mot de passe
+  sans perdre le fil de la vérification.
 - `bun run release:collect` écrit toujours dans le dossier `release/` de la
   racine du dépôt, même lancé depuis un worktree, et retire les versions
   précédentes pour ne garder qu’un exemplaire (`--keep` pour les conserver).
