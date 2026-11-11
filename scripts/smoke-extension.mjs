@@ -999,7 +999,20 @@ try {
   await options.close()
 
   console.log('Extension : recherche, remplissage et verrouillage validés.')
+} catch (error) {
+  // Afficher l’erreur explicitement : sous xvfb-run, un échec pouvait
+  // terminer le job sans aucun message.
+  console.error('Extension : échec du parcours.', error)
+  process.exitCode = 1
 } finally {
-  await context.close()
-  rmSync(workDir, { recursive: true, force: true })
+  // Le nettoyage ne doit jamais faire échouer un parcours réussi : Chrome
+  // peut encore écrire dans le profil (crashpad, cache) juste après close().
+  await context.close().catch((error) => {
+    console.warn('Extension : fermeture du navigateur incomplète.', error)
+  })
+  try {
+    rmSync(workDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  } catch (error) {
+    console.warn('Extension : profil temporaire non supprimé.', error)
+  }
 }
