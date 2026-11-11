@@ -1,7 +1,8 @@
 # Sécurité de Coffre
 
 Ce document décrit le modèle de menace, la conception cryptographique, le
-stockage local et les limites connues de Coffre 0.9.0.
+stockage local et les limites connues de Coffre 0.13.0 et des correctifs de
+sécurité préparés pour 0.14.0.
 
 > **Avertissement.** Coffre n’a pas fait l’objet d’un audit de sécurité
 > indépendant. Ne l’utilisez pas comme unique copie de secrets critiques sans
@@ -247,12 +248,16 @@ clés d’alias, identité de partage, accès d’urgence et entrées de l’his
 du générateur, ainsi que les horloges `{ rev, writer }` et les pierres
 tombales. Il ne contient aucun contenu déchiffré.
 
-Deux versions de manifeste coexistent : le manifeste 2 couvre l’historique du
-générateur ; le manifeste 1 est encore accepté à l’ouverture pour les fichiers
-signés avant cette couverture et lors de la transition. Toute écriture signe en
-manifeste 2. Les sidecars `activity`, `templates`, `aliasKeys`, `sharing`,
-`emergency` et `generatorHistory` sont conservés par le cœur Rust et couverts
-par les deux versions, comme le fait déjà le code TypeScript.
+Trois versions de manifeste coexistent en lecture. Le manifeste 3, écrit par
+les versions 0.13 et suivantes, couvre l’identité publique complète de chaque
+contact d’urgence (`encryptionPublicKey`, `signingPublicKey`, `fingerprint` et
+enveloppe scellée). Le manifeste 2 couvre l’historique du générateur ; le
+manifeste 1 est conservé pour les fichiers signés avant cette couverture. Toute
+écriture signe en manifeste 3. Les sidecars `activity`, `templates`,
+`aliasKeys`, `sharing`, `emergency` et `generatorHistory` sont conservés par le
+cœur Rust et couverts par le manifeste. Une application 0.12 qui lit un fichier
+signé en manifeste 3 ne peut pas vérifier le MAC : elle l’ouvre en lecture seule
+et refuse les écritures.
 
 La clé HMAC est aléatoire, scellée avec l’AAD `coffre:v1:integrity-key` et
 tournée au changement de mot de passe maître ou après une récupération par
@@ -799,14 +804,14 @@ L’historique du générateur est un sidecar chiffré du fichier `.coffre` :
 - les mots de passe déchiffrés restent en mémoire React tant que le coffre est
   déverrouillé, puis sont effacés au verrouillage avec le reste de l’état.
 
-Intégrité : l’historique est inclus dans le manifeste 2 du MAC global (identifiant
-de l’entrée, horloge et empreinte du ciphertext), en même temps que les
-sidecars `activity`, `templates`, `aliasKeys`, `sharing` et `emergency`. Une
-suppression, une substitution ou un rejeu d’entrée invalide donc le MAC. Les
-fichiers signés avec l’ancien manifeste 1 restent lisibles ; leur première
-mutation les réécrit en manifeste 2. Le cœur Rust et le code TypeScript
-partagent un vecteur croisé qui vérifie l’égalité octet pour octet du manifeste
-canonique.
+Intégrité : l’historique est inclus dans le manifeste 2 (et le manifeste 3) du
+MAC global (identifiant de l’entrée, horloge et empreinte du ciphertext), en
+même temps que les sidecars `activity`, `templates`, `aliasKeys`, `sharing` et
+`emergency`. Une suppression, une substitution ou un rejeu d’entrée invalide
+donc le MAC. Les fichiers signés avec les anciens manifestes 1 et 2 restent
+lisibles ; leur première mutation les réécrit en manifeste 3. Le cœur Rust et le
+code TypeScript partagent des vecteurs croisés qui vérifient l’égalité octet
+pour octet des manifestes 1, 2 et 3.
 
 ### 2.12.3 Codes de secours 2FA
 
@@ -1415,9 +1420,12 @@ partage de coffres et l’accès d’urgence. L’identité est persistée dans 
   **forward-only** : l’ancien membre conserve l’ancienne clé pour les contenus
   déjà reçus, mais ne peut plus lire les nouvelles écritures ;
 - l’accès d’urgence enveloppe la **clé maîtresse** avec HPKE pour l’identité
-  publique d’un contact. L’enveloppe est stockée dans le fichier et couverte
-  par le MAC. Elle est ré-enveloppée au changement de mot de passe et après une
-  récupération, car la clé maîtresse change ;
+  publique d’un contact. L’enveloppe et l’identité publique complète sont
+  couvertes par le manifeste 3 du MAC. L’empreinte est vérifiée contre les deux
+  clés avant tout reseal ; une identité incohérente bloque le changement de mot
+  de passe et est retirée lors d’une récupération. L’enveloppe est
+  ré-enveloppée au changement de mot de passe et après une récupération, car la
+  clé maîtresse change ;
 - le contact doit posséder le fichier `.coffre` et sa clé privée d’identité pour
   ouvrir l’enveloppe. Sans serveur, aucun délai ne peut être imposé : l’accès
   immédiat est immédiat ;

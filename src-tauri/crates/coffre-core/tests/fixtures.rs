@@ -87,6 +87,8 @@ fn manifeste_croise_les_sidecars_avec_typescript() {
         .expect("manifeste attendu");
     let expected_v1 = std::fs::read_to_string(format!("{root}/manifest-v1-sidecars.manifest.json"))
         .expect("manifeste v1 attendu");
+    let expected_v3 = std::fs::read_to_string(format!("{root}/manifest-v3-sidecars.manifest.json"))
+        .expect("manifeste v3 attendu");
     let file = VaultFile::parse(&text).expect("vecteur valide");
     let manifest = Manifest::compute_version(&file, 2).expect("manifeste v2");
     assert_eq!(
@@ -98,6 +100,43 @@ fn manifeste_croise_les_sidecars_avec_typescript() {
         coffre_core::canonical_json(&legacy.to_json()),
         expected_v1.trim()
     );
+    let current = Manifest::compute_version(&file, 3).expect("manifeste v3");
+    assert_eq!(
+        coffre_core::canonical_json(&current.to_json()),
+        expected_v3.trim()
+    );
+}
+
+#[test]
+fn manifeste_3_couvre_les_cles_publiques_d_urgence() {
+    let root = format!("{}/../../../test-vectors", env!("CARGO_MANIFEST_DIR"));
+    let text = std::fs::read_to_string(format!("{root}/manifest-v2-sidecars.file.json"))
+        .expect("fichier vecteur");
+    let mut file = VaultFile::parse(&text).expect("vecteur valide");
+
+    let emergency_ciphertext = |manifest: &Manifest| {
+        manifest
+            .records
+            .iter()
+            .find(|record| record.kind == "emergency")
+            .expect("enregistrement d’urgence")
+            .ciphertext
+            .clone()
+    };
+
+    let v2_before = emergency_ciphertext(&Manifest::compute_version(&file, 2).unwrap());
+    let v3_before = emergency_ciphertext(&Manifest::compute_version(&file, 3).unwrap());
+
+    let emergency = file.emergency.as_mut().expect("urgence présente");
+    emergency["contact"]["encryptionPublicKey"] = serde_json::json!("autre-cle-publique");
+
+    let v2_after = emergency_ciphertext(&Manifest::compute_version(&file, 2).unwrap());
+    let v3_after = emergency_ciphertext(&Manifest::compute_version(&file, 3).unwrap());
+
+    // Le manifeste 2 ne couvrait que l’empreinte et le ciphertext : le swap de
+    // clé restait invisible. Le manifeste 3 le détecte.
+    assert_eq!(v2_before, v2_after);
+    assert_ne!(v3_before, v3_after);
 }
 
 #[test]

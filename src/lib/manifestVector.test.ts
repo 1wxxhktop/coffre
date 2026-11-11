@@ -17,5 +17,9 @@ describe('vecteur croisé du manifeste 2', () => {
     expect(canonicalJson(legacy)).toBe(
       vector('manifest-v1-sidecars.manifest.json').trim(),
     )
+    const current = await computeManifest(file, 3)
+    expect(canonicalJson(current)).toBe(
+      vector('manifest-v3-sidecars.manifest.json').trim(),
+    )
   })
 })

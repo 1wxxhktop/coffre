@@ -26,6 +26,8 @@ use tauri::{AppHandle, Emitter, State};
 use crate::blob_store::{blob_dir, valid_id};
 use crate::bridge::app_data_root;
 
+/// Version du protocole d’appairage et de synchronisation LAN.
+pub const LAN_PROTOCOL_VERSION: u8 = 1;
 const NOISE_PARAMS: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
 const LAN_PORT: u16 = 47_823;
 const PAIR_TTL: Duration = Duration::from_secs(120);
@@ -614,7 +616,7 @@ fn handle_pair(
 
 fn pair_code(host: &str, port: u16, public_key: &str, secret: &[u8], name: &str) -> String {
     let payload = PairPayload {
-        v: 1,
+        v: LAN_PROTOCOL_VERSION,
         host: host.to_string(),
         port,
         public_key: public_key.to_string(),
@@ -634,7 +636,7 @@ fn decode_pair_code(code: &str) -> Result<PairPayload, String> {
     let data = decode_url(encoded)?;
     let payload: PairPayload =
         serde_json::from_slice(&data).map_err(|_| "Code d’appairage invalide".to_string())?;
-    if payload.v != 1 || payload.host.trim().is_empty() || payload.port == 0 {
+    if payload.v != LAN_PROTOCOL_VERSION || payload.host.trim().is_empty() || payload.port == 0 {
         return Err("Code d’appairage invalide".into());
     }
     Ok(payload)
