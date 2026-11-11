@@ -9,6 +9,7 @@ import {
   AtSign,
   CalendarClock,
   Check,
+  ChevronRight,
   Clock,
   Copy,
   CopyPlus,
@@ -151,6 +152,8 @@ interface ItemDialogProps {
   onDuplicated?: (item: VaultItem) => void
   /** Signale une utilisation réelle (copie d’un champ, par exemple). */
   onUsed?: () => void
+  /** Ouvre un autre élément, par exemple un compte qui partage le mot de passe. */
+  onOpenItem?: (itemId: string) => void
   /** Analyse déjà calculée par la vue principale. */
   securityReport?: SecurityReport
 }
@@ -293,6 +296,7 @@ export function ItemDialog({
   onSaved,
   onDuplicated,
   onUsed,
+  onOpenItem,
   securityReport,
 }: ItemDialogProps) {
   const {
@@ -2199,6 +2203,7 @@ export function ItemDialog({
                 hasPasskeyForItem={hasPasskeyForItem}
                 onGeneratePassword={() => setShowGenerator(true)}
                 onEditItem={startEditing}
+                onOpenItem={onOpenItem}
                 attachmentBusy={attachmentBusy}
                 attachmentError={attachmentError}
                 onAddAttachment={uploadAttachments}
@@ -2351,6 +2356,7 @@ interface ItemDetailsProps {
   hasPasskeyForItem: boolean
   onGeneratePassword: () => void
   onEditItem: () => void
+  onOpenItem?: (itemId: string) => void
   attachmentBusy: boolean
   attachmentError: string | null
   onAddAttachment: (files: FileList | null) => Promise<void>
@@ -2376,6 +2382,7 @@ function ItemDetails({
   hasPasskeyForItem,
   onGeneratePassword,
   onEditItem,
+  onOpenItem,
   attachmentBusy,
   attachmentError,
   onAddAttachment,
@@ -3048,6 +3055,7 @@ function ItemDetails({
           breachCheck={breachCheck}
           hasTotp={Boolean(item.totp.trim())}
           twoFactorAvailable={Boolean(siteInfo && siteInfo.twoFactor.length > 0)}
+          onOpenItem={onOpenItem}
         />
       )}
 
@@ -3178,12 +3186,14 @@ function SecurityFacts({
   breachCheck,
   hasTotp,
   twoFactorAvailable,
+  onOpenItem,
 }: {
   facts: ItemSecurityFacts
   strength: { score: number; label: string } | null
   breachCheck: boolean
   hasTotp: boolean
   twoFactorAvailable: boolean
+  onOpenItem?: (itemId: string) => void
 }) {
   const { tt } = useI18n()
   const age =
@@ -3259,6 +3269,60 @@ function SecurityFacts({
           </li>
         ))}
       </ul>
+      {facts.reusedWithItems.length > 0 && (
+        <div className="security-reuse">
+          <span className="security-reuse__title">
+            {tt('Comptes qui partagent ce mot de passe')}
+          </span>
+          <ul className="security-reuse__list">
+            {facts.reusedWithItems.map((other) => {
+              const host =
+                other.urls
+                  .map((url) => hostFromUrl(url))
+                  .find((value) => Boolean(value)) ?? ''
+              const meta = [other.username.trim(), host].filter(Boolean).join(' · ')
+              const label =
+                other.title.trim() || other.username.trim() || tt('Sans titre')
+              const content = (
+                <>
+                  <span
+                    className={`item-icon item-icon--${other.type} security-reuse__icon`}
+                  >
+                    <ItemIcon type={other.type} item={other} size={15} />
+                  </span>
+                  <span className="security-reuse__identity">
+                    <span className="security-reuse__name">{label}</span>
+                    {meta && <span className="security-reuse__meta">{meta}</span>}
+                  </span>
+                  {onOpenItem && (
+                    <ChevronRight
+                      size={16}
+                      className="security-reuse__chevron"
+                      aria-hidden="true"
+                    />
+                  )}
+                </>
+              )
+              return (
+                <li key={other.id}>
+                  {onOpenItem ? (
+                    <button
+                      type="button"
+                      className="security-reuse__item"
+                      onClick={() => onOpenItem(other.id)}
+                      aria-label={tt('Ouvrir {title}').replace('{title}', label)}
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div className="security-reuse__item">{content}</div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
     </section>
   )
 }

@@ -475,6 +475,8 @@ export interface ItemSecurityFacts {
   weak: boolean
   /** Nombre d’autres connexions qui partagent ce mot de passe. */
   reusedWith: number
+  /** Connexions actives qui partagent exactement ce mot de passe. */
+  reusedWithItems: LoginItem[]
   similar: boolean
   breached: boolean
   /** Mot de passe inchangé depuis plus d’un an. */
@@ -491,10 +493,17 @@ export function itemSecurityFacts(
   if (item.type !== 'login' || item.deletedAt) return null
   const has = (items: VaultItem[]) => items.some((candidate) => candidate.id === item.id)
   const group = report.reused.find((candidate) => has(candidate.items))
+  const reusedWithItems = group
+    ? group.items.filter(
+        (candidate): candidate is LoginItem =>
+          candidate.type === 'login' && candidate.id !== item.id,
+      )
+    : []
   const updated = Date.parse(item.updatedAt)
   return {
     weak: has(report.weak),
-    reusedWith: group ? group.items.length - 1 : 0,
+    reusedWith: reusedWithItems.length,
+    reusedWithItems,
     similar: report.similar.some((candidate) => has(candidate.items)),
     breached: has(report.breached),
     old: has(report.old),

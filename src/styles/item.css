@@ -1076,6 +1076,88 @@
   color: var(--state-danger-text);
 }
 
+/* Liste des autres comptes qui partagent le même mot de passe. */
+.security-reuse {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-1);
+}
+
+.security-reuse__title {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  font-weight: 550;
+}
+
+.security-reuse__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.security-reuse__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.security-reuse__item {
+  cursor: pointer;
+}
+
+button.security-reuse__item:hover {
+  border-color: var(--border-2);
+  background: var(--surface-3);
+}
+
+.security-reuse__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+}
+
+.security-reuse__identity {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.security-reuse__name {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.security-reuse__meta {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.security-reuse__chevron {
+  flex: none;
+  color: var(--text-3);
+}
+
 /* ------------------------------------------------------------------ */
 /* Réordonner les champs personnalisés                                 */
 /* ------------------------------------------------------------------ */
