@@ -62,10 +62,13 @@ const FULL_HEADERS = [
 ]
 
 function csvCell(value: string): string {
-  if (/[",\r\n]/.test(value) || /^\s|\s$/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
+  // Neutralise les formules de tableur : Excel/LibreOffice interprètent une
+  // cellule commençant par =, +, -, @, tabulation ou retour chariot.
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+  if (/[",\r\n]/.test(safe) || /^\s|\s$/.test(safe)) {
+    return `"${safe.replace(/"/g, '""')}"`
   }
-  return value
+  return safe
 }
 
 function buildCsv(headers: string[], rows: string[][]): string {

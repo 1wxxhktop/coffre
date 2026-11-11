@@ -402,6 +402,7 @@ export async function reconcileVaultFiles(
     merged = mergeVaultFiles(local, verified)
   } catch (error) {
     if (session !== input.session) session.lock()
+    input.session.lock()
     throw error
   }
   warnings.push(...merged.warnings)

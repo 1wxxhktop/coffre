@@ -3,8 +3,10 @@ import {
   createItem,
   createVaultFile,
   deleteItem,
+  deleteVault,
   readVaultSharing,
   signVaultFile,
+  trashItem,
   unlockVaultFile,
   updateItem,
 } from './vault'
@@ -92,6 +94,14 @@ describe('paquet de contenu partagé', () => {
         title: 'Interdit',
       } as ItemDraft),
     ).rejects.toThrow()
+    const sharedItem = opened.items.find((entry) => entry.title === 'Partagé')
+    expect(sharedItem).toBeDefined()
+    await expect(
+      trashItem(opened.file, opened.session, sharedItem!.id),
+    ).rejects.toThrow(/lecture seule/i)
+    await expect(
+      deleteVault(opened.file, opened.session, vaultId),
+    ).rejects.toThrow(/lecture seule/i)
     opened.session.lock()
     member.session.lock()
   })

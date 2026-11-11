@@ -96,7 +96,7 @@ pub fn parse_totp_uri(uri: &str) -> Result<TotpConfig, CoreError> {
             _ => {}
         }
     }
-    if !(1..=10).contains(&digits) || !(1..=300).contains(&period) {
+    if !(6..=8).contains(&digits) || !(1..=300).contains(&period) {
         return Err(CoreError::InvalidFormat(
             "paramètres TOTP hors limites".into(),
         ));

@@ -96,6 +96,24 @@
   coffre est verrouillé.
 - Les protocoles du pont natif et de l’extension passent en version 2.
 
+### P2/P3
+
+- **CSV** : les cellules commençant par `=`, `+`, `-`, `@`, tabulation ou retour
+  chariot sont préfixées par `'` pour neutraliser les formules de tableur.
+- **Imports KDBX/1PUX** : les paramètres Argon2 KDBX sont alignés sur les bornes
+  du coffre (256 Mio / 6 passes / 8 threads), l’AES-KDF est plafonné à 2 millions
+  de tours, la décompression KDBX est limitée à 128 Mio et l’archive 1PUX
+  n’extrait que `export.attributes`/`export.data` avec un plafond de 128 Mio.
+- **Rôle lecture** : corbeille, restauration, restauration de version,
+  suppression de pièce jointe, renommage et suppression de coffre vérifient
+  désormais le rôle local.
+- **TOTP** : les algorithmes inconnus sont refusés ; les chiffres (6–8) et la
+  période (1–300 s) sont validés de la même façon en TypeScript et en Rust.
+- `setVaultKey` efface l’ancienne clé ; `addVault` vérifie la clé de récupération
+  avant toute mutation ; la vérification compte tous les enregistrements du
+  manifeste ; les pierres tombales de modèles sont validées ; `addAttachment`
+  relit le contenu existant pour appliquer les plafonds.
+
 ### CI et release
 
 - Toutes les actions GitHub sont épinglées par SHA, y compris le job de

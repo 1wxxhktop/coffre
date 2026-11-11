@@ -252,6 +252,8 @@ export class VaultSession {
 
   setVaultKey(vaultId: string, key: Uint8Array): void {
     this.#assertUnlocked()
+    const previous = this.#vaultKeys.get(vaultId)
+    if (previous && previous !== key) wipe(previous)
     this.#vaultKeys.set(vaultId, key)
   }
 
@@ -950,6 +952,19 @@ export function parseVaultFile(raw: unknown): VaultFile {
         ) {
           throw new VaultValidationError(
             'Fichier invalide : un coffre supprimé est encore présent',
+          )
+        }
+      }
+      if (tombstone.kind === 'template') {
+        const template = (file.templates ?? []).find(
+          (candidate) => candidate.id === tombstone.id,
+        )
+        if (
+          template &&
+          Date.parse(tombstone.deletedAt) >= Date.parse(template.updatedAt)
+        ) {
+          throw new VaultValidationError(
+            'Fichier invalide : un modèle supprimé est encore présent',
           )
         }
       }
@@ -3015,6 +3030,7 @@ export async function trashItem(
   assertUnlocked(session)
   const existing = file.items.find((record) => record.id === itemId)
   if (!existing) throw new VaultValidationError('Élément introuvable')
+  assertVaultWritable(session, existing.vaultId)
 
   const itemKey = await openBytes(
     existing.key,
@@ -3074,6 +3090,7 @@ export async function restoreItem(
   assertUnlocked(session)
   const existing = file.items.find((record) => record.id === itemId)
   if (!existing) throw new VaultValidationError('Élément introuvable')
+  assertVaultWritable(session, existing.vaultId)
 
   const itemKey = await openBytes(
     existing.key,
@@ -3177,6 +3194,7 @@ export async function restoreItemVersion(
   assertUnlocked(session)
   const existing = file.items.find((record) => record.id === itemId)
   if (!existing) throw new VaultValidationError('Élément introuvable')
+  assertVaultWritable(session, existing.vaultId)
   const version = file.versions.find(
     (candidate) =>
       candidate.id === versionId &&
@@ -3324,19 +3342,6 @@ export async function addAttachment(
     throw new VaultValidationError('La pièce jointe dépasse la limite de 5 Mo')
   }
 
-  const currentAttachments = item.attachments ?? []
-  if (currentAttachments.length >= MAX_ATTACHMENTS_PER_ITEM) {
-    throw new VaultValidationError(
-      `Un élément ne peut pas contenir plus de ${MAX_ATTACHMENTS_PER_ITEM} pièces jointes`,
-    )
-  }
-  if (
-    attachmentBytesUsed(currentAttachments) + input.bytes.length >
-    MAX_ATTACHMENTS_TOTAL_BYTES
-  ) {
-    throw new VaultValidationError('Les pièces jointes de cet élément dépassent 25 Mo')
-  }
-
   const storedAttachmentBytes = file.attachments.reduce(
     (total, attachment) => total + Math.floor((attachment.data.c.length * 3) / 4),
     0,
@@ -3354,6 +3359,24 @@ export async function addAttachment(
   )
 
   try {
+    const existingContent = await openJson<ItemContent>(
+      existing.content,
+      itemKey,
+      itemContentAad(existing.vaultId, existing.id),
+    )
+    const currentAttachments = existingContent.attachments ?? []
+    if (currentAttachments.length >= MAX_ATTACHMENTS_PER_ITEM) {
+      throw new VaultValidationError(
+        `Un élément ne peut pas contenir plus de ${MAX_ATTACHMENTS_PER_ITEM} pièces jointes`,
+      )
+    }
+    if (
+      attachmentBytesUsed(currentAttachments) + input.bytes.length >
+      MAX_ATTACHMENTS_TOTAL_BYTES
+    ) {
+      throw new VaultValidationError('Les pièces jointes de cet élément dépassent 25 Mo')
+    }
+
     const now = new Date().toISOString()
     const attachmentId = randomId('a')
     const meta: AttachmentMeta = {
@@ -3363,9 +3386,8 @@ export async function addAttachment(
       size: input.bytes.length,
       createdAt: now,
     }
-    const cleaned = itemContentOfDraft(item)
     const content = {
-      ...cleaned,
+      ...existingContent,
       attachments: [...currentAttachments, meta],
     } as ItemContent
 
@@ -3424,6 +3446,7 @@ export async function removeAttachment(
   assertUnlocked(session)
   const existing = file.items.find((record) => record.id === item.id)
   if (!existing) throw new VaultValidationError('Élément introuvable')
+  assertVaultWritable(session, existing.vaultId)
   const meta = item.attachments.find((candidate) => candidate.id === attachmentId)
   if (!meta) throw new VaultValidationError('Pièce jointe introuvable dans l’élément')
   const blob = attachmentIsBlob(meta)
@@ -3566,11 +3589,9 @@ export async function verifyVaultFile(
       if (!valid) {
         issues.push('MAC global invalide : un enregistrement a été modifié, supprimé ou rejoué')
       } else {
-        signedRecords =
-          file.vaults.length * 2 +
-          file.items.length * 2 +
-          file.attachments.length +
-          file.versions.length
+        signedRecords = (
+          await computeManifest(file, VAULT_MANIFEST_VERSION)
+        ).records.length
       }
     }
 
@@ -3813,16 +3834,17 @@ export async function addVault(
   const cleanName = cleanText(name, 80)
   if (!cleanName) throw new VaultValidationError('Le nom du coffre est obligatoire')
 
+  let recovery = file.recovery
+  if (recovery && !session.hasRecoveryKey) {
+    throw new VaultValidationError(
+      'La clé de récupération n’est pas disponible ; régénérez la phrase avant d’ajouter un coffre',
+    )
+  }
+
   const { record, key } = await createVaultRecord(cleanName, session.masterKey)
   session.setVaultKey(record.id, key)
 
-  let recovery = file.recovery
   if (recovery) {
-    if (!session.hasRecoveryKey) {
-      throw new VaultValidationError(
-        'La clé de récupération n’est pas disponible ; régénérez la phrase avant d’ajouter un coffre',
-      )
-    }
     recovery = {
       ...recovery,
       wraps: [
@@ -3862,6 +3884,7 @@ export async function renameVault(
 
   const record = file.vaults.find((candidate) => candidate.id === vaultId)
   if (!record) throw new VaultValidationError('Coffre introuvable')
+  assertVaultWritable(session, vaultId)
 
   const sealedName = await sealJson(
     { name: cleanName },
@@ -4238,6 +4261,10 @@ export async function deleteVault(
   if (file.vaults.length <= 1) {
     throw new VaultValidationError('Impossible de supprimer le dernier coffre')
   }
+  if (!file.vaults.some((vault) => vault.id === vaultId)) {
+    throw new VaultValidationError('Coffre introuvable')
+  }
+  assertVaultWritable(session, vaultId)
 
   // La clé reste dans la session : l’appelant la retire après une écriture
   // réussie, sinon un échec laisserait un coffre visible mais illisible.
