@@ -14,6 +14,15 @@
   affichage formaté et validation indicative. Les valeurs secrètes ne sont plus
   indexées par la recherche. Un type inconnu est lu comme du texte au lieu de
   rendre l’élément illisible.
+- En-tête de l’élément : « Modifier » (ou « Enregistrer », « Restaurer ») est
+  toujours sur la ligne du titre, en texte ou en icône selon la largeur du
+  panneau ; les autres actions tiennent sur une seule ligne justifiée en
+  dessous, à toutes les tailles. La barre d’actions fixe du mobile disparaît.
+- Barre d’état : version de l’application en bas à droite, avec à côté la
+  recherche de mise à jour et son état (disponible, téléchargement,
+  redémarrage, erreur) sur desktop.
+- Vue étroite : les titres de groupe collants de la liste ne passent plus
+  par-dessus le panneau de détail.
 
 ## 0.10.0 — 10 novembre 2026
 

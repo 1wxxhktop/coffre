@@ -27,7 +27,7 @@ accompagne les captures de [`design-captures/`](design-captures/).
 
 - l’absence de débordement horizontal et vertical à 1280, 1024, 768 et 375 px, y compris en 480 px de haut ;
 - l’inertie et la non-focalisation du menu latéral fermé ;
-- le retour contextuel et la barre d’actions mobile ;
+- le retour contextuel et les actions de l’en-tête (Modifier sur la ligne du titre, le reste sur une ligne) ;
 - le menu « … » du détail (historique, duplication, suppression) ;
 - le thème clair et la couleur d’état de sécurité ;
 - la navigation aux flèches dans la liste ;
