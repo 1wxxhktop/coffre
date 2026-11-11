@@ -53,14 +53,19 @@ beforeAll(() => {
 describe('raccourcis de remplissage', () => {
   it('ne garde que les connexions du domaine de la page active', () => {
     expect(matchingLoginSummaries(entries, 'github.com').map((item) => item.id))
-      .toEqual(['github', 'gist'])
+      .toEqual(['github'])
+    expect(matchingLoginSummaries(entries, 'gist.github.com').map((item) => item.id))
+      .toEqual(['gist'])
+    expect(matchingLoginSummaries(entries, 'www.github.com').map((item) => item.id))
+      .toEqual(['github'])
     expect(matchingLoginSummaries(entries, 'evil.example').map((item) => item.id))
       .toEqual(['evil'])
     expect(matchingLoginSummaries(entries, 'inconnu.example')).toEqual([])
   })
 
   it('choisit la connexion avec un TOTP sans exposer les autres', () => {
-    expect(totpLoginSummary(entries, 'github.com')?.id).toBe('gist')
+    expect(totpLoginSummary(entries, 'gist.github.com')?.id).toBe('gist')
+    expect(totpLoginSummary(entries, 'github.com')).toBeNull()
     expect(totpLoginSummary(entries, 'evil.example')).toBeNull()
   })
 
