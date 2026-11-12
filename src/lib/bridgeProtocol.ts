@@ -12,7 +12,7 @@
  * l’application la conserve dans le trousseau du système.
  */
 
-export const BRIDGE_PROTOCOL_VERSION = 1
+export const BRIDGE_PROTOCOL_VERSION = 2
 export const BRIDGE_HOST_NAME = 'app.coffre.bridge'
 export const BRIDGE_SESSION_STORAGE_KEY = 'bridgeSession'
 export const BRIDGE_KEYCHAIN_ACCOUNT = 'bridge:session'

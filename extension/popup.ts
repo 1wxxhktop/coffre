@@ -1401,6 +1401,7 @@ async function copyField(
       type: 'DETAILS',
       itemId: entry.id,
       host,
+      url: currentTab?.url ?? '',
     })
     if (response.error || !response.details) {
       showMessage(t('details_error'), 'error')

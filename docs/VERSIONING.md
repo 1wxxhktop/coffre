@@ -39,8 +39,8 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
 | Crates | `0.13.0` | `src-tauri/crates/*/Cargo.toml` |
 | Format `.coffre` | `4` | `VAULT_FILE_VERSION`, `format.rs` |
 | Manifeste d’intégrité | `3` (lecture `3`, `2`, `1`) | `VAULT_MANIFEST_VERSION`, `format.rs` |
-| Pont natif | `1` | `BRIDGE_PROTOCOL_VERSION` |
-| Extension ↔ application | `1` | `EXTENSION_BRIDGE_VERSION` |
+| Pont natif | `2` (branche 0.13) | `BRIDGE_PROTOCOL_VERSION` |
+| Extension ↔ application | `2` (branche 0.13) | `EXTENSION_BRIDGE_VERSION` |
 | LAN | `2` (branche 0.13) | `LAN_PROTOCOL_VERSION` |
 | Bundle partagé | `1` | `format: 'coffre-shared-vault'` |
 

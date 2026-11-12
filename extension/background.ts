@@ -727,11 +727,36 @@ async function maybeCopyTotp(tabId: number, code: string): Promise<void> {
 async function injectCredentials(
   targetId: number,
   data: ExtensionCredentials,
+  expectedService: string,
 ): Promise<{ ok?: boolean; filled?: number; error?: string }> {
   try {
     const [result] = await api.scripting.executeScript({
       target: { tabId: targetId },
-      func: (values: { username: string; password: string; totp: string }) => {
+      func: (
+        values: { username: string; password: string; totp: string },
+        expected: string,
+      ) => {
+        // L’onglet peut avoir navigué pendant la récupération asynchrone des
+        // identifiants : vérifier l’origine dans le document cible empêche de
+        // taper le secret dans un autre site.
+        let expectedUrl: URL
+        let currentUrl: URL
+        try {
+          expectedUrl = new URL(
+            /^[a-z][a-z0-9+.-]*:/i.test(expected) ? expected : `https://${expected}`,
+          )
+          currentUrl = new URL(location.href)
+        } catch {
+          return { filled: 0, error: 'host-changed' }
+        }
+        if (
+          expectedUrl.hostname.replace(/^www\./, '').toLowerCase() !==
+            currentUrl.hostname.replace(/^www\./, '').toLowerCase() ||
+          (expectedUrl.port && expectedUrl.port !== currentUrl.port)
+        ) {
+          return { filled: 0, error: 'host-changed' }
+        }
+
         const visible = (element: Element): boolean => {
           const rect = element.getBoundingClientRect()
           const style = getComputedStyle(element as HTMLElement)
@@ -815,11 +840,14 @@ async function injectCredentials(
           password: data.password,
           totp: data.totp,
         },
+        expectedService,
       ],
     })
-    const filled = Number(
-      (result?.result as { filled?: number } | undefined)?.filled ?? 0,
-    )
+    const injected = result?.result as
+      | { filled?: number; error?: string }
+      | undefined
+    if (injected?.error) return { error: injected.error }
+    const filled = Number(injected?.filled ?? 0)
     if (filled > 0) {
       await maybeCopyTotp(targetId, data.totp)
     }
@@ -1083,6 +1111,10 @@ async function itemDetails(
   url = '',
 ): Promise<{ details?: ExtensionCredentials; error?: string }> {
   if (!itemId || !host) return { error: 'not-found' }
+  // Sans URL complète, le refus HTTPS → HTTP et le port explicite ne peuvent
+  // pas être vérifiés : on refuse plutôt que de copier un secret sur un site
+  // non sécurisé.
+  if (!url) return { error: 'missing-url' }
 
   const status = await readStatus()
   const fetched = await fetchCredentials(itemId, serviceFor(host, url), status)
@@ -1134,12 +1166,18 @@ async function fill(
   if (!data) return { error: 'not-found' }
   if (data.kind !== 'login') return { error: 'no-fields' }
 
-  return injectCredentials(targetId, data)
+  return injectCredentials(targetId, data, host)
 }
 
 let badgeTimer: ReturnType<typeof setTimeout> | undefined
 let badgeUpdating = false
 let badgeQueued = false
+
+async function pendingSessionUnlocked(): Promise<boolean> {
+  const status = await readStatus()
+  if (!status.unlocked) await clearSessionState()
+  return status.unlocked
+}
 
 function scheduleBadgeRefresh(entries: StoredPendingSave[]): void {
   if (badgeTimer) clearTimeout(badgeTimer)
@@ -1167,7 +1205,10 @@ async function updateActionBadge(): Promise<void> {
   }
   badgeUpdating = true
   try {
-    const entries = await pendingSaveStore.list()
+    // Vérifier le verrouillage avant de lire les propositions : sinon une
+    // proposition peut survivre en mémoire alors que le coffre est fermé.
+    const status = await readStatus()
+    const entries = status.unlocked ? await pendingSaveStore.list() : []
     scheduleBadgeRefresh(entries)
     if (entries.length > 0) {
       await api.action.setBadgeBackgroundColor({ color: '#d97706' })
@@ -1179,12 +1220,7 @@ async function updateActionBadge(): Promise<void> {
 
     const settings = await loadSettings()
     const siteAccess = await hasSiteAccess()
-    const native = usesNativeBridge(settings.appMode)
-      ? await nativeStatus()
-      : null
-    const unlocked = native
-      ? Boolean(native.unlocked) && native.paired !== false
-      : (await readTabStatus()).unlocked
+    const unlocked = status.unlocked
     const [tab] = await api.tabs.query({ active: true, currentWindow: true })
     const host = tab?.url ? hostFromUrl(tab.url) : ''
     const allowed =
@@ -2222,7 +2258,8 @@ async function requestUnlock(): Promise<{
   mode?: 'native' | 'tab'
   error?: string
 }> {
-  const native = await nativeStatus()
+  const nativeEnabled = usesNativeBridge((await loadSettings()).appMode)
+  const native = nativeEnabled ? await nativeStatus() : null
   if (native) {
     if (!native.paired) return { error: 'needs-pairing' }
     if (native.unlocked) return { ok: true, mode: 'native' }
@@ -2242,12 +2279,14 @@ async function requestUnlock(): Promise<{
 
   // L’application desktop peut être fermée : l’hôte natif la démarre
   // uniquement sur ce clic explicite (drapeau `launch`), jamais pour une
-  // simple lecture d’état.
-  const launched = await nativeUnlock()
-  if (launched.ok || launched.pending) {
-    return { ok: true, pending: launched.pending === true, mode: 'native' }
+  // simple lecture d’état. Le mode Web n’y touche jamais.
+  if (nativeEnabled) {
+    const launched = await nativeUnlock()
+    if (launched.ok || launched.pending) {
+      return { ok: true, pending: launched.pending === true, mode: 'native' }
+    }
+    if (launched.error === 'needs-pairing') return launched
   }
-  if (launched.error === 'needs-pairing') return launched
 
   await openApp()
   return { ok: true, pending: true, mode: 'tab' }
@@ -2266,10 +2305,12 @@ async function openWelcome(mode: 'install' | 'update'): Promise<void> {
 }
 
 async function openApp(): Promise<{ ok: boolean }> {
-  const native = await nativeStatus()
-  if (native) {
-    await nativeFocus()
-    return { ok: true }
+  if (usesNativeBridge((await loadSettings()).appMode)) {
+    const native = await nativeStatus()
+    if (native) {
+      await nativeFocus()
+      return { ok: true }
+    }
   }
   const appUrl = await getAppUrl()
   const tab = await findAppTab(appUrl)
@@ -2786,6 +2827,7 @@ async function handle(
     case 'GET_PENDING_BANNER': {
       const context = await contentContext(sender)
       if (!context || context.frameId !== 0) return { offer: null }
+      if (!(await pendingSessionUnlocked())) return { offer: null }
       const pending = await latestPendingForTab(context.tabId)
       if (
         !pending ||
@@ -2805,6 +2847,7 @@ async function handle(
     }
     case 'GET_SAVE_BANNER': {
       if (!isSaveBannerPage(sender)) return { error: 'forbidden' }
+      if (!(await pendingSessionUnlocked())) return { error: 'locked' }
       const offerId =
         typeof message.offerId === 'string' ? message.offerId : ''
       if (!OFFER_ID_PATTERN.test(offerId)) return { error: 'invalid' }
@@ -2835,6 +2878,7 @@ async function handle(
       )
     }
     case 'SAVE_STATUS': {
+      if (!(await pendingSessionUnlocked())) return { pending: null }
       const key = saveKey(Number(message.tabId), Number(message.frameId))
       const pending = await pendingSaveStore.get(key)
       if (!pending) return { pending: null }
@@ -2859,6 +2903,7 @@ async function handle(
         message.overridePhishing === true,
       )
     case 'GET_PENDING_SAVE': {
+      if (!(await pendingSessionUnlocked())) return { pending: null }
       const tabId = Number(message.tabId)
       const pending = await latestPendingForTab(tabId)
       if (!pending) return { pending: null }

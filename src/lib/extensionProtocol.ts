@@ -10,7 +10,7 @@ import type { PhishingAssessment, PhishingQuery } from './phishing'
 import type { CardItem, IdentityItem, LoginItem, VaultItem } from './types'
 import { isIpAddress, isPublicSuffix, registrableDomain } from './publicSuffix'
 
-export const EXTENSION_BRIDGE_VERSION = 1
+export const EXTENSION_BRIDGE_VERSION = 2
 export const EXTENSION_MAX_RESULTS = 50
 
 export type ExtensionAutofillKind = 'login' | 'card' | 'identity' | 'custom'

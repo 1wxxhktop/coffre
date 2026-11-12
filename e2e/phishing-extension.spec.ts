@@ -177,13 +177,17 @@ test.describe('extension — protection anti-hameçonnage', () => {
       await expect(target.locator('#password')).toHaveValue('')
       await expect(target.locator('#username')).toHaveValue('')
 
-      // Deuxième essai : l’utilisateur choisit explicitement de continuer.
+      // Deuxième essai : un hôte différent de celui de l’élément ne peut pas
+      // être rempli, même après l’avertissement. Seul l’enregistrement peut
+      // être forcé, car il n’expose aucun secret.
       await menu.getByRole('button', { name: /Remplir|Fill/ }).first().click()
       await expect(
         menu.getByText(/imite paypal\.com|imitates paypal\.com/i),
       ).toBeVisible()
-      await menu.locator('#phishing-continue').click()
-      await expect(target.locator('#password')).toHaveValue('s3cret!')
+      await expect(menu.locator('#phishing-continue')).toBeHidden()
+      await menu.locator('#phishing-cancel').click()
+      await expect(target.locator('#password')).toHaveValue('')
+      await expect(target.locator('#username')).toHaveValue('')
     } finally {
       await context?.close()
       if (server) await new Promise<void>((resolve) => server?.close(() => resolve()))

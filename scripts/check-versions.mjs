@@ -104,8 +104,8 @@ if (new Set(Object.values(manifestVersions)).size !== 1) {
 const policy = {
   fileFormat: 4,
   manifest: 3,
-  bridgeProtocol: 1,
-  extensionBridge: 1,
+  bridgeProtocol: 2,
+  extensionBridge: 2,
   lanProtocol: 2,
 }
 
