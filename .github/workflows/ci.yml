@@ -116,9 +116,11 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('bun.lock') }}
+          # La clé inclut l’image : un cache WebKit créé sur une autre version
+          # d’Ubuntu provoque des erreurs de bibliothèques (libicudata.so.78).
+          key: playwright-v2-ubuntu-22.04-${{ matrix.browser }}-${{ hashFiles('bun.lock') }}
           restore-keys: |
-            playwright-${{ runner.os }}-${{ matrix.browser }}-
+            playwright-v2-ubuntu-22.04-${{ matrix.browser }}-
 
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
