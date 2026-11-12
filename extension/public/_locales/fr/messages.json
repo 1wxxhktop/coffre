@@ -293,6 +293,9 @@
   "popup_footer": {
     "message": "Local · aucun serveur"
   },
+  "popup_extensionVersion": {
+    "message": "Version de l’extension : $1"
+  },
   "popup_footerHint": {
     "message": "↑↓ naviguer · ↵ remplir · / rechercher"
   },

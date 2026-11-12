@@ -659,6 +659,12 @@ try {
     }
   }, keyboardTab)
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`)
+  await popupPage.locator('#extension-version').waitFor()
+  assert.equal(
+    (await popupPage.locator('#extension-version').textContent())?.trim(),
+    `v${manifest.version}`,
+    'version de l’extension absente du pied de la popup',
+  )
   // La popup d’action Chrome dimensionne la fenêtre d’après le contenu. Une
   // hauteur en 100vh peut se résoudre à zéro et laisser une fenêtre vide : on
   // garde une hauteur fixe, vérifiée ici dans une fenêtre plus haute.

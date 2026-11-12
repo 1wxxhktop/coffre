@@ -293,6 +293,9 @@
   "popup_footer": {
     "message": "Local · no server"
   },
+  "popup_extensionVersion": {
+    "message": "Extension version: $1"
+  },
   "popup_footerHint": {
     "message": "↑↓ navigate · ↵ fill · / search"
   },

@@ -515,6 +515,16 @@ export function VaultApp() {
         return
       }
 
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        (event.key === ',' || event.code === 'Comma') &&
+        !dialogOpen
+      ) {
+        event.preventDefault()
+        setSettingsOpen(true)
+        return
+      }
+
       if (event.key === 'Escape' && !dialogOpen && !typing) {
         if (createType) {
           setCreateType(null)
