@@ -88,7 +88,9 @@ jobs:
 
   e2e-shards:
     name: Playwright ${{ matrix.browser }} (shard ${{ matrix.shard }}/4)
-    runs-on: ubuntu-24.04
+    # WebKit Playwright est validé sur 22.04 ; 24.04 a fait échouer tous les
+    # shards WebKit au premier essai. Ne pas changer sans revalider.
+    runs-on: ubuntu-22.04
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     # Quatre shards par navigateur : le serveur et le stockage sont isolés par
     # job, ce qui divise le temps de WebKit (~18 min) sans changer les noms des
@@ -144,7 +146,7 @@ jobs:
     name: Parcours Playwright (${{ matrix.browser }})
     needs: e2e-shards
     if: always() && needs.e2e-shards.result != 'skipped'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
     strategy:
       fail-fast: false
