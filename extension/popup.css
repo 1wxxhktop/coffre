@@ -980,6 +980,7 @@ body {
 }
 
 .footer {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -989,6 +990,15 @@ body {
   color: var(--dim);
   font-size: 11px;
   text-align: center;
+}
+
+.footer__version {
+  position: absolute;
+  right: 12px;
+  color: var(--dim);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
 }
 
 .footer__dot {

@@ -123,8 +123,13 @@ const themeButton = $<HTMLButtonElement>('theme')
 const themeIcon = $<HTMLSpanElement>('theme-icon')
 const footerStatus = $<HTMLSpanElement>('footer-status')
 const footerHint = $<HTMLParagraphElement>('footer-hint')
+const footerVersion = $<HTMLSpanElement>('extension-version')
 const bottomDock = $<HTMLDivElement>('bottom-dock')
 const inlineStatusDot = $<HTMLSpanElement>('inline-status-dot')
+
+const runningVersion = api.runtime.getManifest().version
+footerVersion.textContent = `v${runningVersion}`
+footerVersion.title = t('popup_extensionVersion', [runningVersion])
 
 let currentTab: chrome.tabs.Tab | null = null
 let status: AppStatus = { appOpen: false, unlocked: false, appUrl: '' }

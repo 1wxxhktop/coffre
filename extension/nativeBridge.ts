@@ -168,8 +168,8 @@ async function connect(launch = false): Promise<NativeHello> {
 
     const id = nextId()
     // Un lancement explicite laisse au système le temps de démarrer
-    // l’application ; une simple lecture d’état reste rapide.
-    const waiting = waitFor(id, launch ? 20_000 : 1500)
+    // l’application ; une lecture d’état tolère un réveil de service worker.
+    const waiting = waitFor(id, launch ? 20_000 : 3_000)
     try {
       instance.postMessage(
         launch
@@ -255,7 +255,7 @@ async function send(message: Record<string, unknown>): Promise<void> {
 
 async function plainStatus(): Promise<{ unlocked: boolean; paired: boolean }> {
   const id = nextId()
-  const waiting = waitFor(id, 2000)
+  const waiting = waitFor(id, 3_000)
   await send({ id, type: 'status' })
   const response = await waiting
   // L’application annonce la version de l’extension présente sur le disque.
@@ -369,20 +369,26 @@ async function encryptedRequest(
 
 /** État du pont natif, ou `null` si l’application desktop ne répond pas. */
 export async function nativeStatus(): Promise<NativeStatus | null> {
-  try {
-    await connect()
-    const status = await plainStatus()
-    const key = await readStoredKey()
-    return {
-      mode: 'native',
-      appOpen: true,
-      unlocked: status.unlocked,
-      paired: status.paired && Boolean(key),
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await connect()
+      const status = await plainStatus()
+      const key = await readStoredKey()
+      return {
+        mode: 'native',
+        appOpen: true,
+        unlocked: status.unlocked,
+        paired: status.paired && Boolean(key),
+      }
+    } catch {
+      resetConnection()
+      // Une première lecture peut échouer au réveil du service worker.
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
     }
-  } catch {
-    resetConnection()
-    return null
   }
+  return null
 }
 
 export async function nativeSearch(
