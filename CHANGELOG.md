@@ -155,8 +155,10 @@
 - Le job de release exécute désormais formatage, clippy, tests workspace,
   `cargo deny` et `cargo audit` avant de signer.
 - Le canal bêta échoue fermé si son manifeste courant existe mais est illisible.
-- `bun audit` passe au niveau `moderate`, avec deux avis de build suivis et
-  ignorés explicitement.
+- `bun audit` passe au niveau `moderate` ; `glob` et `minimatch` sont forcés
+  vers des versions corrigées par `overrides`. L’alerte faible restante
+  (`deepmerge`, sans version corrigée publiée) est documentée dans
+  `docs/SECURITY.md`.
 - `.gitignore` exclut les coffres locaux, fichiers `.env`, certificats et clés.
 - Le script de release vérifie le lockfile (`cargo fetch --locked`) et sélectionne
   le DMG de la version courante.

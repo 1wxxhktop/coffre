@@ -82,5 +82,9 @@
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "^5.0.5"
   },
-  "description": "Gestionnaire de mots de passe local-first chiffré, inspiré de Proton Pass"
+  "description": "Gestionnaire de mots de passe local-first chiffré, inspiré de Proton Pass",
+  "overrides": {
+    "glob": "^14.0.2",
+    "minimatch": "^11.0.1"
+  }
 }

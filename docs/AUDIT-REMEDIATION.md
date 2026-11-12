@@ -45,7 +45,9 @@ Les détails constat par constat figurent dans le corps de chaque PR et dans le
   des exports en clair.
 - **Domaines** : correspondance exacte, seule exception `www` ↔ domaine nu.
 - **Chaîne de release** : actions épinglées par SHA, gate fmt/clippy/tests/deny/
-  audit, attestation de provenance, SBOM complété et vérifié.
+  audit, attestation de provenance, SBOM complété et vérifié. Les dépendances de
+  build `glob`/`minimatch` sont forcées vers des versions corrigées ; l’alerte
+  faible `deepmerge`, sans correctif publié, est documentée.
 - **Accessibilité** : notifications hors `#root`, focus des modales imbriquées,
   palette inerte, menu mobile stable.
 - **Anglais** : libellés `tt()` couverts et vérifiés par `check-i18n.mjs`.

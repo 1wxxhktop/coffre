@@ -1954,15 +1954,15 @@ Le projet dépend de React, Vite, `hash-wasm`, `idb`, Zod, Lucide,
 ou de la chaîne de build peut compromettre l’application. Verrouillez les
 versions (`bun.lock`) et auditez les mises à jour avant de publier.
 
-La CI exécute `bun audit --audit-level=high` à chaque poussée et Dependabot
-propose les mises à jour chaque semaine. Dernier état connu (0.9.0) : aucune
-vulnérabilité `high` ou `critical`, mais trois alertes de gravité inférieure,
-toutes transitives et limitées à la chaîne de build
-`vite-plugin-pwa > workbox-build` : `deepmerge@4.3.1` (faible),
-`glob@11.1.0` (modérée) et `minimatch@10.2.6`/`5.1.9` (modérées). Ces paquets ne
-sont pas inclus dans le bundle livré. Les alertes sont acceptées et doivent être
-réévaluées à chaque montée de version. Le workflow échoue si une vulnérabilité de
-gravité `high` ou `critical` apparaît.
+La CI exécute `bun audit --audit-level=moderate` à chaque poussée et Dependabot
+propose les mises à jour chaque semaine. Les dépendances de build `glob` et
+`minimatch` sont forcées vers des versions corrigées par `overrides` ; elles ne
+sont pas incluses dans le bundle livré. Dernier état connu (0.14.0) : aucune
+vulnérabilité `moderate`, `high` ou `critical`. `deepmerge@4.3.1` reste une
+alerte faible, transitive de `vite-plugin-pwa > workbox-build`, sans version
+corrigée publiée ; elle est acceptée, documentée et réévaluée à chaque montée de
+version. Le workflow échoue si une vulnérabilité `moderate` ou supérieure
+apparaît.
 
 ### 6.4 Mémoire
 
