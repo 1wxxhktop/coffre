@@ -980,6 +980,63 @@ try {
     )
   }
 
+  // E11a : remplissage au chargement, réservé à HTTPS et à une seule connexion.
+  await app.getByRole('button', { name: 'Tous les éléments' }).first().click()
+  await app.getByRole('button', { name: 'Nouvel élément' }).first().click()
+  const autofillForm = app.getByRole('dialog')
+  await autofillForm.getByLabel('Titre', { exact: true }).fill('Autofill')
+  await autofillForm
+    .getByLabel('Identifiant', { exact: true })
+    .fill('autofill-user')
+  await autofillForm
+    .getByLabel('Mot de passe', { exact: true })
+    .fill('autofill-secret!')
+  await autofillForm
+    .getByPlaceholder('https://exemple.com')
+    .fill('https://autofill.test')
+  await autofillForm.getByRole('button', { name: 'Enregistrer' }).click()
+  await app
+    .locator('.item-panel')
+    .getByRole('heading', { name: 'Autofill' })
+    .waitFor()
+  await app.keyboard.press('Escape')
+
+  const autofillHtml = `<!doctype html><html lang="fr"><body>
+<form onsubmit="window.__submitted = true; event.preventDefault()">
+  <input id="username" name="username" autocomplete="username" />
+  <input id="password" name="password" type="password" autocomplete="current-password" />
+  <input id="otp" name="otp" autocomplete="one-time-code" inputmode="numeric" />
+  <button type="submit">Connexion</button>
+</form>
+</body></html>`
+  await context.route('https://autofill.test/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: autofillHtml }),
+  )
+  await extensionPage.evaluate(() =>
+    chrome.storage.local.set({ autofillOnLoad: true }),
+  )
+  const autofillPage = await context.newPage()
+  await autofillPage.goto('https://autofill.test/')
+  await autofillPage.waitForFunction(
+    () =>
+      document.querySelector('#username')?.value === 'autofill-user' &&
+      document.querySelector('#password')?.value === 'autofill-secret!',
+    null,
+    { timeout: 15_000 },
+  )
+  const autofillState = await autofillPage.evaluate(() => ({
+    otp: document.querySelector('#otp')?.value,
+    submitted: window.__submitted === true,
+  }))
+  assert.equal(autofillState.otp, '')
+  assert.equal(autofillState.submitted, false)
+  await extensionPage.evaluate(() =>
+    chrome.storage.local.set({ autofillOnLoad: false }),
+  )
+  await context.unroute('https://autofill.test/**')
+  await autofillPage.close()
+  console.log('Extension : remplissage au chargement validé.')
+
   await app.getByRole('button', { name: 'Verrouiller' }).first().click()
   const locked = await extensionPage.evaluate(() =>
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }),

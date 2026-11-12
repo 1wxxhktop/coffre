@@ -2,6 +2,12 @@
 
 ## Non publié
 
+- Extension : **remplissage au chargement** en opt-in. Sur HTTPS, dans le
+  cadre principal et lorsqu’une seule connexion correspond, Coffre remplit
+  identifiant et mot de passe après le chargement, sans TOTP ni soumission
+  automatique. Les sites exclus, les formulaires déjà remplis et les signaux
+  anti-hameçonnage bloquent le remplissage.
+
 ## 0.15.0 — 12 novembre 2026
 
 Version de finition de l’interface et de l’extension. Le format `.coffre`

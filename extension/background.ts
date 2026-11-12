@@ -16,6 +16,10 @@ import {
   hostMatches,
   pageServiceFromUrl,
 } from '../src/lib/extensionProtocol'
+import {
+  autofillOnLoadBlocked,
+  selectAutofillLogin,
+} from '../src/lib/extensionAutofill'
 import type {
   PhishingAssessment,
   PhishingQuery,
@@ -1418,6 +1422,98 @@ async function menuFill(
   }
 }
 
+const autofillAttempts = new Map<number, { url: string; at: number }>()
+const AUTOFILL_ON_LOAD_INTERVAL_MS = 10_000
+
+/**
+ * Remplissage silencieux à l’ouverture d’une page de connexion.
+ *
+ * Le content script ne fournit aucun secret : il signale seulement que la page
+ * contient un formulaire de connexion vide. Le service worker vérifie le
+ * réglage, le cadre, HTTPS, les exclusions et l’absence de signal de
+ * hameçonnage, puis cherche une connexion. Une seule correspondance est
+ * acceptée ; le TOTP n’est jamais rempli et le formulaire n’est pas soumis.
+ */
+async function autofillOnLoad(
+  sender: chrome.runtime.MessageSender,
+): Promise<{ ok?: boolean; filled?: number; error?: string }> {
+  const tabId = sender.tab?.id
+  const frameId = sender.frameId ?? 0
+  const url = typeof sender.url === 'string' ? sender.url : ''
+  if (!validTabFrame(tabId, frameId) || frameId !== 0 || !/^https:/i.test(url)) {
+    return { error: 'invalid' }
+  }
+
+  const host = hostFromUrl(url)
+  const settings = await loadSettings()
+  const blocked = autofillOnLoadBlocked({
+    enabled: settings.autofillOnLoad,
+    topFrame: true,
+    protocol: 'https:',
+    host,
+    excluded: isSiteExcluded(settings.neverFillSites, host),
+  })
+  if (blocked) return { error: blocked }
+
+  const targetId = tabId as number
+  const previous = autofillAttempts.get(targetId)
+  if (
+    previous &&
+    previous.url === url &&
+    Date.now() - previous.at < AUTOFILL_ON_LOAD_INTERVAL_MS
+  ) {
+    return { error: 'throttled' }
+  }
+  autofillAttempts.set(targetId, { url, at: Date.now() })
+
+  const found = await search(host, 'login', false)
+  if (found.error) return { error: found.error }
+  const choice = selectAutofillLogin(found.items ?? [], host)
+  if ('error' in choice) return choice
+
+  const assessment = await assessHost({
+    host,
+    url,
+    mode: 'fill',
+    itemId: choice.itemId,
+  })
+  if (assessment && assessment.signals.length > 0) {
+    return { error: 'phishing-warning' }
+  }
+
+  const status = await readStatus()
+  const fetched = await fetchCredentials(
+    choice.itemId,
+    serviceFor(host, url),
+    status,
+    'login',
+    false,
+    false,
+  )
+  if (fetched.error) return { error: fetched.error }
+  const credentials = fetched.credentials
+  if (!credentials || credentials.kind !== 'login' || !credentials.password) {
+    return { error: 'not-found' }
+  }
+
+  try {
+    const response = (await api.tabs.sendMessage(
+      targetId,
+      {
+        type: 'COFFRE_FILL_ITEM',
+        host,
+        values: { ...credentials, totp: '' },
+        autofill: true,
+      },
+      { frameId: 0 },
+    )) as { ok?: boolean; filled?: number; error?: string } | undefined
+    if (!response?.ok) return { error: response?.error ?? 'no-fields' }
+    return { ok: true, filled: response.filled }
+  } catch {
+    return { error: 'no-tab' }
+  }
+}
+
 async function setPendingSave(
   key: string,
   pending: Omit<
@@ -2587,6 +2683,7 @@ async function onContextMenuClicked(
 }
 
 const CONTENT_SCRIPT_MESSAGES = new Set<string>([
+  'AUTOFILL_ON_LOAD',
   'CONTENT_CONTEXT',
   'FORM_SUBMITTED',
   'GET_PENDING_BANNER',
@@ -2820,6 +2917,8 @@ async function handle(
       return { ok: true, hostAccess: await hasHostAccess() }
     case 'CONTENT_CONTEXT':
       return contentContext(sender)
+    case 'AUTOFILL_ON_LOAD':
+      return autofillOnLoad(sender)
     case 'PASSKEY_REQUEST':
       return passkeyRequest(sender, message)
     case 'PASSKEY_CANCEL': {
@@ -3150,6 +3249,7 @@ api.windows.onRemoved.addListener((windowId) => {
 })
 
 api.tabs.onRemoved.addListener((tabId) => {
+  autofillAttempts.delete(tabId)
   for (const request of [...pendingPasskeys.values()]) {
     if (request.tabId === tabId) decidePasskey(request.id, 'decline')
   }
