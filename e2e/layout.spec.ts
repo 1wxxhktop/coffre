@@ -144,3 +144,59 @@ test('le titre de la ligne reste lisible à la largeur par défaut', async ({ pa
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1)
   expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.clientHeight + 1)
 })
+
+test('garde l’en-tête et le pied de la barre latérale fixes', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 520 })
+  await createVault(page)
+
+  const head = page.locator('.sidebar__head')
+  const footer = page.locator('.sidebar__footer')
+  const scroll = page.locator('.sidebar__scroll')
+  await expect(head).toBeVisible()
+  await expect(footer).toBeVisible()
+
+  const beforeHead = await head.boundingBox()
+  const beforeFooter = await footer.boundingBox()
+  if (!beforeHead || !beforeFooter) throw new Error('Barre latérale incomplète')
+
+  expect(
+    await scroll.evaluate((element) => element.scrollHeight > element.clientHeight),
+  ).toBe(true)
+  await scroll.evaluate((element) => {
+    element.scrollTop = element.scrollHeight
+  })
+  await expect
+    .poll(() => scroll.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0)
+
+  const afterHead = await head.boundingBox()
+  const afterFooter = await footer.boundingBox()
+  expect(afterHead?.y).toBeCloseTo(beforeHead.y, 0)
+  expect(afterFooter?.y).toBeCloseTo(beforeFooter.y, 0)
+
+  const viewport = page.viewportSize()
+  expect((afterFooter?.y ?? 0) + (afterFooter?.height ?? 0)).toBeLessThanOrEqual(
+    (viewport?.height ?? 0) + 1,
+  )
+})
+
+test('sélectionne ou crée un coffre depuis le menu supérieur', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await createVault(page)
+
+  const trigger = page.locator('.sidebar__vault-trigger')
+  await expect(trigger).toContainText('Tous les coffres')
+  await trigger.click()
+
+  const menu = page.getByRole('menu', { name: 'Choisir un coffre' })
+  await expect(menu).toBeVisible()
+  await expect(
+    menu.getByRole('menuitemradio', { name: /Tous les coffres/ }),
+  ).toHaveAttribute('aria-checked', 'true')
+  await expect(
+    menu.getByRole('menuitemradio', { name: /Personnel/ }),
+  ).toBeVisible()
+
+  await menu.getByRole('menuitem', { name: 'Créer un coffre' }).click()
+  await expect(page.getByRole('dialog')).toContainText('Nouveau coffre')
+})

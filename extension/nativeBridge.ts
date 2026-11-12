@@ -168,8 +168,8 @@ async function connect(launch = false): Promise<NativeHello> {
 
     const id = nextId()
     // Un lancement explicite laisse au système le temps de démarrer
-    // l’application ; une simple lecture d’état reste rapide.
-    const waiting = waitFor(id, launch ? 20_000 : 1500)
+    // l’application ; une lecture d’état tolère un réveil de service worker.
+    const waiting = waitFor(id, launch ? 20_000 : 3_000)
     try {
       instance.postMessage(
         launch
@@ -255,7 +255,7 @@ async function send(message: Record<string, unknown>): Promise<void> {
 
 async function plainStatus(): Promise<{ unlocked: boolean; paired: boolean }> {
   const id = nextId()
-  const waiting = waitFor(id, 2000)
+  const waiting = waitFor(id, 3_000)
   await send({ id, type: 'status' })
   const response = await waiting
   // L’application annonce la version de l’extension présente sur le disque.
@@ -369,28 +369,35 @@ async function encryptedRequest(
 
 /** État du pont natif, ou `null` si l’application desktop ne répond pas. */
 export async function nativeStatus(): Promise<NativeStatus | null> {
-  try {
-    await connect()
-    const status = await plainStatus()
-    const key = await readStoredKey()
-    return {
-      mode: 'native',
-      appOpen: true,
-      unlocked: status.unlocked,
-      paired: status.paired && Boolean(key),
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await connect()
+      const status = await plainStatus()
+      const key = await readStoredKey()
+      return {
+        mode: 'native',
+        appOpen: true,
+        unlocked: status.unlocked,
+        paired: status.paired && Boolean(key),
+      }
+    } catch {
+      resetConnection()
+      // Une première lecture peut échouer au réveil du service worker.
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
     }
-  } catch {
-    resetConnection()
-    return null
   }
+  return null
 }
 
 export async function nativeSearch(
   query: string,
   kind: 'login' | 'card' | 'identity' | 'custom' = 'login',
+  touch = true,
 ): Promise<{ items?: unknown[]; error?: string }> {
   try {
-    const response = await encryptedRequest({ type: 'search', query, kind })
+    const response = await encryptedRequest({ type: 'search', query, kind, touch })
     if (typeof response.error === 'string') return { error: response.error }
     return { items: Array.isArray(response.items) ? response.items : [] }
   } catch (error) {
@@ -740,6 +747,25 @@ export async function nativeFocus(): Promise<void> {
   }
 }
 
+/**
+ * Ouvre l’application desktop, ou la relance si elle est fermée.
+ *
+ * `hello` avec `launch: true` est le seul message autorisé à démarrer
+ * l’application : le bouton « Ouvrir Coffre » ne doit pas se rabattre sur
+ * l’application Web quand le mode desktop est choisi.
+ */
+export async function nativeOpen(): Promise<boolean> {
+  try {
+    resetConnection()
+    await connect(true)
+    await requestFocus()
+    return true
+  } catch {
+    resetConnection()
+    return false
+  }
+}
+
 export async function nativePair(): Promise<{ ok?: true; error?: string }> {
   try {
     const current = await connect()
@@ -758,29 +784,39 @@ export async function nativePair(): Promise<{ ok?: true; error?: string }> {
       code: null,
     }
     const waiting = waitFor(id, 120_000, true)
-    await send({ id, type: 'pair-begin', publicKey: pair.publicKey })
-    const response = await waiting
+    // Le service worker MV3 peut être suspendu après ~30 s d’inactivité,
+    // ce qui ferme le port natif pendant que l’utilisateur confirme le code
+    // dans l’application. Un appel d’API périodique le maintient éveillé.
+    const keepAlive = setInterval(() => {
+      void api.runtime.getPlatformInfo().catch(() => undefined)
+    }, 20_000)
+    try {
+      await send({ id, type: 'pair-begin', publicKey: pair.publicKey })
+      const response = await waiting
 
-    if (response.type === 'locked') return { error: 'locked' }
-    if (response.type !== 'pair-accepted') return { error: 'pair-rejected' }
-    if (response.session !== current.session || !pairingAttempt?.appPublicKey) {
-      return { error: 'pair-protocol' }
-    }
-    const key = await deriveBridgeSessionKey(
-      pair.privateKey,
-      pair.publicKey,
-      pairingAttempt.appPublicKey,
-    )
-    await storeKey(key)
-    pairingAttempt = null
-    extCounter = 0
-    lastAppCounter = 0
+      if (response.type === 'locked') return { error: 'locked' }
+      if (response.type !== 'pair-accepted') return { error: 'pair-rejected' }
+      if (response.session !== current.session || !pairingAttempt?.appPublicKey) {
+        return { error: 'pair-protocol' }
+      }
+      const key = await deriveBridgeSessionKey(
+        pair.privateKey,
+        pair.publicKey,
+        pairingAttempt.appPublicKey,
+      )
+      await storeKey(key)
+      pairingAttempt = null
+      extCounter = 0
+      lastAppCounter = 0
 
-    const check = await encryptedRequest({ type: 'status' })
-    if (typeof check.error === 'string') {
-      return { error: check.error }
+      const check = await encryptedRequest({ type: 'status' })
+      if (typeof check.error === 'string') {
+        return { error: check.error }
+      }
+      return { ok: true }
+    } finally {
+      clearInterval(keepAlive)
     }
-    return { ok: true }
   } catch (error) {
     resetConnection()
     return {
