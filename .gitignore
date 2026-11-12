@@ -24,6 +24,9 @@ test-results
 playwright-report
 blob-report
 
+# Couverture Vitest
+coverage/
+
 # Secrets et coffres locaux : ne jamais versionner
 *.coffre
 *.coffre-share

@@ -21,8 +21,7 @@ jobs:
   macos:
     name: Bundle macOS (ad hoc, ou Developer ID si configuré)
     runs-on: macos-latest
-    # Minute macOS ≈ 10 minutes Linux sur le quota : un build bloqué ne doit
-    # pas consommer 90 minutes.
+    # Un build bloqué ne doit pas immobiliser un runner pendant 90 minutes.
     timeout-minutes: 60
     permissions:
       contents: write
@@ -76,7 +75,7 @@ jobs:
             --ignore=GHSA-g3hv-75wg-m249
           bun run lint
           bun run typecheck
-          bun run test
+          bun run test:coverage
           cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
           cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
           cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked

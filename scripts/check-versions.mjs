@@ -41,6 +41,21 @@ if (productValues.size !== 1 || [...productValues].some((value) => !value)) {
   fail(`Versions produit incohérentes : ${JSON.stringify(productVersions)}`)
 }
 
+// Les documents de référence doivent suivre la version produit. Les mentions
+// historiques (audits, notes de release) restent libres.
+const docMarkers = {
+  'README.md': `État du projet — ${pkg.version}`,
+  'docs/SECURITY.md': `limites connues de Coffre ${pkg.version}`,
+  'docs/RELEASE-READINESS.md': `Niveau de préparation grand public — Coffre ${pkg.version}`,
+  'docs/VERSIONING.md': `**Version de référence :** ${pkg.version}`,
+}
+
+for (const [path, marker] of Object.entries(docMarkers)) {
+  if (!read(path).includes(marker)) {
+    fail(`Documentation en retard : ${path} doit contenir « ${marker} ».`)
+  }
+}
+
 const tsVault = read('src/lib/vault.ts')
 const rustFormat = read('src-tauri/crates/coffre-core/src/format.rs')
 const bridge = read('src/lib/bridgeProtocol.ts')
