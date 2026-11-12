@@ -1,7 +1,7 @@
 # Sécurité de Coffre
 
 Ce document décrit le modèle de menace, la conception cryptographique, le
-stockage local et les limites connues de Coffre 0.14.0.
+stockage local et les limites connues de Coffre 0.14.2.
 
 > **Avertissement.** Coffre n’a pas fait l’objet d’un audit de sécurité
 > indépendant. Ne l’utilisez pas comme unique copie de secrets critiques sans

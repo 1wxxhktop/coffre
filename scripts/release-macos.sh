@@ -174,3 +174,6 @@ echo "  $DMG"
 echo "  $DMG.sha256"
 echo
 cat "$DMG.sha256"
+echo
+echo "Après publication et vérification, libérer l’espace généré (release/ est conservé) :"
+echo "  bun run clean:all"

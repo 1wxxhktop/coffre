@@ -12,9 +12,9 @@ L’interface est en français.
 > La version web/PWA est fonctionnelle et couverte par 793 tests unitaires et
 > des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
 > continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;
-> les bundles desktop des trois systèmes sont compilés à chaque push sur
-> `main`. Le desktop Tauri v2 est distribué signé ad hoc (sans compte Apple),
-> avec mises à jour automatiques signées, déverrouillage par Touch ID ou
+> les bundles desktop des trois systèmes sont compilés à chaque PR et à chaque
+> push sur `main`. Le desktop Tauri v2 est distribué signé ad hoc (sans compte
+> Apple), avec mises à jour automatiques signées, déverrouillage par Touch ID ou
 > Windows Hello et une disposition en colonnes proche de 1Password ; le mobile
 > n’est pas encore initialisé (iOS hors programme faute de compte Apple).
 > Voir [Plateformes](#plateformes).
@@ -759,9 +759,10 @@ Le dépôt est public : les runners GitHub standard sont gratuits. Le fichier
 - **Extension** : smoke test Chromium avec la CSP de production ;
 - **Builds reproductibles** et **SBOM**.
 
-Les bundles **Desktop** (macOS, Ubuntu, Windows) et la reproductibilité du
-bundle macOS, plus longs, tournent sur chaque push vers `main` et à la demande
-(onglet *Actions* → *CI* → *Run workflow*), pas sur les PR.
+Les bundles **Desktop** (macOS, Ubuntu, Windows) tournent sur chaque PR, chaque
+push vers `main` et à la demande (onglet *Actions* → *CI* → *Run workflow*). La
+reproductibilité du bundle macOS, plus longue (deux builds complets), reste
+réservée aux pushes vers `main` et au déclenchement manuel.
 
 Les vérifications Qualité, Parcours, Rust, `coffre-core` macOS et Windows,
 smoke de l’extension, build reproductible et SBOM sont **obligatoires** pour
@@ -778,7 +779,10 @@ outils en ligne de commande pour chaque système, extension, application Web et
 SBOM, avec `SHA256SUMS` et un `LISEZMOI.txt`. Le dossier `release/` est
 toujours celui de la racine du dépôt, même depuis un worktree, et les versions
 précédentes en sont retirées pour ne garder qu’un exemplaire (`--keep` pour les
-conserver). Les artefacts sont conservés
+conserver). Le dossier **`release/` n’est jamais supprimé** : après chaque
+fusion sur `main` et chaque finalisation de release, `bun run post-merge`
+l’actualise avec la dernière version collectée, vérifie qu’une seule version
+est présente, puis nettoie le reste. Les artefacts sont conservés
 30 jours ; au-delà, relancer la CI (`gh workflow run ci.yml --ref main`). Ce
 sont des builds de développement, sans paquet de mise à jour signé.
 

@@ -32,8 +32,11 @@ règles de mots de passe Apple déjà intégrées (`src/lib/passwordRules.ts`).
    la procédure de format : schéma Zod, migration, fixtures dans
    `src/lib/__fixtures__`, vecteurs `coffre-core` si le cœur Rust doit le
    lire, et compatibilité ascendante des fichiers existants.
-5. **Quota GitHub Actions (12 $ / mois).** Aucun nouveau job macOS ou Windows
-   sur les PR et les pushes. Les nouvelles actions sont épinglées par SHA.
+5. **CI et nettoyage.** Le dépôt est public : les runners standard sont
+   gratuits, sans quota. Les nouvelles actions sont épinglées par SHA. Après
+   chaque fusion ou release, exécuter `bun run post-merge` : il met à jour
+   `release/` avec la dernière version, vérifie qu’une seule version est
+   présente, puis nettoie les artefacts. `release/` n’est jamais supprimé.
 
 ---
 

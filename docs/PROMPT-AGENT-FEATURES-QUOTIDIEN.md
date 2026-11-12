@@ -29,9 +29,16 @@ Tu vas implémenter de nouvelles fonctions de Coffre en suivant le plan donné e
 - Nouvelles chaînes d’interface en français et en anglais (`bun run lint` refuse les chaînes en dur).
 - Changement de format : schéma Zod, migration, fixtures, compatibilité des fichiers existants, et vecteurs `coffre-core` si le cœur Rust doit lire la donnée.
 
-## Quota GitHub Actions (impératif)
+## CI et nettoyage
 
-Mon budget est de 12 $ par mois et ne doit jamais être dépassé. Aucun nouveau job macOS ou Windows sur `pull_request` ou `push`. Ne modifie pas les déclencheurs de `.github/workflows/` sans me le signaler dans la PR. Toute nouvelle action est épinglée par SHA, avec `persist-credentials: false`.
+Le dépôt est public : les runners GitHub standard sont gratuits, sans quota.
+Tu peux ajouter des jobs macOS/Windows si le besoin de validation le justifie.
+Épingle toute nouvelle action par SHA, avec `persist-credentials: false`.
+**Après chaque fusion ou release**, lance `bun run post-merge` : il met à jour
+`release/` avec la dernière version, vérifie qu’une seule version est présente,
+puis nettoie les artefacts. Utiliser `bun run clean:build` après un build
+desktop et `bun run clean:all` pour les caches globaux. Le dossier `release/`
+n’est jamais supprimé.
 
 ## Contrôles avant chaque PR
 
@@ -40,7 +47,7 @@ Lance tout en local et résume les résultats dans la description :
 ```bash
 bun run typecheck
 bun run lint
-bun run test
+bun run test:coverage
 bun run test:e2e
 bun run build
 bun run extension:build
@@ -60,6 +67,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 - Tests unitaires et e2e pour la nouvelle logique, y compris les cas négatifs (faux positifs pour Q1 et Q2).
 - `README.md`, `docs/SECURITY.md`, `CHANGELOG.md` et traductions à jour ; captures d’écran si l’interface change.
 - Description de PR en trois sections : **Ce qui est fait**, **Vérifications** (commandes et résultats), **Non vérifié / à tester à la main**.
+- Poste nettoyé et `release/` actualisé après la fusion : `bun run post-merge`.
 
 ## Compte rendu attendu
 
@@ -103,8 +111,11 @@ règles de mots de passe Apple déjà intégrées (`src/lib/passwordRules.ts`).
    la procédure de format : schéma Zod, migration, fixtures dans
    `src/lib/__fixtures__`, vecteurs `coffre-core` si le cœur Rust doit le
    lire, et compatibilité ascendante des fichiers existants.
-5. **Quota GitHub Actions (12 $ / mois).** Aucun nouveau job macOS ou Windows
-   sur les PR et les pushes. Les nouvelles actions sont épinglées par SHA.
+5. **CI et nettoyage.** Le dépôt est public : les runners standard sont
+   gratuits, sans quota. Les nouvelles actions sont épinglées par SHA. Après
+   chaque fusion ou release, exécuter `bun run post-merge` : il met à jour
+   `release/` avec la dernière version, vérifie qu’une seule version est
+   présente, puis nettoie les artefacts. `release/` n’est jamais supprimé.
 
 ---
 

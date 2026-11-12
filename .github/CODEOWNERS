@@ -1,0 +1,16 @@
+# Propriétaire par défaut.
+* @1wxxhktop
+
+# Zones sensibles : une revue explicite est recommandée avant toute fusion.
+/src/lib/crypto.ts @1wxxhktop
+/src/lib/vault.ts @1wxxhktop
+/src/lib/import.ts @1wxxhktop
+/src/lib/sharing.ts @1wxxhktop
+/src/state/VaultProvider.tsx @1wxxhktop
+/src-tauri/src/ @1wxxhktop
+/src-tauri/crates/coffre-core/ @1wxxhktop
+/extension/ @1wxxhktop
+/test-vectors/ @1wxxhktop
+/.github/workflows/ @1wxxhktop
+/docs/SECURITY.md @1wxxhktop
+/docs/VERSIONING.md @1wxxhktop

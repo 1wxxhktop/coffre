@@ -16,6 +16,7 @@ updates:
       qualite:
         patterns:
           - vitest
+          - '@vitest/coverage-v8'
           - '@playwright/test'
           - oxlint
           - typescript

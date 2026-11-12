@@ -1,10 +1,10 @@
 name: CI
 
 # Dépôt public : les runners GitHub standard sont gratuits. Chaque PR et chaque
-# push lancent les tests sur Linux, macOS et Windows, et les parcours
-# Playwright sur Chromium et WebKit. Les builds desktop complets et la
-# reproductibilité macOS (une vingtaine de minutes) tournent sur chaque push
-# vers main et à la demande (« Run workflow »), pour garder des PR rapides.
+# push lancent les tests sur Linux, macOS et Windows, les parcours Playwright
+# sur Chromium et WebKit, et les builds desktop complets. La reproductibilité
+# macOS (deux bundles, une vingtaine de minutes) reste sur main et à la demande
+# pour ne pas rallonger chaque PR.
 # Un push sur main qui ne touche que la documentation ne relance pas la CI ;
 # les PR sont toujours vérifiées, car la protection de main l’exige.
 on:
@@ -68,8 +68,8 @@ jobs:
       - name: Vérification TypeScript
         run: bun run typecheck
 
-      - name: Tests unitaires
-        run: bun run test
+      - name: Tests unitaires et couverture
+        run: bun run test:coverage
 
       - name: Build PWA
         run: bun run build
@@ -254,7 +254,8 @@ jobs:
 
   desktop-reproducible:
     name: Desktop reproductible (macOS)
-    # Long (deux bundles complets) : push vers main et à la demande.
+    # Long (deux bundles complets) : sur push vers main et à la demande. Ce
+    # n’est pas un gate de PR.
     if: github.event_name != 'pull_request'
     runs-on: macos-latest
     timeout-minutes: 40
@@ -367,8 +368,7 @@ jobs:
 
   desktop:
     name: Desktop (${{ matrix.os }})
-    # Builds complets sur les trois systèmes : push vers main et à la demande.
-    if: github.event_name != 'pull_request'
+    # Builds complets sur les trois systèmes, à chaque PR et push.
     strategy:
       fail-fast: false
       matrix:
