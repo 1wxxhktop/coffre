@@ -217,6 +217,7 @@ export function UpdateSettings() {
             <option value="launch">{tt('À chaque démarrage')}</option>
             <option value="daily">{tt('Chaque jour')}</option>
             <option value="weekly">{tt('Chaque semaine')}</option>
+            <option value="continuous">{tt('En continu (1 min)')}</option>
           </select>
         </label>
         <label className="field">
@@ -264,11 +265,18 @@ export function UpdateSettings() {
       </label>
 
       {settings.updateChannel === 'beta' && (
-        <p className="settings-copy">
-          {tt(
-            'Les préversions apportent les nouveautés plus tôt mais peuvent contenir des défauts. Gardez des sauvegardes à jour.',
-          )}
-        </p>
+        <>
+          <p className="settings-copy">
+            {tt(
+              'Les préversions apportent les nouveautés plus tôt mais peuvent contenir des défauts. Gardez des sauvegardes à jour.',
+            )}
+          </p>
+          <p className="settings-copy">
+            {tt(
+              'En canal bêta, la recherche continue vérifie les nouvelles versions toutes les minutes.',
+            )}
+          </p>
+        </>
       )}
 
       {settings.updateSkippedVersion && (

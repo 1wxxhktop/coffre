@@ -50,10 +50,18 @@ L’ordre SemVer garantit :
 
 1. Installer au préalable une version 0.14.2 ou plus récente.
 2. Dans Coffre : **Réglages → Mises à jour**.
-3. Choisir le canal **Bêta (préversions)**.
-4. Cliquer sur **Rechercher maintenant** (ou activer une recherche
-   automatique).
-5. La version `0.15.0-beta.<run>.<tentative>` doit être proposée ; l’installer.
+3. Choisir le canal **Bêta (préversions)**. Si aucune recherche automatique
+   n’était configurée, Coffre passe en **En continu (1 min)**.
+4. Facultatif : activer **Télécharger automatiquement en arrière-plan** et
+   l’installation à la fermeture pour un flux entièrement automatique.
+5. La carte de mise à jour apparaît dès qu’une nouvelle bêta est publiée.
+   L’application vérifie au lancement, toutes les minutes et au retour sur la
+   fenêtre.
+
+La version `0.15.0-beta.<run>.<tentative>` est proposée ; l’installer. La
+première fois, si l’application est encore sur une version antérieure à cette
+fonction, un clic sur **Rechercher maintenant** reste nécessaire. Une fois
+cette version installée, les bêtas suivantes sont détectées automatiquement.
 
 Le coffre est verrouillé et les écritures terminées avant le redémarrage. La
 signature minisign du paquet est vérifiée par l’application.

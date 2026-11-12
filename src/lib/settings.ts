@@ -131,7 +131,8 @@ export function loadSettings(): AppSettings {
         parsed.updateCheck === 'off' ||
         parsed.updateCheck === 'launch' ||
         parsed.updateCheck === 'daily' ||
-        parsed.updateCheck === 'weekly'
+        parsed.updateCheck === 'weekly' ||
+        parsed.updateCheck === 'continuous'
           ? parsed.updateCheck
           : DEFAULT_SETTINGS.updateCheck,
       updateChannel:

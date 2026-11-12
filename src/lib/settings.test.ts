@@ -87,6 +87,11 @@ describe('préférences de mise à jour', () => {
     expect(settings.updateLastCheckAt).toBe('2026-11-09T10:00:00.000Z')
   })
 
+  it('accepte la recherche continue du canal bêta', () => {
+    stubSettings({ updateCheck: 'continuous' })
+    expect(loadSettings().updateCheck).toBe('continuous')
+  })
+
   it('refuse les valeurs inconnues', () => {
     stubSettings({
       updateCheck: 'hourly',
