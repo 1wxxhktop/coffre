@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -181,6 +181,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const [showCxfExport, setShowCxfExport] = useState(false)
   const [page, setPage] = useState<SettingsPage>('general')
   const [mobilePageOpen, setMobilePageOpen] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const [biometricsReady, setBiometricsReady] = useState(false)
   const [biometricBusy, setBiometricBusy] = useState(false)
@@ -650,6 +651,16 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     setMobilePageOpen(true)
   }
 
+  // Chaque section est une nouvelle page : conserver le défilement de la
+  // précédente donnerait l’impression d’arriver au milieu du contenu.
+  useEffect(() => {
+    const content = contentRef.current
+    if (!content) return
+    content.scrollTop = 0
+    const body = content.closest('.modal__body')
+    if (body instanceof HTMLElement) body.scrollTop = 0
+  }, [page])
+
   return (
     <>
       <Modal
@@ -679,7 +690,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
             })}
           </nav>
 
-          <div className="settings__content">
+          <div className="settings__content" ref={contentRef}>
             <button
               type="button"
               className="link-button settings__back"
