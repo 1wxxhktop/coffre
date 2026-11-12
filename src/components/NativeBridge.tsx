@@ -999,6 +999,12 @@ export function NativeBridge() {
       }
       session.extCounter = envelope.counter
 
+      // Chaque opération réelle de l’extension repousse le verrouillage
+      // automatique. Les recherches de badge en arrière-plan sont exclues.
+      if (!(payload.type === 'search' && payload.touch === false)) {
+        window.dispatchEvent(new Event('coffre:activity'))
+      }
+
       const response =
         statusRef.current === 'unlocked'
           ? await handlePayload(payload)

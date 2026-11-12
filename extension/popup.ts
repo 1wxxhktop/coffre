@@ -240,7 +240,12 @@ function hideState(): void {
 }
 
 function openApp(): void {
-  void send({ type: 'OPEN_APP' }).then(() => window.close())
+  void send<{ ok?: boolean; error?: string }>({ type: 'OPEN_APP' }).then(
+    (response) => {
+      if (response?.ok) window.close()
+      else showMessage(errorText(response?.error), 'error')
+    },
+  )
 }
 
 function renderThemeChoices(): void {
@@ -1332,7 +1337,12 @@ settingsTestButton.addEventListener('click', () => {
 })
 
 settingsOpenAppButton.addEventListener('click', () => {
-  void send({ type: 'OPEN_APP' }).then(() => window.close())
+  void send<{ ok?: boolean; error?: string }>({ type: 'OPEN_APP' }).then(
+    (response) => {
+      if (response?.ok) window.close()
+      else showMessage(errorText(response?.error), 'error')
+    },
+  )
 })
 
 settingsOpenOptionsButton.addEventListener('click', () => {
