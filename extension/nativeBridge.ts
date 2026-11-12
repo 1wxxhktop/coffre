@@ -388,9 +388,10 @@ export async function nativeStatus(): Promise<NativeStatus | null> {
 export async function nativeSearch(
   query: string,
   kind: 'login' | 'card' | 'identity' | 'custom' = 'login',
+  touch = true,
 ): Promise<{ items?: unknown[]; error?: string }> {
   try {
-    const response = await encryptedRequest({ type: 'search', query, kind })
+    const response = await encryptedRequest({ type: 'search', query, kind, touch })
     if (typeof response.error === 'string') return { error: response.error }
     return { items: Array.isArray(response.items) ? response.items : [] }
   } catch (error) {
@@ -737,6 +738,25 @@ export async function nativeFocus(): Promise<void> {
     await requestFocus()
   } catch {
     resetConnection()
+  }
+}
+
+/**
+ * Ouvre l’application desktop, ou la relance si elle est fermée.
+ *
+ * `hello` avec `launch: true` est le seul message autorisé à démarrer
+ * l’application : le bouton « Ouvrir Coffre » ne doit pas se rabattre sur
+ * l’application Web quand le mode desktop est choisi.
+ */
+export async function nativeOpen(): Promise<boolean> {
+  try {
+    resetConnection()
+    await connect(true)
+    await requestFocus()
+    return true
+  } catch {
+    resetConnection()
+    return false
   }
 }
 

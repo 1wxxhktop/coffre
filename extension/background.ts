@@ -65,6 +65,7 @@ import {
   nativeSearch,
   nativeStatus,
   nativeUnlock,
+  nativeOpen,
 } from './nativeBridge'
 
 /** Firefox expose `browser` (promesses) ; Chrome expose `chrome`. */
@@ -528,12 +529,13 @@ async function recordPhishingChoice(input: {
 async function search(
   query: string,
   kind: ExtensionAutofillKind = 'login',
+  touch = true,
 ): Promise<{ items?: ExtensionAutofillSummary[]; error?: string }> {
   const status = await readStatus()
   if (status.mode === 'native') {
     if (!status.paired) return { error: 'needs-pairing' }
     if (!status.unlocked) return { error: 'locked' }
-    const result = await nativeSearch(query, kind)
+    const result = await nativeSearch(query, kind, touch)
     return {
       items: (result.items as ExtensionAutofillSummary[] | undefined) ?? [],
       error: result.error,
@@ -1194,7 +1196,9 @@ function scheduleBadgeRefresh(entries: StoredPendingSave[]): void {
 }
 
 async function badgeLoginCount(host: string): Promise<number> {
-  const result = await search(host, 'login')
+  // Les mises à jour de badge en arrière-plan ne doivent pas maintenir le
+  // coffre déverrouillé : seule une interaction réelle compte.
+  const result = await search(host, 'login', false)
   return result.items?.length ?? 0
 }
 
@@ -2271,7 +2275,8 @@ async function requestUnlock(): Promise<{
     if (!result.error) {
       return { ok: true, pending: result.pending === true, mode: 'native' }
     }
-    await openApp()
+    const opened = await openApp()
+    if (!opened.ok) return { error: opened.error ?? 'native-unavailable' }
     return { ok: true, pending: true, mode: 'tab' }
   }
 
@@ -2291,7 +2296,8 @@ async function requestUnlock(): Promise<{
     if (launched.error === 'needs-pairing') return launched
   }
 
-  await openApp()
+  const opened = await openApp()
+  if (!opened.ok) return { error: opened.error ?? 'native-unavailable' }
   return { ok: true, pending: true, mode: 'tab' }
 }
 
@@ -2307,12 +2313,20 @@ async function openWelcome(mode: 'install' | 'update'): Promise<void> {
   }
 }
 
-async function openApp(): Promise<{ ok: boolean }> {
-  if (usesNativeBridge((await loadSettings()).appMode)) {
+async function openApp(): Promise<{ ok: boolean; error?: string }> {
+  const settings = await loadSettings()
+  if (usesNativeBridge(settings.appMode)) {
     const native = await nativeStatus()
     if (native) {
       await nativeFocus()
       return { ok: true }
+    }
+    // L’application desktop peut être fermée : l’hôte natif la démarre.
+    if (await nativeOpen()) return { ok: true }
+    if (settings.appMode === 'desktop') {
+      // Mode desktop explicite : ne jamais ouvrir silencieusement l’application
+      // Web à la place de l’application choisie.
+      return { ok: false, error: 'native-unavailable' }
     }
   }
   const appUrl = await getAppUrl()
