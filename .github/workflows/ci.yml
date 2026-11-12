@@ -14,10 +14,11 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - 'NOTICE'
-  # Pas de filtre sur les PR : les vérifications sont obligatoires pour fusionner
-  # dans main (protection de branche), une PR de documentation doit donc les
-  # produire aussi.
+  # Pas de filtre sur les PR : les vérifications obligatoires (Qualité et
+  # Bêta macOS) tournent sur chaque PR. Les labels full-ci/stable déclenchent
+  # la suite complète, y compris lorsqu’ils sont ajoutés après l’ouverture.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
