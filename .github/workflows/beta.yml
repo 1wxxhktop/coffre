@@ -32,7 +32,9 @@ jobs:
     # Les secrets ne sont pas disponibles pour les PR de forks. Les branches
     # internes (le cas normal) publient automatiquement.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: macos-latest
+    # Les runners macOS arm64 sont régulièrement saturés. La bêta est
+    # cross-compilée vers aarch64 depuis un runner Intel, plus disponible.
+    runs-on: macos-15-intel
     timeout-minutes: 35
     steps:
       - name: Récupérer la PR
