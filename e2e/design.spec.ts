@@ -342,3 +342,31 @@ test('le menu des réglages reste sticky pendant le défilement', async ({ page 
     .toBeCloseTo(before?.y ?? 0, 0)
   await expect(nav).toBeVisible()
 })
+
+test('le contenu des réglages revient en haut au changement de section', async ({
+  page,
+}) => {
+  await createVault(page)
+  const settings = await openSettings(page, 'Sauvegarde et import')
+  const content = settings.locator('.settings__content')
+
+  await expect
+    .poll(() =>
+      content.evaluate(
+        (element) => element.scrollHeight > element.clientHeight + 4,
+      ),
+    )
+    .toBe(true)
+  await content.evaluate((element) => {
+    element.scrollTop = element.scrollHeight
+  })
+  await expect
+    .poll(() => content.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0)
+
+  await settings.getByRole('button', { name: 'Général', exact: true }).click()
+  await expect(settings.getByRole('heading', { name: 'Général' })).toBeVisible()
+  await expect
+    .poll(() => content.evaluate((element) => element.scrollTop))
+    .toBe(0)
+})
