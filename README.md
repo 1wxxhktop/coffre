@@ -1572,6 +1572,8 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Feuille de route
 
+La roadmap complète — état des lieux, matrice face à 1Password, Bitwarden, Dashlane, Proton Pass et NordPass, priorités et découpage par version — est dans [`docs/ROADMAP.md`](docs/ROADMAP.md). Les jalons ci-dessous en sont le résumé.
+
 1. ~~Interopérabilité : import Proton Pass (export JSON) et déduplication.~~ Fait
    en 0.5.0.
 2. ~~Extension navigateur Manifest V3 et remplissage automatique.~~ Fait en
