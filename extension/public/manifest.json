@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "fr",
   "name": "__MSG_extName__",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "__MSG_extDescription__",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv0wTopESfRXuz6R3wl0Zz2ID/5MqqjCRCMacZgsd66A3Q1A+wtASlg6cMc21m0fNQe40GWMinZk/mJW2R7Z/U6OaaR4spIn14illA87Z8e3qnnqnYSGRBnsDEhzCXROvHLdnccg9y6/fxmafeO002QN3bbX1onJs6G+wSi/OmCW6Fd/WCjKqH71KBwe6QMQ5//dAcxQnWlYxLW7ie9r85oy6lVFV+StUy9yoel//bQ/QeZ8kaFxZQiSYHEIv5ZYjsFpBe8Ec7Kvz7h4ohjPtEoK3eSdKvr1Egla9usL86coyAro8f+kCzAA1WH+4aGlzZ4DMm10yUIRTRTq75Z200QIDAQAB",
   "permissions": [

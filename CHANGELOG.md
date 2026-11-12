@@ -2,6 +2,12 @@
 
 ## Non publié
 
+## 0.14.1 — 12 novembre 2026
+
+Version corrective : aucun changement de format `.coffre`, de manifeste ni de
+protocole. La réponse `status` du pont natif gagne un champ facultatif
+(`extensionVersion`), ignoré par une extension plus ancienne.
+
 - Extension : l’association avec l’application n’est plus redemandée après
   chaque mise à jour. Sous macOS, la clé d’appairage est gardée dans un fichier
   privé de l’application plutôt que dans le trousseau, qui la refusait à chaque

@@ -1,7 +1,7 @@
 # Politique de versioning de Coffre
 
 **Date :** 11 novembre 2026  
-**Version de référence :** 0.14.0  
+**Version de référence :** 0.14.1  
 **Portée :** version produit, format `.coffre`, manifeste d’intégrité, protocoles
 locaux et stockage navigateur.
 
@@ -34,9 +34,9 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
 
 | Élément | Version | Emplacement |
 | --- | --- | --- |
-| Application | `0.14.0` | `package.json`, `src-tauri/Cargo.toml`, `tauri.conf.json` |
-| Extension | `0.14.0` | `extension/public/manifest.json` |
-| Crates | `0.14.0` | `src-tauri/crates/*/Cargo.toml` |
+| Application | `0.14.1` | `package.json`, `src-tauri/Cargo.toml`, `tauri.conf.json` |
+| Extension | `0.14.1` | `extension/public/manifest.json` |
+| Crates | `0.14.1` | `src-tauri/crates/*/Cargo.toml` |
 | Format `.coffre` | `4` | `VAULT_FILE_VERSION`, `format.rs` |
 | Manifeste d’intégrité | `3` (lecture `3`, `2`, `1`) | `VAULT_MANIFEST_VERSION`, `format.rs` |
 | Pont natif | `2` (0.14) | `BRIDGE_PROTOCOL_VERSION` |
