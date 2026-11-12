@@ -572,7 +572,9 @@ fn read_json<T: for<'de> Deserialize<'de>>(stream: &mut NoiseStream) -> Result<T
 
 fn build_session(identity: &IdentityFile, initiator: bool) -> Result<HandshakeState, String> {
     let private = decode_std(&identity.private_key)?;
-    let builder = Builder::new(noise_params()?).local_private_key(&private);
+    let builder = Builder::new(noise_params()?)
+        .local_private_key(&private)
+        .map_err(|error| error.to_string())?;
     if initiator {
         builder.build_initiator().map_err(|error| error.to_string())
     } else {
