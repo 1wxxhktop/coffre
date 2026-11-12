@@ -1062,6 +1062,8 @@ export const EN_TEXT: Record<string, string> = {
     "Loading…",
   "Copier le mot de passe":
     "Copy password",
+  "Copier l’adresse web":
+    "Copy web address",
   "Créer un élément":
     "Create item",
   "Créé via WebAuthn":
