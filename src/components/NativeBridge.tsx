@@ -7,7 +7,7 @@ import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { isTauriRuntime } from '../lib/external'
-import { loadBridgeKey, storeBridgeKey } from '../lib/keychain'
+import { deleteBridgeKey, loadBridgeKey, storeBridgeKey } from '../lib/keychain'
 import { extensionInstallInfo } from '../lib/extensionInstall'
 import { generateTotp, isTotpUri, parseTotpUri } from '../lib/totp'
 import { confirmSensitiveFill } from '../lib/biometrics'
@@ -169,14 +169,16 @@ export function NativeBridge() {
     }
   }, [])
 
-  const send = useCallback(async (connectionId: number, payload: unknown) => {
+  const send = useCallback(async (connectionId: number, payload: unknown): Promise<boolean> => {
     try {
       await invoke('bridge_send', {
         connectionId,
         data: Array.from(encoder.encode(JSON.stringify(payload))),
       })
+      return true
     } catch {
       // La connexion a pu se fermer entre deux messages.
+      return false
     }
   }, [])
 
@@ -219,34 +221,57 @@ export function NativeBridge() {
     setPairingBusy(true)
     setPairingError(null)
     try {
+      // La session peut avoir disparu si le navigateur a suspendu son
+      // service worker pendant que l’utilisateur confirmait le code. Dans ce
+      // cas, il ne faut surtout pas remplacer la clé déjà enregistrée : cela
+      // invaliderait une extension qui fonctionnait.
+      const session = sessionsRef.current.get(pending.connectionId)
+      if (!session) {
+        throw new Error('La session du pont natif a expiré. Réessayez.')
+      }
+
+      const previousKey = sessionKeyRef.current
       const key = await deriveBridgeSessionKey(
         pending.appPrivateKey,
         pending.appPublicKey,
         pending.extensionPublicKey,
       )
       sessionKeyRef.current = key
+      session.key = key
+      session.extCounter = 0
+      session.appCounter = 0
+
       const stored = await storeBridgeKey(key)
       if (!stored) {
+        sessionKeyRef.current = previousKey
+        session.key = previousKey
         throw new Error(
           'La clé du pont natif n’a pas pu être enregistrée.',
         )
       }
-      const session = sessionsRef.current.get(pending.connectionId)
-      if (!session) {
-        throw new Error('La session du pont natif a expiré. Réessayez.')
-      }
-      session.key = key
-      session.extCounter = 0
-      session.appCounter = 0
-      pendingPairingRef.current = null
-      clearPairingTimer()
-      setPendingPairing(null)
-      setPairingBusy(false)
-      await send(pending.connectionId, {
+
+      const sent = await send(pending.connectionId, {
         id: pending.id,
         type: 'pair-accepted',
         session: session.session,
       })
+      if (!sent) {
+        // La trame n’est jamais partie : restaurer l’ancienne clé pour ne pas
+        // déconnecter l’extension déjà associée.
+        sessionKeyRef.current = previousKey
+        session.key = previousKey
+        if (previousKey) {
+          await storeBridgeKey(previousKey)
+        } else {
+          await deleteBridgeKey()
+        }
+        throw new Error('La session du pont natif a expiré. Réessayez.')
+      }
+
+      pendingPairingRef.current = null
+      clearPairingTimer()
+      setPendingPairing(null)
+      setPairingBusy(false)
     } catch (error) {
       setPairingBusy(false)
       setPairingError(
@@ -269,6 +294,19 @@ export function NativeBridge() {
           error: 'pairing-key',
         })
         return
+      }
+
+      // Une seule demande à la fois : une nouvelle demande remplace la
+      // précédente au lieu de laisser deux clés concurrentes.
+      if (pendingPairingRef.current) {
+        if (pendingPairingRef.current.connectionId === connectionId) {
+          clearPairingTimer()
+          pendingPairingRef.current = null
+          setPendingPairing(null)
+          setPairingError(null)
+        } else {
+          rejectPairing('rejected')
+        }
       }
 
       const pair = await createBridgeKeyPair()
@@ -961,6 +999,12 @@ export function NativeBridge() {
       }
       session.extCounter = envelope.counter
 
+      // Chaque opération réelle de l’extension repousse le verrouillage
+      // automatique. Les recherches de badge en arrière-plan sont exclues.
+      if (!(payload.type === 'search' && payload.touch === false)) {
+        window.dispatchEvent(new Event('coffre:activity'))
+      }
+
       const response =
         statusRef.current === 'unlocked'
           ? await handlePayload(payload)
@@ -1073,6 +1117,14 @@ export function NativeBridge() {
     ],
   )
 
+  // La référence garde l’écouteur stable : le recréer à chaque changement
+  // d’éléments laissait une fenêtre pendant laquelle une fermeture de
+  // connexion pouvait être manquée.
+  const handleFrameRef = useRef(handleFrame)
+  useEffect(() => {
+    handleFrameRef.current = handleFrame
+  }, [handleFrame])
+
   useEffect(() => {
     if (!isTauriRuntime()) return
     let disposed = false
@@ -1085,7 +1137,7 @@ export function NativeBridge() {
         (event) => {
           if (disposed) return
           const data = new Uint8Array(event.payload.data)
-          void handleFrame(event.payload.connectionId, data)
+          void handleFrameRef.current(event.payload.connectionId, data)
         },
       )
       unlistenClosed = await listen<{ connectionId: number }>(
@@ -1106,7 +1158,7 @@ export function NativeBridge() {
       unlistenMessage?.()
       unlistenClosed?.()
     }
-  }, [handleFrame, loadSessionKey, rejectPairing])
+  }, [loadSessionKey, rejectPairing])
 
   useEffect(() => {
     if (status !== 'unlocked' && pendingPairingRef.current) {

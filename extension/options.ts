@@ -34,6 +34,7 @@ const status = $<HTMLParagraphElement>('status')
 const pairingCode = $<HTMLParagraphElement>('pairing-code')
 const inlineMenu = $<HTMLInputElement>('inline-menu')
 const saveBanner = $<HTMLInputElement>('save-banner')
+const autofillOnLoad = $<HTMLInputElement>('autofill-on-load')
 const autoSubmit = $<HTMLInputElement>('auto-submit')
 const copyTotp = $<HTMLInputElement>('copy-totp')
 const requestAllButton = $<HTMLButtonElement>('request-all')
@@ -223,6 +224,7 @@ async function load(): Promise<void> {
   input.value = settings.appUrl
   inlineMenu.checked = settings.inlineMenu
   saveBanner.checked = settings.saveBanner
+  autofillOnLoad.checked = settings.autofillOnLoad
   autoSubmit.checked = settings.autoSubmitLogin
   copyTotp.checked = settings.copyTotpAfterFill
   renderExclusions(settings)
@@ -373,6 +375,9 @@ autoSubmit.addEventListener('change', () => {
 })
 saveBanner.addEventListener('change', () => {
   void saveSettings({ saveBanner: saveBanner.checked })
+})
+autofillOnLoad.addEventListener('change', () => {
+  void saveSettings({ autofillOnLoad: autofillOnLoad.checked })
 })
 copyTotp.addEventListener('change', () => {
   void saveSettings({ copyTotpAfterFill: copyTotp.checked })

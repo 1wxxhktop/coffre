@@ -1,7 +1,7 @@
 # Sécurité de Coffre
 
 Ce document décrit le modèle de menace, la conception cryptographique, le
-stockage local et les limites connues de Coffre 0.14.2.
+stockage local et les limites connues de Coffre 0.15.0.
 
 > **Avertissement.** Coffre n’a pas fait l’objet d’un audit de sécurité
 > indépendant. Ne l’utilisez pas comme unique copie de secrets critiques sans
@@ -453,8 +453,8 @@ appairage) est conservée dans `chrome.storage.local`.
   note de mise à jour n’apparaît que lors d’un changement de version prévu.
   Les réglages vivent dans `storage.local` : adresse de l’application, mode
   (`desktop` ou `web`), activation (`site` ou `all`), menu dans les champs,
-  bandeau d’enregistrement, copie TOTP, remplissage au chargement (E11) et
-  les deux listes d’exclusions. Aucun secret, aucun mot de passe maître,
+  bandeau d’enregistrement, copie TOTP, remplissage au chargement (désactivé
+  par défaut) et les deux listes d’exclusions. Aucun secret, aucun mot de passe maître,
   aucun nom d’élément n’y figure ; les exclusions ne contiennent que des
   domaines, jamais d’URL, de chemin ni d’identifiant. Le mode Web ignore
   volontairement le pont natif.
@@ -531,8 +531,17 @@ appairage) est conservée dans `chrome.storage.local`.
 - Les identifiants transitent en mémoire entre l’onglet Coffre, le service
   worker et la page active ; ils ne sont ni journalisés ni persistés. Le pont
   natif les chiffre en AES-256-GCM sur le socket local.
-- Le remplissage est déclenché par un clic ; aucun formulaire n’est soumis
-  automatiquement.
+- Le remplissage est déclenché par un clic, ou au chargement de la page
+  uniquement si l’option correspondante est activée ; aucun formulaire n’est
+  soumis automatiquement.
+- **Remplissage au chargement (E11a)** : désactivé par défaut et limité aux
+  sites dont l’hôte a été autorisé. Le content script vérifie seulement qu’un
+  formulaire de connexion vide est présent, puis le service worker exige
+  HTTPS, le cadre principal, une seule connexion correspondante, l’absence
+  d’exclusion et aucun signal anti-hameçonnage. Le TOTP n’est jamais rempli et
+  le formulaire n’est jamais soumis. Aucun secret n’est transmis avant ces
+  contrôles ; si plusieurs comptes correspondent, rien n’est rempli et le menu
+  reste disponible.
 - Tout code exécuté dans l’onglet Coffre pendant le déverrouillage peut appeler
   la passerelle. Le risque est équivalent à celui d’un XSS dans l’application :
   verrouillez le coffre après usage et n’installez que des extensions de

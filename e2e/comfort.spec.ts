@@ -37,6 +37,14 @@ test.describe('confort de la fiche et accès rapides', () => {
     await expect(panel.getByRole('heading', { name: 'Intranet' })).toBeVisible()
   })
 
+  test('⌘, ouvre directement les réglages', async ({ page }) => {
+    await createVault(page)
+    await page.keyboard.press('ControlOrMeta+,')
+    await expect(
+      page.getByRole('dialog').getByRole('heading', { name: 'Réglages' }),
+    ).toBeVisible()
+  })
+
   test('l’accès rapide liste les éléments utilisés et les rouvre', async ({ page }) => {
     await createVault(page)
     await addLogin(page, 'Banque Postale')

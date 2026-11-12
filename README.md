@@ -6,9 +6,9 @@ Coffre conserve vos identifiants, notes, cartes et identités dans un fichier
 chiffré sur votre appareil. Aucun compte, aucun serveur Coffre, aucune télémétrie.
 La synchronisation et la vérification des fuites sont optionnelles ; cette
 dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
-L’interface est en français.
+L’interface est disponible en français et en anglais.
 
-> **État du projet — 0.14.2 (appairage durable de l’extension, extension tenue à jour, correctifs de sécurité de l’audit, manifeste 3).**
+> **État du projet — 0.15.0 (barre latérale et menu des coffres, version de l’extension, raccourci ⌘, et fiabilité du pont natif, manifeste 3).**
 > La version web/PWA est fonctionnelle et couverte par 793 tests unitaires et
 > des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
 > continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;
@@ -107,8 +107,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   ne sont remplis qu’après une action explicite ; une carte est refusée hors
   HTTPS et dans une iframe tierce qui n’est pas un prestataire de paiement
   connu. Les pages sont autorisées explicitement via les permissions
-  optionnelles. L’extension ne stocke aucun identifiant et ne copie dans le
-  presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
+  optionnelles. Le **remplissage au chargement** est disponible en opt-in :
+  sur HTTPS, dans le cadre principal et lorsqu’une seule connexion correspond,
+  il remplit identifiant et mot de passe sans jamais saisir le TOTP ni
+  soumettre le formulaire. L’extension ne stocke aucun identifiant et ne copie
+  dans le presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
   l’option est activée, pour le code TOTP après un remplissage ; seule la clé
   de session du pont natif est conservée dans son stockage local.
 - **Protection anti-hameçonnage** : avant un remplissage forcé ou un
@@ -1513,10 +1516,12 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 
 - L’extension navigateur est disponible pour Chromium et Firefox ; la variante
   Firefox est construite mais n’est pas encore validée en exécution réelle. Le
-  pont natif desktop est implémenté sur macOS et Linux ; Windows, la
-  vérification de signature du relais et le remplissage automatique à
-  l’ouverture de page restent à faire. Sans pont appairé, l’onglet Coffre doit
-  rester ouvert et déverrouillé.
+  pont natif desktop est implémenté sur macOS et Linux ; Windows et la
+  vérification de signature du relais restent à faire. Sans pont appairé,
+  l’onglet Coffre doit rester ouvert et déverrouillé. Le remplissage au
+  chargement ne s’exécute que sur HTTPS, dans le cadre principal et lorsqu’une
+  seule connexion correspond ; les applications à page unique qui rendent leur
+  formulaire après une navigation interne peuvent ne pas en bénéficier.
 - La synchronisation par dossier est disponible dans l’application desktop
   (macOS/Linux validés, Windows à valider) et dans Chromium via File System
   Access API. Safari/Firefox utilisent la sauvegarde manuelle par fichier
@@ -1570,19 +1575,24 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 1. ~~Interopérabilité : import Proton Pass (export JSON) et déduplication.~~ Fait
    en 0.5.0.
 2. ~~Extension navigateur Manifest V3 et remplissage automatique.~~ Fait en
-   0.6.0 pour Chromium ; variante Firefox ajoutée en 0.8.0, validation réelle à
-   faire.
+   0.6.0 pour Chromium ; variante Firefox ajoutée en 0.8.0, validation réelle et
+   publication encore à faire.
 3. ~~Import Enpass (JSON) et compatibilité avec les CSV traditionnels
    (1Password, LastPass, Chrome, Firefox, Safari, Dashlane, KeePass, NordPass,
-   Keeper, RoboForm, SafeInCloud).~~ Fait en 0.7.0.
+   Keeper, RoboForm, SafeInCloud).~~ Fait en 0.7.0 ; imports KDBX 4 et archives
+   1Password `.1pux` ajoutés depuis.
 4. ~~Trousseau natif desktop et interface en colonnes proche de 1Password.~~
    Fait en 0.8.0 pour macOS ; Windows/Linux et le mobile restent à valider.
 5. Audit de sécurité externe et revue cryptographique.
 6. Validation des builds Windows/Linux, puis initialisation et tests des cibles
    mobiles iOS/Android.
-7. Synchronisation chiffrée optionnelle de bout en bout : implémentée sur
-   desktop et Chromium ; Safari/Firefox et mobile restent en manuel ou à faire.
+7. Synchronisation chiffrée optionnelle : dossier synchronisé sur desktop et
+   Chromium, synchronisation locale directe sur desktop et partage ponctuel hors
+   ligne ; Safari/Firefox et mobile restent en manuel ou à faire.
 8. Optimisation du bundle et du temps de déverrouillage.
+9. Remplissage automatique au chargement, en opt-in site par site (lot E11).
+10. Publication de l’extension sur le Chrome Web Store et Firefox Add-ons
+    (lot E13), après validation réelle de la variante Firefox.
 
 ---
 

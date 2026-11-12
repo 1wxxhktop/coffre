@@ -1,7 +1,7 @@
 # Politique de versioning de Coffre
 
-**Date :** 11 novembre 2026  
-**Version de référence :** 0.14.2  
+**Date :** 12 novembre 2026  
+**Version de référence :** 0.15.0  
 **Portée :** version produit, format `.coffre`, manifeste d’intégrité, protocoles
 locaux et stockage navigateur.
 
@@ -34,9 +34,9 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
 
 | Élément | Version | Emplacement |
 | --- | --- | --- |
-| Application | `0.14.2` | `package.json`, `src-tauri/Cargo.toml`, `tauri.conf.json` |
-| Extension | `0.14.2` | `extension/public/manifest.json` |
-| Crates | `0.14.2` | `src-tauri/crates/*/Cargo.toml` |
+| Application | `0.15.0` | `package.json`, `src-tauri/Cargo.toml`, `tauri.conf.json` |
+| Extension | `0.15.0` | `extension/public/manifest.json` |
+| Crates | `0.15.0` | `src-tauri/crates/*/Cargo.toml` |
 | Format `.coffre` | `4` | `VAULT_FILE_VERSION`, `format.rs` |
 | Manifeste d’intégrité | `3` (lecture `3`, `2`, `1`) | `VAULT_MANIFEST_VERSION`, `format.rs` |
 | Pont natif | `2` (0.14) | `BRIDGE_PROTOCOL_VERSION` |
@@ -70,9 +70,11 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
 - **0.14.0 reste en format `4`.** Les correctifs P0/P1 ne créent pas de champ
   obligatoire : le manifeste couvre davantage de données, mais la structure du
   fichier ne change pas.
-- **0.15.0 passera en format `5`** pour les nouvelles pierres tombales
-  (pièces jointes, historique du générateur, clés d’alias) et les éventuels
-  champs non ignorables.
+- **0.15.0 reste en format `4`.** Les correctifs d’interface et d’extension ne
+  changent pas la structure du fichier.
+- Le passage au format `5` (nouvelles pierres tombales pour les pièces
+  jointes, l’historique du générateur et les clés d’alias) est reporté à une
+  version ultérieure.
 - Une version lit tous les formats qu’elle connaît (`v1` à `v5` selon la
   version) et n’écrit que son format courant.
 - Un fichier dont le format est **supérieur** à celui de l’application est
@@ -160,7 +162,8 @@ comprise.
 | `0.13.1` | Correctifs purement compatibles, si isolables | `4` | `2` | `1` |
 | **`0.14.0`** | **P0 + P1** : urgence, LAN, blobs, verrouillage, mode voyage, extension | `4` | `3` | `2` |
 | `0.14.x` | P2 sans changement de format | `4` | `3` | `2` |
-| `0.15.0` | Tombstones, format `5`, bundle éventuel `2` | `5` | `3` | `2` |
+| `0.15.0` | Finition interface et extension, sans changement de format | `4` | `3` | `2` |
+| `0.16.0` | Tombstones et format `5` | `5` | `3` | `2` |
 | `1.0.0` | Après audit externe et stabilisation | `5` | `3` | `2` |
 
 Le P0 n’est pas publié en `0.13.1` : le manifeste `3` est déjà une rupture de

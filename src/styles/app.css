@@ -33,7 +33,7 @@ body:has(.app-shell) {
   height: 100dvh;
   flex: none;
   padding: var(--space-6) var(--space-4) var(--space-4);
-  overflow-y: auto;
+  overflow: hidden;
   border-right: 1px solid var(--border-1);
   background: var(--surface-sidebar);
   -webkit-backdrop-filter: blur(16px);
@@ -42,6 +42,7 @@ body:has(.app-shell) {
 
 .sidebar__head {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -52,6 +53,85 @@ body:has(.app-shell) {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+.sidebar__vault-switch {
+  flex: none;
+  padding: 0 var(--space-1);
+}
+
+.sidebar__vault-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+}
+
+.sidebar__vault-trigger:hover {
+  background: var(--hover-1);
+}
+
+.sidebar__vault-trigger .sidebar__vault-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar__vault-chevron {
+  flex: none;
+  color: var(--text-3);
+}
+
+.sidebar__vault-menu {
+  min-width: 238px;
+}
+
+.menu__vault-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.menu__vault-row > .menu__item {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu__vault-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.menu__vault-row:hover .menu__vault-actions,
+.menu__vault-row:focus-within .menu__vault-actions {
+  opacity: 1;
+}
+
+.menu__item-count {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar__scroll {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .sidebar__close,
@@ -230,6 +310,7 @@ body:has(.app-shell) {
 
 .sidebar__footer {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: var(--space-3);
   margin-top: auto;
@@ -673,7 +754,11 @@ body:has(.app-shell) {
 }
 
 .item-group + .item-group {
-  margin-top: var(--space-3);
+  margin-top: 0;
+}
+
+.item-group + .item-group .item-group__title {
+  border-top: 1px solid var(--border-1);
 }
 
 .item-group__title {
@@ -1816,6 +1901,20 @@ body:has(.app-shell) {
 
   .sidebar.is-collapsed .sidebar__head-actions {
     flex-direction: column;
+  }
+
+  .sidebar.is-collapsed .sidebar__vault-switch {
+    padding: 0;
+  }
+
+  .sidebar.is-collapsed .sidebar__vault-trigger {
+    justify-content: center;
+    padding: var(--space-2) 0;
+  }
+
+  .sidebar.is-collapsed .sidebar__vault-trigger .sidebar__vault-name,
+  .sidebar.is-collapsed .sidebar__vault-trigger .sidebar__vault-chevron {
+    display: none;
   }
 
   .sidebar.is-collapsed .brand__text,
