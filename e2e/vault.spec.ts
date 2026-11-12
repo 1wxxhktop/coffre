@@ -74,11 +74,19 @@ test.describe('coffre et éléments', () => {
     await expect(page.locator('.topbar__sub')).not.toContainText('0 élément')
   })
 
-  test('copie une adresse web depuis la fiche sans l’ouvrir', async ({
-    page,
-    context,
-  }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  test('copie une adresse web depuis la fiche sans l’ouvrir', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            ;(window as unknown as { __copied: string }).__copied = text
+          },
+          readText: async () =>
+            (window as unknown as { __copied?: string }).__copied ?? '',
+        },
+      })
+    })
     await createVault(page)
     const panel = await addLogin(
       page,
@@ -91,11 +99,15 @@ test.describe('coffre et éléments', () => {
       .locator('.detail-link')
       .filter({ hasText: 'https://github.com/login' })
     await expect(row).toBeVisible()
-    await row
-      .getByRole('button', { name: 'Copier l’adresse web' })
-      .click()
+    const copy = row.getByRole('button', { name: 'Copier l’adresse web' })
+    await copy.click()
+    await expect(copy).toHaveAttribute('data-copied', 'true')
     await expect
-      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .poll(() =>
+        page.evaluate(
+          () => (window as unknown as { __copied?: string }).__copied,
+        ),
+      )
       .toBe('https://github.com/login')
     await expect(page.locator('.item-panel')).toBeVisible()
   })

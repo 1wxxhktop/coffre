@@ -2547,6 +2547,7 @@ function ItemDetails({
                         onClick={() => void copyValue(url, url)}
                         aria-label={tt('Copier l’adresse web')}
                         title={tt('Copier l’adresse web')}
+                        data-copied={copied === url ? 'true' : undefined}
                       >
                         {copied === url ? <Check size={13} /> : <Copy size={13} />}
                       </button>

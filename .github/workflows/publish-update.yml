@@ -23,7 +23,7 @@ env:
 jobs:
   publish:
     name: Publier et mettre à jour les canaux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write

@@ -16,7 +16,7 @@ env:
 jobs:
   visual:
     name: Générer les captures Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Récupérer le dépôt
