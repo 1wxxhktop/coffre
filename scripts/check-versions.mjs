@@ -106,7 +106,7 @@ const policy = {
   manifest: 3,
   bridgeProtocol: 1,
   extensionBridge: 1,
-  lanProtocol: 1,
+  lanProtocol: 2,
 }
 
 if (formatVersions.typescript !== policy.fileFormat) {

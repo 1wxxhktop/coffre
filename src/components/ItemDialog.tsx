@@ -55,7 +55,6 @@ import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { copySensitive } from '../lib/clipboard'
 import { randomId } from '../lib/crypto'
-import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { decryptBlob, encryptBlob, newBlobKey, previewBlob, removeBlob } from '../lib/blobStore'
 import { formatDateTime } from '../lib/settings'
 import {
@@ -498,11 +497,6 @@ export function ItemDialog({
     setAttachmentBusy(true)
     setAttachmentError(null)
     try {
-      const selected = await openDialog({
-        multiple: false,
-        title: tt('Choisir un document volumineux'),
-      })
-      if (typeof selected !== 'string') return
       if (current.attachments.length >= MAX_ATTACHMENTS_PER_ITEM) {
         throw new Error(
           `Un élément ne peut pas contenir plus de ${MAX_ATTACHMENTS_PER_ITEM} pièces jointes.`,
@@ -510,8 +504,8 @@ export function ItemDialog({
       }
       const blobId = randomId('blob')
       const blobKey = newBlobKey()
-      const info = await encryptBlob({ id: blobId, sourcePath: selected, key: blobKey })
-      const name = selected.split(/[\\/]/).pop() || 'document'
+      const info = await encryptBlob({ id: blobId, key: blobKey })
+      const name = info.name || 'document'
       const extension = name.split('.').pop()?.toLowerCase() ?? ''
       const mime =
         extension === 'pdf'
@@ -593,12 +587,10 @@ export function ItemDialog({
     try {
       const attachment = current.attachments.find((entry) => entry.id === attachmentId)
       if (attachment?.storage === 'blob' && attachment.blobId && attachment.blobKey) {
-        const target = await saveDialog({ defaultPath: attachment.name })
-        if (typeof target !== 'string') return
         await decryptBlob({
           id: attachment.blobId,
-          targetPath: target,
           key: attachment.blobKey,
+          suggestedName: attachment.name,
         })
       } else {
         await downloadAttachment(current, attachmentId)

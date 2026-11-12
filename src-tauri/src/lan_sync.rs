@@ -27,7 +27,7 @@ use crate::blob_store::{blob_dir, valid_id};
 use crate::bridge::app_data_root;
 
 /// Version du protocole d’appairage et de synchronisation LAN.
-pub const LAN_PROTOCOL_VERSION: u8 = 1;
+pub const LAN_PROTOCOL_VERSION: u8 = 2;
 const NOISE_PARAMS: &str = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
 const LAN_PORT: u16 = 47_823;
 const PAIR_TTL: Duration = Duration::from_secs(120);
@@ -39,6 +39,8 @@ const IO_TIMEOUT: Duration = Duration::from_secs(15);
 const NOISE_MSG1_LEN: usize = 32;
 const NOISE_MSG2_LEN: usize = 96;
 const NOISE_MSG3_LEN: usize = 64;
+/// Taille maximale d’un message Noise transport (limite protocolaire 65 535).
+const NOISE_CHUNK: usize = 60_000;
 
 #[derive(Default)]
 pub struct LanState {
@@ -134,7 +136,11 @@ fn clean_blob_ids(ids: &[String]) -> Result<Vec<String>, String> {
     Ok(clean)
 }
 
-fn send_blobs(stream: &mut TcpStream, dir: &std::path::Path, ids: &[String]) -> Result<(), String> {
+fn send_blobs(
+    stream: &mut NoiseStream,
+    dir: &std::path::Path,
+    ids: &[String],
+) -> Result<(), String> {
     for id in ids {
         let path = dir.join(id);
         if !path.is_file() {
@@ -172,7 +178,7 @@ fn send_blobs(stream: &mut TcpStream, dir: &std::path::Path, ids: &[String]) -> 
 }
 
 fn receive_blobs(
-    stream: &mut TcpStream,
+    stream: &mut NoiseStream,
     dir: &std::path::Path,
     ids: &[String],
 ) -> Result<usize, String> {
@@ -229,7 +235,7 @@ fn receive_blobs(
 }
 
 fn exchange_blobs_initiator(
-    stream: &mut TcpStream,
+    stream: &mut NoiseStream,
     dir: &std::path::Path,
     local_ids: &[String],
 ) -> Result<usize, String> {
@@ -257,7 +263,7 @@ fn exchange_blobs_initiator(
 }
 
 fn exchange_blobs_responder(
-    stream: &mut TcpStream,
+    stream: &mut NoiseStream,
     dir: &std::path::Path,
     local_ids: &[String],
 ) -> Result<usize, String> {
@@ -449,38 +455,118 @@ fn find_peer(state: &LanState, id: &str) -> Result<LanPeer, String> {
         .ok_or_else(|| "Appareil non appairé".to_string())
 }
 
-fn read_frame(stream: &mut TcpStream) -> Result<Vec<u8>, String> {
-    let mut length = [0u8; 4];
-    stream
-        .read_exact(&mut length)
-        .map_err(|_| "Connexion interrompue".to_string())?;
-    let size = u32::from_be_bytes(length) as usize;
-    if size > MAX_FRAME {
-        return Err("Message local trop volumineux".into());
+/// Flux TCP dont chaque trame est chiffrée et authentifiée par Noise.
+///
+/// Une trame applicative peut dépasser la limite d’un message Noise : elle est
+/// découpée en morceaux de `NOISE_CHUNK`, chaque morceau étant chiffré
+/// séparément. Le premier clair commence par la longueur totale de la trame.
+struct NoiseStream {
+    stream: TcpStream,
+    transport: TransportState,
+}
+
+impl NoiseStream {
+    fn new(stream: TcpStream, transport: TransportState) -> Self {
+        Self { stream, transport }
     }
-    let mut data = vec![0u8; size];
-    stream
-        .read_exact(&mut data)
-        .map_err(|_| "Message local tronqué".to_string())?;
-    Ok(data)
+
+    fn write_frame(&mut self, data: &[u8]) -> Result<(), String> {
+        if data.len() > MAX_FRAME {
+            return Err("Message local trop volumineux".into());
+        }
+        let mut payload = Vec::with_capacity(4 + data.len());
+        payload.extend_from_slice(
+            &u32::try_from(data.len())
+                .map_err(|_| "Message local trop volumineux")?
+                .to_be_bytes(),
+        );
+        payload.extend_from_slice(data);
+        let mut ciphertext = vec![0u8; 65_535];
+        for chunk in payload.chunks(NOISE_CHUNK) {
+            let size = self
+                .transport
+                .write_message(chunk, &mut ciphertext)
+                .map_err(|_| "Chiffrement local impossible".to_string())?;
+            let length = u32::try_from(size).map_err(|_| "Message local trop volumineux")?;
+            self.stream
+                .write_all(&length.to_be_bytes())
+                .and_then(|_| self.stream.write_all(&ciphertext[..size]))
+                .map_err(|_| "Connexion interrompue".to_string())?;
+        }
+        self.stream
+            .flush()
+            .map_err(|_| "Connexion interrompue".to_string())
+    }
+
+    fn remote_static(&self) -> Result<Vec<u8>, String> {
+        self.transport
+            .get_remote_static()
+            .map(|value| value.to_vec())
+            .ok_or_else(|| "Clé distante absente".to_string())
+    }
+
+    fn peer_addr(&self) -> Result<std::net::SocketAddr, String> {
+        self.stream.peer_addr().map_err(|error| error.to_string())
+    }
+
+    fn read_frame(&mut self) -> Result<Vec<u8>, String> {
+        let mut expected: Option<usize> = None;
+        let mut data: Vec<u8> = Vec::new();
+        let mut plaintext = vec![0u8; 65_535];
+        loop {
+            let mut length = [0u8; 4];
+            self.stream
+                .read_exact(&mut length)
+                .map_err(|_| "Connexion interrompue".to_string())?;
+            let size = u32::from_be_bytes(length) as usize;
+            if size == 0 || size > 65_535 {
+                return Err("Message Noise invalide".into());
+            }
+            let mut encrypted = vec![0u8; size];
+            self.stream
+                .read_exact(&mut encrypted)
+                .map_err(|_| "Message local tronqué".to_string())?;
+            let clear_len = self
+                .transport
+                .read_message(&encrypted, &mut plaintext)
+                .map_err(|_| "Message local invalide".to_string())?;
+            let clear = &plaintext[..clear_len];
+            if expected.is_none() {
+                if clear.len() < 4 {
+                    return Err("Message local tronqué".into());
+                }
+                let total = u32::from_be_bytes(
+                    clear[..4]
+                        .try_into()
+                        .map_err(|_| "Message local invalide".to_string())?,
+                ) as usize;
+                if total > MAX_FRAME {
+                    return Err("Message local trop volumineux".into());
+                }
+                expected = Some(total);
+                data.extend_from_slice(&clear[4..]);
+            } else {
+                data.extend_from_slice(clear);
+            }
+            if let Some(total) = expected
+                && data.len() >= total
+            {
+                if data.len() != total {
+                    return Err("Message local incohérent".into());
+                }
+                return Ok(data);
+            }
+        }
+    }
 }
 
-fn write_frame(stream: &mut TcpStream, data: &[u8]) -> Result<(), String> {
-    let size = u32::try_from(data.len()).map_err(|_| "Message local trop volumineux")?;
-    stream
-        .write_all(&size.to_be_bytes())
-        .and_then(|_| stream.write_all(data))
-        .and_then(|_| stream.flush())
-        .map_err(|_| "Connexion interrompue".to_string())
-}
-
-fn write_json<T: Serialize>(stream: &mut TcpStream, value: &T) -> Result<(), String> {
+fn write_json<T: Serialize>(stream: &mut NoiseStream, value: &T) -> Result<(), String> {
     let data = serde_json::to_vec(value).map_err(|error| error.to_string())?;
-    write_frame(stream, &data)
+    stream.write_frame(&data)
 }
 
-fn read_json<T: for<'de> Deserialize<'de>>(stream: &mut TcpStream) -> Result<T, String> {
-    let data = read_frame(stream)?;
+fn read_json<T: for<'de> Deserialize<'de>>(stream: &mut NoiseStream) -> Result<T, String> {
+    let data = stream.read_frame()?;
     serde_json::from_slice(&data).map_err(|_| "Message local invalide".to_string())
 }
 
@@ -560,11 +646,13 @@ fn handshake(
         .map_err(|error| error.to_string())
 }
 
-fn remote_static(session: &TransportState) -> Result<Vec<u8>, String> {
-    session
-        .get_remote_static()
-        .map(|value| value.to_vec())
-        .ok_or_else(|| "Clé distante absente".to_string())
+fn handshake_stream(
+    mut stream: TcpStream,
+    identity: &IdentityFile,
+    initiator: bool,
+) -> Result<NoiseStream, String> {
+    let transport = handshake(&mut stream, identity, initiator)?;
+    Ok(NoiseStream::new(stream, transport))
 }
 
 fn constant_time_equal(left: &[u8], right: &[u8]) -> bool {
@@ -578,13 +666,8 @@ fn constant_time_equal(left: &[u8], right: &[u8]) -> bool {
     difference == 0
 }
 
-fn handle_pair(
-    stream: &mut TcpStream,
-    identity: &IdentityFile,
-    secret: &[u8],
-) -> Result<LanPeer, String> {
-    let session = handshake(stream, identity, false)?;
-    let public = remote_static(&session)?;
+fn handle_pair(stream: &mut NoiseStream, secret: &[u8]) -> Result<LanPeer, String> {
+    let public = stream.remote_static()?;
     let request: PairRequest = read_json(stream)?;
     let provided = decode_url(&request.secret)?;
     if !constant_time_equal(&provided, secret) {
@@ -636,8 +719,20 @@ fn decode_pair_code(code: &str) -> Result<PairPayload, String> {
     let data = decode_url(encoded)?;
     let payload: PairPayload =
         serde_json::from_slice(&data).map_err(|_| "Code d’appairage invalide".to_string())?;
-    if payload.v != LAN_PROTOCOL_VERSION || payload.host.trim().is_empty() || payload.port == 0 {
+    if payload.v != LAN_PROTOCOL_VERSION || payload.port < 1024 {
         return Err("Code d’appairage invalide".into());
+    }
+    let address: IpAddr = payload
+        .host
+        .trim()
+        .parse()
+        .map_err(|_| "Adresse d’appairage invalide".to_string())?;
+    let local = match address {
+        IpAddr::V4(value) => value.is_private() || value.is_loopback() || value.is_link_local(),
+        IpAddr::V6(value) => value.is_loopback(),
+    };
+    if !local {
+        return Err("Le code d’appairage doit désigner une adresse locale".into());
     }
     Ok(payload)
 }
@@ -732,8 +827,23 @@ pub async fn lan_pair_start(
     let pending = state.pending.clone();
     let peers = state.peers.clone();
     std::thread::spawn(move || {
-        let result = listen_once(&listener, PAIR_TTL)
-            .and_then(|mut stream| handle_pair(&mut stream, &identity, &secret));
+        let deadline = Instant::now() + PAIR_TTL;
+        let mut result: Result<LanPeer, String> = Err("Délai dépassé".into());
+        while Instant::now() < deadline {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let stream = match listen_once(&listener, remaining) {
+                Ok(stream) => stream,
+                Err(error) => {
+                    result = Err(error);
+                    break;
+                }
+            };
+            result = handshake_stream(stream, &identity, false)
+                .and_then(|mut stream| handle_pair(&mut stream, &secret));
+            if result.is_ok() {
+                break;
+            }
+        }
         match result {
             Ok(peer) => {
                 if let Ok(mut list) = peers.lock() {
@@ -765,7 +875,7 @@ pub async fn lan_pair_join(
 ) -> Result<LanPeer, String> {
     let payload = decode_pair_code(&code)?;
     let identity = load_identity()?;
-    let mut stream = TcpStream::connect((payload.host.as_str(), payload.port))
+    let stream = TcpStream::connect((payload.host.as_str(), payload.port))
         .map_err(|_| "Appareil injoignable sur le réseau local".to_string())?;
     stream
         .set_read_timeout(Some(IO_TIMEOUT))
@@ -773,8 +883,8 @@ pub async fn lan_pair_join(
     stream
         .set_write_timeout(Some(IO_TIMEOUT))
         .map_err(|error| error.to_string())?;
-    let session = handshake(&mut stream, &identity, true)?;
-    let remote = remote_static(&session)?;
+    let mut stream = handshake_stream(stream, &identity, true)?;
+    let remote = stream.remote_static()?;
     if !constant_time_equal(&decode_std(&payload.public_key)?, &remote) {
         return Err("L’appareil distant ne correspond pas au code".into());
     }
@@ -914,28 +1024,57 @@ pub async fn lan_sync_serve(
         }
         let listener = TcpListener::bind(("0.0.0.0", LAN_PORT))
             .map_err(|_| "Le port de synchronisation est déjà utilisé".to_string())?;
-        let mut stream = listen_once(&listener, SYNC_TTL)?;
-        let session = handshake(&mut stream, &identity, false)?;
-        let public = remote_static(&session)?;
-        let id = fingerprint(&public);
-        let peer = {
-            let list = peers.lock().map_err(|_| "Pairs illisibles")?;
-            list.iter()
-                .find(|peer| peer.id == id)
-                .cloned()
-                .ok_or_else(|| "Appareil non appairé".to_string())?
-        };
-        let message: SyncMessage = read_json(&mut stream)?;
-        write_json(&mut stream, &SyncMessage { file })?;
-        let blobs_received = exchange_blobs_responder(&mut stream, &blob_dir(&app)?, &blob_ids)?;
+        let deadline = Instant::now() + SYNC_TTL;
+        let mut last_error = "Délai dépassé".to_string();
+        let mut completed: Option<LanSyncResult> = None;
+        while Instant::now() < deadline {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let stream = match listen_once(&listener, remaining) {
+                Ok(stream) => stream,
+                Err(error) => {
+                    last_error = error;
+                    break;
+                }
+            };
+            let mut stream = match handshake_stream(stream, &identity, false) {
+                Ok(stream) => stream,
+                Err(error) => {
+                    last_error = error;
+                    continue;
+                }
+            };
+            let result = (|| -> Result<LanSyncResult, String> {
+                let public = stream.remote_static()?;
+                let id = fingerprint(&public);
+                let peer = {
+                    let list = peers.lock().map_err(|_| "Pairs illisibles")?;
+                    list.iter()
+                        .find(|peer| peer.id == id)
+                        .cloned()
+                        .ok_or_else(|| "Appareil non appairé".to_string())?
+                };
+                let message: SyncMessage = read_json(&mut stream)?;
+                write_json(&mut stream, &SyncMessage { file: file.clone() })?;
+                let blobs_received =
+                    exchange_blobs_responder(&mut stream, &blob_dir(&app)?, &blob_ids)?;
+                Ok(LanSyncResult {
+                    peer,
+                    file: message.file,
+                    blobs_received,
+                })
+            })();
+            match result {
+                Ok(result) => {
+                    completed = Some(result);
+                    break;
+                }
+                Err(error) => last_error = error,
+            }
+        }
         if let Some(daemon) = daemon {
             let _ = daemon.shutdown();
         }
-        Ok::<LanSyncResult, String>(LanSyncResult {
-            peer,
-            file: message.file,
-            blobs_received,
-        })
+        completed.ok_or(last_error)
     })
     .await
     .map_err(|error| error.to_string())?;
@@ -953,7 +1092,7 @@ pub async fn lan_sync_pull(
 ) -> Result<LanSyncResult, String> {
     let peer = find_peer(&state, &id)?;
     let identity = load_identity()?;
-    let mut stream = TcpStream::connect((peer.host.as_str(), LAN_PORT)).map_err(|_| {
+    let stream = TcpStream::connect((peer.host.as_str(), LAN_PORT)).map_err(|_| {
         "Appareil injoignable : lancez une réception sur l’autre appareil".to_string()
     })?;
     stream
@@ -962,8 +1101,8 @@ pub async fn lan_sync_pull(
     stream
         .set_write_timeout(Some(IO_TIMEOUT))
         .map_err(|error| error.to_string())?;
-    let session = handshake(&mut stream, &identity, true)?;
-    let remote = remote_static(&session)?;
+    let mut stream = handshake_stream(stream, &identity, true)?;
+    let remote = stream.remote_static()?;
     if !constant_time_equal(&decode_std(&peer.public_key)?, &remote) {
         return Err("L’appareil distant ne correspond pas au pair enregistré".into());
     }
@@ -1025,17 +1164,18 @@ mod tests {
         let secret = [9u8; 32];
 
         let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
+            let (stream, _) = listener.accept().unwrap();
             stream.set_read_timeout(Some(IO_TIMEOUT)).unwrap();
             stream.set_write_timeout(Some(IO_TIMEOUT)).unwrap();
-            handle_pair(&mut stream, &responder, &secret)
+            let mut stream = handshake_stream(stream, &responder, false).unwrap();
+            handle_pair(&mut stream, &secret)
         });
 
-        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
         stream.set_read_timeout(Some(IO_TIMEOUT)).unwrap();
         stream.set_write_timeout(Some(IO_TIMEOUT)).unwrap();
-        let session = handshake(&mut stream, &initiator, true).unwrap();
-        let remote = remote_static(&session).unwrap();
+        let mut stream = handshake_stream(stream, &initiator, true).unwrap();
+        let remote = stream.remote_static().unwrap();
         assert_eq!(base64_std(&remote), expected);
         write_json(
             &mut stream,
@@ -1072,17 +1212,53 @@ mod tests {
 
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
+        let responder = test_identity();
+        let initiator = test_identity();
         let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
+            let (stream, _) = listener.accept().unwrap();
+            let mut stream = handshake_stream(stream, &responder, false).unwrap();
             exchange_blobs_responder(&mut stream, &dir_a, &["blob1".into()]).unwrap()
         });
 
-        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let mut stream = handshake_stream(stream, &initiator, true).unwrap();
         let received = exchange_blobs_initiator(&mut stream, &dir_b, &[]).unwrap();
         assert_eq!(received, 1);
         assert_eq!(server.join().unwrap(), 0);
         assert_eq!(std::fs::read(dir_b.join("blob1")).unwrap(), payload);
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn les_trames_post_handshake_sont_chiffrees() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let responder = test_identity();
+        let initiator = test_identity();
+        let secret = b"secret-en-clair-interdit";
+
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _transport = handshake(&mut stream, &responder, false).unwrap();
+            let mut length = [0u8; 4];
+            stream.read_exact(&mut length).unwrap();
+            let size = u32::from_be_bytes(length) as usize;
+            let mut ciphertext = vec![0u8; size];
+            stream.read_exact(&mut ciphertext).unwrap();
+            assert!(
+                !ciphertext
+                    .windows(secret.len())
+                    .any(|window| window == secret),
+                "le clair ne doit pas apparaître sur le fil"
+            );
+            ciphertext.len()
+        });
+
+        let stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let mut stream = handshake_stream(stream, &initiator, true).unwrap();
+        stream.write_frame(secret).unwrap();
+        let ciphertext_len = server.join().unwrap();
+        assert!(ciphertext_len > secret.len());
     }
 
     #[test]
@@ -1094,17 +1270,17 @@ mod tests {
         let expected = responder.public_key.clone();
 
         let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            let session = handshake(&mut stream, &responder, false).unwrap();
-            let public = remote_static(&session).unwrap();
-            write_frame(&mut stream, b"bonjour").unwrap();
+            let (stream, _) = listener.accept().unwrap();
+            let mut stream = handshake_stream(stream, &responder, false).unwrap();
+            let public = stream.remote_static().unwrap();
+            stream.write_frame(b"bonjour").unwrap();
             base64_std(&public)
         });
 
-        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
-        let session = handshake(&mut stream, &initiator, true).unwrap();
-        let remote = base64_std(&remote_static(&session).unwrap());
-        assert_eq!(read_frame(&mut stream).unwrap(), b"bonjour");
+        let stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let mut stream = handshake_stream(stream, &initiator, true).unwrap();
+        let remote = base64_std(&stream.remote_static().unwrap());
+        assert_eq!(stream.read_frame().unwrap(), b"bonjour");
         assert_eq!(remote, expected);
         assert_eq!(
             server.join().unwrap(),

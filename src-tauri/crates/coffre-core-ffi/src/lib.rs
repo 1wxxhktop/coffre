@@ -27,6 +27,17 @@ fn ffi_error(error: impl std::fmt::Display) -> FfiError {
 
 type FfiResult<T> = Result<T, FfiError>;
 
+fn ensure_writable(opened: &core::OpenedVault) -> FfiResult<()> {
+    if opened.read_only {
+        return Err(FfiError::Message {
+            message:
+                "Le fichier est ouvert en lecture seule (MAC global invalide) : mutation refusée."
+                    .into(),
+        });
+    }
+    Ok(())
+}
+
 #[derive(Serialize)]
 struct VaultDto {
     id: String,
@@ -363,6 +374,7 @@ pub fn core_create_item(
 ) -> FfiResult<String> {
     let original = parse_file(&file_json)?;
     let mut opened = core::open(&original, &password).map_err(ffi_error)?;
+    ensure_writable(&opened)?;
     let content: serde_json::Value = serde_json::from_str(&content_json).map_err(ffi_error)?;
     core::create_item(&mut opened.file, &opened.session, &vault_id, content, &now)
         .map_err(ffi_error)?;
@@ -389,6 +401,7 @@ pub fn core_update_item(
 ) -> FfiResult<String> {
     let original = parse_file(&file_json)?;
     let mut opened = core::open(&original, &password).map_err(ffi_error)?;
+    ensure_writable(&opened)?;
     let content: serde_json::Value = serde_json::from_str(&content_json).map_err(ffi_error)?;
     core::update_item(&mut opened.file, &opened.session, &item_id, content, &now)
         .map_err(ffi_error)?;
@@ -414,6 +427,7 @@ pub fn core_remove_item(
 ) -> FfiResult<String> {
     let original = parse_file(&file_json)?;
     let mut opened = core::open(&original, &password).map_err(ffi_error)?;
+    ensure_writable(&opened)?;
     core::remove_item(&mut opened.file, &item_id).map_err(ffi_error)?;
     let signed = core::sign(
         opened.file,
@@ -438,6 +452,7 @@ pub fn core_rotate_password(
 ) -> FfiResult<String> {
     let original = parse_file(&file_json)?;
     let mut opened = core::open(&original, &old_password).map_err(ffi_error)?;
+    ensure_writable(&opened)?;
     let kdf: KdfParams = serde_json::from_str(&kdf_json).map_err(ffi_error)?;
     let rotated =
         core::rotate_password(&opened.file, &mut opened.session, &new_password, &kdf, &now)

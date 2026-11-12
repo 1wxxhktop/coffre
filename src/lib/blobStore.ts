@@ -14,6 +14,7 @@ export interface BlobInfo {
   size: number
   sha256: string
   path: string
+  name: string
 }
 
 export function blobStoreAvailable(): boolean {
@@ -47,22 +48,31 @@ export function newBlobKey(): string {
   return btoa(binary)
 }
 
+/**
+ * Ouvre le dialogue natif de sélection puis chiffre le fichier choisi. Le
+ * chemin ne transite jamais par la WebView : seul l’identifiant du blob et sa
+ * clé sont fournis par l’interface.
+ */
 export async function encryptBlob(input: {
   id: string
-  sourcePath: string
   key: string
 }): Promise<BlobInfo> {
   requireTauri()
   return invoke<BlobInfo>('blob_encrypt', input)
 }
 
+/** Ouvre le dialogue natif d’enregistrement puis déchiffre le blob. */
 export async function decryptBlob(input: {
   id: string
-  targetPath: string
   key: string
+  suggestedName?: string
 }): Promise<BlobInfo> {
   requireTauri()
-  return invoke<BlobInfo>('blob_decrypt', input)
+  return invoke<BlobInfo>('blob_decrypt', {
+    id: input.id,
+    key: input.key,
+    suggestedName: input.suggestedName,
+  })
 }
 
 export async function previewBlob(input: {

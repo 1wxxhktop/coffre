@@ -42,6 +42,31 @@
   que le cœur Rust ne sait pas ré-envelopper, au lieu de les laisser sous
   l’ancienne clé. `templateWraps` est préservé.
 - Une dégradation connue `v4 → v3` ouvre désormais le coffre en lecture seule.
+- **LAN** : le protocole passe en version 2 et toutes les trames
+  post-handshake (appairage, synchronisation, blobs) sont chiffrées et
+  authentifiées par Noise. Les anciennes versions ne peuvent plus s’appairer
+  avec cette version. Les codes d’appairage sont limités aux adresses locales,
+  et une connexion invalide ne consomme plus toute la fenêtre d’appairage ou de
+  synchronisation.
+- **Fichiers blob** : les commandes `blob_encrypt`/`blob_decrypt` ouvrent un
+  dialogue natif et ne reçoivent plus de chemin arbitraire depuis la WebView.
+  Les fichiers temporaires sont créés en `0600`, nettoyés en cas d’échec et la
+  cible déchiffrée reçoit aussi `0600`.
+- **Origines locales Tauri** : seules `tauri://localhost` et
+  `http://tauri.localhost` (sans port arbitraire) sont acceptées. Les variantes
+  `tauri://evil`, `tauri.localhost:8080` et `https://tauri.localhost` sont
+  refusées.
+- **Auto-type** : la saisie est refusée dans la fenêtre Coffre côté Rust, le
+  focus est revérifié entre chaque caractère et les secrets sont effacés après
+  usage.
+- **Lecture seule** : l’agent SSH et les mutations FFI refusent désormais un
+  coffre dont le MAC global est invalide.
+- **PDF** : la CSP autorise `frame-src blob:` pour l’aperçu des pièces jointes
+  PDF, et `core:window:allow-hide` est accordé à l’auto-type.
+- **Pont natif** : plafond de 16 connexions simultanées ; la variable de test
+  `COFFRE_BRIDGE_SOCKET` n’est active qu’en build de débogage.
+- Les identifiants de blobs et de synchronisation refusent les noms réservés
+  Windows (`CON`, `NUL`, `COM1`, etc.).
 
 ## 0.13.0 — 11 novembre 2026
 

@@ -218,6 +218,13 @@ mod unix {
         };
         key.fill(0);
 
+        if opened.read_only {
+            return Err(
+                "Le coffre est ouvert en lecture seule (MAC global invalide) : agent SSH refusé."
+                    .into(),
+            );
+        }
+
         let mut identities = Vec::new();
         let mut fingerprints = Vec::new();
         for item in &opened.items {

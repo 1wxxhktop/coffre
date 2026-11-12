@@ -43,6 +43,15 @@ fn same_window(expected: &ActiveWindowInfo, current: &ActiveWindowInfo) -> bool 
     expected.window_id == current.window_id && expected.process_id == current.process_id
 }
 
+fn is_coffre_window(window: &ActiveWindowInfo) -> bool {
+    let haystack = format!(
+        "{} {} {}",
+        window.title, window.app_name, window.process_path
+    )
+    .to_lowercase();
+    haystack.contains("coffre")
+}
+
 fn ensure_focus(expected: &ActiveWindowInfo) -> Result<(), String> {
     let current = current_window()?;
     if same_window(expected, &current) {
@@ -142,6 +151,14 @@ pub fn autotype_run(
     if sequence.len() > 4_000 {
         return Err("Séquence de saisie trop longue".into());
     }
+    if username.len() > 4_096 || password.len() > 4_096 || totp.len() > 4_096 {
+        return Err("Valeur de saisie trop longue".into());
+    }
+    // La WebView ne doit pas pouvoir injecter des frappes dans Coffre lui-même.
+    let active = current_window()?;
+    if is_coffre_window(&active) {
+        return Err("La saisie automatique est refusée dans Coffre".into());
+    }
     let expected = ActiveWindowInfo {
         title: String::new(),
         app_name: String::new(),
@@ -150,6 +167,8 @@ pub fn autotype_run(
         process_id: expected_process_id,
     };
     ensure_focus(&expected)?;
+    let password = zeroize::Zeroizing::new(password);
+    let totp = zeroize::Zeroizing::new(totp);
     let tokens = parse_sequence(&sequence, &username, &password, &totp)?;
     let mut enigo = Enigo::new(&Settings::default()).map_err(|error| {
         format!(
@@ -164,10 +183,16 @@ pub fn autotype_run(
                 if value.is_empty() {
                     continue;
                 }
-                enigo
-                    .text(&value)
-                    .map_err(|error| format!("Saisie impossible : {error}"))?;
-                typed += value.chars().count();
+                // Vérifier le focus entre chaque caractère réduit la fenêtre
+                // pendant laquelle une bascule de fenêtre pourrait détourner
+                // une partie du secret.
+                for character in value.chars() {
+                    ensure_focus(&expected)?;
+                    enigo
+                        .text(&character.to_string())
+                        .map_err(|error| format!("Saisie impossible : {error}"))?;
+                    typed += 1;
+                }
             }
             Token::Key(key) => {
                 enigo
@@ -200,6 +225,26 @@ mod tests {
         assert_eq!(tokens.len(), 4);
         let tokens = parse_sequence("{DELAY 500}{TOTP}", "ada", "secret", "123456").unwrap();
         assert_eq!(tokens.len(), 2);
+    }
+
+    #[test]
+    fn refuse_la_fenetre_coffre() {
+        let window = ActiveWindowInfo {
+            title: "Coffre".into(),
+            app_name: "Coffre".into(),
+            process_path: "/Applications/Coffre.app".into(),
+            window_id: "1".into(),
+            process_id: 1,
+        };
+        assert!(is_coffre_window(&window));
+        let other = ActiveWindowInfo {
+            title: "Terminal".into(),
+            app_name: "Terminal".into(),
+            process_path: "/Applications/Utilities/Terminal.app".into(),
+            window_id: "2".into(),
+            process_id: 2,
+        };
+        assert!(!is_coffre_window(&other));
     }
 
     #[test]
