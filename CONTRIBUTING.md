@@ -50,6 +50,9 @@ cargo audit
 6. **Après chaque fusion, mise à jour ou release, nettoyer le poste** (voir
    ci-dessous).
 
+Pour la boucle d’édition, ne pas attendre la CI : voir
+[docs/DEV-FAST.md](docs/DEV-FAST.md) (tests ciblés, e2e Chromium, mode UI).
+
 ## Nettoyage
 
 Le dossier **`release/` n’est jamais supprimé** : il doit toujours contenir la
