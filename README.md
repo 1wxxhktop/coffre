@@ -107,8 +107,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   ne sont remplis qu’après une action explicite ; une carte est refusée hors
   HTTPS et dans une iframe tierce qui n’est pas un prestataire de paiement
   connu. Les pages sont autorisées explicitement via les permissions
-  optionnelles. L’extension ne stocke aucun identifiant et ne copie dans le
-  presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
+  optionnelles. Le **remplissage au chargement** est disponible en opt-in :
+  sur HTTPS, dans le cadre principal et lorsqu’une seule connexion correspond,
+  il remplit identifiant et mot de passe sans jamais saisir le TOTP ni
+  soumettre le formulaire. L’extension ne stocke aucun identifiant et ne copie
+  dans le presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
   l’option est activée, pour le code TOTP après un remplissage ; seule la clé
   de session du pont natif est conservée dans son stockage local.
 - **Protection anti-hameçonnage** : avant un remplissage forcé ou un
@@ -1513,10 +1516,12 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 
 - L’extension navigateur est disponible pour Chromium et Firefox ; la variante
   Firefox est construite mais n’est pas encore validée en exécution réelle. Le
-  pont natif desktop est implémenté sur macOS et Linux ; Windows, la
-  vérification de signature du relais et le remplissage automatique à
-  l’ouverture de page restent à faire. Sans pont appairé, l’onglet Coffre doit
-  rester ouvert et déverrouillé.
+  pont natif desktop est implémenté sur macOS et Linux ; Windows et la
+  vérification de signature du relais restent à faire. Sans pont appairé,
+  l’onglet Coffre doit rester ouvert et déverrouillé. Le remplissage au
+  chargement ne s’exécute que sur HTTPS, dans le cadre principal et lorsqu’une
+  seule connexion correspond ; les applications à page unique qui rendent leur
+  formulaire après une navigation interne peuvent ne pas en bénéficier.
 - La synchronisation par dossier est disponible dans l’application desktop
   (macOS/Linux validés, Windows à valider) et dans Chromium via File System
   Access API. Safari/Firefox utilisent la sauvegarde manuelle par fichier

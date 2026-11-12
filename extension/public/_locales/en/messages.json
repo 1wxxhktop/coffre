@@ -461,8 +461,8 @@
   "options_autofillOnLoad": {
     "message": "Fill on page load"
   },
-  "options_soon": {
-    "message": "Available in a later batch (E11)."
+  "options_autofillOnLoadHint": {
+    "message": "On authorized sites, fills the only matching login after the page loads. TOTP is never filled and the form is never submitted."
   },
   "options_activation": {
     "message": "Activation"
