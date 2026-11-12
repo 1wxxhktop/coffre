@@ -23,6 +23,7 @@ import {
 import {
   openVaultFileWithMasterKey,
   preserveConflictVersion,
+  resealSidecarsForMasterKey,
   signVaultFile,
   VaultSession,
   WrongPasswordError,
@@ -95,6 +96,33 @@ async function openVerified(
     throw new SyncServiceError('Le MAC global du fichier distant est invalide.')
   }
   return opened
+}
+
+/**
+ * Refuse une fusion si un coffre présent des deux côtés a une clé différente.
+ * C’est le cas après une rotation de clé de coffre partagé : les clés
+ * d’éléments locales ne sont plus enveloppées par la clé distante.
+ */
+function assertMatchingVaultKeys(
+  session: VaultSession,
+  remote: VaultFile,
+  opened: OpenedVault,
+): void {
+  for (const record of remote.vaults) {
+    if (!session.hasVaultKey(record.id) || !opened.session.hasVaultKey(record.id)) {
+      continue
+    }
+    if (
+      !equalBytes(
+        session.vaultKey(record.id),
+        opened.session.vaultKey(record.id),
+      )
+    ) {
+      throw new SyncServiceError(
+        'Les clés de coffre diffèrent entre les appareils (rotation de partage). Synchronisez d’abord le coffre partagé ou rétablissez une clé commune avant de fusionner.',
+      )
+    }
+  }
 }
 
 /** Copie les clés de coffre absentes de la session locale. */
@@ -177,6 +205,16 @@ async function adoptEpoch(
 
     nextSession.setIntegrityKey(reference.opened.session.integrityKey().slice())
 
+    // Les sidecars scellés par l’ancienne clé maîtresse doivent être
+    // ré-enveloppés sous la nouvelle, sinon ils deviennent indéchiffrables
+    // après l’adoption de l’époque.
+    const sidecars = await resealSidecarsForMasterKey(
+      local,
+      session,
+      master,
+    )
+    warnings.push(...sidecars.warnings)
+
     const resealed: VaultFile = {
       ...local,
       kdf: reference.file.kdf,
@@ -184,7 +222,23 @@ async function adoptEpoch(
       updatedAt: new Date().toISOString(),
       vaults,
       recovery,
+      ...(sidecars.templates && sidecars.templates.length > 0
+        ? { templates: sidecars.templates }
+        : {}),
+      ...(sidecars.activity && sidecars.activity.length > 0
+        ? { activity: sidecars.activity }
+        : {}),
+      ...(sidecars.generatorHistory && sidecars.generatorHistory.length > 0
+        ? { generatorHistory: sidecars.generatorHistory }
+        : {}),
+      ...(sidecars.aliasKeys && sidecars.aliasKeys.length > 0
+        ? { aliasKeys: sidecars.aliasKeys }
+        : {}),
+      ...(sidecars.sharing ? { sharing: sidecars.sharing } : {}),
+      ...(sidecars.emergency ? { emergency: sidecars.emergency } : {}),
     }
+    // L’enveloppe PRF ne peut pas être reseellée sans la clé de sécurité.
+    delete resealed.prf
     delete resealed.integrity
     const signed = await signVaultFile(resealed, nextSession, local)
     return { local: signed, session: nextSession, warnings }
@@ -321,6 +375,12 @@ export async function reconcileVaultFiles(
         'Un fichier distant n’a pas pu être authentifié et a été ignoré.',
       )
       continue
+    }
+    try {
+      assertMatchingVaultKeys(session, remote, opened)
+    } catch (error) {
+      opened.session.lock()
+      throw error
     }
     adoptRemoteVaultKeys(session, remote, opened)
     verified.push(remote)

@@ -56,12 +56,14 @@ export async function parseSharedVaultPackage(
     record.version !== 1 ||
     typeof record.vaultId !== 'string' ||
     typeof record.createdAt !== 'string' ||
+    Number.isNaN(Date.parse(record.createdAt)) ||
     !Array.isArray(record.members)
   ) {
     throw new Error('Paquet de partage incomplet')
   }
   const admin = await parsePublicSharingIdentity(record.admin)
   const members: SharedVaultMember[] = []
+  const seenMembers = new Set<string>()
   for (const entry of record.members) {
     if (!entry || typeof entry !== 'object') {
       throw new Error('Membre de partage invalide')
@@ -76,6 +78,7 @@ export async function parseSharedVaultPackage(
       typeof role.memberFingerprint !== 'string' ||
       (role.role !== 'read' && role.role !== 'write') ||
       typeof role.issuedAt !== 'string' ||
+      Number.isNaN(Date.parse(role.issuedAt)) ||
       typeof role.issuedBy !== 'string' ||
       typeof role.signature !== 'string' ||
       !wrap ||
@@ -87,6 +90,10 @@ export async function parseSharedVaultPackage(
     if (role.vaultId !== record.vaultId || role.memberFingerprint !== identity.fingerprint) {
       throw new Error('Rôle de partage incohérent')
     }
+    if (seenMembers.has(identity.fingerprint)) {
+      throw new Error('Membre de partage en double')
+    }
+    seenMembers.add(identity.fingerprint)
     const signed = {
       vaultId: role.vaultId,
       memberFingerprint: role.memberFingerprint,

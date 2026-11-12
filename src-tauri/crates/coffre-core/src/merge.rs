@@ -580,9 +580,15 @@ pub fn merge(local: &VaultFile, remotes: &[VaultFile]) -> Result<MergeResult, Me
         generator_history: local.generator_history.clone(),
         alias_keys: local.alias_keys.clone(),
         sharing: local.sharing.clone(),
-        emergency: local.emergency.clone(),
+        emergency: local
+            .emergency
+            .clone()
+            .or_else(|| files.iter().find_map(|file| file.emergency.clone())),
         recovery,
-        prf: local.prf.clone(),
+        prf: local
+            .prf
+            .clone()
+            .or_else(|| files.iter().find_map(|file| file.prf.clone())),
         writer: Some(writer),
         revision: Some(revision),
         key_epoch: Some(key_epoch),

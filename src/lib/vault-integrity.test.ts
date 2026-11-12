@@ -5,6 +5,7 @@ import {
   changeMasterPassword,
   checkVaultRollback,
   computeManifest,
+  isVaultDowngrade,
   createItem,
   createVaultFile,
   deleteItems,
@@ -509,13 +510,15 @@ describe('anti-retour en arrière', () => {
     delete legacy.tombstones
     delete legacy.integrity
 
-    expect(
-      checkVaultRollback(legacy, {
-        fileId: legacy.id,
-        revision: 7,
-        updatedAt: new Date().toISOString(),
-      }),
-    ).toContain('signature de version 4')
+    const state = {
+      fileId: legacy.id,
+      revision: 7,
+      updatedAt: new Date().toISOString(),
+    }
+    expect(checkVaultRollback(legacy, state)).toContain('signature de version 4')
+    expect(isVaultDowngrade(legacy, state)).toBe(true)
+    expect(isVaultDowngrade(opened.file, state)).toBe(false)
+    expect(isVaultDowngrade(legacy, { ...state, fileId: 'vf_autre' })).toBe(false)
     opened.session.lock()
   })
 })

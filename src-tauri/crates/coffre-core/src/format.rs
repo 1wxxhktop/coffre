@@ -94,6 +94,13 @@ pub struct RecoveryWrap {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RecoveryTemplateWrap {
+    pub template_id: String,
+    pub key: crate::crypto::SealedValue,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RecoveryEnvelope {
     pub version: u8,
     pub kdf: KdfParams,
@@ -101,6 +108,10 @@ pub struct RecoveryEnvelope {
     pub key: crate::crypto::SealedValue,
     pub guard: crate::crypto::SealedValue,
     pub wraps: Vec<RecoveryWrap>,
+    /// Enveloppes des clés de modèles par la clé de récupération. Le cœur ne
+    /// les utilise pas, mais doit les préserver lors d’une écriture.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub template_wraps: Vec<RecoveryTemplateWrap>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import {
+  appendActivity,
+  appendGeneratorHistory,
   changeMasterPassword,
   createItem,
+  createTemplate,
   createVaultFile,
   listItemVersions,
+  rotateVaultKey,
+  setAliasKey,
   signVaultFile,
   unlockVaultFile,
   updateItem,
 } from './vault'
+import { createSharingIdentity } from './sharingVault'
+import { randomBytes } from './crypto'
+import { createEmergencyRecord } from './emergencyVault'
+import { generateSharingIdentity, publicSharingIdentity } from './sharing'
 import {
   reconcileVaultFiles,
   SyncEpochRequiredError,
@@ -214,5 +223,127 @@ describe('orchestration de synchronisation', () => {
     expect(result.warnings.join(' ')).toContain('autre coffre')
     opened.session.lock()
     other.session.lock()
+  })
+
+  it('refuse une rotation de clé de coffre non adoptée', async () => {
+    const { opened, file, vaultId } = await baseVault()
+    const localSession = await unlockVaultFile(file, PASSWORD)
+    const rotatedDraft = await rotateVaultKey(
+      file,
+      opened.session,
+      vaultId,
+      randomBytes(32),
+    )
+    const rotated = await signVaultFile(rotatedDraft, opened.session, file)
+
+    await expect(
+      reconcileVaultFiles({
+        local: file,
+        session: localSession.session,
+        remotes: [rotated],
+      }),
+    ).rejects.toThrow(/clés de coffre diffèrent/i)
+
+    localSession.session.lock()
+    opened.session.lock()
+  })
+
+  it('rescelle tous les sidecars lors de l’adoption d’une époque', async () => {
+    const { opened, file, vaultId } = await baseVault()
+    let draft = file
+
+    const template = await createTemplate(draft, opened.session, {
+      name: 'Modèle de test',
+      fields: [{ id: 'f1', label: 'Champ', type: 'text' }],
+    })
+    draft = template.file
+    draft = (
+      await appendActivity(draft, opened.session, {
+        kind: 'unlock',
+        detail: 'Événement local',
+      })
+    ).file
+    draft = (
+      await appendGeneratorHistory(draft, opened.session, {
+        password: 'genere-pour-le-test-42',
+        domain: 'example.test',
+      })
+    ).file
+    draft = await setAliasKey(
+      draft,
+      opened.session,
+      'simplelogin',
+      'cle-api-locale',
+    )
+    const sharing = await createSharingIdentity(opened.session.masterKey, draft.id)
+    const contact = await generateSharingIdentity()
+    const emergency = await createEmergencyRecord(
+      opened.session.masterKey,
+      publicSharingIdentity(contact),
+    )
+    const prf = {
+      version: 1 as const,
+      credentialId: 'credential-test',
+      salt: 'salt-test',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      wrap: { n: 'n-prf', c: 'c-prf' },
+    }
+    draft = {
+      ...draft,
+      sharing: sharing.record,
+      emergency,
+      prf,
+    }
+    const withSidecars = await signVaultFile(draft, opened.session, file)
+
+    const localFile = await addNote(
+      withSidecars,
+      opened.session,
+      vaultId,
+      'Note locale',
+    )
+    const remoteSession = await unlockVaultFile(withSidecars, PASSWORD)
+    const changed = await changeMasterPassword(
+      withSidecars,
+      remoteSession.session,
+      NEW_PASSWORD,
+      FAST_KDF,
+    )
+    const remote = await signVaultFile(
+      changed,
+      remoteSession.session,
+      withSidecars,
+    )
+
+    const result = await reconcileVaultFiles({
+      local: localFile,
+      session: opened.session,
+      remotes: [remote],
+      password: NEW_PASSWORD,
+    })
+    expect(result.adoptedEpoch).toBe(2)
+    const signed = await signVaultFile(result.file, result.session, localFile)
+    const reopened = await unlockVaultFile(signed, NEW_PASSWORD)
+
+    expect(reopened.templates.map((entry) => entry.name)).toContain(
+      'Modèle de test',
+    )
+    expect(reopened.activity.some((entry) => entry.detail === 'Événement local')).toBe(
+      true,
+    )
+    expect(
+      reopened.generatorHistory.some(
+        (entry) => entry.password === 'genere-pour-le-test-42',
+      ),
+    ).toBe(true)
+    expect(reopened.aliasKeys.simplelogin).toBe('cle-api-locale')
+    expect(reopened.sharing?.fingerprint).toBe(sharing.identity.fingerprint)
+    expect(reopened.file.emergency).toBeDefined()
+    expect(reopened.file.prf).toBeUndefined()
+
+    opened.session.lock()
+    remoteSession.session.lock()
+    result.session.lock()
+    reopened.session.lock()
   })
 })

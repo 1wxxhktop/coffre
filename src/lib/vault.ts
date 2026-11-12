@@ -593,6 +593,30 @@ const vaultFileSchema = z.object({
   integrity: integritySchema.optional(),
 })
 
+/**
+ * Validateurs exportés pour les bundles de coffres partagés. Ils appliquent
+ * exactement les mêmes contraintes d’identifiant, de date et de ciphertext que
+ * le fichier `.coffre`, afin qu’un bundle invalide ne puisse pas corrompre le
+ * fichier local au prochain déverrouillage.
+ */
+export function parseBundleItemRecord(value: unknown): EncryptedItemRecord {
+  return itemRecordSchema.parse(value) as EncryptedItemRecord
+}
+
+export function parseBundleAttachmentRecord(
+  value: unknown,
+): EncryptedAttachmentRecord {
+  return attachmentRecordSchema.parse(value) as EncryptedAttachmentRecord
+}
+
+export function parseBundleVersionRecord(value: unknown): EncryptedVersionRecord {
+  return versionRecordSchema.parse(value) as EncryptedVersionRecord
+}
+
+export function parseBundleTombstone(value: unknown): VaultTombstone {
+  return tombstoneSchema.parse(value) as VaultTombstone
+}
+
 const customFieldSchema = z.object({
   id: z.string().min(1).max(80),
   label: z.string().min(1).max(80),
@@ -1547,6 +1571,23 @@ export async function signVaultFile(
  * Compare la révision du fichier à la plus haute révision déjà vue sur cet
  * appareil. Renvoie un avertissement explicite si le fichier a reculé.
  */
+/**
+ * Vrai lorsqu’un fichier déjà connu en v4 sur cet appareil réapparaît dans un
+ * format antérieur. Une telle dégradation doit ouvrir le coffre en lecture
+ * seule, et non seulement afficher un avertissement.
+ */
+export function isVaultDowngrade(
+  file: VaultFile,
+  state: VaultRevisionState | null | undefined,
+): boolean {
+  return Boolean(
+    state &&
+      state.fileId === file.id &&
+      state.revision > 0 &&
+      file.version !== VAULT_FILE_VERSION,
+  )
+}
+
 export function checkVaultRollback(
   file: VaultFile,
   state: VaultRevisionState | null | undefined,
@@ -1927,8 +1968,9 @@ export async function openVaultFileWithMasterKey(
           .filter((attachment) => attachment.itemId === record.id)
           .map((attachment) => attachment.id),
       )
-      const attachments = parsed.attachments.filter((attachment) =>
-        knownAttachmentIds.has(attachment.id),
+      const attachments = retainKnownAttachments(
+        parsed.attachments,
+        knownAttachmentIds,
       )
       if (attachments.length !== parsed.attachments.length) {
         warnings.push('Une pièce jointe référencée par un élément est introuvable.')
@@ -2261,6 +2303,9 @@ export async function recoverVaultFileWithRecoveryKey(
       // L’identité de partage est scellée par l’ancienne clé maîtresse ;
       // elle est régénérée après une récupération.
       delete next.sharing
+      // L’enveloppe PRF est scellée par l’ancienne clé maîtresse : elle doit
+      // être ré-enrôlée avec la clé de sécurité.
+      delete next.prf
       // L’ancien MAC ne couvre plus les clés ré-enveloppées : on le remplace
       // par une signature calculée sous la nouvelle époque.
       delete next.integrity
@@ -2347,10 +2392,7 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         id: cleanText(attachment.id, 80),
         name: cleanAttachmentName(attachment.name),
         mime: cleanText(attachment.mime, 100) || 'application/octet-stream',
-        size: Math.max(
-          0,
-          Math.min(MAX_ATTACHMENT_BYTES, Math.floor(attachment.size)),
-        ),
+        size: Math.max(0, Math.floor(attachment.size)),
         createdAt: cleanText(attachment.createdAt, 40) || new Date().toISOString(),
         ...(attachment.storage === 'blob'
           ? {
@@ -2771,15 +2813,17 @@ export async function updateItem(
     const previous = {
       ...previousContent,
       deletedAt: normalizeDeletedAt(previousContent.deletedAt),
-      attachments: (previousContent.attachments ?? []).filter((attachment) =>
-        knownAttachmentIds.has(attachment.id),
+      attachments: retainKnownAttachments(
+        previousContent.attachments ?? [],
+        knownAttachmentIds,
       ),
     } as ItemContent
     const content = {
       ...cleaned,
       deletedAt: normalizeDeletedAt(previous.deletedAt),
-      attachments: cleaned.attachments.filter((attachment) =>
-        knownAttachmentIds.has(attachment.id),
+      attachments: retainKnownAttachments(
+        cleaned.attachments,
+        knownAttachmentIds,
       ),
     } as ItemContent
 
@@ -3169,8 +3213,9 @@ export async function restoreItemVersion(
     const content = {
       ...cleaned,
       deletedAt: null,
-      attachments: cleaned.attachments.filter((attachment) =>
-        knownAttachmentIds.has(attachment.id),
+      attachments: retainKnownAttachments(
+        cleaned.attachments,
+        knownAttachmentIds,
       ),
     } as ItemContent
 
@@ -3182,8 +3227,9 @@ export async function restoreItemVersion(
     const current = {
       ...currentRaw,
       deletedAt: normalizeDeletedAt(currentRaw.deletedAt),
-      attachments: (currentRaw.attachments ?? []).filter((attachment) =>
-        knownAttachmentIds.has(attachment.id),
+      attachments: retainKnownAttachments(
+        currentRaw.attachments ?? [],
+        knownAttachmentIds,
       ),
     } as ItemContent
 
@@ -3241,6 +3287,23 @@ export function deleteItems(file: VaultFile, itemIds: Iterable<string>): VaultFi
 
 function attachmentBytesUsed(attachments: AttachmentMeta[]): number {
   return attachments.reduce((total, attachment) => total + attachment.size, 0)
+}
+
+/**
+ * Une pièce jointe blob vit dans le stockage natif, pas dans `file.attachments`.
+ * Elle ne doit donc pas être filtrée avec les pièces jointes inline.
+ */
+function attachmentIsBlob(attachment: AttachmentMeta): boolean {
+  return attachment.storage === 'blob' || Boolean(attachment.blobId)
+}
+
+function retainKnownAttachments(
+  attachments: AttachmentMeta[],
+  knownInlineIds: Set<string>,
+): AttachmentMeta[] {
+  return attachments.filter(
+    (attachment) => attachmentIsBlob(attachment) || knownInlineIds.has(attachment.id),
+  )
 }
 
 export async function addAttachment(
@@ -3361,13 +3424,20 @@ export async function removeAttachment(
   assertUnlocked(session)
   const existing = file.items.find((record) => record.id === item.id)
   if (!existing) throw new VaultValidationError('Élément introuvable')
-  const attachment = file.attachments.find(
-    (candidate) =>
-      candidate.id === attachmentId &&
-      candidate.itemId === existing.id &&
-      candidate.vaultId === existing.vaultId,
-  )
-  if (!attachment) throw new VaultValidationError('Pièce jointe introuvable')
+  const meta = item.attachments.find((candidate) => candidate.id === attachmentId)
+  if (!meta) throw new VaultValidationError('Pièce jointe introuvable dans l’élément')
+  const blob = attachmentIsBlob(meta)
+  const attachment = blob
+    ? undefined
+    : file.attachments.find(
+        (candidate) =>
+          candidate.id === attachmentId &&
+          candidate.itemId === existing.id &&
+          candidate.vaultId === existing.vaultId,
+      )
+  if (!blob && !attachment) {
+    throw new VaultValidationError('Pièce jointe introuvable')
+  }
 
   const itemKey = await openBytes(
     existing.key,
@@ -3376,10 +3446,6 @@ export async function removeAttachment(
   )
 
   try {
-    if (!item.attachments.some((candidate) => candidate.id === attachmentId)) {
-      throw new VaultValidationError('Pièce jointe introuvable dans l’élément')
-    }
-
     const now = new Date().toISOString()
     const cleaned = itemContentOfDraft(item)
     const content = {
@@ -3432,6 +3498,11 @@ export async function openAttachment(
   assertUnlocked(session)
   const meta = item.attachments.find((candidate) => candidate.id === attachmentId)
   if (!meta) throw new VaultValidationError('Pièce jointe introuvable')
+  if (attachmentIsBlob(meta)) {
+    throw new VaultValidationError(
+      'Cette pièce jointe est stockée hors du fichier ; utilisez le stockage de blobs.',
+    )
+  }
 
   const itemRecord = file.items.find((record) => record.id === item.id)
   if (!itemRecord) throw new VaultValidationError('Élément introuvable')
@@ -3655,6 +3726,7 @@ export async function verifyVaultFile(
       }
 
       for (const meta of parsed.attachments) {
+        if (attachmentIsBlob(meta)) continue
         referencedAttachments.add(meta.id)
         const attachment = attachmentRecords.get(meta.id)
         if (
@@ -4186,6 +4258,135 @@ export async function deleteVault(
   }
 }
 
+export interface ResealedMasterKeySidecars {
+  templates?: EncryptedTemplateRecord[]
+  activity?: EncryptedActivityRecord[]
+  generatorHistory?: EncryptedGeneratorRecord[]
+  aliasKeys?: EncryptedAliasKeyRecord[]
+  sharing?: VaultFile['sharing']
+  emergency?: VaultFile['emergency']
+  warnings: string[]
+}
+
+/**
+ * Rescelle les sidecars scellés par la clé maîtresse. Utilisé par le changement
+ * de mot de passe et par l’adoption d’une nouvelle époque de synchronisation.
+ * Une entrée illisible est signalée et omise ; une identité de partage ou
+ * d’urgence incohérente fait échouer l’opération plutôt que d’être perdue ou
+ * reseellée pour une clé non authentifiée.
+ */
+export async function resealSidecarsForMasterKey(
+  file: VaultFile,
+  session: VaultSession,
+  nextMasterKey: Uint8Array,
+): Promise<ResealedMasterKeySidecars> {
+  assertUnlocked(session)
+  const warnings: string[] = []
+
+  const templates: EncryptedTemplateRecord[] = []
+  for (const record of file.templates ?? []) {
+    let templateKey: Uint8Array | null = null
+    try {
+      templateKey = await openBytes(
+        record.key,
+        session.masterKey,
+        templateKeyAad(record.id),
+      )
+      templates.push({
+        ...record,
+        key: await sealBytes(
+          templateKey,
+          nextMasterKey,
+          templateKeyAad(record.id),
+        ),
+        updatedAt: new Date().toISOString(),
+      })
+    } finally {
+      if (templateKey) wipe(templateKey)
+    }
+  }
+
+  const activity: EncryptedActivityRecord[] = []
+  for (const record of file.activity ?? []) {
+    try {
+      const event = await openJson<ActivityEvent>(
+        record.data,
+        session.masterKey,
+        activityAad(record.id),
+      )
+      activity.push({
+        ...record,
+        data: await sealJson(event, nextMasterKey, activityAad(record.id)),
+      })
+    } catch {
+      warnings.push('Un événement d’activité illisible a été omis.')
+    }
+  }
+
+  const generatorHistory: EncryptedGeneratorRecord[] = []
+  for (const record of file.generatorHistory ?? []) {
+    try {
+      const payload = await openJson<unknown>(
+        record.data,
+        session.masterKey,
+        generatorHistoryAad(record.id),
+      )
+      generatorHistory.push({
+        ...record,
+        data: await sealJson(
+          payload,
+          nextMasterKey,
+          generatorHistoryAad(record.id),
+        ),
+      })
+    } catch {
+      warnings.push('Une entrée d’historique du générateur illisible a été omise.')
+    }
+  }
+
+  const aliasKeys: EncryptedAliasKeyRecord[] = []
+  for (const record of file.aliasKeys ?? []) {
+    try {
+      const value = await openJson<{ key?: unknown }>(
+        record.data,
+        session.masterKey,
+        aliasKeyAad(record.service),
+      )
+      aliasKeys.push({
+        ...record,
+        data: await sealJson(value, nextMasterKey, aliasKeyAad(record.service)),
+      })
+    } catch {
+      warnings.push('Une clé API d’alias illisible a été omise.')
+    }
+  }
+
+  let sharing = file.sharing
+  if (sharing) {
+    sharing = await resealSharingIdentity(
+      sharing,
+      session.masterKey,
+      nextMasterKey,
+      file.id,
+    )
+  }
+
+  let emergency = file.emergency
+  if (emergency) {
+    emergency = await resealEmergencyRecord(emergency, nextMasterKey)
+  }
+
+  return {
+    templates,
+    activity,
+    generatorHistory,
+    aliasKeys,
+    sharing,
+    emergency,
+    warnings,
+  }
+}
+
 export async function changeMasterPassword(
   file: VaultFile,
   session: VaultSession,
@@ -4224,97 +4425,11 @@ export async function changeMasterPassword(
       }
     }
 
-    const templates: EncryptedTemplateRecord[] = []
-    for (const record of file.templates ?? []) {
-      let templateKey: Uint8Array | null = null
-      try {
-        templateKey = await openBytes(
-          record.key,
-          session.masterKey,
-          templateKeyAad(record.id),
-        )
-        templates.push({
-          ...record,
-          key: await sealBytes(
-            templateKey,
-            nextMasterKey,
-            templateKeyAad(record.id),
-          ),
-          updatedAt: new Date().toISOString(),
-        })
-      } finally {
-        if (templateKey) wipe(templateKey)
-      }
-    }
-
-    const activity: EncryptedActivityRecord[] = []
-    for (const record of file.activity ?? []) {
-      try {
-        const event = await openJson<ActivityEvent>(
-          record.data,
-          session.masterKey,
-          activityAad(record.id),
-        )
-        activity.push({
-          ...record,
-          data: await sealJson(event, nextMasterKey, activityAad(record.id)),
-        })
-      } catch {
-        // Un événement illisible ne doit pas empêcher le changement de mot de passe.
-      }
-    }
-
-    const generatorHistory: EncryptedGeneratorRecord[] = []
-    for (const record of file.generatorHistory ?? []) {
-      try {
-        const payload = await openJson<unknown>(
-          record.data,
-          session.masterKey,
-          generatorHistoryAad(record.id),
-        )
-        generatorHistory.push({
-          ...record,
-          data: await sealJson(
-            payload,
-            nextMasterKey,
-            generatorHistoryAad(record.id),
-          ),
-        })
-      } catch {
-        // Une entrée illisible ne doit pas empêcher la rotation.
-      }
-    }
-
-    const aliasKeys: EncryptedAliasKeyRecord[] = []
-    for (const record of file.aliasKeys ?? []) {
-      try {
-        const value = await openJson<{ key?: unknown }>(
-          record.data,
-          session.masterKey,
-          aliasKeyAad(record.service),
-        )
-        aliasKeys.push({
-          ...record,
-          data: await sealJson(value, nextMasterKey, aliasKeyAad(record.service)),
-        })
-      } catch {
-        // Une clé illisible ne bloque pas la rotation.
-      }
-    }
-
-    let sharing = file.sharing
-    if (sharing) {
-      sharing = await resealSharingIdentity(
-        sharing,
-        session.masterKey,
-        nextMasterKey,
-        file.id,
-      )
-    }
-    let emergency = file.emergency
-    if (emergency) {
-      emergency = await resealEmergencyRecord(emergency, nextMasterKey)
-    }
+    const sidecars = await resealSidecarsForMasterKey(
+      file,
+      session,
+      nextMasterKey,
+    )
 
     session.replaceMasterKey(nextMasterKey)
     // Rotation de l’époque : nouvelle clé HMAC, scellée sous la nouvelle clé
@@ -4325,16 +4440,27 @@ export async function changeMasterPassword(
       ...file,
       kdf,
       vaults,
-      ...(templates.length > 0 ? { templates } : {}),
-      ...(activity.length > 0 ? { activity } : {}),
-      ...(generatorHistory.length > 0 ? { generatorHistory } : {}),
-      ...(aliasKeys.length > 0 ? { aliasKeys } : {}),
-      ...(sharing ? { sharing } : {}),
-      ...(emergency ? { emergency } : {}),
+      ...(sidecars.templates && sidecars.templates.length > 0
+        ? { templates: sidecars.templates }
+        : {}),
+      ...(sidecars.activity && sidecars.activity.length > 0
+        ? { activity: sidecars.activity }
+        : {}),
+      ...(sidecars.generatorHistory && sidecars.generatorHistory.length > 0
+        ? { generatorHistory: sidecars.generatorHistory }
+        : {}),
+      ...(sidecars.aliasKeys && sidecars.aliasKeys.length > 0
+        ? { aliasKeys: sidecars.aliasKeys }
+        : {}),
+      ...(sidecars.sharing ? { sharing: sidecars.sharing } : {}),
+      ...(sidecars.emergency ? { emergency: sidecars.emergency } : {}),
       updatedAt: new Date().toISOString(),
       keyEpoch: (file.keyEpoch ?? 1) + 1,
       recovery,
     }
+    // L’enveloppe PRF est scellée par l’ancienne clé maîtresse et ne peut pas
+    // être reseellée sans la clé de sécurité : elle doit être ré-enrôlée.
+    delete next.prf
     delete next.integrity
     return next
   } catch (error) {

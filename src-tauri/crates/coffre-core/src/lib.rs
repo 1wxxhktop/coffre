@@ -30,7 +30,8 @@ pub use crypto::{
 pub use domain::{host_from_url, login_allows_host, registrable_domain};
 pub use format::{
     AttachmentRecord, Clock, Integrity, ItemRecord, KdfParams, Manifest, RecoveryEnvelope,
-    RecoveryWrap, Tombstone, VaultFile, VaultRecord, VersionRecord, canonical_json,
+    RecoveryTemplateWrap, RecoveryWrap, Tombstone, VaultFile, VaultRecord, VersionRecord,
+    canonical_json,
 };
 pub use merge::{MergeConflict, MergeError, MergeErrorCode, MergeResult, merge};
 pub use passkey::{
@@ -876,6 +877,60 @@ pub fn remove_item(file: &mut VaultFile, item_id: &str) -> Result<(), CoreError>
 
 /// Change le mot de passe maître, re-enveloppe les clés de coffre et tourne
 /// l’époque d’intégrité. L’appelant doit ensuite appeler `sign`.
+fn sidecar_str<'a>(value: &'a serde_json::Value, field: &str) -> Result<&'a str, CoreError> {
+    value
+        .get(field)
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| CoreError::InvalidFormat(format!("champ « {field} » absent du sidecar")))
+}
+
+fn sidecar_sealed(value: &serde_json::Value, field: &str) -> Result<SealedValue, CoreError> {
+    let raw = value
+        .get(field)
+        .ok_or_else(|| CoreError::InvalidFormat(format!("champ « {field} » absent du sidecar")))?;
+    serde_json::from_value(raw.clone())
+        .map_err(|_| CoreError::InvalidFormat(format!("champ « {field} » invalide")))
+}
+
+/// Rescelle un champ `SealedValue` d’un sidecar avec la nouvelle clé maîtresse.
+fn reseal_sealed_field(
+    value: &serde_json::Value,
+    field: &str,
+    old_key: &[u8],
+    new_key: &[u8],
+    aad: &str,
+) -> Result<serde_json::Value, CoreError> {
+    let sealed = sidecar_sealed(value, field)?;
+    let plaintext = Zeroizing::new(crypto::open_bytes(&sealed, old_key, aad)?);
+    let resealed = crypto::seal_bytes(&plaintext, new_key, aad)?;
+    let mut next = value.clone();
+    next[field] = serde_json::to_value(resealed)
+        .map_err(|error| CoreError::InvalidFormat(error.to_string()))?;
+    Ok(next)
+}
+
+/// Rescelle un champ JSON scellé (activité, générateur, clé d’alias).
+fn reseal_json_field(
+    value: &serde_json::Value,
+    field: &str,
+    old_key: &[u8],
+    new_key: &[u8],
+    aad: &str,
+) -> Result<serde_json::Value, CoreError> {
+    let sealed = sidecar_sealed(value, field)?;
+    let plaintext = Zeroizing::new(crypto::open_bytes(&sealed, old_key, aad)?);
+    let parsed: serde_json::Value = serde_json::from_slice(&plaintext)
+        .map_err(|_| CoreError::InvalidFormat("sidecar JSON illisible".into()))?;
+    let bytes = Zeroizing::new(
+        serde_json::to_vec(&parsed).map_err(|error| CoreError::InvalidFormat(error.to_string()))?,
+    );
+    let resealed = crypto::seal_bytes(&bytes, new_key, aad)?;
+    let mut next = value.clone();
+    next[field] = serde_json::to_value(resealed)
+        .map_err(|error| CoreError::InvalidFormat(error.to_string()))?;
+    Ok(next)
+}
+
 pub fn rotate_password(
     file: &VaultFile,
     session: &mut Session,
@@ -910,6 +965,63 @@ pub fn rotate_password(
             crypto::seal_bytes(recovery_key, &next_master, crypto::recovery_guard_aad())?;
     }
 
+    // Le cœur Rust ne sait pas ré-envelopper les identités HPKE de partage et
+    // d’urgence. Refuser explicitement évite de laisser ces sidecars scellés
+    // sous l’ancienne clé maîtresse, ce qui les rendrait indéchiffrables.
+    if file.sharing.is_some() || file.emergency.is_some() {
+        return Err(CoreError::Crypto(
+            "rotation impossible avec une identité de partage ou un accès d’urgence ; utilisez l’application desktop pour les ré-envelopper".into(),
+        ));
+    }
+
+    let mut templates = Vec::with_capacity(file.templates.len());
+    for template in &file.templates {
+        let id = sidecar_str(template, "id")?;
+        templates.push(reseal_sealed_field(
+            template,
+            "key",
+            session.master_key(),
+            &next_master,
+            &crypto::template_key_aad(id),
+        )?);
+    }
+
+    let mut activity = Vec::with_capacity(file.activity.len());
+    for event in &file.activity {
+        let id = sidecar_str(event, "id")?;
+        activity.push(reseal_json_field(
+            event,
+            "data",
+            session.master_key(),
+            &next_master,
+            &crypto::activity_aad(id),
+        )?);
+    }
+
+    let mut generator_history = Vec::with_capacity(file.generator_history.len());
+    for entry in &file.generator_history {
+        let id = sidecar_str(entry, "id")?;
+        generator_history.push(reseal_json_field(
+            entry,
+            "data",
+            session.master_key(),
+            &next_master,
+            &crypto::generator_history_aad(id),
+        )?);
+    }
+
+    let mut alias_keys = Vec::with_capacity(file.alias_keys.len());
+    for entry in &file.alias_keys {
+        let service = sidecar_str(entry, "service")?;
+        alias_keys.push(reseal_json_field(
+            entry,
+            "data",
+            session.master_key(),
+            &next_master,
+            &crypto::alias_key_aad(service),
+        )?);
+    }
+
     let next_integrity = Zeroizing::new(crypto::random_bytes(crypto::KEY_BYTES)?);
     let next_key_epoch = file.key_epoch.unwrap_or(1).saturating_add(1);
     session.replace_master_key(&next_master)?;
@@ -918,6 +1030,10 @@ pub fn rotate_password(
     Ok(VaultFile {
         kdf: new_kdf.clone(),
         vaults,
+        templates,
+        activity,
+        generator_history,
+        alias_keys,
         recovery,
         prf: None,
         updated_at: now.to_string(),
