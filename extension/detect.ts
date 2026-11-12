@@ -357,6 +357,7 @@ function setNativeValue(input: HTMLInputElement, value: string): void {
 export function fillDetectedLogin(
   fields: DetectedLoginFields,
   values: LoginFillValues,
+  focus = true,
 ): number {
   let filled = 0
   if (fields.username && values.username) {
@@ -372,7 +373,7 @@ export function fillDetectedLogin(
     filled += 1
   }
   if (filled > 0) {
-    ;(fields.password ?? fields.username)?.focus()
+    if (focus) (fields.password ?? fields.username)?.focus()
   }
   return filled
 }
