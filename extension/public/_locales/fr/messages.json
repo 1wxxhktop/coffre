@@ -1024,5 +1024,8 @@
   },
   "phishing_cancelled": {
     "message": "Remplissage annulé."
+  },
+  "popup_updateManual": {
+    "message": "Une version plus récente de l’extension est disponible. Rechargez-la depuis le dossier indiqué dans Coffre (Réglages → Mises à jour)."
   }
 }

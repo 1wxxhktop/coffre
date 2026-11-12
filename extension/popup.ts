@@ -16,12 +16,20 @@ import {
   type ActivationMode,
 } from './settings'
 import { isSiteExcluded } from './siteExclusions'
+import { readSelfUpdateState } from './selfUpdate'
 import { loadTheme, nextTheme, saveTheme, type ThemePreference } from './theme'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
 localizeDocument()
 mountLogos()
+
+// Une version plus récente attend sur le disque mais le rechargement
+// automatique n’a pas suffi : l’extension vient d’un autre dossier.
+void readSelfUpdateState().then((state) => {
+  const notice = document.getElementById('update-notice')
+  if (notice) notice.hidden = !state?.manual
+})
 
 interface AppStatus {
   appOpen: boolean

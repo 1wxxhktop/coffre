@@ -18,6 +18,7 @@ mod autotype;
 mod backup_store;
 mod blob_store;
 mod bridge;
+mod extension_store;
 mod lan_sync;
 mod session_watch;
 mod ssh_agent;
@@ -734,6 +735,11 @@ pub fn run() {
             keychain_store,
             keychain_load,
             keychain_delete,
+            extension_store::bridge_key_load,
+            extension_store::bridge_key_store,
+            extension_store::bridge_key_delete,
+            extension_store::extension_info,
+            extension_store::extension_reveal,
             biometric_available,
             biometric_confirm,
             biometric_store,
@@ -880,6 +886,8 @@ pub fn run() {
             if let Err(error) = bridge::start_server(app.handle().clone()) {
                 eprintln!("Pont natif indisponible : {error}");
             }
+            // Copie de l’extension tenue à jour pour le navigateur.
+            extension_store::sync_at_startup(app.handle());
             if let Err(error) = bridge::install_native_hosts() {
                 #[cfg(debug_assertions)]
                 eprintln!("Hôte de messagerie native non installé : {error}");

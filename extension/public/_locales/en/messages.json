@@ -1024,5 +1024,8 @@
   },
   "phishing_cancelled": {
     "message": "Fill cancelled."
+  },
+  "popup_updateManual": {
+    "message": "A newer version of the extension is available. Reload it from the folder shown in Coffre (Settings → Updates)."
   }
 }

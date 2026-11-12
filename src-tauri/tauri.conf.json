@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "bun run dev",
-    "beforeBuildCommand": "bun run build"
+    "beforeBuildCommand": "bun run build && bun run extension:build && node scripts/stage-extension.mjs"
   },
   "app": {
     "windows": [
@@ -50,6 +50,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": {
+      "resources/extension/": "extension/"
+    },
     "android": {
       "debugApplicationIdSuffix": ".debug"
     },

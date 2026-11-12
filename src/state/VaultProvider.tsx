@@ -70,7 +70,12 @@ import {
   type VaultSession,
 } from '../lib/vault'
 import { deriveMasterKey, fromBase64, randomBytes, toBase64, wipe } from '../lib/crypto'
-import { deleteVaultKey, loadVaultKey, storeVaultKey } from '../lib/keychain'
+import {
+  deleteBridgeKey,
+  deleteVaultKey,
+  loadVaultKey,
+  storeVaultKey,
+} from '../lib/keychain'
 import {
   deleteBiometricKey,
   loadBiometricKey,
@@ -148,7 +153,6 @@ import {
 } from '../lib/sharedSyncConfig'
 import { clearSecurityHistory } from '../lib/securityHistory'
 import { setAliasDefaults } from '../lib/emailAlias'
-import { BRIDGE_KEYCHAIN_ACCOUNT } from '../lib/bridgeProtocol'
 import { isTauriRuntime } from '../lib/external'
 import { SYSTEM_LOCK_EVENT, isStartedHidden, systemLockShouldLock } from '../lib/systemIntegration'
 import {
@@ -3099,7 +3103,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
           await unwatchSyncFolder().catch(() => undefined)
         }
-        await deleteVaultKey(BRIDGE_KEYCHAIN_ACCOUNT)
+        await deleteBridgeKey()
         window.dispatchEvent(new Event('coffre:bridge-forget'))
         apply(() => ({ ...initialState, status: 'empty' }))
       }),

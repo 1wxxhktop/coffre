@@ -290,6 +290,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   l’édition restent dans le panneau, avec menu d’actions secondaires,
   déplacement entre coffres, duplication (bouton à côté du titre ou `⌘D` /
   `Ctrl+D`, la copie s’ouvre en modification) et navigation clavier.
+- **Extension tenue à jour par l’application** : Coffre embarque l’extension
+  et en garde une copie à jour dans un dossier fixe (Réglages → Mises à jour →
+  Extension navigateur). Chargée une fois depuis ce dossier, elle se recharge
+  d’elle-même après chaque mise à jour de Coffre. L’association avec
+  l’application n’est demandée qu’une fois.
 - **Palette de commandes et accès rapide** : `⌘K` / `Ctrl+K` ouvre une
   recherche unique pour ouvrir un élément ou lancer une action (nouvel élément,
   générateur, bilan de sécurité, réglages, verrouillage). Elle ne lit jamais les

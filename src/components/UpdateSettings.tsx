@@ -4,6 +4,7 @@ import { useI18n } from '../state/I18nProvider'
 import { useUpdates } from '../state/UpdateProvider'
 import { formatDateTime } from '../lib/settings'
 import { isPrerelease, progressPercent, UPDATE_ERROR_TEXTS } from '../lib/updates'
+import { automaticUpdatePreset, isFullyAutomaticUpdate } from '../lib/extensionInstall'
 
 export function UpdateSettings() {
   const { settings, updateSettings } = useSettings()
@@ -179,6 +180,25 @@ export function UpdateSettings() {
           )}
         </div>
       )}
+
+      <label className="checkbox update-auto">
+        <input
+          type="checkbox"
+          checked={isFullyAutomaticUpdate(settings)}
+          onChange={(event) =>
+            updateSettings(automaticUpdatePreset(event.target.checked, settings))
+          }
+          disabled={!configured}
+        />
+        <span>
+          <strong>{tt('Mettre à jour automatiquement')}</strong>
+          <small>
+            {tt(
+              'Coffre cherche les nouvelles versions, les télécharge en arrière-plan et les installe à sa fermeture. Les réglages ci-dessous permettent d’ajuster chaque étape.',
+            )}
+          </small>
+        </span>
+      </label>
 
       <div className="form-grid">
         <label className="field">

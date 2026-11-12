@@ -646,9 +646,26 @@ longueur entre stdin/stdout et un socket local.
   affiche le même code, et l’utilisateur confirme explicitement dans
   l’application. La clé de session est dérivée par ECDH puis HKDF-SHA-256 et
   liée aux deux clés publiques.
-- La clé de session est conservée dans le trousseau du système côté
-  application et dans `chrome.storage.local` côté extension. Elle n’est jamais
-  écrite dans le fichier `.coffre`.
+- La clé de session est conservée côté application et dans
+  `chrome.storage.local` côté extension. Elle n’est jamais écrite dans le
+  fichier `.coffre`. Sous Windows et Linux, l’application la garde dans le
+  trousseau du système. Sous macOS, elle la garde dans un fichier privé de son
+  dossier de données (`bridge/session.key`, mode 0600, dossier 0700) : le
+  trousseau lie chaque entrée à la signature de l’application, et celle d’une
+  application signée ad hoc change à chaque version, ce qui rendait la clé
+  illisible après chaque mise à jour et redemandait l’association. Cette clé ne
+  protège que le canal local et l’extension en détient déjà une copie en clair
+  dans son stockage : le fichier n’abaisse pas le niveau de protection. La clé
+  maîtresse du coffre reste, elle, dans le trousseau.
+- **Copie gérée de l’extension** : l’application embarque l’extension et en
+  recopie les fichiers dans `extension/` de son dossier de données, au
+  démarrage, quand la version diffère. L’utilisateur charge ce dossier une fois
+  dans son navigateur. La réponse `status` du pont annonce la version présente
+  sur le disque ; si elle est plus récente, l’extension appelle
+  `runtime.reload()` et le navigateur relit ces fichiers. Aucune requête réseau
+  n’est faite, aucun code n’est téléchargé par l’extension : les fichiers
+  viennent du paquet de l’application, lui-même vérifié par la signature de
+  mise à jour. Le rechargement n’est tenté qu’une fois par version.
 - Après appairage, chaque requête et chaque réponse est chiffrée en
   AES-256-GCM avec un nonce aléatoire de 12 octets et une AAD qui lie
   l’identifiant de session, la direction et un compteur monotone. Un compteur
@@ -2018,6 +2035,8 @@ La WebView n’accède au système que par des commandes IPC explicites :
 | Groupe | Rôle |
 | --- | --- |
 | `keychain_store`, `keychain_load`, `keychain_delete` | trousseau de session |
+| `bridge_key_store`, `bridge_key_load`, `bridge_key_delete` | clé d’appairage du pont natif (fichier privé sous macOS, trousseau ailleurs) |
+| `extension_info`, `extension_reveal` | copie gérée de l’extension : état, mise à niveau et ouverture du dossier |
 | `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS et Windows Hello |
 | `autostart_enabled`, `autostart_set`, `startup_is_hidden` | démarrage à l’ouverture de session et lancement masqué |
 | `tray_set_language`, `tray_set_keep_on_close` | libellés du menu et comportement à la fermeture |

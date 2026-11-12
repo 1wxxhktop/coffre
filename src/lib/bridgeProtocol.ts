@@ -15,6 +15,7 @@
 export const BRIDGE_PROTOCOL_VERSION = 2
 export const BRIDGE_HOST_NAME = 'app.coffre.bridge'
 export const BRIDGE_SESSION_STORAGE_KEY = 'bridgeSession'
+/** Compte du trousseau pour la clé d’appairage (Windows et Linux). */
 export const BRIDGE_KEYCHAIN_ACCOUNT = 'bridge:session'
 
 export type BridgeDirection = 'extension-to-app' | 'app-to-extension'
