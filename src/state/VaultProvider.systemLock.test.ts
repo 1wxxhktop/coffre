@@ -148,4 +148,32 @@ describe('VaultProvider et verrouillage système', () => {
     const saved = saveVaultFile.mock.calls[0][0]
     expect(saved.activity?.length ?? 0).toBeGreaterThan(0)
   })
+
+  it('efface les sidecars déchiffrés au verrouillage', async () => {
+    await mountProvider()
+    await act(async () => {
+      await vault!.unlock(PASSWORD)
+    })
+
+    await act(async () => {
+      await vault!.recordActivity('unlock', 'Événement de test')
+      await vault!.recordGeneratedPassword({
+        password: 'genere-pour-le-test-42',
+        host: 'example.test',
+      })
+      await vault!.setAliasKey('simplelogin', 'cle-api-test')
+    })
+    expect(vault!.activity.length).toBeGreaterThan(0)
+    expect(vault!.generatorHistory.length).toBeGreaterThan(0)
+    expect(vault!.aliasKeys.simplelogin).toBe('cle-api-test')
+
+    await act(async () => {
+      vault!.lock()
+    })
+    expect(vault!.status).toBe('locked')
+    expect(vault!.activity).toEqual([])
+    expect(vault!.generatorHistory).toEqual([])
+    expect(vault!.aliasKeys).toEqual({})
+    expect(vault!.templates).toEqual([])
+  })
 })

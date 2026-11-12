@@ -30,6 +30,7 @@ import {
   type LanPeer,
 } from '../lib/lanSync'
 import { qrDataUrl } from '../lib/qr'
+import { copySensitive } from '../lib/clipboard'
 import { serializeVault } from '../lib/vault'
 import { SyncEpochRequiredError } from '../lib/syncService'
 
@@ -243,7 +244,9 @@ export function LanSyncSettings() {
   const copyCode = async () => {
     if (!pairing) return
     try {
-      await navigator.clipboard.writeText(pairing.code)
+      if (!(await copySensitive(pairing.code, 120))) {
+        throw new Error('copie refusée')
+      }
       toast(tt('Code copié.'), 'success')
     } catch {
       setError(tt('Copie impossible.'))

@@ -3,6 +3,7 @@ import { AlertTriangle, Download, ShieldAlert } from 'lucide-react'
 import { Modal } from './Modal'
 import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
+import { useVault } from '../state/VaultProvider'
 import { exportCxf } from '../lib/cxf'
 import { downloadFile } from '../lib/settings'
 import type { VaultItem } from '../lib/types'
@@ -19,17 +20,31 @@ interface CxfExportDialogProps {
 export function CxfExportDialog({ items, onClose }: CxfExportDialogProps) {
   const { tt } = useI18n()
   const { toast } = useToast()
+  const { confirmMasterPassword } = useVault()
   const [acknowledged, setAcknowledged] = useState(false)
+  const [masterPassword, setMasterPassword] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const active = items.filter((item) => !item.deletedAt)
   const passkeys = active.filter((item) => item.type === 'passkey').length
 
-  const exportFile = () => {
-    const result = exportCxf(active)
-    downloadFile(result.json, 'coffre.cxf.json', 'application/json')
-    toast(tt('Export CXF téléchargé'), 'success')
-    for (const warning of result.warnings.slice(0, 3)) toast(warning, 'info')
-    onClose()
+  const exportFile = async () => {
+    if (!masterPassword || busy) return
+    setBusy(true)
+    try {
+      if (!(await confirmMasterPassword(masterPassword))) {
+        toast(tt('Mot de passe maître incorrect'), 'error')
+        return
+      }
+      setMasterPassword('')
+      const result = exportCxf(active)
+      downloadFile(result.json, 'coffre.cxf.json', 'application/json')
+      toast(tt('Export CXF téléchargé'), 'success')
+      for (const warning of result.warnings.slice(0, 3)) toast(warning, 'info')
+      onClose()
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -46,8 +61,13 @@ export function CxfExportDialog({ items, onClose }: CxfExportDialogProps) {
           <button
             type="button"
             className="button button--primary"
-            onClick={exportFile}
-            disabled={!acknowledged || active.length === 0}
+            onClick={() => void exportFile()}
+            disabled={
+              !acknowledged ||
+              !masterPassword ||
+              busy ||
+              active.length === 0
+            }
           >
             <Download size={16} />
             {tt('Exporter le fichier CXF')}
@@ -73,6 +93,17 @@ export function CxfExportDialog({ items, onClose }: CxfExportDialogProps) {
             .replace('{count}', String(active.length))
             .replace('{passkeys}', String(passkeys))}
         </p>
+        <label className="field field--full">
+          <span className="field__label">{tt('Mot de passe maître')}</span>
+          <input
+            className="input"
+            type="password"
+            value={masterPassword}
+            onChange={(event) => setMasterPassword(event.target.value)}
+            autoComplete="current-password"
+            placeholder={tt('Ressaisissez votre mot de passe maître')}
+          />
+        </label>
         <label className="checkbox">
           <input
             type="checkbox"

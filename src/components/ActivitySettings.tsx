@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Download, History } from 'lucide-react'
 import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
+import { useToast } from '../state/ToastProvider'
 import { downloadFile, formatDateTime } from '../lib/settings'
 import type { ActivityKind } from '../lib/types'
 
@@ -20,22 +22,36 @@ const LABELS: Record<ActivityKind, string> = {
 }
 
 export function ActivitySettings() {
-  const { activity } = useVault()
+  const { activity, confirmMasterPassword } = useVault()
   const { tt, intl } = useI18n()
+  const { toast } = useToast()
+  const [masterPassword, setMasterPassword] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  const exportJson = () => {
-    downloadFile(
-      JSON.stringify(
-        activity.map((event) => ({
-          ...event,
-          kind: LABELS[event.kind] ?? event.kind,
-        })),
-        null,
-        2,
-      ),
-      'coffre-journal-activite.json',
-      'application/json',
-    )
+  const exportJson = async () => {
+    if (!masterPassword || busy) return
+    setBusy(true)
+    try {
+      if (!(await confirmMasterPassword(masterPassword))) {
+        toast(tt('Mot de passe maître incorrect'), 'error')
+        return
+      }
+      setMasterPassword('')
+      downloadFile(
+        JSON.stringify(
+          activity.map((event) => ({
+            ...event,
+            kind: LABELS[event.kind] ?? event.kind,
+          })),
+          null,
+          2,
+        ),
+        'coffre-journal-activite.json',
+        'application/json',
+      )
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -86,11 +102,22 @@ export function ActivitySettings() {
         )}
 
         <div className="settings-actions settings-actions--start">
+          <label className="field">
+            <span className="field__label">{tt('Mot de passe maître')}</span>
+            <input
+              className="input"
+              type="password"
+              value={masterPassword}
+              onChange={(event) => setMasterPassword(event.target.value)}
+              autoComplete="current-password"
+              placeholder={tt('Ressaisissez votre mot de passe maître')}
+            />
+          </label>
           <button
             type="button"
             className="button button--secondary"
-            onClick={exportJson}
-            disabled={activity.length === 0}
+            onClick={() => void exportJson()}
+            disabled={activity.length === 0 || !masterPassword || busy}
           >
             <Download size={16} />
             {tt('Exporter le journal')}
