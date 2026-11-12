@@ -1,7 +1,7 @@
 {
   "name": "coffre",
   "private": true,
-  "version": "0.14.2",
+  "version": "0.15.0",
   "license": "GPL-3.0-only",
   "type": "module",
   "packageManager": "bun@1.4.3",
@@ -21,7 +21,11 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:changed": "vitest run --changed --passWithNoTests",
     "test:e2e": "playwright test",
+    "test:e2e:one": "playwright test --project=chromium --reporter=line",
+    "test:e2e:smoke": "playwright test --project=chromium --reporter=line e2e/auth-layout.spec.ts e2e/vault.spec.ts e2e/item-models.spec.ts e2e/trash-history.spec.ts",
+    "test:e2e:ui": "playwright test --ui --project=chromium",
     "test:visual": "VISUAL=1 playwright test e2e/visual.spec.ts --project=chromium",
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:webkit": "playwright test --project=webkit",
@@ -60,6 +64,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.8.4",
+    "@tauri-apps/plugin-notification": "^2.8.1",
     "aes-js": "^3.1.2",
     "fast-xml-parser": "^5.12.0",
     "fflate": "^0.8.3",

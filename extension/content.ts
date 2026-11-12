@@ -97,6 +97,10 @@ let inlineMenuEnabled = true
 let saveBannerEnabled = true
 let neverFillSites: string[] = []
 let neverSaveSites: string[] = []
+let autofillOnLoad = false
+let autofillSentFor = ''
+let autofillTimer: number | undefined
+const AUTOFILL_RETRY_DELAYS = [500, 1_500, 3_000]
 const dismissedBanners = new Set<string>()
 
 function send<T>(payload: Record<string, unknown>): Promise<T> {
@@ -441,16 +445,70 @@ function saveBlocked(): boolean {
   return isSiteExcluded(neverSaveSites, currentHost())
 }
 
+/**
+ * Remplissage silencieux à l’ouverture d’une page de connexion.
+ *
+ * Le content script ne lit aucun secret : il vérifie seulement qu’un
+ * formulaire de connexion vide est présent, puis délègue au service worker.
+ * Le second essai couvre les formulaires rendus par JavaScript.
+ */
+function maybeAutofillOnLoad(): boolean {
+  if (!autofillOnLoad || fillBlocked()) return true
+  if (window !== window.top) return true
+  if (location.protocol !== 'https:') return true
+  if (document.visibilityState === 'hidden') return false
+
+  const detected = detectAutofillFields(document)
+  if (!detected) return false
+  if (detected.kind !== 'login') return true
+  const { username, password } = detected.login
+  if (!username || !password) return true
+  if (username.value || password.value) return true
+  if (autofillSentFor === location.href) return true
+
+  autofillSentFor = location.href
+  void send<{ ok?: boolean; error?: string }>({
+    type: 'AUTOFILL_ON_LOAD',
+  }).catch(() => {
+    if (autofillSentFor === location.href) autofillSentFor = ''
+  })
+  return true
+}
+
+function scheduleAutofillOnLoad(): void {
+  if (!autofillOnLoad) return
+  window.clearTimeout(autofillTimer)
+  let attempt = 0
+  const run = () => {
+    if (maybeAutofillOnLoad()) return
+    attempt += 1
+    if (attempt < AUTOFILL_RETRY_DELAYS.length) {
+      const delay =
+        AUTOFILL_RETRY_DELAYS[attempt] - AUTOFILL_RETRY_DELAYS[attempt - 1]
+      autofillTimer = window.setTimeout(run, delay)
+    }
+  }
+  autofillTimer = window.setTimeout(run, AUTOFILL_RETRY_DELAYS[0])
+}
+
 async function loadContentSettings(): Promise<void> {
+  const wasAutofillOnLoad = autofillOnLoad
   const settings = await loadSettings()
   inlineMenuEnabled = settings.inlineMenu
   saveBannerEnabled = settings.saveBanner
   neverFillSites = settings.neverFillSites
   neverSaveSites = settings.neverSaveSites
+  autofillOnLoad = settings.autofillOnLoad
   if (!inlineMenuEnabled || fillBlocked()) removeMenu()
   else scheduleDetection()
   if (!saveBannerEnabled || saveBlocked()) removeSaveBanner()
   else void refreshSaveBanner()
+  if (!autofillOnLoad) {
+    window.clearTimeout(autofillTimer)
+  } else if (!wasAutofillOnLoad) {
+    autofillSentFor = ''
+    scheduleAutofillOnLoad()
+  }
 }
 
 function handleFocus(event: FocusEvent) {
@@ -577,6 +635,7 @@ api.runtime.onMessage.addListener(
       password?: string
       code?: string
       text?: string
+      autofill?: boolean
       values?: {
         kind?: string
         username?: string
@@ -791,13 +850,18 @@ api.runtime.onMessage.addListener(
       sendResponse({ ok: false, error: 'no-password' })
       return
     }
-    const filled = fillDetectedLogin(fields, {
-      username: values.username ?? '',
-      password: values.password,
-      totp: values.totp ?? '',
-    })
-    // La validation automatique n’a lieu que si l’utilisateur l’a activée.
-    if (filled > 0) {
+    const filled = fillDetectedLogin(
+      fields,
+      {
+        username: values.username ?? '',
+        password: values.password,
+        totp: message.autofill ? '' : (values.totp ?? ''),
+      },
+      message.autofill !== true,
+    )
+    // La validation automatique n’a lieu que si l’utilisateur l’a activée et
+    // jamais après un remplissage au chargement.
+    if (filled > 0 && !message.autofill) {
       void loadSettings().then((settings) => {
         if (settings.autoSubmitLogin) submitLoginForm()
       })
@@ -923,12 +987,27 @@ window.addEventListener('scroll', positionMenu, true)
 window.addEventListener('resize', positionMenu)
 window.addEventListener('resize', positionSaveBanner)
 window.addEventListener('focus', () => void refreshSaveBanner())
+window.addEventListener('pageshow', (event) => {
+  if (!event.persisted) return
+  autofillSentFor = ''
+  scheduleAutofillOnLoad()
+})
+document.addEventListener('visibilitychange', () => {
+  if (
+    document.visibilityState === 'visible' &&
+    autofillOnLoad &&
+    autofillSentFor !== location.href
+  ) {
+    scheduleAutofillOnLoad()
+  }
+})
 void loadContentSettings()
 api.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return
   if (
     changes.inlineMenu ||
     changes.saveBanner ||
+    changes.autofillOnLoad ||
     changes.neverFillSites ||
     changes.neverSaveSites
   ) {

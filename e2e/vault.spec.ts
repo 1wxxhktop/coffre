@@ -74,6 +74,44 @@ test.describe('coffre et éléments', () => {
     await expect(page.locator('.topbar__sub')).not.toContainText('0 élément')
   })
 
+  test('copie une adresse web depuis la fiche sans l’ouvrir', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            ;(window as unknown as { __copied: string }).__copied = text
+          },
+          readText: async () =>
+            (window as unknown as { __copied?: string }).__copied ?? '',
+        },
+      })
+    })
+    await createVault(page)
+    const panel = await addLogin(
+      page,
+      'GitHub',
+      'studio26',
+      's3cret!',
+      'https://github.com/login',
+    )
+    const row = panel
+      .locator('.detail-link')
+      .filter({ hasText: 'https://github.com/login' })
+    await expect(row).toBeVisible()
+    const copy = row.getByRole('button', { name: 'Copier l’adresse web' })
+    await copy.click()
+    await expect(copy).toHaveAttribute('data-copied', 'true')
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as unknown as { __copied?: string }).__copied,
+        ),
+      )
+      .toBe('https://github.com/login')
+    await expect(page.locator('.item-panel')).toBeVisible()
+  })
+
   test('verrouille et déverrouille avec le mot de passe maître', async ({ page }) => {
     await createVault(page)
     await addLogin(page)

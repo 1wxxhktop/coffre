@@ -293,6 +293,9 @@
   "popup_footer": {
     "message": "Local · aucun serveur"
   },
+  "popup_extensionVersion": {
+    "message": "Version de l’extension : $1"
+  },
   "popup_footerHint": {
     "message": "↑↓ naviguer · ↵ remplir · / rechercher"
   },
@@ -458,8 +461,8 @@
   "options_autofillOnLoad": {
     "message": "Remplir au chargement"
   },
-  "options_soon": {
-    "message": "Disponible dans un prochain lot (E11)."
+  "options_autofillOnLoadHint": {
+    "message": "Sur les sites autorisés, remplit la seule connexion correspondante après le chargement. Le TOTP n’est jamais rempli et le formulaire n’est jamais soumis."
   },
   "options_activation": {
     "message": "Activation"

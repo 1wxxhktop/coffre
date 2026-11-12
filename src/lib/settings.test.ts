@@ -64,6 +64,7 @@ describe('préférences de mise à jour', () => {
     expect(settings.updateCheck).toBe('off')
     expect(settings.updateChannel).toBe('stable')
     expect(settings.updateAutoDownload).toBe(false)
+    expect(settings.updateNotify).toBe(false)
     expect(settings.updateInstallMode).toBe('ask')
     expect(settings.updateSkippedVersion).toBeNull()
     expect(settings.updateLastCheckAt).toBeNull()
@@ -74,6 +75,7 @@ describe('préférences de mise à jour', () => {
       updateCheck: 'weekly',
       updateChannel: 'beta',
       updateAutoDownload: true,
+      updateNotify: true,
       updateInstallMode: 'on-quit',
       updateSkippedVersion: '1.2.0-beta.1',
       updateLastCheckAt: '2026-11-09T10:00:00.000Z',
@@ -82,9 +84,15 @@ describe('préférences de mise à jour', () => {
     expect(settings.updateCheck).toBe('weekly')
     expect(settings.updateChannel).toBe('beta')
     expect(settings.updateAutoDownload).toBe(true)
+    expect(settings.updateNotify).toBe(true)
     expect(settings.updateInstallMode).toBe('on-quit')
     expect(settings.updateSkippedVersion).toBe('1.2.0-beta.1')
     expect(settings.updateLastCheckAt).toBe('2026-11-09T10:00:00.000Z')
+  })
+
+  it('accepte la recherche continue du canal bêta', () => {
+    stubSettings({ updateCheck: 'continuous' })
+    expect(loadSettings().updateCheck).toBe('continuous')
   })
 
   it('refuse les valeurs inconnues', () => {

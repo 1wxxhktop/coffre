@@ -35,6 +35,33 @@ describe('planification des mises à jour', () => {
     expect(isUpdateCheckDue({ updateCheck: 'weekly', updateLastCheckAt: eightDays }, NOW, true)).toBe(true)
   })
 
+  it('vérifie au lancement puis au plus une fois par minute en continu', () => {
+    const continuous = { updateCheck: 'continuous' as const, updateLastCheckAt: null }
+    expect(isUpdateCheckDue(continuous, NOW, false)).toBe(true)
+    expect(
+      isUpdateCheckDue(
+        { updateCheck: 'continuous', updateLastCheckAt: '2026-11-10T11:59:30.000Z' },
+        NOW,
+        true,
+      ),
+    ).toBe(false)
+    expect(
+      isUpdateCheckDue(
+        { updateCheck: 'continuous', updateLastCheckAt: '2026-11-10T11:58:50.000Z' },
+        NOW,
+        true,
+      ),
+    ).toBe(true)
+    // Un lancement force une vérification même si la dernière est récente.
+    expect(
+      isUpdateCheckDue(
+        { updateCheck: 'continuous', updateLastCheckAt: '2026-11-10T11:59:59.000Z' },
+        NOW,
+        false,
+      ),
+    ).toBe(true)
+  })
+
   it('ne reste pas bloqué si la dernière date est dans le futur', () => {
     expect(
       isUpdateCheckDue(

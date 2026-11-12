@@ -659,6 +659,43 @@ try {
     }
   }, keyboardTab)
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`)
+  await popupPage.locator('#extension-version').waitFor()
+  assert.equal(
+    (await popupPage.locator('#extension-version').textContent())?.trim(),
+    `v${manifest.version}`,
+    'version de l’extension absente du pied de la popup',
+  )
+  // La popup d’action Chrome dimensionne la fenêtre d’après le contenu. Une
+  // hauteur en 100vh peut se résoudre à zéro et laisser une fenêtre vide : on
+  // garde une hauteur fixe, vérifiée ici dans une fenêtre plus haute.
+  const popupBox = await popupPage.locator('.popup').boundingBox()
+  assert.ok(popupBox, 'popup introuvable')
+  assert.ok(
+    popupBox.height >= 500 && popupBox.height <= 620,
+    `hauteur de popup inattendue : ${popupBox.height}px`,
+  )
+
+  // La largeur de la popup d’action est elle aussi calculée d’après son
+  // contenu : un max-width en 100vw peut la réduire à quelques pixels. On
+  // simule une fenêtre étroite et on vérifie que le contenu garde sa largeur.
+  const popupCdp = await context.newCDPSession(popupPage)
+  await popupCdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 300,
+    height: 580,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await popupPage.waitForTimeout(100)
+  const narrowPopup = await popupPage.locator('.popup').boundingBox()
+  assert.ok(narrowPopup, 'popup introuvable en fenêtre étroite')
+  assert.ok(
+    narrowPopup.width >= 340,
+    `largeur de popup inattendue : ${narrowPopup.width}px`,
+  )
+  await popupCdp.send('Emulation.clearDeviceMetricsOverride')
+  await popupCdp.detach()
+  await popupPage.reload()
+
   await popupPage.locator('.result-group__title').first().waitFor()
   const popupHeadings = await popupPage
     .locator('.result-group__title')
@@ -942,6 +979,63 @@ try {
       'Extension : passkey créée, attestation vérifiée et assertion signée validée.',
     )
   }
+
+  // E11a : remplissage au chargement, réservé à HTTPS et à une seule connexion.
+  await app.getByRole('button', { name: 'Tous les éléments' }).first().click()
+  await app.getByRole('button', { name: 'Nouvel élément' }).first().click()
+  const autofillForm = app.getByRole('dialog')
+  await autofillForm.getByLabel('Titre', { exact: true }).fill('Autofill')
+  await autofillForm
+    .getByLabel('Identifiant', { exact: true })
+    .fill('autofill-user')
+  await autofillForm
+    .getByLabel('Mot de passe', { exact: true })
+    .fill('autofill-secret!')
+  await autofillForm
+    .getByPlaceholder('https://exemple.com')
+    .fill('https://autofill.test')
+  await autofillForm.getByRole('button', { name: 'Enregistrer' }).click()
+  await app
+    .locator('.item-panel')
+    .getByRole('heading', { name: 'Autofill' })
+    .waitFor()
+  await app.keyboard.press('Escape')
+
+  const autofillHtml = `<!doctype html><html lang="fr"><body>
+<form onsubmit="window.__submitted = true; event.preventDefault()">
+  <input id="username" name="username" autocomplete="username" />
+  <input id="password" name="password" type="password" autocomplete="current-password" />
+  <input id="otp" name="otp" autocomplete="one-time-code" inputmode="numeric" />
+  <button type="submit">Connexion</button>
+</form>
+</body></html>`
+  await context.route('https://autofill.test/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: autofillHtml }),
+  )
+  await extensionPage.evaluate(() =>
+    chrome.storage.local.set({ autofillOnLoad: true }),
+  )
+  const autofillPage = await context.newPage()
+  await autofillPage.goto('https://autofill.test/')
+  await autofillPage.waitForFunction(
+    () =>
+      document.querySelector('#username')?.value === 'autofill-user' &&
+      document.querySelector('#password')?.value === 'autofill-secret!',
+    null,
+    { timeout: 15_000 },
+  )
+  const autofillState = await autofillPage.evaluate(() => ({
+    otp: document.querySelector('#otp')?.value,
+    submitted: window.__submitted === true,
+  }))
+  assert.equal(autofillState.otp, '')
+  assert.equal(autofillState.submitted, false)
+  await extensionPage.evaluate(() =>
+    chrome.storage.local.set({ autofillOnLoad: false }),
+  )
+  await context.unroute('https://autofill.test/**')
+  await autofillPage.close()
+  console.log('Extension : remplissage au chargement validé.')
 
   await app.getByRole('button', { name: 'Verrouiller' }).first().click()
   const locked = await extensionPage.evaluate(() =>

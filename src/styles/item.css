@@ -305,6 +305,15 @@
   color: var(--accent-strong);
 }
 
+.detail-link__copy {
+  margin-top: -4px;
+  color: var(--text-3);
+}
+
+.detail-link__copy:hover:not(:disabled) {
+  color: var(--accent-strong);
+}
+
 .custom-fields {
   display: flex;
   flex-direction: column;

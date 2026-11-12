@@ -2,12 +2,53 @@
 
 ## Non publié
 
+- Extension : **remplissage au chargement** en opt-in. Sur HTTPS, dans le
+  cadre principal et lorsqu’une seule connexion correspond, Coffre remplit
+  identifiant et mot de passe après le chargement, sans TOTP ni soumission
+  automatique. Les sites exclus, les formulaires déjà remplis et les signaux
+  anti-hameçonnage bloquent le remplissage.
+
+## 0.15.0 — 12 novembre 2026
+
+Version de finition de l’interface et de l’extension. Le format `.coffre`
+reste `4`, le manifeste `3` et les protocoles `2` : la mise à jour est
+compatible avec les fichiers et les appareils 0.14.
+
+- Interface : l’en-tête et le pied de la barre latérale restent fixes ; seule
+  la liste défile. Les coffres se choisissent dans un menu déroulant en haut,
+  avec sélection, renommage, suppression et création.
+- Interface : suppression de la bande vide entre deux groupes de dates et
+  raccourci **⌘, / Ctrl+,** pour ouvrir directement les réglages.
+- Extension : la version gérée s’affiche dans le pied de la popup, identique à
+  celle visible dans Coffre ; le statut du pont natif tolère le réveil du
+  service worker (3 s + nouvelle tentative) et l’ouverture de l’application
+  desktop depuis la popup est fiabilisée.
+- Verrouillage : l’activité réelle de l’extension repousse l’auto-lock ; les
+  recherches de badge en arrière-plan sont exclues.
 - Outillage : couverture Vitest bloquante sur `src/lib`, builds desktop sur
   chaque PR, vérification des versions citées dans la documentation, modèle de
   PR et `CODEOWNERS`.
 - Nettoyage : `bun run clean`, `clean:build`, `clean:all` et
   `clean:worktrees` ; le dossier `release/` est protégé et actualisé par
   `bun run post-merge` / `release:update`, avec une seule version conservée.
+- CI : Playwright est découpé en quatre shards par navigateur ; les checks
+  `Parcours Playwright (chromium)` et `(webkit)` sont conservés par un gate.
+- Outillage : commandes de boucle locale rapide (`test:changed`, `test:e2e:one`,
+  `test:e2e:smoke`, `test:e2e:ui`) et guide `docs/DEV-FAST.md`.
+- Bêta automatique par PR : version `0.15.0-beta.<run>` construite à la volée,
+  publiée dans `canal-beta`, avec tests minimaux. La suite complète reste sur
+  `main`, les labels `full-ci`/`stable` et `release.yml`.
+- Mises à jour : recherche **continue toutes les minutes** (choix explicite,
+  activée automatiquement en passant au canal bêta), vérification au retour sur
+  la fenêtre, téléchargement automatique et carte d’installation.
+- Mises à jour : notification système native optionnelle quand une bêta est
+  détectée en arrière-plan, avec autorisation demandée depuis les réglages.
+- Fiche : icône de copie pour chaque adresse web d’une connexion, sans
+  l’ouvrir dans le navigateur.
+- CI : `actions/cache` v6.1.0, `install-action` v2.90.3, runners Ubuntu 24.04 ;
+  l’avis `glib` (GHSA-wrw7-89jp-8q8g) reste documenté, aucun correctif
+  compatible avec Tauri 2.12 n’existe.
+- Protection de `main` : checks requis `Qualité` et `Bêta macOS`.
 
 ## 0.14.2 — 12 novembre 2026
 

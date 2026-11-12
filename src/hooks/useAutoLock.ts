@@ -57,6 +57,10 @@ export function useAutoLock(
       if (lockOnFocusLoss) lock()
     }
 
+    // L’utilisation de l’extension (recherche, remplissage, détails…)
+    // compte comme une activité et repousse le verrouillage automatique.
+    const onExtensionActivity = () => touch()
+
     const events: Array<keyof WindowEventMap> = [
       'pointerdown',
       'pointermove',
@@ -69,6 +73,7 @@ export function useAutoLock(
     for (const event of events) {
       window.addEventListener(event, touch, { passive: true })
     }
+    window.addEventListener('coffre:activity', onExtensionActivity)
     document.addEventListener('visibilitychange', onVisibilityChange)
     // La fermeture de page (`pagehide`) est gérée par VaultProvider : elle
     // verrouille sans retirer la clé du déverrouillage rapide.
@@ -85,6 +90,7 @@ export function useAutoLock(
 
     return () => {
       for (const event of events) window.removeEventListener(event, touch)
+      window.removeEventListener('coffre:activity', onExtensionActivity)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('blur', onBlur)
       if (interval !== null) window.clearInterval(interval)

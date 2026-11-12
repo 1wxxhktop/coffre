@@ -1,10 +1,9 @@
 name: CI
 
-# Dépôt public : les runners GitHub standard sont gratuits. Chaque PR et chaque
-# push lancent les tests sur Linux, macOS et Windows, les parcours Playwright
-# sur Chromium et WebKit, et les builds desktop complets. La reproductibilité
-# macOS (deux bundles, une vingtaine de minutes) reste sur main et à la demande
-# pour ne pas rallonger chaque PR.
+# Dépôt public : les runners GitHub standard sont gratuits. Les PR normales
+# passent par le workflow « Bêta PR » (tests minimaux + bêta macOS). La suite
+# complète (Playwright, Rust, desktop, SBOM) tourne sur main, sur les PR
+# étiquetées full-ci/stable, et à la demande.
 # Un push sur main qui ne touche que la documentation ne relance pas la CI ;
 # les PR sont toujours vérifiées, car la protection de main l’exige.
 on:
@@ -15,10 +14,11 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - 'NOTICE'
-  # Pas de filtre sur les PR : les vérifications sont obligatoires pour fusionner
-  # dans main (protection de branche), une PR de documentation doit donc les
-  # produire aussi.
+  # Pas de filtre sur les PR : les vérifications obligatoires (Qualité et
+  # Bêta macOS) tournent sur chaque PR. Les labels full-ci/stable déclenchent
+  # la suite complète, y compris lorsqu’ils sont ajoutés après l’ouverture.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
@@ -34,7 +34,7 @@ env:
 jobs:
   quality:
     name: Qualité
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Récupérer le dépôt
@@ -86,16 +86,21 @@ jobs:
             dist-extension
           retention-days: 30
 
-  e2e:
-    name: Parcours Playwright (${{ matrix.browser }})
-    runs-on: ubuntu-latest
-    # Un seul worker par navigateur (les parcours partagent le serveur et le
-    # stockage) : Chromium et WebKit tournent en parallèle, dans deux jobs.
+  e2e-shards:
+    name: Playwright ${{ matrix.browser }} (shard ${{ matrix.shard }}/4)
+    # WebKit Playwright est validé sur 22.04 ; 24.04 a fait échouer tous les
+    # shards WebKit au premier essai. Ne pas changer sans revalider.
+    runs-on: ubuntu-22.04
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
+    # Quatre shards par navigateur : le serveur et le stockage sont isolés par
+    # job, ce qui divise le temps de WebKit (~18 min) sans changer les noms des
+    # checks requis (voir le job e2e-gate ci-dessous).
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         browser: [chromium, webkit]
+        shard: [1, 2, 3, 4]
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -107,6 +112,16 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
+      - name: Mettre en cache le navigateur Playwright
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          # La clé inclut l’image : un cache WebKit créé sur une autre version
+          # d’Ubuntu provoque des erreurs de bibliothèques (libicudata.so.78).
+          key: playwright-v2-ubuntu-22.04-${{ matrix.browser }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            playwright-v2-ubuntu-22.04-${{ matrix.browser }}-
+
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
 
@@ -114,21 +129,43 @@ jobs:
         run: bunx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Exécuter les parcours
-        run: bunx playwright test --project=${{ matrix.browser }}
+        run: bunx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
 
       - name: Conserver les traces en cas d’échec
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: playwright-results-${{ matrix.browser }}
+          name: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
           path: |
             playwright-report
             test-results
           retention-days: 7
 
+  # Conserve les noms de checks exigés par la protection de branche
+  # (« Parcours Playwright (chromium) » et « (webkit) »). Le gate échoue si un
+  # seul shard a échoué, mais il ne relance aucun test.
+  e2e-gate:
+    name: Parcours Playwright (${{ matrix.browser }})
+    needs: e2e-shards
+    if: always() && needs.e2e-shards.result != 'skipped'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    steps:
+      - name: Vérifier les shards
+        run: |
+          if [[ "${{ needs.e2e-shards.result }}" != "success" ]]; then
+            echo "Au moins un shard Playwright a échoué ou a été annulé." >&2
+            exit 1
+          fi
+
   rust:
     name: Rust (fmt, clippy, tests, audit)
     runs-on: ubuntu-22.04
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 25
     steps:
       - name: Récupérer le dépôt
@@ -178,12 +215,12 @@ jobs:
           node scripts/smoke-bridge.mjs
 
       - name: Installer cargo-audit
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-audit
 
       - name: Installer cargo-deny
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-deny@0.20.2
 
@@ -202,6 +239,7 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 25
     steps:
       - name: Récupérer le dépôt
@@ -231,7 +269,8 @@ jobs:
 
   reproducible:
     name: Build reproductible
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 20
     env:
       SOURCE_DATE_EPOCH: 0
@@ -254,9 +293,9 @@ jobs:
 
   desktop-reproducible:
     name: Desktop reproductible (macOS)
-    # Long (deux bundles complets) : sur push vers main et à la demande. Ce
-    # n’est pas un gate de PR.
-    if: github.event_name != 'pull_request'
+    # Long (deux bundles complets) : push vers main, label full-ci/stable ou
+    # déclenchement manuel.
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     runs-on: macos-latest
     timeout-minutes: 40
     env:
@@ -285,7 +324,8 @@ jobs:
 
   sbom:
     name: SBOM
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 25
     env:
       SOURCE_DATE_EPOCH: 0
@@ -309,7 +349,7 @@ jobs:
           toolchain: 1.99.1
 
       - name: Installer cargo-cyclonedx
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-cyclonedx@0.5.10
 
@@ -325,7 +365,8 @@ jobs:
 
   smoke-extension:
     name: Extension Chromium (smoke)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 15
     steps:
       - name: Récupérer le dépôt
@@ -368,12 +409,14 @@ jobs:
 
   desktop:
     name: Desktop (${{ matrix.os }})
-    # Builds complets sur les trois systèmes, à chaque PR et push.
+    # Builds complets sur les trois systèmes, sur main, label full-ci/stable
+    # ou déclenchement manuel.
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-22.04, windows-latest]
     runs-on: ${{ matrix.os }}
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 40
     steps:
       - name: Récupérer le dépôt

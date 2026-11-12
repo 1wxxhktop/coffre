@@ -43,12 +43,21 @@ cargo audit
    modifiées.
 3. Décrire dans la PR ce qui est fait, les vérifications exécutées et ce qui
    reste à tester à la main (le template est fourni).
-4. `main` est protégée : les 9 checks CI doivent passer, aucun push direct,
-   aucun force-push. Le mainteneur relit et fusionne.
-5. Toute correction de sécurité ou de format doit inclure son test de
+4. `main` est protégée : `Qualité` et `Bêta macOS` sont requis, aucun push
+   direct, aucun force-push. Le mainteneur relit et fusionne.
+5. Une PR normale publie automatiquement une **bêta macOS** dans le canal bêta
+   (voir [docs/BETA-PR.md](docs/BETA-PR.md)) : elle peut être testée depuis
+   l’application pendant que la PR évolue.
+6. Pour lancer la suite complète (Playwright, Rust, desktop, SBOM,
+   reproductibilité), ajouter le label **`full-ci`** ou **`stable`**. C’est
+   obligatoire avant une release stable.
+7. Toute correction de sécurité ou de format doit inclure son test de
    non-régression.
-6. **Après chaque fusion, mise à jour ou release, nettoyer le poste** (voir
+8. **Après chaque fusion, mise à jour ou release, nettoyer le poste** (voir
    ci-dessous).
+
+Pour la boucle d’édition, ne pas attendre la CI : voir
+[docs/DEV-FAST.md](docs/DEV-FAST.md) (tests ciblés, e2e Chromium, mode UI).
 
 ## Nettoyage
 
