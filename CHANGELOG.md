@@ -12,6 +12,10 @@
   `Parcours Playwright (chromium)` et `(webkit)` sont conservés par un gate.
 - Outillage : commandes de boucle locale rapide (`test:changed`, `test:e2e:one`,
   `test:e2e:smoke`, `test:e2e:ui`) et guide `docs/DEV-FAST.md`.
+- Bêta automatique par PR : version `0.15.0-beta.<run>` construite à la volée,
+  publiée dans `canal-beta`, avec tests minimaux. La suite complète reste sur
+  `main`, les labels `full-ci`/`stable` et `release.yml`.
+- Protection de `main` : checks requis `Qualité` et `Bêta macOS`.
 
 ## 0.14.2 — 12 novembre 2026
 
