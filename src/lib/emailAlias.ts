@@ -47,13 +47,18 @@ export function getAliasDefaults(): EmailAliasDefaults {
 
 export function setAliasDefaults(defaults: EmailAliasDefaults): void {
   if (typeof localStorage === 'undefined') return
-  localStorage.setItem(
-    DEFAULTS_KEY,
-    JSON.stringify({
-      baseEmail: defaults.baseEmail.trim(),
-      mode: defaults.mode,
-    }),
-  )
+  try {
+    localStorage.setItem(
+      DEFAULTS_KEY,
+      JSON.stringify({
+        baseEmail: defaults.baseEmail.trim(),
+        mode: defaults.mode,
+      }),
+    )
+  } catch {
+    // Stockage indisponible ou quota dépassé : les préférences restent en
+    // mémoire pour la session, sans faire échouer l’action de l’utilisateur.
+  }
 }
 
 function normalizeLocal(value: string): string {

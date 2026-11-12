@@ -19,6 +19,7 @@ export const LOCALES: Array<{ id: Locale; label: string }> = [
 const fr = {
   'common.cancel': 'Annuler',
   'common.close': 'Fermer',
+  'common.closeNotification': 'Fermer la notification',
   'common.delete': 'Supprimer',
   'common.loading': 'Chargement…',
   'common.or': 'ou',
@@ -487,6 +488,7 @@ export type MessageKey = keyof typeof fr
 const en: Record<MessageKey, string> = {
   'common.cancel': 'Cancel',
   'common.close': 'Close',
+  'common.closeNotification': 'Close notification',
   'common.delete': 'Delete',
   'common.loading': 'Loading…',
   'common.or': 'or',

@@ -153,9 +153,33 @@ test.describe('extension — protection anti-hameçonnage', () => {
         })
       }, tabId)
 
+      // Le menu réel reçoit un jeton de capacité enregistré par le content
+      // script. Le parcours de test ouvre menu.html dans son propre onglet :
+      // il doit donc enregistrer le même contexte explicitement.
+      const menuToken = '0123456789abcdef0123456789abcdef'
+      await extensionPage.evaluate(
+        async ({ token, tabId, url }) => {
+          const response = (await chrome.runtime.sendMessage({
+            type: 'MENU_REGISTER',
+            token,
+            tabId,
+            frameId: 0,
+            host: 'paypa1.test',
+            topHost: 'paypa1.test',
+            url,
+            kind: 'login',
+            mode: 'badge',
+          })) as { ok?: boolean; error?: string }
+          if (!response?.ok) {
+            throw new Error(`MENU_REGISTER: ${response?.error ?? 'inconnu'}`)
+          }
+        },
+        { token: menuToken, tabId, url: targetUrl },
+      )
+
       const menu = await context.newPage()
       await menu.goto(
-        `chrome-extension://${extensionId}/menu.html?tab=${tabId}&frame=0&host=paypa1.test&top=paypa1.test&kind=login&mode=badge`,
+        `chrome-extension://${extensionId}/menu.html?tab=${tabId}&frame=0&host=paypa1.test&top=paypa1.test&kind=login&mode=badge&token=${menuToken}`,
       )
       await menu.locator('#badge-button').click()
       await menu.locator('#search').fill('PayPal')

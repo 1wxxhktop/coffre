@@ -178,6 +178,28 @@ describe('export CSV Mots de passe (Apple)', () => {
     expect(result.content).toContain('"Note, avec ""guillemets""')
   })
 
+  it('neutralise les formules de tableur', () => {
+    const result = exportCsv(
+      [
+        login({
+          title: '=HYPERLINK("http://evil","x")',
+          username: '+cmd',
+          password: '@SUM(1)',
+          notes: '-1+1',
+        }),
+      ],
+      [vault],
+      'apple',
+    )
+
+    expect(result.content).toContain(
+      `"'=HYPERLINK(""http://evil"",""x"")"`,
+    )
+    expect(result.content).toContain("'+cmd")
+    expect(result.content).toContain("'@SUM(1)")
+    expect(result.content).toContain("'-1+1")
+  })
+
   it('conserve les champs, étiquettes et URL supplémentaires dans les notes', () => {
     const field: CustomField = {
       id: 'f_api',

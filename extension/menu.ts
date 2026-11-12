@@ -137,8 +137,10 @@ const ERROR_KEYS: Record<string, string> = {
   excluded: 'menu_errorExcluded',
 }
 
+const MENU_TOKEN = new URLSearchParams(window.location.search).get('token') ?? ''
+
 function send<T>(payload: Record<string, unknown>): Promise<T> {
-  return api.runtime.sendMessage(payload) as Promise<T>
+  return api.runtime.sendMessage({ ...payload, token: MENU_TOKEN }) as Promise<T>
 }
 
 function errorText(code: string | undefined): string {

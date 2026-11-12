@@ -114,17 +114,9 @@ fn host_matches(item_host: &str, page_host: &str) -> bool {
     if is_public_suffix(&item) || is_public_suffix(&page) {
         return false;
     }
-    if !item.contains('.') || !page.contains('.') {
-        return page.ends_with(&format!(".{item}")) || item.ends_with(&format!(".{page}"));
-    }
-    let item_domain = registrable_domain(&item);
-    let page_domain = registrable_domain(&page);
-    match (item_domain, page_domain) {
-        (Some(item_domain), Some(page_domain)) if item_domain == page_domain => {
-            page.ends_with(&format!(".{item}")) || item.ends_with(&format!(".{page}"))
-        }
-        _ => false,
-    }
+    // Correspondance exacte, avec la seule exception `www.` : un sous-domaine
+    // contrôlé par un tiers ne doit pas recevoir le secret du domaine parent.
+    item == format!("www.{page}") || page == format!("www.{item}")
 }
 
 /// Vrai si l’URL de l’élément autorise le remplissage pour ce service.
@@ -199,6 +191,14 @@ mod tests {
         assert!(!login_allows_host(
             "https://example.com",
             "javascript:alert(1)"
+        ));
+        assert!(!login_allows_host(
+            "https://example.com",
+            "https://login.example.com"
+        ));
+        assert!(login_allows_host(
+            "https://example.com",
+            "https://www.example.com"
         ));
     }
 }

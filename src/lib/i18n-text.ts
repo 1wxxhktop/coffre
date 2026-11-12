@@ -422,6 +422,7 @@ export const EN_TEXT: Record<string, string> = {
   'Appareils sur le même réseau Wi-Fi, sans serveur ni Internet. Le port n’est ouvert que pendant une réception.':
     'Devices on the same Wi-Fi network, with no server or Internet. The port is only open while receiving.',
   'Empreinte de cet appareil': 'This device’s fingerprint',
+  'Empreinte de l’extension': 'Extension fingerprint',
   'Nom de cet appareil': 'This device’s name',
   'Créer un code d’appairage': 'Create a pairing code',
   'Recevoir une synchronisation': 'Receive a sync',
@@ -1049,6 +1050,38 @@ export const EN_TEXT: Record<string, string> = {
     "Strong",
   "Excellent":
     "Excellent",
+  "Aucun élément":
+    "No items",
+  "CVC":
+    "CVC",
+  "Chargement…":
+    "Loading…",
+  "Copier le mot de passe":
+    "Copy password",
+  "Créer un élément":
+    "Create item",
+  "Créé via WebAuthn":
+    "Created via WebAuthn",
+  "Enregistrement…":
+    "Saving…",
+  "La sortie PRF de la clé dérive une KEK qui scelle la clé maîtresse dans le fichier. Le mot de passe maître reste le secret racine ; l’enveloppe est révocable et supprimée lors d’un changement de mot de passe ou d’une récupération.":
+    "The PRF output derives a KEK that seals the master key in the file. The master password remains the root secret; the envelope is revocable and removed on password change or recovery.",
+  "Les passkeys se créent depuis un site via WebAuthn.":
+    "Passkeys are created from a site via WebAuthn.",
+  "Modèles intégrés":
+    "Built-in templates",
+  "Remplacer la liste":
+    "Replace list",
+  "Ressaisissez votre mot de passe maître":
+    "Re-enter your master password",
+  "Tous les modèles incluent :":
+    "All templates include:",
+  "Tous les types d’éléments du coffre, avec leurs champs.":
+    "All vault item types, with their fields.",
+  "Utiliser":
+    "Use",
+  "Élément créé depuis le modèle intégré.":
+    "Item created from the built-in template.",
 }
 
 /** Traduit un texte source ; renvoie le texte tel quel s’il est inconnu. */

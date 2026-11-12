@@ -492,9 +492,26 @@ try {
     return tabs.find((tab) => tab.url?.includes('/register'))
   })
   assert.ok(registerTab?.id)
+  const signupToken = 'a'.repeat(32)
+  await extensionPage.evaluate(
+    async ({ token, tabId, host }) => {
+      await chrome.runtime.sendMessage({
+        type: 'MENU_REGISTER',
+        token,
+        tabId,
+        frameId: 0,
+        host,
+        topHost: host,
+        url: `http://${host}/register`,
+        kind: 'login',
+        mode: 'open',
+      })
+    },
+    { token: signupToken, tabId: registerTab.id, host },
+  )
   const signupMenu = await context.newPage()
   await signupMenu.goto(
-    `chrome-extension://${extensionId}/menu.html?tab=${registerTab.id}&frame=0&host=${host}&top=${host}&kind=login&mode=open&signup=1`,
+    `chrome-extension://${extensionId}/menu.html?tab=${registerTab.id}&frame=0&host=${host}&top=${host}&kind=login&mode=open&signup=1&token=${signupToken}`,
   )
   await signupMenu.locator('#signup').waitFor()
   await signupMenu

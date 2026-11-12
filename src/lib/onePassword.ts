@@ -19,6 +19,9 @@ import {
   type ItemType,
 } from './types'
 
+const MAX_1PUX_ENTRY_BYTES = 100 * 1024 * 1024
+const MAX_1PUX_TOTAL_BYTES = 128 * 1024 * 1024
+
 type JsonObject = Record<string, unknown>
 
 interface P1uxField {
@@ -299,9 +302,25 @@ export async function parse1pux(
   vaultId: string,
 ): Promise<ParsedImport> {
   let entries: Record<string, Uint8Array>
+  let totalBytes = 0
   try {
-    entries = unzipSync(bytes)
-  } catch {
+    entries = unzipSync(bytes, {
+      filter: (file) => {
+        if (file.name !== 'export.attributes' && file.name !== 'export.data') {
+          return false
+        }
+        if (file.originalSize > MAX_1PUX_ENTRY_BYTES) {
+          throw new ImportError('Entrée .1pux trop volumineuse')
+        }
+        totalBytes += file.originalSize
+        if (totalBytes > MAX_1PUX_TOTAL_BYTES) {
+          throw new ImportError('Archive .1pux décompressée trop volumineuse')
+        }
+        return true
+      },
+    })
+  } catch (error) {
+    if (error instanceof ImportError) throw error
     throw new ImportError('Ce fichier .1pux n’est pas une archive ZIP valide')
   }
 

@@ -29,6 +29,8 @@ done
 env -u npm_execpath ./node_modules/.bin/cyclonedx-npm \
   --ignore-npm-errors --output-reproducible \
   --output-format JSON --output-file "$OUT/web.cdx.json" >/dev/null
+bun scripts/complete-web-sbom.mjs "$OUT/web.cdx.json"
+bun scripts/check-sbom.mjs "$OUT"
 find src-tauri -name "*.cdx.json" -delete
 (
   cd "$OUT"

@@ -8,7 +8,7 @@
 
 import type { PhishingAssessment, PhishingQuery } from './phishing'
 import type { CardItem, IdentityItem, LoginItem, VaultItem } from './types'
-import { isIpAddress, isPublicSuffix, registrableDomain } from './publicSuffix'
+import { isIpAddress, isPublicSuffix } from './publicSuffix'
 
 export const EXTENSION_BRIDGE_VERSION = 2
 export const EXTENSION_MAX_RESULTS = 50
@@ -309,10 +309,12 @@ function parseWebUrl(value: string): URL | null {
 }
 
 /**
- * Compare deux hôtes avec la même règle que les extensions natives :
- * même domaine enregistrable, relation parent/sous-domaine, et refus des
- * suffixes publics. Les IP, `localhost` et les hôtes d’une étiquette ne
- * correspondent qu’à l’identique (ou à un sous-domaine pour une étiquette).
+ * Compare deux hôtes : correspondance exacte uniquement, avec l’exception
+ * explicite `www.example.com` ↔ `example.com`. Les relations parent/sous-domaine
+ * (`example.com` ↔ `login.example.com`) ne sont plus acceptées par défaut :
+ * un sous-domaine compromis ou contrôlé par un tiers ne doit pas recevoir le
+ * mot de passe du domaine parent. Les IP et les suffixes publics restent
+ * refusés.
  */
 export function hostMatches(itemHost: string, pageHost: string): boolean {
   const item = normalizeHost(hostFromUrl(itemHost) || itemHost)
@@ -321,13 +323,7 @@ export function hostMatches(itemHost: string, pageHost: string): boolean {
   if (item === page) return true
   if (isIpAddress(item) || isIpAddress(page)) return false
   if (isPublicSuffix(item) || isPublicSuffix(page)) return false
-  if (!item.includes('.') || !page.includes('.')) {
-    return page.endsWith(`.${item}`) || item.endsWith(`.${page}`)
-  }
-  const itemDomain = registrableDomain(item)
-  const pageDomain = registrableDomain(page)
-  if (!itemDomain || !pageDomain || itemDomain !== pageDomain) return false
-  return page.endsWith(`.${item}`) || item.endsWith(`.${page}`)
+  return item === `www.${page}` || page === `www.${item}`
 }
 
 /**
@@ -381,7 +377,9 @@ export function searchLogins(
         text.length > 0 &&
         (normalize(item.title).includes(text) ||
           normalize(item.username).includes(text) ||
-          hosts.some((entry) => entry.includes(text)))
+          // Une requête qui ressemble à un hôte ne doit pas matcher un
+          // sous-domaine par simple inclusion de texte.
+          (!host && hosts.some((entry) => entry.includes(text))))
       const score = hostMatch ? 2 : textMatch ? 1 : 0
       return { item, hosts, score }
     })

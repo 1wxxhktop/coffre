@@ -20,6 +20,7 @@ import { XMLParser, XMLBuilder } from 'fast-xml-parser'
 import { chacha20Xor, salsa20Xor } from './chacha20'
 import { recoveryCodesExportText } from './recoveryCodes'
 import {
+  KDF_LIMITS,
   fromBase64,
   randomBytes,
   randomId,
@@ -58,6 +59,7 @@ const KDF_ARGON2D = 'ef636ddf8c29444b91f7a9a403e30a0c'
 const KDF_ARGON2ID = '9e298b1956db4773b23dfc3ec6f0a1e6'
 
 const MAX_KDBX_BYTES = 100 * 1024 * 1024
+const MAX_KDBX_DECOMPRESSED_BYTES = 128 * 1024 * 1024
 const MAX_BLOCK_BYTES = 64 * 1024 * 1024
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 const MAX_ITEMS = 20_000
@@ -383,7 +385,7 @@ async function deriveTransformedKey(
     if (!(seed instanceof Uint8Array) || seed.length !== 32) {
       throw new KdbxError('Graine AES-KDF invalide')
     }
-    if (rounds < 1 || rounds > 10_000_000) {
+    if (rounds < 1 || rounds > 2_000_000) {
       throw new KdbxError('Nombre de tours AES-KDF hors limites')
     }
     const aes = new ModeOfOperation.ecb(seed)
@@ -402,12 +404,12 @@ async function deriveTransformedKey(
     throw new KdbxError('Sel Argon2 invalide')
   }
   if (
-    parallelism < 1 ||
-    parallelism > 64 ||
-    memoryKiB < 8_192 ||
-    memoryKiB > 1_048_576 ||
-    iterations < 1 ||
-    iterations > 20
+    parallelism < KDF_LIMITS.minParallelism ||
+    parallelism > KDF_LIMITS.maxParallelism ||
+    memoryKiB < KDF_LIMITS.minMemoryKiB ||
+    memoryKiB > KDF_LIMITS.maxMemoryKiB ||
+    iterations < KDF_LIMITS.minIterations ||
+    iterations > KDF_LIMITS.maxIterations
   ) {
     throw new KdbxError('Paramètres Argon2 hors limites')
   }
@@ -656,10 +658,17 @@ export async function readKdbx(
 
     if (header.compression === 1) {
       try {
-        plaintext = gunzipSync(plaintext)
+        plaintext = gunzipSync(plaintext, {
+          out: new Uint8Array(MAX_KDBX_DECOMPRESSED_BYTES),
+        })
       } catch {
-        throw new KdbxError('Décompression KDBX impossible')
+        throw new KdbxError(
+          'Décompression KDBX impossible ou supérieure à 128 Mio',
+        )
       }
+    }
+    if (plaintext.length > MAX_KDBX_DECOMPRESSED_BYTES) {
+      throw new KdbxError('Décompression KDBX supérieure à 128 Mio')
     }
 
     const { xml, stream, binaries } = parseInnerHeader(plaintext)

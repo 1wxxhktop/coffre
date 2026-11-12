@@ -100,6 +100,23 @@ export function bridgeRandomId(): string {
   return encodeBase64(randomBytes(16)).replace(/[+/=]/g, '').slice(0, 22)
 }
 
+/**
+ * Empreinte courte de la clé publique d’appairage, affichée des deux côtés.
+ * Elle permet à l’utilisateur de comparer l’extension réelle avec la demande
+ * affichée dans Coffre, au lieu de traiter le code envoyé au demandeur comme
+ * une authentification.
+ */
+export async function bridgePublicKeyFingerprint(
+  publicKey: string,
+): Promise<string> {
+  const bytes = decodeBase64(publicKey)
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes))
+  return encodeBase64(new Uint8Array(digest))
+    .replace(/[+/=]/g, '')
+    .slice(0, 16)
+    .toUpperCase()
+}
+
 /** Code à six chiffres affiché pendant l’appairage. */
 export function bridgePairingCode(): string {
   const value = new DataView(randomBytes(4).buffer).getUint32(0)

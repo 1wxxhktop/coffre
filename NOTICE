@@ -86,9 +86,9 @@ SOFTWARE.
 ================================================================================
 
 Coffre est construit avec les bibliothèques suivantes. Les versions exactes
-sont verrouillées dans bun.lock. Les licences indiquées sont celles déclarées
-par les paquets au moment de la rédaction ; se référer aux fichiers LICENSE de
-chaque paquet pour le texte intégral.
+sont verrouillées dans `bun.lock` et `src-tauri/Cargo.lock`. Les licences
+indiquées sont celles déclarées par les paquets au moment de la rédaction ; se
+référer aux fichiers LICENSE de chaque paquet pour le texte intégral.
 
 Runtime web :
   - React, React DOM                  MIT
@@ -99,7 +99,11 @@ Runtime web :
   - uqr                               MIT
   - aes-js                            MIT
   - fast-xml-parser                   MIT
+  - fflate                            MIT
+  - hpke-js / @hpke/*                 MIT
   - simple-icons                      CC0-1.0
+  - @tauri-apps/api                   Apache-2.0 OR MIT
+  - @tauri-apps/plugin-dialog         Apache-2.0 OR MIT
 
 Build et développement :
   - Vite                              MIT
@@ -132,7 +136,19 @@ Desktop et mobile :
   - ssh-key                           Apache-2.0 OR MIT
   - ed25519-dalek                     BSD-3-Clause
   - rsa                               MIT OR Apache-2.0
-  - hpke-js / @hpke/*                 MIT
+  - argon2                            MIT OR Apache-2.0
+  - aes-gcm                           MIT OR Apache-2.0
+  - p256                              Apache-2.0 OR MIT
+  - url                               MIT OR Apache-2.0
+  - serde_json                        MIT OR Apache-2.0
+  - thiserror                         MIT OR Apache-2.0
+  - zeroize                           Apache-2.0 OR MIT
+  - uniffi                            MPL-2.0
+  - notify                            MIT
+  - mdns-sd                           MIT
+  - enigo                             MIT
+  - active-win-pos-rs                 MIT
+  - reqwest                           MIT OR Apache-2.0
 
 Les polices utilisées par l’interface sont les polices système de l’appareil ;
 aucune police distante n’est embarquée ni téléchargée. Les icônes de l’interface

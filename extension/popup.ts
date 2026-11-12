@@ -1265,8 +1265,12 @@ api.runtime.onMessage.addListener((message: unknown) => {
     (message as { type?: string }).type === 'PAIRING_CODE' &&
     typeof (message as { code?: unknown }).code === 'string'
   ) {
+    const code = (message as { code: string }).code
+    const fingerprint = (message as { fingerprint?: unknown }).fingerprint
     showMessage(
-      t('popup_pairCode', [(message as { code: string }).code]),
+      typeof fingerprint === 'string'
+        ? `${t('popup_pairCode', [code])} · ${t('popup_pairFingerprint', [fingerprint])}`
+        : t('popup_pairCode', [code]),
       'info',
     )
   }

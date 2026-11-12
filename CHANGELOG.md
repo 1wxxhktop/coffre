@@ -1,6 +1,6 @@
 # Journal des changements
 
-## Non publié
+## 0.14.0 — 11 novembre 2026
 
 - Documentation : `docs/RELEASE.md` et `docs/RELEASE-READINESS.md` décrivent
   désormais les mises à jour signées (B-02), la publication stable/bêta et la
@@ -96,6 +96,58 @@
   coffre est verrouillé.
 - Les protocoles du pont natif et de l’extension passent en version 2.
 
+### P2/P3
+
+- **CSV** : les cellules commençant par `=`, `+`, `-`, `@`, tabulation ou retour
+  chariot sont préfixées par `'` pour neutraliser les formules de tableur.
+- **Imports KDBX/1PUX** : les paramètres Argon2 KDBX sont alignés sur les bornes
+  du coffre (256 Mio / 6 passes / 8 threads), l’AES-KDF est plafonné à 2 millions
+  de tours, la décompression KDBX est limitée à 128 Mio et l’archive 1PUX
+  n’extrait que `export.attributes`/`export.data` avec un plafond de 128 Mio.
+- **Rôle lecture** : corbeille, restauration, restauration de version,
+  suppression de pièce jointe, renommage et suppression de coffre vérifient
+  désormais le rôle local.
+- **TOTP** : les algorithmes inconnus sont refusés ; les chiffres (6–8) et la
+  période (1–300 s) sont validés de la même façon en TypeScript et en Rust.
+- **Biométrie** : le texte du dialogue système est fixe côté Rust ; une page
+  compromise ne peut plus présenter une demande trompeuse.
+- `setAliasDefaults` tolère un stockage local indisponible ; `NOTICE` et le
+  README reflètent les dépendances et compteurs actuels.
+- `setVaultKey` efface l’ancienne clé ; `addVault` vérifie la clé de récupération
+  avant toute mutation ; la vérification compte tous les enregistrements du
+  manifeste ; les pierres tombales de modèles sont validées ; `addAttachment`
+  relit le contenu existant pour appliquer les plafonds.
+- **Accessibilité** : les notifications sont rendues hors de `#root`, donc
+  annoncées même lorsqu’une modale est ouverte ; le focus revient au déclencheur
+  après la fermeture d’une modale imbriquée ; la palette de commandes rend
+  l’arrière-plan inerte via un verrou partagé ; le menu mobile ne reprend plus
+  le focus à chaque rendu et se présente comme une boîte de dialogue.
+- **Anglais** : les derniers libellés `tt()` sans traduction sont couverts, et
+  `check-i18n.mjs` vérifie désormais chaque littéral `tt()` contre le
+  dictionnaire anglais au lieu de laisser passer les clés non citées.
+
+### Tauri
+
+- **AppManifest** : les 67 commandes applicatives sont déclarées et couvertes
+  par la capacité `default` de la fenêtre principale. Une WebView non locale
+  ne peut plus appeler ces commandes par défaut.
+- Les permissions générées par `tauri-build` sont ignorées par Git.
+- **Extension** : les content scripts ne peuvent envoyer que `CONTENT_CONTEXT`,
+  `FORM_SUBMITTED`, `GET_PENDING_BANNER`, `PASSKEY_REQUEST` et
+  `PASSKEY_CANCEL` ; recherche, détails, remplissage, appairage et sauvegarde
+  sont réservés aux pages de l’extension.
+- **Menu inline** : chaque menu reçoit un jeton aléatoire lié à son onglet et à
+  son cadre, enregistré avant le chargement de l’iframe. Un `menu.html` encadré
+  directement par un site ne peut plus agir sans ce jeton.
+- **Domaines** : correspondance exacte par défaut, avec la seule exception
+  `www.example.com` ↔ `example.com`. Les relations parent/sous-domaine
+  (`example.com` ↔ `login.example.com`) ne sont plus acceptées ; les vecteurs
+  TypeScript/Rust et le smoke test sont alignés.
+- **Appairage du pont natif** : l’application et l’extension affichent une
+  empreinte courte de la clé publique de l’extension. L’utilisateur peut la
+  comparer des deux côtés au lieu de traiter le code envoyé au demandeur comme
+  une authentification.
+
 ### CI et release
 
 - Toutes les actions GitHub sont épinglées par SHA, y compris le job de
@@ -108,6 +160,13 @@
 - `.gitignore` exclut les coffres locaux, fichiers `.env`, certificats et clés.
 - Le script de release vérifie le lockfile (`cargo fetch --locked`) et sélectionne
   le DMG de la version courante.
+- Le job de release génère une **attestation de provenance** GitHub pour le DMG,
+  l’archive `.app.zip` et le paquet de mise à jour, vérifiable avec
+  `gh attestation verify`.
+- Le **SBOM web** est complété depuis `bun pm licenses --json` pour inclure les
+  paquets que cyclonedx-npm omet (dont `@tauri-apps/api` et
+  `@tauri-apps/plugin-dialog`) ; `scripts/check-sbom.mjs` vérifie les
+  composants runtime attendus dans les SBOM web, cœur et FFI.
 
 ## 0.13.0 — 11 novembre 2026
 

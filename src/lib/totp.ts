@@ -59,18 +59,23 @@ export function parseTotpUri(uri: string): TotpConfig {
   if (!secret) throw new Error('Secret TOTP manquant')
 
   const algorithmParam = (parsed.searchParams.get('algorithm') || 'SHA1').toUpperCase()
-  const algorithm: TotpAlgorithm =
-    algorithmParam === 'SHA256'
-      ? 'SHA-256'
-      : algorithmParam === 'SHA512'
-        ? 'SHA-512'
-        : 'SHA-1'
+  let algorithm: TotpAlgorithm
+  if (algorithmParam === 'SHA1') algorithm = 'SHA-1'
+  else if (algorithmParam === 'SHA256') algorithm = 'SHA-256'
+  else if (algorithmParam === 'SHA512') algorithm = 'SHA-512'
+  else throw new Error('Algorithme TOTP non pris en charge')
 
   const digitsRaw = Number.parseInt(parsed.searchParams.get('digits') || '6', 10)
-  const digits = Number.isFinite(digitsRaw) && digitsRaw >= 6 && digitsRaw <= 8 ? digitsRaw : 6
+  if (!Number.isInteger(digitsRaw) || digitsRaw < 6 || digitsRaw > 8) {
+    throw new Error('Nombre de chiffres TOTP hors limites')
+  }
+  const digits = digitsRaw
 
   const periodRaw = Number.parseInt(parsed.searchParams.get('period') || '30', 10)
-  const period = Number.isFinite(periodRaw) && periodRaw >= 10 && periodRaw <= 120 ? periodRaw : 30
+  if (!Number.isInteger(periodRaw) || periodRaw < 1 || periodRaw > 300) {
+    throw new Error('Période TOTP hors limites')
+  }
+  const period = periodRaw
 
   const label = decodeURIComponent(parsed.pathname.replace(/^\/+/, ''))
   const [labelIssuer, ...labelAccount] = label.split(':')

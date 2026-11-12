@@ -85,6 +85,14 @@ describe('URI otpauth', () => {
     expect(isTotpUri('https://example.com')).toBe(false)
   })
 
+  it('refuse les algorithmes inconnus et les paramètres hors limites', () => {
+    const base = 'otpauth://totp/Test?secret=JBSWY3DPEHPK3PXP'
+    expect(() => parseTotpUri(`${base}&algorithm=MD5`)).toThrow(/algorithme/i)
+    expect(() => parseTotpUri(`${base}&digits=10`)).toThrow(/chiffres/i)
+    expect(() => parseTotpUri(`${base}&period=0`)).toThrow(/période/i)
+    expect(() => parseTotpUri(`${base}&period=301`)).toThrow(/période/i)
+  })
+
   it('formate les codes par groupes', () => {
     expect(formatTotp('123456')).toBe('123 456')
     expect(formatTotp('12345678')).toBe('1234 5678')

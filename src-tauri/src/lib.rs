@@ -254,23 +254,27 @@ async fn biometric_load(account: String) -> Result<BiometricResult, String> {
 }
 
 /// Demande une authentification biométrique sans lire de secret.
+///
+/// Le texte du dialogue est fixe : la WebView ne doit pas pouvoir présenter
+/// une demande trompeuse pour une autre action.
 #[tauri::command]
-async fn biometric_confirm(reason: String) -> Result<bool, String> {
+async fn biometric_confirm(_reason: String) -> Result<bool, String> {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let reason = "confirmer une action sensible dans Coffre";
     #[cfg(target_os = "macos")]
     {
-        tauri::async_runtime::spawn_blocking(move || biometric::authenticate(&reason))
+        tauri::async_runtime::spawn_blocking(move || biometric::authenticate(reason))
             .await
             .map_err(|error| error.to_string())?
     }
     #[cfg(target_os = "windows")]
     {
-        tauri::async_runtime::spawn_blocking(move || windows_hello::confirm(&reason))
+        tauri::async_runtime::spawn_blocking(move || windows_hello::confirm(reason))
             .await
             .map_err(|error| error.to_string())?
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        let _ = reason;
         Ok(false)
     }
 }

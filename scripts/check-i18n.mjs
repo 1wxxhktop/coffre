@@ -9,6 +9,22 @@ const FILES = [
   'src/App.tsx',
 ]
 
+// Toutes les sources peuvent appeler `tt()` ; les tests et le dictionnaire
+// lui-même sont exclus du contrôle.
+const SOURCE_FILES = readdirSync('src', { recursive: true })
+  .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
+  .filter((name) => !name.endsWith('.test.ts') && !name.endsWith('.test.tsx'))
+  .filter((name) => !name.endsWith('i18n-text.ts'))
+  .map((name) => join('src', name))
+
+const enText = readFileSync('src/lib/i18n-text.ts', 'utf8')
+const enKeys = new Set()
+for (const match of enText.matchAll(
+  /^ {2}(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^\s'"\n][^:\n]*?))\s*:/gm,
+)) {
+  enKeys.add(match[1] ?? match[2] ?? match[3])
+}
+
 const ALLOW = new Set([
   '.coffre',
   '.coffre-share',
@@ -69,6 +85,16 @@ for (const file of FILES) {
     const text = match[1].trim()
     if (!text || ALLOW.has(text)) continue
     problems.push(`${file}: notification non traduite « ${text.slice(0, 80)} »`)
+  }
+}
+
+for (const file of SOURCE_FILES) {
+  const source = readFileSync(file, 'utf8')
+  for (const match of source.matchAll(/\btt\(\s*(['"])((?:\\.|(?!\1).)*)\1/g)) {
+    const key = match[2].replace(/\\(['"\\])/g, '$1')
+    if (!enKeys.has(key)) {
+      problems.push(`${file}: libellé tt() sans traduction anglaise « ${key.slice(0, 80)} »`)
+    }
   }
 }
 

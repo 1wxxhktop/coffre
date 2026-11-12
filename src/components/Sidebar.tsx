@@ -143,12 +143,21 @@ export function Sidebar({
     return active.filter((item) => item.type === id).length
   }
 
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  // Mémorisé au moment de l’ouverture : les rendus suivants du parent ne
+  // doivent pas remplacer le déclencheur par un élément interne au menu.
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+
   // Menu mobile : piège à focus, Échap et restitution du focus à la fermeture.
   useEffect(() => {
     if (!compact || !open) return
     const aside = asideRef.current
     if (!aside) return
-    const previous = document.activeElement as HTMLElement | null
+    returnFocusRef.current = document.activeElement as HTMLElement | null
     const focusable = () =>
       Array.from(
         aside.querySelectorAll<HTMLElement>(
@@ -163,7 +172,7 @@ export function Sidebar({
       if (event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (event.key !== 'Tab') return
@@ -184,9 +193,13 @@ export function Sidebar({
     document.addEventListener('keydown', onKeyDown, true)
     return () => {
       document.removeEventListener('keydown', onKeyDown, true)
-      if (previous && document.contains(previous)) previous.focus({ preventScroll: true })
+      const target = returnFocusRef.current
+      returnFocusRef.current = null
+      if (target && document.contains(target)) {
+        target.focus({ preventScroll: true })
+      }
     }
-  }, [compact, onClose, open])
+  }, [compact, open])
 
   return (
     <>
@@ -199,6 +212,8 @@ export function Sidebar({
         ref={asideRef}
         className={`sidebar ${open ? 'is-open' : ''} ${collapsed ? 'is-collapsed' : ''}`}
         aria-label={t('sidebar.navigation')}
+        role={compact && open ? 'dialog' : undefined}
+        aria-modal={compact && open ? true : undefined}
         inert={compact && !open ? true : undefined}
       >
         <div className="sidebar__head" data-tauri-drag-region>

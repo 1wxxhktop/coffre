@@ -521,6 +521,9 @@ export async function importSharedVaultBundle(
     let itemKey: Uint8Array | null = null
     try {
       itemKey = await openBytes(candidate.key, vaultKey, itemKeyAad(vaultId, candidate.id))
+      if (itemKey.length !== 32) {
+        throw new Error('Clé d’élément partagé invalide')
+      }
     } finally {
       if (itemKey) wipe(itemKey)
     }
