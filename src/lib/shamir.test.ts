@@ -111,9 +111,25 @@ describe('encodage des parts', () => {
     const separated = decodeSecretWords('abdomen-abdominal')
     expect(encodeSecretWords(separated)).toBe('abdomen abdominal')
 
-    const shares = await splitSecret(secret(), 2, 3)
-    const words = encodeShareWords(shares[0]).replaceAll(' ', '-')
-    expect(equal(decodeShareWords(words), shares[0])).toBe(true)
+    // Certains mots EFF contiennent un tiret (« t-shirt ») : on choisit une
+    // part dont aucun mot n’en contient avant de remplacer les séparateurs,
+    // sinon le découpage serait ambigu.
+    let selected: Uint8Array | null = null
+    let words = ''
+    for (let attempt = 0; attempt < 20 && !selected; attempt += 1) {
+      const shares = await splitSecret(secret(), 2, 3)
+      for (const share of shares) {
+        const candidate = encodeShareWords(share)
+        if (!candidate.split(' ').some((word) => word.includes('-'))) {
+          selected = share
+          words = candidate
+          break
+        }
+      }
+    }
+    expect(selected).not.toBeNull()
+    const dashed = words.replaceAll(' ', '-')
+    expect(equal(decodeShareWords(dashed), selected!)).toBe(true)
   })
 
   it('groupe les mots par blocs de cinq', async () => {

@@ -431,10 +431,10 @@ pub fn verify_file_mac(file: &VaultFile, integrity_key: &[u8]) -> Result<bool, C
         return Ok(false);
     };
     let actual = from_base64(&integrity.mac)?;
-    // Le manifeste 2 couvre l’historique du générateur. Les fichiers signés
-    // avec le manifeste 1 restent valides et sont réécrits en version 2 à la
-    // première mutation.
-    for manifest_version in [2u8, 1u8] {
+    // Le manifeste 3 couvre l’identité publique complète des contacts
+    // d’urgence. Les manifestes 2 et 1 restent valides et sont réécrits en
+    // manifeste 3 à la première mutation.
+    for manifest_version in crate::format::VAULT_MANIFEST_VERSIONS {
         let manifest = Manifest::compute_version(file, manifest_version)?;
         let bytes = canonical_json(&manifest.to_json());
         let expected = hmac_sha256(integrity_key, bytes.as_bytes())?;
@@ -739,7 +739,7 @@ pub fn sign(
         crypto::integrity_key_aad(),
     )?;
 
-    file.version = 4;
+    file.version = crate::format::VAULT_FILE_VERSION;
     file.writer = Some(writer.to_string());
     file.revision = Some(revision);
     file.key_epoch = Some(key_epoch);
@@ -753,7 +753,7 @@ pub fn sign(
         mac: String::new(),
         key: sealed_integrity_key,
     });
-    let manifest = Manifest::compute_version(&file, 2)?;
+    let manifest = Manifest::compute_version(&file, crate::format::VAULT_MANIFEST_VERSION)?;
     let mac = crypto::hmac_sha256(
         integrity_key,
         canonical_json(&manifest.to_json()).as_bytes(),

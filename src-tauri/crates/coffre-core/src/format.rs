@@ -7,6 +7,13 @@ use std::collections::BTreeMap;
 use crate::CoreError;
 use crate::crypto::{sha256, to_base64};
 
+/// Version du format `.coffre` écrite par cette version du cœur.
+pub const VAULT_FILE_VERSION: u8 = 4;
+/// Version du manifeste d’intégrité écrite par cette version du cœur.
+pub const VAULT_MANIFEST_VERSION: u8 = 3;
+/// Versions de manifeste acceptées en lecture, de la plus récente à l’ancienne.
+pub const VAULT_MANIFEST_VERSIONS: [u8; 3] = [3, 2, 1];
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KdfParams {
@@ -285,7 +292,86 @@ fn emergency_id(value: &Value) -> Result<String, CoreError> {
     }
 }
 
-fn emergency_digest(value: &Value) -> Result<String, CoreError> {
+fn contact_identity(value: &Value) -> Result<Value, CoreError> {
+    let encryption_public_key = value_str(value, "encryptionPublicKey")?;
+    let signing_public_key = value_str(value, "signingPublicKey")?;
+    let fingerprint = value_str(value, "fingerprint")?;
+    Ok(json!({
+        "encryptionPublicKey": encryption_public_key,
+        "signingPublicKey": signing_public_key,
+        "fingerprint": fingerprint,
+    }))
+}
+
+fn sealed_identity(value: &Value) -> Result<Value, CoreError> {
+    let enc = value_str(value, "enc")?;
+    let ciphertext = value_str(value, "ciphertext")?;
+    Ok(json!({
+        "enc": enc,
+        "ciphertext": ciphertext,
+    }))
+}
+
+/// Manifeste 3 : couvre les deux clés publiques du contact, son empreinte et
+/// l’enveloppe scellée. Une clé remplacée sans changer le MAC invalide donc le
+/// fichier, même si l’empreinte d’origine est conservée.
+fn emergency_identity_digest(value: &Value) -> Result<String, CoreError> {
+    let payload = if emergency_mode(value) == "shamir" {
+        let threshold = value
+            .get("threshold")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| CoreError::InvalidFormat("seuil d’urgence absent".into()))?;
+        let total = value
+            .get("total")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| CoreError::InvalidFormat("total d’urgence absent".into()))?;
+        let shares = value
+            .get("shares")
+            .and_then(Value::as_array)
+            .ok_or_else(|| CoreError::InvalidFormat("parts d’urgence absentes".into()))?;
+        let mut entries = Vec::with_capacity(shares.len());
+        for share in shares {
+            let contact = share
+                .get("contact")
+                .ok_or_else(|| CoreError::InvalidFormat("contact d’urgence absent".into()))?;
+            let sealed = share
+                .get("sealed")
+                .ok_or_else(|| CoreError::InvalidFormat("part d’urgence absente".into()))?;
+            let identity = contact_identity(contact)?;
+            let envelope = sealed_identity(sealed)?;
+            entries.push(json!({
+                "contact": identity,
+                "sealed": envelope,
+            }));
+        }
+        json!({
+            "mode": "shamir",
+            "threshold": threshold,
+            "total": total,
+            "shares": entries,
+        })
+    } else {
+        let contact = value
+            .get("contact")
+            .ok_or_else(|| CoreError::InvalidFormat("contact d’urgence absent".into()))?;
+        let sealed = value
+            .get("sealed")
+            .ok_or_else(|| CoreError::InvalidFormat("enveloppe d’urgence absente".into()))?;
+        let identity = contact_identity(contact)?;
+        let envelope = sealed_identity(sealed)?;
+        json!({
+            "mode": "immediate",
+            "contact": identity,
+            "sealed": envelope,
+        })
+    };
+    Ok(text_digest(&canonical_json(&payload)))
+}
+
+fn emergency_digest(value: &Value, manifest_version: u8) -> Result<String, CoreError> {
+    if manifest_version >= 3 {
+        return emergency_identity_digest(value);
+    }
     if emergency_mode(value) == "shamir" {
         let shares = value
             .get("shares")
@@ -319,14 +405,14 @@ fn emergency_digest(value: &Value) -> Result<String, CoreError> {
 
 impl Manifest {
     pub fn compute(file: &VaultFile) -> Result<Self, CoreError> {
-        Self::compute_version(file, 2)
+        Self::compute_version(file, VAULT_MANIFEST_VERSION)
     }
 
-    /// Calcule le manifeste canonique d’une version donnée. La version 1 est
-    /// conservée pour vérifier les fichiers signés avant la couverture de
-    /// l’historique du générateur.
+    /// Calcule le manifeste canonique d’une version donnée. Les versions 1 et 2
+    /// sont conservées pour vérifier les anciens fichiers ; la version 3 couvre
+    /// l’identité publique complète des contacts d’urgence.
     pub fn compute_version(file: &VaultFile, manifest_version: u8) -> Result<Self, CoreError> {
-        if !(1..=2).contains(&manifest_version) {
+        if !(1..=3).contains(&manifest_version) {
             return Err(CoreError::InvalidFormat(
                 "version de manifeste inconnue".into(),
             ));
@@ -337,7 +423,7 @@ impl Manifest {
         let key_epoch = file
             .key_epoch
             .ok_or_else(|| CoreError::InvalidFormat("époque de clé absente".into()))?;
-        if file.version != 4 {
+        if file.version != VAULT_FILE_VERSION {
             return Err(CoreError::InvalidFormat(
                 "le manifeste exige un fichier v4".into(),
             ));
@@ -512,7 +598,7 @@ impl Manifest {
                 parent_id: None,
                 rev: 0,
                 writer: String::new(),
-                ciphertext: emergency_digest(emergency)?,
+                ciphertext: emergency_digest(emergency, manifest_version)?,
             });
         }
 

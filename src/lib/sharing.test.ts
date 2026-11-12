@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { fromBase64, toBase64 } from './crypto'
 import {
   createEmergencyEnvelope,
   generateSharingIdentity,
@@ -54,9 +55,11 @@ describe('socle de partage L10', () => {
     const sealed = await sealVaultKeyForMember(vaultKey, publicSharingIdentity(bob), 'v_shared')
     await expect(openVaultKeyFromMember(sealed, eve, 'v_shared')).rejects.toThrow()
     await expect(openVaultKeyFromMember(sealed, bob, 'v_other')).rejects.toThrow()
+    const tamperedBytes = fromBase64(sealed.ciphertext)
+    tamperedBytes[0] ^= 0xff
     const tampered = {
       ...sealed,
-      ciphertext: `${sealed.ciphertext.slice(0, -2)}AA`,
+      ciphertext: toBase64(tamperedBytes),
     }
     await expect(openVaultKeyFromMember(tampered, bob, 'v_shared')).rejects.toThrow()
   })

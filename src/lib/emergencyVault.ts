@@ -10,6 +10,7 @@ import {
   createEmergencyEnvelope,
   openEmergencyEnvelope,
   openSealed,
+  parsePublicSharingIdentity,
   sealForRecipient,
   type PublicSharingIdentity,
   type SharingIdentity,
@@ -26,10 +27,29 @@ function shareInfo(contact: PublicSharingIdentity, index: number): string {
   return `coffre:v1:emergency-share|${contact.fingerprint}|${index}`
 }
 
+/**
+ * Vérifie que chaque contact est cohérent : l’empreinte doit correspondre aux
+ * deux clés publiques. Sans ce contrôle, un attaquant pourrait remplacer une
+ * clé en conservant l’empreinte, puis attendre un changement de mot de passe
+ * pour recevoir la nouvelle clé maîtresse.
+ */
+export async function assertEmergencyRecordContacts(
+  record: EmergencyAccessRecord,
+): Promise<void> {
+  if (record.mode === 'immediate') {
+    await parsePublicSharingIdentity(record.contact)
+    return
+  }
+  for (const share of record.shares) {
+    await parsePublicSharingIdentity(share.contact)
+  }
+}
+
 export async function createEmergencyRecord(
   masterKey: Uint8Array,
   contact: PublicSharingIdentity,
 ): Promise<EmergencyImmediateRecord> {
+  await parsePublicSharingIdentity(contact)
   return {
     version: 1,
     mode: 'immediate',
@@ -47,6 +67,9 @@ export async function createShamirEmergencyRecord(
 ): Promise<EmergencyShamirRecord> {
   if (contacts.length < threshold || contacts.length > 5) {
     throw new Error('Nombre de contacts invalide pour le partage Shamir')
+  }
+  for (const contact of contacts) {
+    await parsePublicSharingIdentity(contact)
   }
   const shares = await splitSecret(masterKey, threshold, contacts.length)
   const wrapped = []
@@ -114,6 +137,7 @@ export async function resealEmergencyRecord(
   record: EmergencyAccessRecord,
   nextMasterKey: Uint8Array,
 ): Promise<EmergencyAccessRecord> {
+  await assertEmergencyRecordContacts(record)
   if (record.mode === 'immediate') {
     return {
       ...record,

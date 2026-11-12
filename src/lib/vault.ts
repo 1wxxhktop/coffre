@@ -60,8 +60,15 @@ import { normalizeDateOnly } from './expiry'
 import { normalizeRecoveryPhrase } from './recovery'
 import { openSharingIdentity, resealSharingIdentity } from './sharingVault'
 import { parseSharedVaultPackage, type SharedVaultPackage } from './sharingPackage'
-import { resealEmergencyRecord } from './emergencyVault'
-import type { SharingIdentity, ShareRole } from './sharing'
+import {
+  assertEmergencyRecordContacts,
+  resealEmergencyRecord,
+} from './emergencyVault'
+import type {
+  PublicSharingIdentity,
+  SharingIdentity,
+  ShareRole,
+} from './sharing'
 import type {
   ActivityEvent,
   AliasKeyService,
@@ -75,6 +82,7 @@ import type {
   EncryptedVaultRecord,
   EncryptedTemplateRecord,
   EncryptedVersionRecord,
+  EmergencyAccessRecord,
   ItemContent,
   ItemTemplate,
   ItemType,
@@ -136,6 +144,20 @@ export class VaultIntegrityError extends Error {
     this.name = 'VaultIntegrityError'
   }
 }
+
+/** Version du format `.coffre` écrite par cette version de l’application. */
+export const VAULT_FILE_VERSION = 4
+
+/**
+ * Version du manifeste d’intégrité écrite par cette version. Le manifeste 3
+ * couvre l’identité publique complète des contacts d’urgence.
+ */
+export const VAULT_MANIFEST_VERSION = 3
+
+/** Versions de manifeste acceptées en lecture, de la plus récente à l’ancienne. */
+export const VAULT_MANIFEST_VERSIONS = [3, 2, 1] as const
+
+export type VaultManifestVersion = (typeof VAULT_MANIFEST_VERSIONS)[number]
 
 /** Durée de conservation des pierres tombales pour la synchronisation. */
 export const TOMBSTONE_RETENTION_DAYS = 180
@@ -957,7 +979,7 @@ interface ManifestRecord {
 }
 
 interface VaultManifest {
-  manifest: 1 | 2
+  manifest: VaultManifestVersion
   file: string
   writer: string
   revision: number
@@ -994,6 +1016,48 @@ async function sealedDigest(sealed: { n: string; c: string }): Promise<string> {
   }
 }
 
+/**
+ * Empreinte du manifeste 3 pour un accès d’urgence. Contrairement au manifeste
+ * 2, elle couvre les deux clés publiques du contact en plus de son empreinte et
+ * de l’enveloppe scellée. Une clé remplacée sans changer le MAC invalide donc
+ * le fichier.
+ */
+async function emergencyIdentityDigest(
+  record: EmergencyAccessRecord,
+): Promise<string> {
+  const contact = (value: PublicSharingIdentity) => ({
+    encryptionPublicKey: value.encryptionPublicKey,
+    signingPublicKey: value.signingPublicKey,
+    fingerprint: value.fingerprint,
+  })
+  const sealed = (value: { enc: string; ciphertext: string }) => ({
+    enc: value.enc,
+    ciphertext: value.ciphertext,
+  })
+  const payload =
+    record.mode === 'immediate'
+      ? {
+          mode: 'immediate',
+          contact: contact(record.contact),
+          sealed: sealed(record.sealed),
+        }
+      : {
+          mode: 'shamir',
+          threshold: record.threshold,
+          total: record.total,
+          shares: record.shares.map((share) => ({
+            contact: contact(share.contact),
+            sealed: sealed(share.sealed),
+          })),
+        }
+  const bytes = utf8(canonicalJson(payload))
+  try {
+    return toBase64(await sha256(bytes))
+  } finally {
+    wipe(bytes)
+  }
+}
+
 const RECORD_TYPE_ORDER: Record<ManifestRecord['type'], number> = {
   vault: 0,
   item: 1,
@@ -1013,10 +1077,10 @@ const RECORD_TYPE_ORDER: Record<ManifestRecord['type'], number> = {
  */
 export async function computeManifest(
   file: VaultFile,
-  manifestVersion: 1 | 2 = 2,
+  manifestVersion: VaultManifestVersion = VAULT_MANIFEST_VERSION,
 ): Promise<VaultManifest> {
   if (
-    file.version !== 4 ||
+    file.version !== VAULT_FILE_VERSION ||
     file.revision === undefined ||
     file.keyEpoch === undefined
   ) {
@@ -1108,17 +1172,19 @@ export async function computeManifest(
   if (file.emergency) {
     const emergency = file.emergency
     const digest =
-      emergency.mode === 'immediate'
-        ? await sealedDigest({
-            n: emergency.sealed.enc,
-            c: emergency.sealed.ciphertext,
-          })
-        : await sealedDigest({
-            n: emergency.shares.map((share) => share.sealed.enc).join('.'),
-            c: emergency.shares
-              .map((share) => share.sealed.ciphertext)
-              .join('.'),
-          })
+      manifestVersion >= 3
+        ? await emergencyIdentityDigest(emergency)
+        : emergency.mode === 'immediate'
+          ? await sealedDigest({
+              n: emergency.sealed.enc,
+              c: emergency.sealed.ciphertext,
+            })
+          : await sealedDigest({
+              n: emergency.shares.map((share) => share.sealed.enc).join('.'),
+              c: emergency.shares
+                .map((share) => share.sealed.ciphertext)
+                .join('.'),
+            })
     records.push({
       type: 'emergency',
       id:
@@ -1213,7 +1279,7 @@ export async function computeManifest(
 async function computeMac(
   file: VaultFile,
   key: Uint8Array,
-  manifestVersion: 1 | 2 = 2,
+  manifestVersion: VaultManifestVersion = VAULT_MANIFEST_VERSION,
 ): Promise<Uint8Array> {
   const manifest = await computeManifest(file, manifestVersion)
   const bytes = new TextEncoder().encode(canonicalJson(manifest))
@@ -1227,18 +1293,18 @@ async function computeMac(
 /**
  * Vérifie le MAC global d’un fichier v4 avec la clé d’intégrité en clair.
  *
- * Le manifeste 2 couvre l’historique du générateur. Les fichiers signés avant
- * cette couverture restent lisibles grâce au manifeste 1 ; ils sont réécrits
- * en manifeste 2 à la première mutation.
+ * Le manifeste 3 couvre l’identité publique complète des contacts d’urgence ;
+ * les manifestes 2 et 1 restent lisibles et sont réécrits en manifeste 3 à la
+ * première mutation.
  */
 export async function verifyFileMac(
   file: VaultFile,
   integrityKey: Uint8Array,
 ): Promise<boolean> {
-  if (file.version !== 4 || !file.integrity) return false
+  if (file.version !== VAULT_FILE_VERSION || !file.integrity) return false
   try {
     const expected = fromBase64(file.integrity.mac)
-    for (const manifestVersion of [2, 1] as const) {
+    for (const manifestVersion of VAULT_MANIFEST_VERSIONS) {
       const actual = await computeMac(file, integrityKey, manifestVersion)
       if (equalBytes(expected, actual)) return true
     }
@@ -1452,7 +1518,7 @@ export async function signVaultFile(
 
   const next: VaultFile = {
     ...file,
-    version: 4,
+    version: VAULT_FILE_VERSION,
     writer: WRITER_ID,
     revision,
     keyEpoch,
@@ -1720,6 +1786,20 @@ export async function openVaultFileWithMasterKey(
         )
       } finally {
         if (integrityKey) wipe(integrityKey)
+      }
+    }
+
+    // Le manifeste 3 couvre les clés publiques d’urgence. Ce contrôle protège
+    // aussi les anciens fichiers signés en manifeste 2 : une clé remplacée avec
+    // l’empreinte d’origine est détectée avant tout changement de mot de passe.
+    if (file.emergency) {
+      try {
+        await assertEmergencyRecordContacts(file.emergency)
+      } catch {
+        warnings.push(
+          'L’accès d’urgence est incohérent : l’empreinte ne correspond pas aux clés publiques. Le coffre est ouvert en lecture seule ; reconfigurez l’accès d’urgence avant toute rotation.',
+        )
+        integrityState = 'invalid'
       }
     }
   }
@@ -2152,11 +2232,16 @@ export async function recoverVaultFileWithRecoveryKey(
       const guard = await sealBytes(recoveryKey, masterKey, recoveryGuardAad())
       const integrityKey = randomBytes(KDF_DEFAULTS.keyLength)
       let emergency = file.emergency
+      let emergencyDropped = false
       if (emergency) {
         try {
           emergency = await resealEmergencyRecord(emergency, masterKey)
         } catch {
+          // Une identité d’urgence incohérente ne doit jamais être reseellée
+          // avec la nouvelle clé maîtresse : on la retire au lieu de faire
+          // confiance à une clé publique non authentifiée.
           emergency = undefined
+          emergencyDropped = true
         }
       }
       const next: VaultFile = {
@@ -2180,6 +2265,7 @@ export async function recoverVaultFileWithRecoveryKey(
       // par une signature calculée sous la nouvelle époque.
       delete next.integrity
       if (emergency) next.emergency = emergency
+      else delete next.emergency
 
       try {
         const signingSession = new VaultSession(masterKey.slice())
@@ -2190,7 +2276,13 @@ export async function recoverVaultFileWithRecoveryKey(
         } finally {
           signingSession.lock()
         }
-        return await openVaultFileWithMasterKey(signed, masterKey)
+        const opened = await openVaultFileWithMasterKey(signed, masterKey)
+        if (emergencyDropped) {
+          opened.warnings.push(
+            'L’accès d’urgence a été retiré : son identité ne correspondait pas à son empreinte. Reconfigurez-le après la récupération.',
+          )
+        }
+        return opened
       } finally {
         wipe(masterKey)
       }
@@ -3408,6 +3500,16 @@ export async function verifyVaultFile(
           file.items.length * 2 +
           file.attachments.length +
           file.versions.length
+      }
+    }
+
+    if (file.emergency) {
+      try {
+        await assertEmergencyRecordContacts(file.emergency)
+      } catch {
+        issues.push(
+          'accès d’urgence incohérent : l’empreinte ne correspond pas aux clés publiques',
+        )
       }
     }
 

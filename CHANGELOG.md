@@ -6,6 +6,21 @@
   désormais les mises à jour signées (B-02), la publication stable/bêta et la
   vérification d’une mise à jour depuis l’application.
 
+### Sécurité
+
+- **Manifeste d’intégrité 3** : l’identité publique complète des contacts
+  d’urgence (clés de chiffrement et de signature, empreinte et enveloppe
+  scellée) est désormais couverte par le MAC. Une clé remplacée sans changer le
+  MAC est détectée ; l’empreinte est vérifiée avant tout changement de mot de
+  passe ou récupération. Les manifestes 1 et 2 restent lisibles et sont réécrits
+  en manifeste 3 à la première mutation.
+- Les fichiers manifeste 3 sont ouverts en lecture seule par les applications
+  0.12, qui ne peuvent pas vérifier le nouveau MAC. Voir
+  [`docs/VERSIONING.md`](docs/VERSIONING.md) pour la procédure de mise à jour
+  multi-appareils.
+- `bun run version:check` vérifie désormais le format `.coffre`, le manifeste et
+  les versions de protocoles en plus des versions produit.
+
 ## 0.13.0 — 11 novembre 2026
 
 - Fiche d’une connexion : le bloc « Sécurité » liste désormais les autres
