@@ -352,7 +352,7 @@ mod windows_hello {
     pub fn available() -> bool {
         ensure_com();
         UserConsentVerifier::CheckAvailabilityAsync()
-            .and_then(|operation| operation.get())
+            .and_then(|operation| operation.join())
             .map(|availability| availability == UserConsentVerifierAvailability::Available)
             .unwrap_or(false)
     }
@@ -369,7 +369,7 @@ mod windows_hello {
         }
         let message = HSTRING::from(reason);
         UserConsentVerifier::RequestVerificationAsync(&message)
-            .and_then(|operation| operation.get())
+            .and_then(|operation| operation.join())
             .map(|result| result == UserConsentVerificationResult::Verified)
             .map_err(|error| error.to_string())
     }
