@@ -74,6 +74,32 @@ test.describe('coffre et éléments', () => {
     await expect(page.locator('.topbar__sub')).not.toContainText('0 élément')
   })
 
+  test('copie une adresse web depuis la fiche sans l’ouvrir', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await createVault(page)
+    const panel = await addLogin(
+      page,
+      'GitHub',
+      'studio26',
+      's3cret!',
+      'https://github.com/login',
+    )
+    const row = panel
+      .locator('.detail-link')
+      .filter({ hasText: 'https://github.com/login' })
+    await expect(row).toBeVisible()
+    await row
+      .getByRole('button', { name: 'Copier l’adresse web' })
+      .click()
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe('https://github.com/login')
+    await expect(page.locator('.item-panel')).toBeVisible()
+  })
+
   test('verrouille et déverrouille avec le mot de passe maître', async ({ page }) => {
     await createVault(page)
     await addLogin(page)

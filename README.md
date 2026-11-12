@@ -60,6 +60,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Dix types d’éléments** : connexion, note sécurisée, carte bancaire,
   identité, passkey WebAuthn, clé SSH, réseau Wi-Fi, identifiant d’API, licence
   logicielle et document avec pièce jointe principale.
+- **Adresses web multiples** : une connexion peut contenir plusieurs URL. Chaque
+  adresse peut être ouverte dans le navigateur, ou copiée directement via son
+  icône, sans l’ouvrir.
 - **Passkeys WebAuthn (ES256)** : création et connexion sans mot de passe dans
   l’extension, confirmation explicite dans une fenêtre Coffre, clé privée
   PKCS#8 conservée dans le contenu chiffré de l’élément, validation stricte du

@@ -2530,17 +2530,26 @@ function ItemDetails({
                       <Link2 size={14} />
                       {target ? (
                         <a
-                        href={target}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        onClick={(event) => handleExternalClick(event, target)}
-                      >
-                        {url}
-                        <ExternalLink size={12} />
-                      </a>
+                          href={target}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          onClick={(event) => handleExternalClick(event, target)}
+                        >
+                          {url}
+                          <ExternalLink size={12} />
+                        </a>
                       ) : (
                         <span>{url}</span>
                       )}
+                      <button
+                        type="button"
+                        className="icon-button icon-button--sm detail-link__copy"
+                        onClick={() => void copyValue(url, url)}
+                        aria-label={tt('Copier l’adresse web')}
+                        title={tt('Copier l’adresse web')}
+                      >
+                        {copied === url ? <Check size={13} /> : <Copy size={13} />}
+                      </button>
                     </span>
                   )
                 })}

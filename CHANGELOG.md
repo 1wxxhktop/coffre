@@ -18,6 +18,8 @@
 - Mises à jour : recherche **continue toutes les minutes** (choix explicite,
   activée automatiquement en passant au canal bêta), vérification au retour sur
   la fenêtre, téléchargement automatique et carte d’installation.
+- Fiche : icône de copie pour chaque adresse web d’une connexion, sans
+  l’ouvrir dans le navigateur.
 - Protection de `main` : checks requis `Qualité` et `Bêta macOS`.
 
 ## 0.14.2 — 12 novembre 2026
