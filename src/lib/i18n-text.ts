@@ -868,6 +868,10 @@ export const EN_TEXT: Record<string, string> = {
     "Every day",
   "Chaque semaine":
     "Every week",
+  "En continu (1 min)":
+    "Continuous (1 min)",
+  "En canal bêta, la recherche continue vérifie les nouvelles versions toutes les minutes.":
+    "On the beta channel, continuous checking looks for new versions every minute.",
   "Canal":
     "Channel",
   "Stable":

@@ -77,7 +77,7 @@ export function isFullyAutomaticUpdate(settings: UpdateSettingsSlice): boolean {
 
 /**
  * Réglages appliqués par l’interrupteur « Mettre à jour automatiquement ».
- * Activé : recherche (quotidienne si elle était coupée), téléchargement en
+ * Activé : recherche continue si elle était coupée, téléchargement en
  * arrière-plan et installation à la fermeture. Désactivé : plus aucune requête
  * automatique, et l’installation redevient une décision explicite.
  */
@@ -87,7 +87,7 @@ export function automaticUpdatePreset(
 ): UpdateSettingsSlice {
   return enabled
     ? {
-        updateCheck: current.updateCheck === 'off' ? 'daily' : current.updateCheck,
+        updateCheck: current.updateCheck === 'off' ? 'continuous' : current.updateCheck,
         updateAutoDownload: true,
         updateInstallMode: 'on-quit',
       }

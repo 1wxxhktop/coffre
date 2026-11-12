@@ -654,7 +654,7 @@ export interface AppSettings {
    * Desktop : recherche des mises à jour. Désactivée par défaut, comme toute
    * fonction réseau ; « Rechercher maintenant » reste disponible.
    */
-  updateCheck: 'off' | 'launch' | 'daily' | 'weekly'
+  updateCheck: 'off' | 'launch' | 'daily' | 'weekly' | 'continuous'
   /** Canal suivi : versions publiées, ou aussi les préversions. */
   updateChannel: 'stable' | 'beta'
   /** Télécharger en arrière-plan dès qu’une mise à jour est trouvée. */

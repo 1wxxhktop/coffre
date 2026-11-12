@@ -15,6 +15,9 @@
 - Bêta automatique par PR : version `0.15.0-beta.<run>` construite à la volée,
   publiée dans `canal-beta`, avec tests minimaux. La suite complète reste sur
   `main`, les labels `full-ci`/`stable` et `release.yml`.
+- Mises à jour : recherche **continue toutes les minutes** (choix explicite,
+  activée automatiquement en passant au canal bêta), vérification au retour sur
+  la fenêtre, téléchargement automatique et carte d’installation.
 - Protection de `main` : checks requis `Qualité` et `Bêta macOS`.
 
 ## 0.14.2 — 12 novembre 2026

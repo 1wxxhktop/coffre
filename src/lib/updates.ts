@@ -5,7 +5,8 @@
  * Rust de `src-tauri/src/updater.rs` : l’adresse (releases GitHub) et la clé de
  * signature y sont fixées, la WebView ne peut pas les changer. Aucune requête
  * n’est faite tant que l’utilisateur n’a pas cliqué sur « Rechercher » ou
- * choisi une fréquence (désactivée par défaut).
+ * choisi une fréquence (désactivée par défaut ; le canal bêta propose la
+ * recherche continue).
  */
 
 import { invoke } from '@tauri-apps/api/core'
@@ -50,14 +51,18 @@ export const UPDATE_ERROR_TEXTS: Record<string, string> = {
 export const UPDATE_PROGRESS_EVENT = 'coffre://update-progress'
 
 /** Intervalle entre deux passages du planificateur. */
-export const UPDATE_SCHEDULER_INTERVAL_MS = 60 * 60 * 1000
+export const UPDATE_SCHEDULER_INTERVAL_MS = 30 * 1000
+
+/** Intervalle de la recherche continue (canal bêta). */
+export const CONTINUOUS_CHECK_INTERVAL_MS = 60 * 1000
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * Vrai si une vérification automatique est due. « Au démarrage » ne vérifie
  * qu’une fois par lancement ; « quotidienne » et « hebdomadaire » suivent la
- * dernière vérification réussie.
+ * dernière vérification réussie ; « continue » vérifie au lancement puis au
+ * plus une fois par minute.
  */
 export function isUpdateCheckDue(
   settings: Pick<AppSettings, 'updateCheck' | 'updateLastCheckAt'>,
@@ -69,6 +74,13 @@ export function isUpdateCheckDue(
       return false
     case 'launch':
       return !checkedThisLaunch
+    case 'continuous': {
+      if (!checkedThisLaunch) return true
+      if (!settings.updateLastCheckAt) return true
+      const last = new Date(settings.updateLastCheckAt).getTime()
+      if (!Number.isFinite(last) || last > now.getTime()) return true
+      return now.getTime() - last >= CONTINUOUS_CHECK_INTERVAL_MS
+    }
     case 'daily':
     case 'weekly': {
       if (!settings.updateLastCheckAt) return true
