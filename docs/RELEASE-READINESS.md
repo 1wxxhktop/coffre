@@ -1,10 +1,11 @@
-# Niveau de préparation grand public — Coffre 0.8.0
+# Niveau de préparation grand public — Coffre 0.14.0
 
-**Date :** 8 novembre 2026
-**Conclusion :** le socle de sécurité est solide et aucun défaut critique de
-confidentialité n’a été trouvé lors de la re-vérification. En revanche, Coffre
-n’est **pas encore prêt pour une distribution grand public**. C’est une
-**bêta technique utilisable localement** sur Web/PWA, Chromium et macOS arm64.
+**Date :** 12 novembre 2026
+**Conclusion :** le socle de sécurité est solide et l’audit complet de la 0.12.0
+a été remédié. La **0.14.0 est publiée** comme release de sécurité (manifeste 3,
+protocoles 2) et les mises à jour signées sont opérationnelles sur macOS. Coffre
+n’est **pas encore prêt pour une distribution grand public** : c’est une
+**bêta technique utilisable localement** sur Web/PWA, Chromium et macOS.
 
 Le mot « grand public » implique ici : installation sans avertissement
 Gatekeeper, mises à jour, AutoFill système, mobile, support multi-plateforme et
@@ -12,11 +13,14 @@ assurance externe. Ces points ne sont pas tous du code : ils demandent des
 certificats Apple, une infrastructure de release, du matériel de test et un
 audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 
-> **Mise à jour du 11 novembre 2026 (0.13.0) :** ce bilan reste celui de la
-> 0.8.0, mais **B-02 (mises à jour signées) est désormais traité** : releases
-> macOS signées, canaux stable et bêta, vérification et installation depuis
-> l’application. Voir [RELEASE.md](RELEASE.md). Les autres constats restent
-> valables, notamment B-01 et B-04 à B-08.
+> **Mise à jour du 12 novembre 2026 (0.14.0) :** la release de sécurité issue de
+> l’audit de la 0.12.0 est publiée. Le manifeste d’intégrité passe à **3**, les
+> protocoles pont/extension/LAN à **2**, le format `.coffre` reste **v4**. Les
+> releases macOS sont signées ad hoc, attestées par GitHub et mises à jour via
+> les canaux stable et bêta. Les applications 0.13 ouvrent un fichier manifeste
+> 3 en lecture seule : tous les appareils et l’extension doivent être mis à jour
+> ensemble. Voir [VERSIONING.md](VERSIONING.md) et [RELEASE.md](RELEASE.md).
+> B-01 (Developer ID/notarisation) et B-04 à B-08 restent ouverts.
 
 ---
 
@@ -24,10 +28,10 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 
 | Plateforme | État | Verdict |
 | --- | --- | --- |
-| Web / PWA | Fonctionnelle, 46/46 E2E, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
-| Extension Chromium / Firefox | Fonctionnelle sur Chromium (remplissage et passkeys) ; variante Firefox lintée, non publiée ; pont natif macOS/Linux implémenté | **Bêta technique** |
-| Desktop macOS arm64 | Compile, stockage natif, se lance, Touch ID, verrouillage avec la session, barre de menus, synchronisation par dossier, signé ad hoc | **Bêta technique locale** |
-| Desktop macOS Intel | Non testé | **Non validé** |
+| Web / PWA | Fonctionnelle, 170 parcours Playwright, CSP stricte, Lighthouse 1,0 | **Bêta publique possible** |
+| Extension Chromium / Firefox | Fonctionnelle sur Chromium (remplissage, passkeys, jetons de menu) ; variante Firefox lintée, non publiée ; pont natif macOS/Linux implémenté | **Bêta technique** |
+| Desktop macOS arm64 | 0.14.0 universelle publiée, stockage natif, Touch ID, verrouillage système, barre de menus, synchronisation par dossier, updater signé, ad hoc | **Bêta technique locale** |
+| Desktop macOS Intel | Binaire universel produit et DMG vérifié, mais pas d’exécution sur Mac Intel | **Non validé** |
 | Windows | Build CI, pas de test d’exécution | **Non validé** |
 | Linux | Build CI, pas de test d’exécution | **Non validé** |
 | iOS / Android | Non initialisé | **Non disponible** |
@@ -42,18 +46,20 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 - **Format** : `.coffre` v4 validé par Zod, MAC global et révisions hors
   fichier, compatibilité v1 à v3, migrations à l’écriture, pierres tombales
   plafonnées, historique et pièces jointes.
-- **Intégrité** : HMAC-SHA-256 sur un manifeste canonique, clé scellée par la
-  clé maîtresse et tournée avec l’époque des clés ; un fichier altéré s’ouvre
-  en lecture seule.
+- **Intégrité** : HMAC-SHA-256 sur un manifeste canonique **version 3**,
+  identité publique complète des contacts d’urgence couverte, clé scellée par
+  la clé maîtresse et tournée avec l’époque des clés ; un fichier altéré
+  s’ouvre en lecture seule.
 - **Extension** : remplissage depuis l’onglet Coffre déverrouillé, secours
   conservé ; pont natif desktop appairé (ECDH P-256, HKDF, AES-256-GCM,
-  compteurs anti-rejeu) avec installation automatique des hôtes de messagerie
-  native et contrôle de domaine dans l’application.
+  compteurs anti-rejeu, empreinte d’appairage) avec installation automatique
+  des hôtes de messagerie native et contrôle de domaine dans l’application.
+  Les menus utilisent un jeton de capacité lié à l’onglet et au cadre.
 - **Passkeys** : création et assertion ES256 dans l’application, interception
   WebAuthn dans le monde `MAIN`, confirmation dans une fenêtre d’extension,
   validation de l’origine et du RP ID, clé privée absente des messages. Les
   sites exigeant `UV` ou un authentificateur externe utilisent le navigateur ;
-  l’export FIDO CXF reste à faire.
+  l’export FIDO CXF est disponible.
 - **Fuites connues** : vérification optionnelle, désactivée par défaut, en
   k-anonymat (préfixe SHA-1 de 5 caractères, `Add-Padding`). Résultats en
   mémoire uniquement, intégrés au score et aux catégories ; desktop via Rust,
@@ -84,9 +90,11 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   L’échange manuel `.coffre-shared.json` reste disponible.
 - **Sécurité applicative** : CSP stricte, `freezePrototype`, aucune requête
   réseau, aucun `innerHTML`, URL http(s) uniquement, React escaping.
-- **Anti-hameçonnage** : analyse locale des domaines au remplissage forcé et à
-  l’enregistrement, bandeau Annuler / Continuer quand même, journalisation
-  chiffrée du choix. Jeux de données embarqués (Apple MIT, Chrome UX Report
+- **Anti-hameçonnage** : analyse locale des domaines au remplissage et à
+  l’enregistrement, bandeau d’alerte, journalisation chiffrée du choix. Un
+  remplissage sur un hôte différent de celui de l’élément est refusé même après
+  l’alerte ; « Continuer » ne reste proposé que pour l’enregistrement, qui
+  n’expose aucun secret. Jeux de données embarqués (Apple MIT, Chrome UX Report
   CC BY 4.0, Unicode UTS #39), aucune API de réputation ni requête réseau à
   l’exécution.
 - **Disponibilité 2FA et passkeys** : instantanés 2FA Directory (MIT) et
@@ -125,14 +133,22 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
   `app_data_dir()`, écritures atomiques, permissions `0600`/`0700`, trois
   sauvegardes tournantes, plafond de 100 Mo et migration automatique depuis
   IndexedDB.
-- **Tests** : 676 tests unitaires (81 fichiers), 158 exécutions Playwright
-  (79 parcours sur Chromium et WebKit), 36 tests Rust desktop (1 ignoré) +
-  26 tests `coffre-core` + 3 tests FFI + 13 tests `coffre-cli` + 17 tests agent
-  SSH, smoke extension
-  (recherche, remplissage, passkeys avec attestation et assertion vérifiées,
-  verrouillage), vérification HIBP interceptée, relais natif simulé et
-  Lighthouse accessibilité 1,0.
-- **Documentation** : SECURITY, audit, AutoFill, Proton Pass, native, README.
+- **Accessibilité et anglais** : notifications rendues hors de `#root`, focus
+  restitué après une modale imbriquée, palette de commandes inerte, menu mobile
+  stable, libellés `tt()` vérifiés par le lint, navigation clavier et lien
+  d’évitement. La revue manuelle avec lecteur d’écran reste à faire.
+- **Chaîne de release** : actions GitHub épinglées par SHA, gate
+  fmt/clippy/tests/deny/audit, release macOS universelle, attestation de
+  provenance GitHub, SBOM CycloneDX complété et vérifié, `glob`/`minimatch`
+  forcés vers des versions corrigées. La 0.14.0 est publiée sur le canal stable
+  et le canal bêta.
+- **Tests** : 785 tests unitaires (99 fichiers), 170 parcours Playwright
+  (Chromium et WebKit), tests Rust workspace (`coffre-core`, FFI, CLI, agent
+  SSH), smoke extension (recherche, remplissage, passkeys avec attestation et
+  assertion vérifiées, verrouillage), vérification HIBP interceptée, relais
+  natif simulé et Lighthouse accessibilité 1,0.
+- **Documentation** : SECURITY, audit, suivi de remédiation, versioning,
+  AutoFill, Proton Pass, native, release, README.
 
 ---
 
@@ -156,14 +172,16 @@ Il manque le certificat **Developer ID Application** et les secrets de
 notarisation. Sans eux, un utilisateur non technique ne peut toujours pas
 installer Coffre sans manipulation.
 
-### B-02 — Mises à jour — **traité en 0.13.0**
+### B-02 — Mises à jour — **traité en 0.13.0, 0.14.0 publiée**
 
 La version desktop utilise le **Tauri Updater** avec un manifeste
 `latest.json` publié dans les releases GitHub. Chaque paquet est signé
 (minisign) par la clé de mise à jour de Coffre ; la clé publique est intégrée
 au binaire à la compilation, et l’application vérifie la signature et la
 version avant toute installation. Le canal **stable** lit la dernière release
-publiée, le canal **bêta** lit la release roulante `canal-beta`.
+publiée, le canal **bêta** lit la release roulante `canal-beta`. La 0.14.0 est
+publiée sur les deux canaux, avec DMG universel, paquet de mise à jour signé,
+attestation de provenance et SBOM.
 
 La chaîne de publication est documentée dans [RELEASE.md](RELEASE.md) :
 création du tag `v*`, build macOS universel et release en brouillon par
@@ -215,16 +233,18 @@ signature stable.
 
 ### B-07 — Audit externe
 
-Aucun audit cryptographique ni test d’intrusion externe n’a été réalisé. Pour un
-produit qui contient tous les mots de passe d’une personne, c’est un prérequis
-de confiance, même avec 167 tests.
+L’audit interne de la 0.12.0 (186 constats) a été remédié et la 0.14.0 publiée,
+mais aucun audit cryptographique ni test d’intrusion **externe** n’a été
+réalisé. Pour un produit qui contient tous les mots de passe d’une personne,
+c’est un prérequis de confiance, même avec 785 tests.
 
 ### B-08 — Validation Windows/Linux et macOS Intel
 
 La CI compile Windows/Linux, mais aucune exécution réelle, aucun test
-d’installation, aucun test de trousseau ni de WebView n’a été réalisé. Le build
-local arm64 et le build **universel** (arm64 + x86_64) ont été validés, mais le
-binaire Intel n’a pas été exécuté sur un Mac Intel. Le code Windows Hello et la
+d’installation, aucun test de trousseau ni de WebView n’a été réalisé. Le DMG
+**universel** (arm64 + x86_64) de la 0.14.0 a été monté et vérifié localement
+(version, architecture, signature ad hoc, `codesign --verify`), mais le binaire
+Intel n’a pas été exécuté sur un Mac Intel. Le code Windows Hello et la
 surveillance de session Windows (`WTSRegisterSessionNotification`,
 `WM_POWERBROADCAST`) sont présents mais n’ont pas été exécutés sur une machine
 Windows 11 ; la liste de contrôle manuelle figure dans la PR S1.
@@ -245,8 +265,10 @@ réel dans Mots de passe sur une machine Apple.
 
 Lighthouse est à 1,0. Les textes ont été remontés à **10,5 px minimum**, un lien
 d’évitement et `prefers-reduced-motion` ont été ajoutés, et le verrouillage à la
-perte de focus desktop est désormais explicite. Une revue manuelle avec lecteur
-d’écran et navigation clavier complète reste à faire.
+perte de focus desktop est désormais explicite. La 0.14.0 a corrigé les
+notifications inertes, la restitution de focus des modales imbriquées, l’inertie
+de la palette et le focus du menu mobile. Une revue manuelle avec VoiceOver/NVDA,
+zoom 200 % et navigation tactile complète reste à faire.
 
 ---
 
@@ -254,7 +276,9 @@ d’écran et navigation clavier complète reste à faire.
 
 1. Bundle macOS signé Developer ID, notarié, agrafé et validé `spctl`
    (chaîne prête ; certificat et secrets à fournir).
-2. ~~Mécanisme de mise à jour signé et documenté.~~ Fait en 0.13.0.
+2. ~~Mécanisme de mise à jour signé et documenté.~~ Fait en 0.13.0 ; release
+   0.14.0 publiée sur les canaux stable et bêta, reste à valider le parcours
+   réel 0.13 → 0.14.
 3. Stockage natif atomique + sauvegardes + export/restauration validés sur une
    installation réelle (code et tests unitaires déjà en place).
 4. AutoFill macOS/iOS et Safari (ou périmètre officiellement limité).
@@ -270,12 +294,14 @@ d’écran et navigation clavier complète reste à faire.
 
 ## 5. Recommandation
 
-- **Aujourd’hui** : distribuer comme **bêta technique 0.13**, avec un
+- **Aujourd’hui** : distribuer comme **bêta technique 0.14.0**, avec un
   avertissement clair sur Gatekeeper, l’absence d’AutoFill système et l’absence
-  d’audit externe. Les mises à jour signées sont disponibles sur macOS.
-- **Prochaine étape recommandée** : fournir le certificat Developer ID et les
-  secrets Apple, exécuter la release signée et notariée, valider la mise à jour
-  depuis une version précédente, puis traiter l’AutoFill macOS et l’audit
+  d’audit externe. Les mises à jour signées sont disponibles sur macOS ; la
+  compatibilité manifeste 3 / protocoles 2 impose une mise à jour coordonnée de
+  tous les appareils et de l’extension.
+- **Prochaine étape recommandée** : valider le parcours réel de mise à jour
+  0.13 → 0.14, puis fournir le certificat Developer ID et les secrets Apple,
+  exécuter la release signée et notariée, traiter l’AutoFill macOS et l’audit
   externe.
 - **Ne pas présenter** Coffre comme un remplaçant grand public de 1Password ou
   Mots de passe d’Apple tant que les bloquants restants (B-01, B-04 à B-08 et
