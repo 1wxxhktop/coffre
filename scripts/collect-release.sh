@@ -72,8 +72,10 @@ for needed in coffre-dist coffre-desktop-macos-latest coffre-desktop-ubuntu-22.0
 done
 
 DEST="$OUT/coffre-$VERSION-$SHORT"
+BUILD="$OUT/.coffre-$VERSION-$SHORT.tmp"
+OLD="$OUT/.coffre-$VERSION-$SHORT.old"
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+trap 'rm -rf "$TMP" "$BUILD"' EXIT
 
 echo "Exécution $RUN_ID · commit $SHORT · version $VERSION"
 echo "Téléchargement des artefacts…"
@@ -95,8 +97,8 @@ while IFS=$'\t' read -r artifact_id artifact_name; do
 done < <(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" \
   --jq '.artifacts[] | select(.expired == false) | "\(.id)\t\(.name)"')
 
-rm -rf "$DEST"
-mkdir -p "$DEST"/{macos,windows,linux,extension,web,sbom}
+rm -rf "$BUILD"
+mkdir -p "$BUILD"/{macos,windows,linux,extension,web,sbom}
 
 copy_matching() {
   # copy_matching <dossier source> <dossier cible> <motif>…
@@ -120,27 +122,27 @@ copy_tools() {
 }
 
 # macOS : le DMG garde l’app intacte (le .app seul perdrait ses permissions).
-copy_matching "$TMP/coffre-desktop-macos-latest" "$DEST/macos" '*.dmg'
-copy_tools "$TMP/coffre-desktop-macos-latest" "$DEST/macos"
+copy_matching "$TMP/coffre-desktop-macos-latest" "$BUILD/macos" '*.dmg'
+copy_tools "$TMP/coffre-desktop-macos-latest" "$BUILD/macos"
 
-copy_matching "$TMP/coffre-desktop-windows-latest" "$DEST/windows" '*.msi' '*-setup.exe'
-copy_tools "$TMP/coffre-desktop-windows-latest" "$DEST/windows"
+copy_matching "$TMP/coffre-desktop-windows-latest" "$BUILD/windows" '*.msi' '*-setup.exe'
+copy_tools "$TMP/coffre-desktop-windows-latest" "$BUILD/windows"
 
-copy_matching "$TMP/coffre-desktop-ubuntu-22.04" "$DEST/linux" '*.deb' '*.rpm' '*.AppImage'
-chmod +x "$DEST/linux/"*.AppImage 2>/dev/null || true
-copy_tools "$TMP/coffre-desktop-ubuntu-22.04" "$DEST/linux"
+copy_matching "$TMP/coffre-desktop-ubuntu-22.04" "$BUILD/linux" '*.deb' '*.rpm' '*.AppImage'
+chmod +x "$BUILD/linux/"*.AppImage 2>/dev/null || true
+copy_tools "$TMP/coffre-desktop-ubuntu-22.04" "$BUILD/linux"
 
-(cd "$TMP/coffre-dist/dist-extension" && zip -qr "$DEST/extension/coffre-extension-$VERSION.zip" .)
-(cd "$TMP/coffre-dist/dist" && zip -qr "$DEST/web/coffre-web-$VERSION.zip" .)
+(cd "$TMP/coffre-dist/dist-extension" && zip -qr "$BUILD/extension/coffre-extension-$VERSION.zip" .)
+(cd "$TMP/coffre-dist/dist" && zip -qr "$BUILD/web/coffre-web-$VERSION.zip" .)
 
 if [[ -d "$TMP/coffre-sbom" ]]; then
-  cp "$TMP/coffre-sbom/"* "$DEST/sbom/" 2>/dev/null || true
+  cp "$TMP/coffre-sbom/"* "$BUILD/sbom/" 2>/dev/null || true
 fi
 
 # Dossiers vides retirés (artefact sans le type de paquet attendu).
-find "$DEST" -mindepth 1 -type d -empty -delete
+find "$BUILD" -mindepth 1 -type d -empty -delete
 
-cat > "$DEST/LISEZMOI.txt" <<EOF
+cat > "$BUILD/LISEZMOI.txt" <<EOF
 Coffre $VERSION — commit $SHORT
 Construit par la CI GitHub : https://github.com/$REPO/actions/runs/$RUN_ID
 
@@ -164,10 +166,25 @@ avec : shasum -a 256 -c SHA256SUMS
 EOF
 
 (
-  cd "$DEST"
+  cd "$BUILD"
   find . -type f ! -name SHA256SUMS ! -name LISEZMOI.txt | sed 's|^\./||' | sort \
     | while read -r file; do shasum -a 256 "$file"; done > SHA256SUMS
 )
+
+# Bascule atomique : l’ancienne version reste en place tant que la nouvelle
+# n’est pas complètement construite. Un échec ne supprime donc jamais la
+# dernière release disponible.
+rm -rf "$OLD"
+if [[ -d "$DEST" ]]; then
+  mv "$DEST" "$OLD"
+fi
+if ! mv "$BUILD" "$DEST"; then
+  if [[ -d "$OLD" ]]; then
+    mv "$OLD" "$DEST"
+  fi
+  fail "impossible d’installer la nouvelle version dans $DEST."
+fi
+rm -rf "$OLD"
 
 ln -sfn "$(basename "$DEST")" "$OUT/latest"
 
@@ -184,3 +201,7 @@ fi
 echo
 echo "Dossier prêt : $DEST"
 (cd "$DEST" && find . -type f ! -name SHA256SUMS ! -name LISEZMOI.txt | sed 's|^\./|  |' | sort)
+echo
+echo "Après vérification : bun run release:status (une seule version dans release/)."
+echo "release/ conserve cette version ; relancer ce script après chaque fusion"
+echo "sur main ou finalisation pour l’actualiser. bun run clean ne touche pas à release/."
