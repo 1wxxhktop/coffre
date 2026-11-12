@@ -1,5 +1,28 @@
 # Journal des changements
 
+## Non publié
+
+## 0.14.1 — 12 novembre 2026
+
+Version corrective : aucun changement de format `.coffre`, de manifeste ni de
+protocole. La réponse `status` du pont natif gagne un champ facultatif
+(`extensionVersion`), ignoré par une extension plus ancienne.
+
+- Extension : l’association avec l’application n’est plus redemandée après
+  chaque mise à jour. Sous macOS, la clé d’appairage est gardée dans un fichier
+  privé de l’application plutôt que dans le trousseau, qui la refusait à chaque
+  nouvelle version d’une application signée ad hoc. Une dernière association
+  est nécessaire après l’installation de cette version.
+- Extension : mise à jour automatique. L’application embarque l’extension et en
+  tient une copie à jour dans un dossier fixe (Réglages → Mises à jour →
+  Extension navigateur). Chargée une fois depuis ce dossier, l’extension se
+  recharge d’elle-même après chaque mise à jour de Coffre, sans requête réseau.
+- Mises à jour : interrupteur « Mettre à jour automatiquement », qui règle d’un
+  coup la recherche, le téléchargement en arrière-plan et l’installation à la
+  fermeture.
+- macOS : l’icône de la barre de menus affiche le cadenas de Coffre au lieu
+  d’un carré plein.
+
 ## 0.14.0 — 11 novembre 2026
 
 - Documentation : `docs/RELEASE.md` et `docs/RELEASE-READINESS.md` décrivent
@@ -179,21 +202,6 @@
 - `bun run release:collect` écrit toujours dans le dossier `release/` de la
   racine du dépôt, même lancé depuis un worktree, et retire les versions
   précédentes pour ne garder qu’un exemplaire (`--keep` pour les conserver).
-
-- Extension : l’association avec l’application n’est plus redemandée après
-  chaque mise à jour. Sous macOS, la clé d’appairage est gardée dans un fichier
-  privé de l’application plutôt que dans le trousseau, qui la refusait à chaque
-  nouvelle version d’une application signée ad hoc. Une dernière association
-  est nécessaire après l’installation de cette version.
-- Extension : mise à jour automatique. L’application embarque l’extension et en
-  tient une copie à jour dans un dossier fixe (Réglages → Mises à jour →
-  Extension navigateur). Chargée une fois depuis ce dossier, l’extension se
-  recharge d’elle-même après chaque mise à jour de Coffre, sans requête réseau.
-- Mises à jour : interrupteur « Mettre à jour automatiquement », qui règle d’un
-  coup la recherche, le téléchargement en arrière-plan et l’installation à la
-  fermeture.
-- macOS : l’icône de la barre de menus affiche le cadenas de Coffre au lieu
-  d’un carré plein.
 
 ## 0.12.0 — 11 novembre 2026
 
