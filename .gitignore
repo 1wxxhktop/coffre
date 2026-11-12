@@ -12,6 +12,9 @@ dist
 dist-extension
 dist-ssr
 coffre-extension.zip
+# Extension copiée dans les ressources desktop par scripts/stage-extension.mjs
+/src-tauri/resources/extension/*
+!/src-tauri/resources/extension/.gitkeep
 # Exécutables rassemblés par `bun run release:collect`
 /release/
 *.local

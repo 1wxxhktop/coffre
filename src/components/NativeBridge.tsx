@@ -7,7 +7,8 @@ import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { isTauriRuntime } from '../lib/external'
-import { loadVaultKey, storeVaultKey } from '../lib/keychain'
+import { loadBridgeKey, storeBridgeKey } from '../lib/keychain'
+import { extensionInstallInfo } from '../lib/extensionInstall'
 import { generateTotp, isTotpUri, parseTotpUri } from '../lib/totp'
 import { confirmSensitiveFill } from '../lib/biometrics'
 import {
@@ -35,7 +36,6 @@ import {
   type LoginItem,
 } from '../lib/types'
 import {
-  BRIDGE_KEYCHAIN_ACCOUNT,
   bridgePairingCode,
   bridgePublicKeyFingerprint,
   bridgeRandomId,
@@ -157,6 +157,7 @@ export function NativeBridge() {
   const [pairingError, setPairingError] = useState<string | null>(null)
 
   const sessionKeyRef = useRef<string | null>(null)
+  const extensionVersionRef = useRef<string | null | undefined>(undefined)
   const sessionsRef = useRef(new Map<number, BridgeSessionState>())
   const pendingPairingRef = useRef<PendingPairing | null>(null)
   const pairingTimerRef = useRef<number | null>(null)
@@ -179,9 +180,17 @@ export function NativeBridge() {
     }
   }, [])
 
+  const managedExtensionVersion = useCallback(async (): Promise<string | null> => {
+    if (extensionVersionRef.current === undefined) {
+      const info = await extensionInstallInfo()
+      extensionVersionRef.current = info.available ? info.version : null
+    }
+    return extensionVersionRef.current
+  }, [])
+
   const loadSessionKey = useCallback(async (): Promise<string | null> => {
     if (sessionKeyRef.current) return sessionKeyRef.current
-    const stored = await loadVaultKey(BRIDGE_KEYCHAIN_ACCOUNT)
+    const stored = await loadBridgeKey()
     if (stored) sessionKeyRef.current = stored
     return sessionKeyRef.current
   }, [])
@@ -216,10 +225,10 @@ export function NativeBridge() {
         pending.extensionPublicKey,
       )
       sessionKeyRef.current = key
-      const stored = await storeVaultKey(BRIDGE_KEYCHAIN_ACCOUNT, key)
+      const stored = await storeBridgeKey(key)
       if (!stored) {
         throw new Error(
-          'Le trousseau du système a refusé d’enregistrer la clé du pont natif.',
+          'La clé du pont natif n’a pas pu être enregistrée.',
         )
       }
       const session = sessionsRef.current.get(pending.connectionId)
@@ -875,12 +884,20 @@ export function NativeBridge() {
             type: 'status',
             unlocked: statusRef.current === 'unlocked',
             paired: Boolean(await loadSessionKey()),
+            extensionVersion: await managedExtensionVersion(),
           }
         default:
           return { type: 'protocol-error', error: 'unknown-type' }
       }
     },
-    [addItem, loadSessionKey, recordActivity, recordGeneratedPassword, updateItem],
+    [
+      addItem,
+      loadSessionKey,
+      managedExtensionVersion,
+      recordActivity,
+      recordGeneratedPassword,
+      updateItem,
+    ],
   )
 
   const handleEncrypted = useCallback(
@@ -1030,6 +1047,9 @@ export function NativeBridge() {
           type: 'status',
           unlocked: statusRef.current === 'unlocked',
           paired: Boolean(key),
+          // Version de l’extension présente sur le disque : l’extension se
+          // recharge d’elle-même si elle est plus ancienne.
+          extensionVersion: await managedExtensionVersion(),
         })
         return
       }
@@ -1043,7 +1063,14 @@ export function NativeBridge() {
         await handleEncrypted(connectionId, message)
       }
     },
-    [handleEncrypted, handlePairBegin, loadSessionKey, send, unlockWithBiometrics],
+    [
+      handleEncrypted,
+      handlePairBegin,
+      loadSessionKey,
+      managedExtensionVersion,
+      send,
+      unlockWithBiometrics,
+    ],
   )
 
   useEffect(() => {

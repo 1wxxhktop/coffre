@@ -28,6 +28,7 @@ import { TemplateSettings } from './TemplateSettings'
 import { ActivitySettings } from './ActivitySettings'
 import { BlobStorageSettings } from './BlobStorageSettings'
 import { UpdateSettings } from './UpdateSettings'
+import { ExtensionSettings } from './ExtensionSettings'
 import { BackupSettings } from './BackupSettings'
 import { SshAgentSettings } from './SshAgentSettings'
 import { SharingSettings } from './SharingSettings'
@@ -2197,6 +2198,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
             {page === 'updates' && (
               <section className="settings__page" aria-labelledby="settings-updates">
                 <UpdateSettings />
+                <ExtensionSettings />
               </section>
             )}
 

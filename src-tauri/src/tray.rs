@@ -135,6 +135,12 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
         .unwrap_or(Language::Fr);
     let labels = labels(language);
     let menu = build_menu(app, language).map_err(|error| error.to_string())?;
+    // macOS affiche l’icône en mode « template » : seule la silhouette compte.
+    // L’icône de l’application, un carré plein, y donnerait un carré uni ; la
+    // barre de menus reçoit donc le cadenas seul, sur fond transparent.
+    #[cfg(target_os = "macos")]
+    let icon = tauri::include_image!("icons/tray-template.png");
+    #[cfg(not(target_os = "macos"))]
     let icon = app
         .default_window_icon()
         .cloned()

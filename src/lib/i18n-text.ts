@@ -1082,6 +1082,34 @@ export const EN_TEXT: Record<string, string> = {
     "Use",
   "Élément créé depuis le modèle intégré.":
     "Item created from the built-in template.",
+  "Extension navigateur":
+    "Browser extension",
+  "Coffre garde une copie à jour de l’extension dans un dossier fixe. Chargez ce dossier une fois dans votre navigateur : l’extension se rechargera ensuite d’elle-même après chaque mise à jour de Coffre.":
+    "Coffre keeps an up-to-date copy of the extension in a fixed folder. Load that folder once in your browser: the extension then reloads itself after each Coffre update.",
+  "Version de l’extension":
+    "Extension version",
+  "Dossier à charger":
+    "Folder to load",
+  "Impossible d’ouvrir le dossier":
+    "Could not open the folder",
+  "Afficher le dossier":
+    "Show the folder",
+  "Ouvrez la page des extensions du navigateur (chrome://extensions).":
+    "Open your browser’s extensions page (chrome://extensions).",
+  "Activez le « Mode développeur ».":
+    "Turn on “Developer mode”.",
+  "Cliquez sur « Charger l’extension non empaquetée » et choisissez ce dossier.":
+    "Click “Load unpacked” and choose this folder.",
+  "Si l’extension était déjà chargée depuis un autre dossier, retirez-la puis chargez celui-ci : c’est le seul que Coffre tient à jour.":
+    "If the extension was already loaded from another folder, remove it and load this one: it is the only one Coffre keeps up to date.",
+  "Ce build n’embarque pas l’extension (build local ou de développement). Utilisez une version publiée de Coffre.":
+    "This build does not include the extension (local or development build). Use a published version of Coffre.",
+  "Mettre à jour automatiquement":
+    "Update automatically",
+  "Coffre cherche les nouvelles versions, les télécharge en arrière-plan et les installe à sa fermeture. Les réglages ci-dessous permettent d’ajuster chaque étape.":
+    "Coffre looks for new versions, downloads them in the background and installs them when it quits. The settings below let you adjust each step.",
+  "La clé du pont natif n’a pas pu être enregistrée.":
+    "The native bridge key could not be saved.",
 }
 
 /** Traduit un texte source ; renvoie le texte tel quel s’il est inconnu. */

@@ -26,6 +26,8 @@ import type {
   ExtensionPasskeyGetResult,
 } from '../src/lib/extensionProtocol'
 
+import { considerSelfUpdate } from './selfUpdate'
+
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
 export interface NativeStatus {
@@ -256,6 +258,8 @@ async function plainStatus(): Promise<{ unlocked: boolean; paired: boolean }> {
   const waiting = waitFor(id, 2000)
   await send({ id, type: 'status' })
   const response = await waiting
+  // L’application annonce la version de l’extension présente sur le disque.
+  void considerSelfUpdate(response.extensionVersion)
   return {
     unlocked: Boolean(response.unlocked),
     paired: Boolean(response.paired),

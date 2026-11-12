@@ -45,3 +45,38 @@ export async function deleteVaultKey(account: string): Promise<void> {
     // Le verrouillage ne doit jamais échouer à cause du trousseau.
   }
 }
+
+/**
+ * Clé d’appairage du pont natif. Elle a ses propres commandes : sous macOS,
+ * elle est gardée dans un fichier privé plutôt que dans le trousseau, qui la
+ * refuserait après chaque mise à jour d’une application signée ad hoc.
+ */
+export async function storeBridgeKey(secret: string): Promise<boolean> {
+  if (!secret || !keychainAvailable()) return false
+  try {
+    await invoke('bridge_key_store', { secret })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Oublie la clé d’appairage. Une clé absente est ignorée. */
+export async function deleteBridgeKey(): Promise<void> {
+  if (!keychainAvailable()) return
+  try {
+    await invoke('bridge_key_delete')
+  } catch {
+    // La suppression du coffre ne doit jamais échouer à cause de cette clé.
+  }
+}
+
+/** Relit la clé d’appairage ; null si elle est absente ou illisible. */
+export async function loadBridgeKey(): Promise<string | null> {
+  if (!keychainAvailable()) return null
+  try {
+    return await invoke<string | null>('bridge_key_load')
+  } catch {
+    return null
+  }
+}
