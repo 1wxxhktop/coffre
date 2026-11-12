@@ -179,3 +179,24 @@ test('garde l’en-tête et le pied de la barre latérale fixes', async ({ page 
     (viewport?.height ?? 0) + 1,
   )
 })
+
+test('sélectionne ou crée un coffre depuis le menu supérieur', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await createVault(page)
+
+  const trigger = page.locator('.sidebar__vault-trigger')
+  await expect(trigger).toContainText('Tous les coffres')
+  await trigger.click()
+
+  const menu = page.getByRole('menu', { name: 'Choisir un coffre' })
+  await expect(menu).toBeVisible()
+  await expect(
+    menu.getByRole('menuitemradio', { name: /Tous les coffres/ }),
+  ).toHaveAttribute('aria-checked', 'true')
+  await expect(
+    menu.getByRole('menuitemradio', { name: /Personnel/ }),
+  ).toBeVisible()
+
+  await menu.getByRole('menuitem', { name: 'Créer un coffre' }).click()
+  await expect(page.getByRole('dialog')).toContainText('Nouveau coffre')
+})
