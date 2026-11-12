@@ -29,6 +29,7 @@ import {
 } from '../lib/updates'
 import { useSettings } from './SettingsProvider'
 import { useVault } from './VaultProvider'
+import { notifyUpdateAvailable } from '../lib/notifications'
 
 export type UpdateStatus =
   | 'idle'
@@ -167,8 +168,17 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         setNoticeDismissed(false)
         statusRef.current = 'available'
         setStatus('available')
+        if (!manual && settingsRef.current.updateNotify) {
+          notifyUpdateAvailable(found.version)
+        }
         if (settingsRef.current.updateAutoDownload) await download()
       } catch (reason) {
+        // En continu, espacer les tentatives même en cas d’échec. Pour les
+        // fréquences quotidiennes/hebdomadaires, on garde la dernière
+        // vérification réussie afin de réessayer au tick suivant.
+        if (settingsRef.current.updateCheck === 'continuous') {
+          updateSettings({ updateLastCheckAt: new Date().toISOString() })
+        }
         setError(updateErrorCode(reason))
         setStatus(manual ? 'error' : 'idle')
       }
@@ -205,7 +215,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     setStatus('idle')
   }, [update, updateSettings])
 
-  // Planificateur : au lancement, puis toutes les heures selon la fréquence.
+  // Planificateur : au lancement, puis toutes les 30 s selon la fréquence.
   useEffect(() => {
     if (!supported || !info?.configured) return
     const tick = () => {
@@ -220,11 +230,39 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(timer)
   }, [supported, info?.configured, settings.updateCheck, runCheck])
 
+  // Au retour sur la fenêtre, vérifier tout de suite si une recherche est due.
+  // C’est le comportement « aussitôt » perçu par l’utilisateur après une
+  // publication, sans attendre le prochain tick.
+  useEffect(() => {
+    if (!supported || !info?.configured) return
+    const onVisible = () => {
+      if (document.visibilityState === 'hidden') return
+      if (
+        isUpdateCheckDue(settingsRef.current, new Date(), checkedThisLaunch.current)
+      ) {
+        void runCheck(false)
+      }
+    }
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [supported, info?.configured, runCheck])
+
   // Changer de canal oublie la mise à jour trouvée sur l’autre canal.
   const changeChannel = useCallback(
     (channel: AppSettings['updateChannel']) => {
       if (channel === settingsRef.current.updateChannel) return
-      updateSettings({ updateChannel: channel })
+      const next: Partial<AppSettings> = { updateChannel: channel }
+      // Le canal bêta est fait pour tester au fil de l’eau : si aucune
+      // recherche automatique n’était configurée, activer la recherche
+      // continue. L’utilisateur peut la désactiver ensuite.
+      if (channel === 'beta' && settingsRef.current.updateCheck === 'off') {
+        next.updateCheck = 'continuous'
+      }
+      updateSettings(next)
       if (!supported) return
       void setInstallOnExit(false).catch(() => undefined)
       void discardUpdate().catch(() => undefined)

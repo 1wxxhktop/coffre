@@ -42,12 +42,17 @@ function readManifest(path: string | undefined): UpdaterManifest | null {
 const command = process.argv[2]
 
 if (command === 'build') {
+  const platforms = option('platforms')
+    ?.split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
   const manifest = buildManifest({
     version: required('version'),
     url: required('url'),
     signature: readFileSync(required('signature-file'), 'utf8'),
     notes: option('notes') ?? '',
     pubDate: new Date(),
+    platforms: platforms && platforms.length > 0 ? platforms : undefined,
   })
   writeFileSync(required('out'), `${JSON.stringify(manifest, null, 2)}\n`)
   console.log(`Manifeste ${manifest.version} écrit dans ${option('out')}`)

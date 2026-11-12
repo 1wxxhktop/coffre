@@ -3,11 +3,13 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const packageVersion = (
-  JSON.parse(
-    readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
-  ) as { version: string }
-).version
+const packageVersion =
+  process.env.COFFRE_BUILD_VERSION?.trim() ||
+  (
+    JSON.parse(
+      readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+    ) as { version: string }
+  ).version
 
 export default defineConfig({
   define: {

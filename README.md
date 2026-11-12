@@ -6,9 +6,9 @@ Coffre conserve vos identifiants, notes, cartes et identités dans un fichier
 chiffré sur votre appareil. Aucun compte, aucun serveur Coffre, aucune télémétrie.
 La synchronisation et la vérification des fuites sont optionnelles ; cette
 dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
-L’interface est en français.
+L’interface est disponible en français et en anglais.
 
-> **État du projet — 0.14.2 (appairage durable de l’extension, extension tenue à jour, correctifs de sécurité de l’audit, manifeste 3).**
+> **État du projet — 0.15.0 (barre latérale et menu des coffres, version de l’extension, raccourci ⌘, et fiabilité du pont natif, manifeste 3).**
 > La version web/PWA est fonctionnelle et couverte par 793 tests unitaires et
 > des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
 > continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;
@@ -60,6 +60,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Dix types d’éléments** : connexion, note sécurisée, carte bancaire,
   identité, passkey WebAuthn, clé SSH, réseau Wi-Fi, identifiant d’API, licence
   logicielle et document avec pièce jointe principale.
+- **Adresses web multiples** : une connexion peut contenir plusieurs URL. Chaque
+  adresse peut être ouverte dans le navigateur, ou copiée directement via son
+  icône, sans l’ouvrir.
 - **Passkeys WebAuthn (ES256)** : création et connexion sans mot de passe dans
   l’extension, confirmation explicite dans une fenêtre Coffre, clé privée
   PKCS#8 conservée dans le contenu chiffré de l’élément, validation stricte du
@@ -104,8 +107,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   ne sont remplis qu’après une action explicite ; une carte est refusée hors
   HTTPS et dans une iframe tierce qui n’est pas un prestataire de paiement
   connu. Les pages sont autorisées explicitement via les permissions
-  optionnelles. L’extension ne stocke aucun identifiant et ne copie dans le
-  presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
+  optionnelles. Le **remplissage au chargement** est disponible en opt-in :
+  sur HTTPS, dans le cadre principal et lorsqu’une seule connexion correspond,
+  il remplit identifiant et mot de passe sans jamais saisir le TOTP ni
+  soumettre le formulaire. L’extension ne stocke aucun identifiant et ne copie
+  dans le presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
   l’option est activée, pour le code TOTP après un remplissage ; seule la clé
   de session du pont natif est conservée dans son stockage local.
 - **Protection anti-hameçonnage** : avant un remplissage forcé ou un
@@ -318,12 +324,18 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Accès rapide global (desktop)** : `⌘⇧Espace` (macOS) ou
   `Ctrl+Shift+Espace` affiche la fenêtre et place le curseur dans la recherche.
 - **Mises à jour (desktop)** : Réglages → Mises à jour. Recherche manuelle ou
-  automatique (au démarrage, chaque jour, chaque semaine ; désactivée par
-  défaut), canal stable ou bêta, téléchargement en arrière-plan optionnel,
-  installation sur confirmation ou à la fermeture, « Ignorer cette version »,
-  notes de version et progression. Paquets publiés sur les releases GitHub,
-  signés (minisign) et vérifiés avant installation ; le coffre est verrouillé
-  avant le redémarrage. Sur le Web, la PWA se met à jour à chaque visite.
+  automatique (au démarrage, chaque jour, chaque semaine, ou **en continu
+  toutes les minutes** ; désactivée par défaut), canal stable ou bêta,
+  téléchargement en arrière-plan optionnel, installation sur confirmation ou à
+  la fermeture, « Ignorer cette version », notes de version et progression.
+  En canal bêta, la recherche continue est activée automatiquement si aucune
+  fréquence n’était choisie ; la carte de mise à jour apparaît dès qu’une
+  version est publiée, et la vérification est relancée au retour sur la
+  fenêtre. Une notification système optionnelle peut être affichée quand une
+  mise à jour est détectée en arrière-plan. Paquets publiés sur les releases
+  GitHub, signés (minisign) et vérifiés avant installation ; le coffre est
+  verrouillé avant le redémarrage. Sur le Web, la PWA se met à jour à chaque
+  visite.
 - **Trousseau natif (desktop)** : déverrouillage rapide optionnel par le
   trousseau macOS, Windows ou Linux. La clé maîtresse n’y est écrite que si
   l’option est activée et elle est supprimée au verrouillage.
@@ -743,33 +755,34 @@ dernier sert de proxy pour le moteur des WebViews macOS/iOS.
 
 ### Intégration continue
 
-Le dépôt est public : les runners GitHub standard sont gratuits. Le fichier
-`.github/workflows/ci.yml` lance sur chaque PR et chaque push sur `main` :
+Le dépôt est public : les runners GitHub standard sont gratuits.
 
-- **Qualité** : `bun audit --audit-level=high`, lint, vérification
-  TypeScript, tests Vitest, builds PWA et extension, avec l’artefact `dist`
-  conservé une semaine ;
-- **Parcours** : Playwright sur Chromium et WebKit, en deux jobs parallèles
-  (un seul worker chacun), traces et rapport
-  téléversés en cas d’échec ;
-- **Rust** : `cargo fmt`, `clippy`, tests de l’application, du cœur, du FFI, du
-  CLI et de l’agent SSH, smoke du relais natif, `cargo audit` et `cargo deny` ;
-- **`coffre-core` sur macOS et Windows** : formatage, clippy, tests et
-  vecteurs croisés ;
-- **Extension** : smoke test Chromium avec la CSP de production ;
-- **Builds reproductibles** et **SBOM**.
+- **PR normale** : le workflow **Bêta PR** exécute les tests minimaux
+  (`version:check`, TypeScript, lint, tests unitaires), construit un bundle
+  macOS arm64 et publie automatiquement une bêta `0.15.0-beta.<run>` dans le
+  canal bêta. Voir [docs/BETA-PR.md](docs/BETA-PR.md).
+- **Suite complète** : `.github/workflows/ci.yml` tourne sur chaque push vers
+  `main`, sur une PR étiquetée **`full-ci`** ou **`stable`**, et à la demande
+  (onglet *Actions* → *CI* → *Run workflow*) :
+  - **Qualité** : `bun audit`, lint, vérification TypeScript, tests Vitest,
+    builds PWA et extension ;
+  - **Parcours** : Playwright sur Chromium et WebKit, en quatre shards par
+    navigateur, avec un gate qui conserve les noms de checks requis ;
+  - **Rust** : `cargo fmt`, `clippy`, tests de l’application, du cœur, du FFI,
+    du CLI et de l’agent SSH, smoke du relais natif, `cargo audit` et
+    `cargo deny` ;
+  - **`coffre-core` sur macOS et Windows** : formatage, clippy, tests et
+    vecteurs croisés ;
+  - **Extension** : smoke test Chromium avec la CSP de production ;
+  - **Desktop** (macOS, Ubuntu, Windows), **builds reproductibles** et
+    **SBOM**.
 
-Les bundles **Desktop** (macOS, Ubuntu, Windows) tournent sur chaque PR, chaque
-push vers `main` et à la demande (onglet *Actions* → *CI* → *Run workflow*). La
-reproductibilité du bundle macOS, plus longue (deux builds complets), reste
-réservée aux pushes vers `main` et au déclenchement manuel.
-
-Les vérifications Qualité, Parcours, Rust, `coffre-core` macOS et Windows,
-smoke de l’extension, build reproductible et SBOM sont **obligatoires** pour
-fusionner dans `main` (protection de branche) : toute modification passe par
-une PR, y compris la documentation. Un push sur `main` qui ne touche que la
-documentation ne relance pas la CI, et un nouveau push annule l’exécution en
-cours sur la même branche.
+Les checks requis pour fusionner dans `main` sont **Qualité** et
+**Bêta macOS**. La suite complète reste la gate de `main`, des labels
+`full-ci`/`stable` et de `release.yml` avant une release stable. Toute
+modification passe par une PR, y compris la documentation. Un push sur `main`
+qui ne touche que la documentation ne relance pas la CI, et un nouveau push
+annule l’exécution en cours sur la même branche.
 
 **Exécutables en local.** `bun run release:collect` télécharge les artefacts
 de la dernière CI réussie sur `main` et les range dans
@@ -1503,10 +1516,12 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 
 - L’extension navigateur est disponible pour Chromium et Firefox ; la variante
   Firefox est construite mais n’est pas encore validée en exécution réelle. Le
-  pont natif desktop est implémenté sur macOS et Linux ; Windows, la
-  vérification de signature du relais et le remplissage automatique à
-  l’ouverture de page restent à faire. Sans pont appairé, l’onglet Coffre doit
-  rester ouvert et déverrouillé.
+  pont natif desktop est implémenté sur macOS et Linux ; Windows et la
+  vérification de signature du relais restent à faire. Sans pont appairé,
+  l’onglet Coffre doit rester ouvert et déverrouillé. Le remplissage au
+  chargement ne s’exécute que sur HTTPS, dans le cadre principal et lorsqu’une
+  seule connexion correspond ; les applications à page unique qui rendent leur
+  formulaire après une navigation interne peuvent ne pas en bénéficier.
 - La synchronisation par dossier est disponible dans l’application desktop
   (macOS/Linux validés, Windows à valider) et dans Chromium via File System
   Access API. Safari/Firefox utilisent la sauvegarde manuelle par fichier
@@ -1560,19 +1575,24 @@ détaillés dans [docs/SECURITY.md](docs/SECURITY.md).
 1. ~~Interopérabilité : import Proton Pass (export JSON) et déduplication.~~ Fait
    en 0.5.0.
 2. ~~Extension navigateur Manifest V3 et remplissage automatique.~~ Fait en
-   0.6.0 pour Chromium ; variante Firefox ajoutée en 0.8.0, validation réelle à
-   faire.
+   0.6.0 pour Chromium ; variante Firefox ajoutée en 0.8.0, validation réelle et
+   publication encore à faire.
 3. ~~Import Enpass (JSON) et compatibilité avec les CSV traditionnels
    (1Password, LastPass, Chrome, Firefox, Safari, Dashlane, KeePass, NordPass,
-   Keeper, RoboForm, SafeInCloud).~~ Fait en 0.7.0.
+   Keeper, RoboForm, SafeInCloud).~~ Fait en 0.7.0 ; imports KDBX 4 et archives
+   1Password `.1pux` ajoutés depuis.
 4. ~~Trousseau natif desktop et interface en colonnes proche de 1Password.~~
    Fait en 0.8.0 pour macOS ; Windows/Linux et le mobile restent à valider.
 5. Audit de sécurité externe et revue cryptographique.
 6. Validation des builds Windows/Linux, puis initialisation et tests des cibles
    mobiles iOS/Android.
-7. Synchronisation chiffrée optionnelle de bout en bout : implémentée sur
-   desktop et Chromium ; Safari/Firefox et mobile restent en manuel ou à faire.
+7. Synchronisation chiffrée optionnelle : dossier synchronisé sur desktop et
+   Chromium, synchronisation locale directe sur desktop et partage ponctuel hors
+   ligne ; Safari/Firefox et mobile restent en manuel ou à faire.
 8. Optimisation du bundle et du temps de déverrouillage.
+9. Remplissage automatique au chargement, en opt-in site par site (lot E11).
+10. Publication de l’extension sur le Chrome Web Store et Firefox Add-ons
+    (lot E13), après validation réelle de la variante Firefox.
 
 ---
 

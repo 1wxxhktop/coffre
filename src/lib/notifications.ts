@@ -10,6 +10,7 @@ import {
   expiryDescription,
   type ExpiryEvent,
 } from './expiry'
+import { isTauriRuntime } from './external'
 
 const NOTIFIED_KEY = 'coffre:expiry-notified:v1'
 const KEEP_DAYS = 90
@@ -79,6 +80,55 @@ export async function ensureNotificationPermission(): Promise<boolean> {
     return (await Notification.requestPermission()) === 'granted'
   } catch {
     return false
+  }
+}
+
+/**
+ * Autorise les notifications de mise à jour. Sur desktop, passe par le plugin
+ * Tauri ; sur le Web, par l’API Notification du navigateur.
+ */
+export async function ensureUpdateNotifications(): Promise<boolean> {
+  if (isTauriRuntime()) {
+    try {
+      const { isPermissionGranted, requestPermission } = await import(
+        '@tauri-apps/plugin-notification'
+      )
+      if (await isPermissionGranted()) return true
+      return (await requestPermission()) === 'granted'
+    } catch {
+      return false
+    }
+  }
+  return ensureNotificationPermission()
+}
+
+/**
+ * Notification système quand une mise à jour est détectée en arrière-plan.
+ * Ne fait rien si l’autorisation n’a pas été accordée.
+ */
+export function notifyUpdateAvailable(version: string): void {
+  const title = 'Coffre — mise à jour disponible'
+  const body = `Version ${version} prête à être installée.`
+
+  if (isTauriRuntime()) {
+    void (async () => {
+      try {
+        const { isPermissionGranted, sendNotification } = await import(
+          '@tauri-apps/plugin-notification'
+        )
+        if (await isPermissionGranted()) sendNotification({ title, body })
+      } catch {
+        // Notification système indisponible : la carte dans l’application reste visible.
+      }
+    })()
+    return
+  }
+
+  if (!notificationsSupported() || Notification.permission !== 'granted') return
+  try {
+    new Notification(title, { body, tag: 'coffre-update' })
+  } catch {
+    // Idem : la carte dans l’application reste visible.
   }
 }
 

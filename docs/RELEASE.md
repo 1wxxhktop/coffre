@@ -206,6 +206,17 @@ La vérification automatique est **désactivée par défaut** : il faut cliquer 
 brouillon à la main dans l’interface GitHub fonctionne pour le canal stable,
 mais ne met pas à jour le canal bêta.
 
+### 5.2 Bêta automatique par PR
+
+Chaque PR interne publie une bêta macOS dans `canal-beta` via le workflow
+`beta.yml`, sans attendre la suite complète. La version est calculée au build
+(`0.15.0-beta.<run>`), sans modifier les fichiers de version du dépôt.
+
+Les PR normales ne lancent que les tests minimaux (version, typecheck, lint,
+tests unitaires) et la compilation du bundle. La suite complète tourne sur
+`main`, sur les PR étiquetées `full-ci` ou `stable`, et dans `release.yml`
+avant une release stable. Voir [BETA-PR.md](BETA-PR.md).
+
 ## 6. Vérifier une release
 
 Sur une machine vierge ou après téléchargement. En mode **ad hoc** (sans compte

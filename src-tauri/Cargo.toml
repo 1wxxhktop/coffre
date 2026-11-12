@@ -1,6 +1,6 @@
 [package]
 name = "coffre"
-version = "0.14.2"
+version = "0.15.0"
 description = "Gestionnaire de mots de passe local-first, chiffré et hors ligne"
 authors = ["Contributeurs de Coffre"]
 license = "GPL-3.0-only"
@@ -21,6 +21,7 @@ serde_json = "1"
 tauri-plugin-single-instance = "2"
 notify = "8.2.1"
 tauri-plugin-dialog = "2.8.4"
+tauri-plugin-notification = "2"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
 snow = "0.9"
 aes-gcm = "0.11"

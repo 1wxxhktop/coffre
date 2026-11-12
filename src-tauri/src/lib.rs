@@ -727,6 +727,7 @@ pub fn run() {
             hidden: started_hidden,
         })
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(NavigationGuard)
         // Utilisé uniquement depuis les commandes Rust ci-dessus : aucune
         // permission `clipboard-manager:*` n’est accordée à la WebView.

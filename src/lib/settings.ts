@@ -131,7 +131,8 @@ export function loadSettings(): AppSettings {
         parsed.updateCheck === 'off' ||
         parsed.updateCheck === 'launch' ||
         parsed.updateCheck === 'daily' ||
-        parsed.updateCheck === 'weekly'
+        parsed.updateCheck === 'weekly' ||
+        parsed.updateCheck === 'continuous'
           ? parsed.updateCheck
           : DEFAULT_SETTINGS.updateCheck,
       updateChannel:
@@ -140,6 +141,10 @@ export function loadSettings(): AppSettings {
         typeof parsed.updateAutoDownload === 'boolean'
           ? parsed.updateAutoDownload
           : DEFAULT_SETTINGS.updateAutoDownload,
+      updateNotify:
+        typeof parsed.updateNotify === 'boolean'
+          ? parsed.updateNotify
+          : DEFAULT_SETTINGS.updateNotify,
       updateInstallMode:
         parsed.updateInstallMode === 'on-quit'
           ? 'on-quit'

@@ -868,6 +868,10 @@ export const EN_TEXT: Record<string, string> = {
     "Every day",
   "Chaque semaine":
     "Every week",
+  "En continu (1 min)":
+    "Continuous (1 min)",
+  "En canal bêta, la recherche continue vérifie les nouvelles versions toutes les minutes.":
+    "On the beta channel, continuous checking looks for new versions every minute.",
   "Canal":
     "Channel",
   "Stable":
@@ -882,6 +886,10 @@ export const EN_TEXT: Record<string, string> = {
     "When Coffre quits",
   "Télécharger automatiquement en arrière-plan":
     "Download automatically in the background",
+  "Notification système quand une mise à jour est disponible":
+    "System notification when an update is available",
+  "Notifications système refusées. Autorisez Coffre dans les réglages du système.":
+    "System notifications refused. Allow Coffre in system settings.",
   "Les préversions apportent les nouveautés plus tôt mais peuvent contenir des défauts. Gardez des sauvegardes à jour.":
     "Pre-releases bring new features earlier but may contain bugs. Keep your backups up to date.",
   "Version ignorée : {version}":
@@ -1058,6 +1066,8 @@ export const EN_TEXT: Record<string, string> = {
     "Loading…",
   "Copier le mot de passe":
     "Copy password",
+  "Copier l’adresse web":
+    "Copy web address",
   "Créer un élément":
     "Create item",
   "Créé via WebAuthn":

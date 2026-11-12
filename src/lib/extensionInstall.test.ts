@@ -70,7 +70,7 @@ describe('interrupteur « Mettre à jour automatiquement »', () => {
 
   it('active tout, en gardant une fréquence déjà choisie', () => {
     expect(automaticUpdatePreset(true, manual)).toEqual({
-      updateCheck: 'daily',
+      updateCheck: 'continuous',
       updateAutoDownload: true,
       updateInstallMode: 'on-quit',
     })

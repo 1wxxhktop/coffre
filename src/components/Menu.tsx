@@ -16,6 +16,7 @@ interface MenuProps {
   align?: 'left' | 'right'
   className?: string
   triggerClassName?: string
+  panelClassName?: string
   disabled?: boolean
   title?: string
 }
@@ -34,6 +35,7 @@ export function Menu({
   align = 'right',
   className,
   triggerClassName = 'icon-button',
+  panelClassName,
   disabled = false,
   title,
 }: MenuProps) {
@@ -157,7 +159,7 @@ export function Menu({
         createPortal(
           <div
             ref={panelRef}
-            className="menu__panel menu__panel--fixed"
+            className={cx('menu__panel menu__panel--fixed', panelClassName)}
             style={{ top: position.top, left: position.left }}
             role="menu"
             aria-label={label}
