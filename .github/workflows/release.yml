@@ -57,16 +57,32 @@ jobs:
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
 
+      - name: Installer cargo-audit
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        with:
+          tool: cargo-audit
+
+      - name: Installer cargo-deny
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        with:
+          tool: cargo-deny@0.20.2
+
       - name: Vérifier avant de signer
         run: |
-          bun audit --audit-level=high
+          bun audit --audit-level=moderate \
+            --ignore=GHSA-3g3m-2fjr-6pw4 \
+            --ignore=GHSA-g3hv-75wg-m249
           bun run lint
           bun run typecheck
           bun run test
-          cargo test --manifest-path src-tauri/Cargo.toml --lib
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked
+          cargo deny --manifest-path src-tauri/Cargo.toml --config src-tauri/deny.toml --workspace check
+          cargo audit --file src-tauri/Cargo.lock
 
       - name: Installer cargo-cyclonedx
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
         with:
           tool: cargo-cyclonedx@0.5.10
 

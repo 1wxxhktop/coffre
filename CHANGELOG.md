@@ -96,6 +96,19 @@
   coffre est verrouillé.
 - Les protocoles du pont natif et de l’extension passent en version 2.
 
+### CI et release
+
+- Toutes les actions GitHub sont épinglées par SHA, y compris le job de
+  signature de release ; les checkouts utilisent `persist-credentials: false`.
+- Le job de release exécute désormais formatage, clippy, tests workspace,
+  `cargo deny` et `cargo audit` avant de signer.
+- Le canal bêta échoue fermé si son manifeste courant existe mais est illisible.
+- `bun audit` passe au niveau `moderate`, avec deux avis de build suivis et
+  ignorés explicitement.
+- `.gitignore` exclut les coffres locaux, fichiers `.env`, certificats et clés.
+- Le script de release vérifie le lockfile (`cargo fetch --locked`) et sélectionne
+  le DMG de la version courante.
+
 ## 0.13.0 — 11 novembre 2026
 
 - Fiche d’une connexion : le bloc « Sécurité » liste désormais les autres

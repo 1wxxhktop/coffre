@@ -21,6 +21,19 @@ test-results
 playwright-report
 blob-report
 
+# Secrets et coffres locaux : ne jamais versionner
+*.coffre
+*.coffre-share
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.key
+*.pem
+*.mobileprovision
+.tauri/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
