@@ -2,6 +2,23 @@
 
 ## Non publié
 
+## 0.15.0 — 12 novembre 2026
+
+Version de finition de l’interface et de l’extension. Le format `.coffre`
+reste `4`, le manifeste `3` et les protocoles `2` : la mise à jour est
+compatible avec les fichiers et les appareils 0.14.
+
+- Interface : l’en-tête et le pied de la barre latérale restent fixes ; seule
+  la liste défile. Les coffres se choisissent dans un menu déroulant en haut,
+  avec sélection, renommage, suppression et création.
+- Interface : suppression de la bande vide entre deux groupes de dates et
+  raccourci **⌘, / Ctrl+,** pour ouvrir directement les réglages.
+- Extension : la version gérée s’affiche dans le pied de la popup, identique à
+  celle visible dans Coffre ; le statut du pont natif tolère le réveil du
+  service worker (3 s + nouvelle tentative) et l’ouverture de l’application
+  desktop depuis la popup est fiabilisée.
+- Verrouillage : l’activité réelle de l’extension repousse l’auto-lock ; les
+  recherches de badge en arrière-plan sont exclues.
 - Outillage : couverture Vitest bloquante sur `src/lib`, builds desktop sur
   chaque PR, vérification des versions citées dans la documentation, modèle de
   PR et `CODEOWNERS`.

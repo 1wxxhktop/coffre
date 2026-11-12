@@ -1,4 +1,4 @@
-# Niveau de préparation grand public — Coffre 0.14.2
+# Niveau de préparation grand public — Coffre 0.15.0
 
 **Date :** 12 novembre 2026
 **Conclusion :** le socle de sécurité est solide et l’audit complet de la 0.12.0
@@ -26,6 +26,11 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 > l’appairage durable de l’extension et l’autorisation des commandes du pont
 > natif. Elles ne changent ni le format `.coffre`, ni le manifeste, ni les
 > protocoles ; l’évaluation ci-dessous reste valable.
+
+> **0.15.0 (12 novembre 2026) :** version de finition de l’interface et de
+> l’extension (barre latérale fixe, menu des coffres, version affichée,
+> raccourci ⌘, et fiabilité du pont natif). Aucun changement de format, de
+> manifeste ou de protocole ; l’évaluation ci-dessous reste valable.
 
 ---
 
