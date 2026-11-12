@@ -1,14 +1,14 @@
 {
   "name": "coffre",
   "private": true,
-  "version": "0.14.1",
+  "version": "0.14.2",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "oxlint && node scripts/check-design-tokens.mjs && node scripts/check-i18n.mjs && node scripts/check-security-txt.mjs",
+    "lint": "oxlint && node scripts/check-design-tokens.mjs && node scripts/check-i18n.mjs && node scripts/check-security-txt.mjs && node scripts/check-tauri-commands.mjs",
     "lint:design": "node scripts/check-design-tokens.mjs",
     "lint:i18n": "node scripts/check-i18n.mjs",
     "lint:security": "node scripts/check-security-txt.mjs",

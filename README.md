@@ -8,7 +8,7 @@ La synchronisation et la vérification des fuites sont optionnelles ; cette
 dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
 L’interface est en français.
 
-> **État du projet — 0.14.1 (appairage durable de l’extension, extension tenue à jour, correctifs de sécurité de l’audit, manifeste 3).**
+> **État du projet — 0.14.2 (appairage durable de l’extension, extension tenue à jour, correctifs de sécurité de l’audit, manifeste 3).**
 > La version web/PWA est fonctionnelle et couverte par 793 tests unitaires et
 > des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
 > continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;

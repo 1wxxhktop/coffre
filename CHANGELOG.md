@@ -2,6 +2,16 @@
 
 ## Non publié
 
+## 0.14.2 — 12 novembre 2026
+
+- Correctif : en 0.14.1, l’association de l’extension échouait avec « La clé du
+  pont natif n’a pas pu être enregistrée » et le bloc « Extension navigateur »
+  des réglages restait vide. Les cinq commandes ajoutées par cette version
+  n’étaient pas déclarées dans la liste des commandes autorisées de
+  l’application, qui les refusait donc à l’exécution.
+- `bun run lint` vérifie désormais que chaque commande appelée par l’interface
+  est enregistrée, déclarée et autorisée (`scripts/check-tauri-commands.mjs`).
+
 ## 0.14.1 — 12 novembre 2026
 
 Version corrective : aucun changement de format `.coffre`, de manifeste ni de
