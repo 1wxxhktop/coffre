@@ -758,29 +758,39 @@ export async function nativePair(): Promise<{ ok?: true; error?: string }> {
       code: null,
     }
     const waiting = waitFor(id, 120_000, true)
-    await send({ id, type: 'pair-begin', publicKey: pair.publicKey })
-    const response = await waiting
+    // Le service worker MV3 peut être suspendu après ~30 s d’inactivité,
+    // ce qui ferme le port natif pendant que l’utilisateur confirme le code
+    // dans l’application. Un appel d’API périodique le maintient éveillé.
+    const keepAlive = setInterval(() => {
+      void api.runtime.getPlatformInfo().catch(() => undefined)
+    }, 20_000)
+    try {
+      await send({ id, type: 'pair-begin', publicKey: pair.publicKey })
+      const response = await waiting
 
-    if (response.type === 'locked') return { error: 'locked' }
-    if (response.type !== 'pair-accepted') return { error: 'pair-rejected' }
-    if (response.session !== current.session || !pairingAttempt?.appPublicKey) {
-      return { error: 'pair-protocol' }
-    }
-    const key = await deriveBridgeSessionKey(
-      pair.privateKey,
-      pair.publicKey,
-      pairingAttempt.appPublicKey,
-    )
-    await storeKey(key)
-    pairingAttempt = null
-    extCounter = 0
-    lastAppCounter = 0
+      if (response.type === 'locked') return { error: 'locked' }
+      if (response.type !== 'pair-accepted') return { error: 'pair-rejected' }
+      if (response.session !== current.session || !pairingAttempt?.appPublicKey) {
+        return { error: 'pair-protocol' }
+      }
+      const key = await deriveBridgeSessionKey(
+        pair.privateKey,
+        pair.publicKey,
+        pairingAttempt.appPublicKey,
+      )
+      await storeKey(key)
+      pairingAttempt = null
+      extCounter = 0
+      lastAppCounter = 0
 
-    const check = await encryptedRequest({ type: 'status' })
-    if (typeof check.error === 'string') {
-      return { error: check.error }
+      const check = await encryptedRequest({ type: 'status' })
+      if (typeof check.error === 'string') {
+        return { error: check.error }
+      }
+      return { ok: true }
+    } finally {
+      clearInterval(keepAlive)
     }
-    return { ok: true }
   } catch (error) {
     resetConnection()
     return {
