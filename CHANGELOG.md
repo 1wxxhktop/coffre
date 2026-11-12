@@ -20,6 +20,9 @@
   la fenêtre, téléchargement automatique et carte d’installation.
 - Fiche : icône de copie pour chaque adresse web d’une connexion, sans
   l’ouvrir dans le navigateur.
+- CI : `actions/cache` v6.1.0, `install-action` v2.90.3, runners Ubuntu 24.04 ;
+  l’avis `glib` (GHSA-wrw7-89jp-8q8g) reste documenté, aucun correctif
+  compatible avec Tauri 2.12 n’existe.
 - Protection de `main` : checks requis `Qualité` et `Bêta macOS`.
 
 ## 0.14.2 — 12 novembre 2026

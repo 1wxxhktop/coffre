@@ -33,7 +33,7 @@ env:
 jobs:
   quality:
     name: Qualité
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Récupérer le dépôt
@@ -87,7 +87,7 @@ jobs:
 
   e2e-shards:
     name: Playwright ${{ matrix.browser }} (shard ${{ matrix.shard }}/4)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     # Quatre shards par navigateur : le serveur et le stockage sont isolés par
     # job, ce qui divise le temps de WebKit (~18 min) sans changer les noms des
@@ -110,7 +110,7 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Mettre en cache le navigateur Playwright
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('bun.lock') }}
@@ -143,7 +143,7 @@ jobs:
     name: Parcours Playwright (${{ matrix.browser }})
     needs: e2e-shards
     if: always() && needs.e2e-shards.result != 'skipped'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     strategy:
       fail-fast: false
@@ -210,12 +210,12 @@ jobs:
           node scripts/smoke-bridge.mjs
 
       - name: Installer cargo-audit
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-audit
 
       - name: Installer cargo-deny
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-deny@0.20.2
 
@@ -264,7 +264,7 @@ jobs:
 
   reproducible:
     name: Build reproductible
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 20
     env:
@@ -319,7 +319,7 @@ jobs:
 
   sbom:
     name: SBOM
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 25
     env:
@@ -344,7 +344,7 @@ jobs:
           toolchain: 1.99.1
 
       - name: Installer cargo-cyclonedx
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-cyclonedx@0.5.10
 
@@ -360,7 +360,7 @@ jobs:
 
   smoke-extension:
     name: Extension Chromium (smoke)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 15
     steps:

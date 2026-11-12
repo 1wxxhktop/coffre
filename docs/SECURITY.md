@@ -1983,11 +1983,13 @@ apparaît.
 
 `cargo audit` signale six avertissements dans l’arbre Linux de Tauri :
 `basic-toml`, `proc-macro-error`, `zbus_names`, `zvariant` et
-`zvariant_derive` (non maintenus), ainsi que `glib` (unsound). Ils proviennent
-de dépendances transitives de Tauri/zbus, ne sont pas utilisés par le code
-Coffre et aucune version corrigée n’est disponible dans les versions épinglées.
-Ils sont acceptés, suivis par Dependabot et réévalués à chaque mise à jour de
-Tauri ; `cargo deny` vérifie les avis, licences et sources.
+`zvariant_derive` (non maintenus), ainsi que `glib`
+(`GHSA-wrw7-89jp-8q8g`, unsound). Ils proviennent de dépendances transitives
+de Tauri/zbus, ne sont pas utilisés par le code Coffre et aucune version
+corrigée n’est disponible dans les versions épinglées. Pour `glib`, `gtk 0.18`
+impose `glib ^0.18` ; le correctif 0.20.0 exige une montée de Tauri/GTK, suivie
+avec Dependabot et réévaluée à chaque mise à jour. `cargo deny` vérifie les
+avis, licences et sources.
 
 ### 6.4 Mémoire
 
