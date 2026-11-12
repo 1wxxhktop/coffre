@@ -18,6 +18,8 @@
 - Mises à jour : recherche **continue toutes les minutes** (choix explicite,
   activée automatiquement en passant au canal bêta), vérification au retour sur
   la fenêtre, téléchargement automatique et carte d’installation.
+- Mises à jour : notification système native optionnelle quand une bêta est
+  détectée en arrière-plan, avec autorisation demandée depuis les réglages.
 - Fiche : icône de copie pour chaque adresse web d’une connexion, sans
   l’ouvrir dans le navigateur.
 - CI : `actions/cache` v6.1.0, `install-action` v2.90.3, runners Ubuntu 24.04 ;

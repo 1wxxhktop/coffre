@@ -141,6 +141,10 @@ export function loadSettings(): AppSettings {
         typeof parsed.updateAutoDownload === 'boolean'
           ? parsed.updateAutoDownload
           : DEFAULT_SETTINGS.updateAutoDownload,
+      updateNotify:
+        typeof parsed.updateNotify === 'boolean'
+          ? parsed.updateNotify
+          : DEFAULT_SETTINGS.updateNotify,
       updateInstallMode:
         parsed.updateInstallMode === 'on-quit'
           ? 'on-quit'

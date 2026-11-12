@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AlertTriangle, Download, LoaderCircle, RefreshCw, RotateCcw } from 'lucide-react'
 import { useSettings } from '../state/SettingsProvider'
 import { useI18n } from '../state/I18nProvider'
@@ -5,6 +6,7 @@ import { useUpdates } from '../state/UpdateProvider'
 import { formatDateTime } from '../lib/settings'
 import { isPrerelease, progressPercent, UPDATE_ERROR_TEXTS } from '../lib/updates'
 import { automaticUpdatePreset, isFullyAutomaticUpdate } from '../lib/extensionInstall'
+import { ensureUpdateNotifications } from '../lib/notifications'
 
 export function UpdateSettings() {
   const { settings, updateSettings } = useSettings()
@@ -22,6 +24,7 @@ export function UpdateSettings() {
     skip,
     changeChannel,
   } = useUpdates()
+  const [notificationError, setNotificationError] = useState(false)
 
   const header = (
     <div className="settings-section__head">
@@ -57,6 +60,17 @@ export function UpdateSettings() {
   const configured = info?.configured === true
   const busy = status === 'checking' || status === 'downloading' || status === 'installing'
   const percent = progressPercent(progress)
+
+  const toggleNotifications = async (enabled: boolean) => {
+    if (!enabled) {
+      updateSettings({ updateNotify: false })
+      setNotificationError(false)
+      return
+    }
+    const granted = await ensureUpdateNotifications()
+    updateSettings({ updateNotify: granted })
+    setNotificationError(!granted)
+  }
 
   return (
     <section className="settings-section" aria-labelledby="settings-updates">
@@ -263,6 +277,24 @@ export function UpdateSettings() {
         />
         <span>{tt('Télécharger automatiquement en arrière-plan')}</span>
       </label>
+
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={settings.updateNotify}
+          onChange={(event) => void toggleNotifications(event.target.checked)}
+          disabled={!configured}
+        />
+        <span>{tt('Notification système quand une mise à jour est disponible')}</span>
+      </label>
+
+      {notificationError && (
+        <p className="form-error" role="status">
+          {tt(
+            'Notifications système refusées. Autorisez Coffre dans les réglages du système.',
+          )}
+        </p>
+      )}
 
       {settings.updateChannel === 'beta' && (
         <>

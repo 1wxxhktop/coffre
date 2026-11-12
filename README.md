@@ -328,9 +328,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   En canal bêta, la recherche continue est activée automatiquement si aucune
   fréquence n’était choisie ; la carte de mise à jour apparaît dès qu’une
   version est publiée, et la vérification est relancée au retour sur la
-  fenêtre. Paquets publiés sur les releases GitHub, signés (minisign) et
-  vérifiés avant installation ; le coffre est verrouillé avant le redémarrage.
-  Sur le Web, la PWA se met à jour à chaque visite.
+  fenêtre. Une notification système optionnelle peut être affichée quand une
+  mise à jour est détectée en arrière-plan. Paquets publiés sur les releases
+  GitHub, signés (minisign) et vérifiés avant installation ; le coffre est
+  verrouillé avant le redémarrage. Sur le Web, la PWA se met à jour à chaque
+  visite.
 - **Trousseau natif (desktop)** : déverrouillage rapide optionnel par le
   trousseau macOS, Windows ou Linux. La clé maîtresse n’y est écrite que si
   l’option est activée et elle est supprimée au verrouillage.

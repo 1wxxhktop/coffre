@@ -58,8 +58,9 @@ L’ordre SemVer garantit :
 2. Dans Coffre : **Réglages → Mises à jour**.
 3. Choisir le canal **Bêta (préversions)**. Si aucune recherche automatique
    n’était configurée, Coffre passe en **En continu (1 min)**.
-4. Facultatif : activer **Télécharger automatiquement en arrière-plan** et
-   l’installation à la fermeture pour un flux entièrement automatique.
+4. Facultatif : activer **Télécharger automatiquement en arrière-plan**,
+   l’installation à la fermeture et **Notification système quand une mise à
+   jour est disponible**.
 5. La carte de mise à jour apparaît dès qu’une nouvelle bêta est publiée.
    L’application vérifie au lancement, toutes les minutes et au retour sur la
    fenêtre.
