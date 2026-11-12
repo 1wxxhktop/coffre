@@ -22,6 +22,7 @@ test('exporte en CXF puis réimporte le fichier', async ({ page }, testInfo) => 
   expect(path).not.toBeNull()
   const exportPath = testInfo.outputPath('coffre.cxf.json')
   await download.saveAs(exportPath)
+  await expect(exportDialog).toHaveCount(0)
   await closeDialog(page)
 
   settings = await openSettings(page, 'Sauvegarde et import')
