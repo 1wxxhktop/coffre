@@ -75,7 +75,14 @@ jobs:
       - name: Tests unitaires
         run: bun run test
 
+      # Les secrets de signature ne sont pas exposés aux PR Dependabot. On
+      # valide quand même la compilation Rust, sans publier de bêta.
+      - name: Vérifier la compilation Rust (Dependabot)
+        if: github.actor == 'dependabot[bot]'
+        run: cargo check --manifest-path src-tauri/Cargo.toml --workspace
+
       - name: Calculer la version bêta
+        if: github.actor != 'dependabot[bot]'
         id: version
         run: |
           VERSION="$(node -e 'const raw=require("./package.json").version.split("-")[0].split(".").map(Number); console.log(`${raw[0]}.${raw[1] + 1}.0-beta.${process.env.GITHUB_RUN_NUMBER}.${process.env.GITHUB_RUN_ATTEMPT}`)')"
@@ -83,6 +90,7 @@ jobs:
           echo "Version bêta : $VERSION"
 
       - name: Construire le bundle bêta
+        if: github.actor != 'dependabot[bot]'
         env:
           COFFRE_BUILD_VERSION: ${{ steps.version.outputs.version }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -99,6 +107,7 @@ jobs:
           bun run tauri build --target aarch64-apple-darwin --bundles app --config "$CONFIG"
 
       - name: Préparer les artefacts
+        if: github.actor != 'dependabot[bot]'
         run: |
           BUNDLE="src-tauri/target/aarch64-apple-darwin/release/bundle/macos"
           ls -la "$BUNDLE"
@@ -106,6 +115,7 @@ jobs:
           cp "$BUNDLE/Coffre.app.tar.gz.sig" Coffre_beta_aarch64.app.tar.gz.sig
 
       - name: Générer le manifeste
+        if: github.actor != 'dependabot[bot]'
         env:
           VERSION: ${{ steps.version.outputs.version }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
@@ -122,6 +132,7 @@ jobs:
             --out latest.json
 
       - name: Publier dans le canal bêta
+        if: github.actor != 'dependabot[bot]'
         run: |
           if ! gh release view canal-beta >/dev/null 2>&1; then
             gh release create canal-beta \
@@ -135,7 +146,7 @@ jobs:
             latest.json --clobber
 
       - name: Commenter la PR
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -143,6 +154,7 @@ jobs:
           gh pr comment "$PR_NUMBER" --body "Bêta **$VERSION** publiée dans le canal bêta. Dans Coffre : Réglages → Mises à jour → canal **Bêta**, puis « Rechercher maintenant »."
 
       - name: Résumé
+        if: github.actor != 'dependabot[bot]'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
