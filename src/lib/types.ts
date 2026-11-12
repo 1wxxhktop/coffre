@@ -659,6 +659,8 @@ export interface AppSettings {
   updateChannel: 'stable' | 'beta'
   /** Télécharger en arrière-plan dès qu’une mise à jour est trouvée. */
   updateAutoDownload: boolean
+  /** Afficher une notification système quand une mise à jour est trouvée. */
+  updateNotify: boolean
   /** Installer après confirmation, ou à la fermeture de Coffre. */
   updateInstallMode: 'ask' | 'on-quit'
   /** Version que l’utilisateur a choisi d’ignorer. */
@@ -695,6 +697,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   updateCheck: 'off',
   updateChannel: 'stable',
   updateAutoDownload: false,
+  updateNotify: false,
   updateInstallMode: 'ask',
   updateSkippedVersion: null,
   updateLastCheckAt: null,

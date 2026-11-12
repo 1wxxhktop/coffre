@@ -84,6 +84,7 @@
     "core:window:allow-show",
     "core:window:allow-start-dragging",
     "core:window:allow-unminimize",
-    "dialog:default"
+    "dialog:default",
+    "notification:default"
   ]
 }

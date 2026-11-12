@@ -29,6 +29,7 @@ import {
 } from '../lib/updates'
 import { useSettings } from './SettingsProvider'
 import { useVault } from './VaultProvider'
+import { notifyUpdateAvailable } from '../lib/notifications'
 
 export type UpdateStatus =
   | 'idle'
@@ -167,6 +168,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         setNoticeDismissed(false)
         statusRef.current = 'available'
         setStatus('available')
+        if (!manual && settingsRef.current.updateNotify) {
+          notifyUpdateAvailable(found.version)
+        }
         if (settingsRef.current.updateAutoDownload) await download()
       } catch (reason) {
         // En continu, espacer les tentatives même en cas d’échec. Pour les
