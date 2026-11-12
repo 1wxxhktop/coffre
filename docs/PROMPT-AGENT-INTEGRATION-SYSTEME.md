@@ -27,12 +27,17 @@ Tu vas implémenter l’intégration de Coffre au système d’exploitation sur 
 - Pas de nouvelle permission Tauri ou de capability plus large que nécessaire ; justifie chaque ajout dans la PR.
 - Nouvelles chaînes d’interface traduites (français et anglais) : `bun run lint` refuse les chaînes en dur.
 
-## Quota GitHub Actions (impératif)
+## CI et nettoyage
 
-Mon budget est de 12 $ par mois et ne doit jamais être dépassé.
-- N’ajoute **aucun** job macOS ou Windows déclenché sur `pull_request` ou `push`. Tout ce qui est macOS, Windows, Xcode ou desktop passe par `workflow_dispatch` ou `release.yml`.
-- Ne modifie pas les déclencheurs existants de `.github/workflows/` sans me le signaler explicitement dans la PR.
-- Épingle toute nouvelle action GitHub par SHA, avec `persist-credentials: false`, comme dans `ci.yml`.
+Le dépôt est public : les runners GitHub standard sont gratuits et il n’y a
+plus de quota à respecter. Tu peux ajouter des jobs macOS, Windows ou Xcode si
+le besoin de validation le justifie ; épingle toujours les actions par SHA avec
+`persist-credentials: false` (sécurité de la chaîne d’approvisionnement).
+**Après chaque fusion ou release**, lance `bun run post-merge` : il met à jour
+`release/` avec la dernière version, vérifie qu’une seule version est présente,
+puis nettoie les artefacts. Utiliser `bun run clean:build` après un build
+desktop et `bun run clean:all` pour les caches globaux. Le dossier `release/`
+n’est jamais supprimé.
 
 ## Contrôles avant chaque PR
 
@@ -41,7 +46,7 @@ Lance tout en local et colle le résultat résumé dans la description :
 ```bash
 bun run typecheck
 bun run lint
-bun run test
+bun run test:coverage
 bun run test:e2e
 bun run build
 bun run extension:build
@@ -66,6 +71,7 @@ Verrouillage de session, veille, barre de menus, Windows Hello : teste à la mai
 - Tests unitaires ajoutés pour la nouvelle logique ; vecteurs croisés TypeScript ↔ Rust pour S2.
 - `README.md`, `docs/SECURITY.md`, `docs/RELEASE-READINESS.md` et `CHANGELOG.md` à jour.
 - Description de PR avec trois sections : **Ce qui est fait**, **Vérifications** (commandes et résultats), **Non vérifié / à tester à la main**.
+- Poste nettoyé et `release/` actualisé après la fusion : `bun run post-merge`.
 
 ## Compte rendu attendu
 
@@ -103,20 +109,25 @@ Base de départ : `main` au 9 novembre 2026 (0.8.0, L1 à L7, L9, L11, L12 faits
 | --- | --- | --- |
 | Compte Apple Developer (Developer ID, App Group, entitlements AutoFill, notarisation) | 99 $ / an | S0, S3, S4, S5 |
 | Signature de code Windows (SmartScreen, éventuel MSIX) | Optionnel, variable | S6 |
-| GitHub Actions | **Aucun dépassement accepté** (quota de 12 $ / mois) | Tous |
+| GitHub Actions | Gratuit sur dépôt public (runners standard) | Tous |
 
 **Aucun achat n’est fait par l’agent.** Les lots S1 et S2 se font sans compte
 payant. À partir de S0, l’agent s’arrête et demande à l’utilisateur de créer le
 compte Apple et de fournir l’identifiant d’équipe.
 
-### 0.2 CI et quota
+### 0.2 CI et nettoyage
 
-- Les runners macOS coûtent 10 fois plus que Linux. **Aucun build Xcode, Swift
-  ou macOS sur les PR et les pushes** : uniquement en `workflow_dispatch` et
-  dans `release.yml`.
-- Les tests Rust du code partagé (S2) tournent sur Linux, dans le job existant.
+- Le dépôt est public : les runners GitHub standard sont gratuits. Les jobs
+  macOS, Windows et Xcode peuvent tourner sur `pull_request` et `push` si le
+  besoin de validation le justifie.
+- Les tests Rust du code partagé (S2) tournent sur Linux, macOS et Windows.
 - Les extensions natives se compilent et se testent en local sur le Mac de
   l’utilisateur ; la PR liste les tests manuels effectués.
+- **Après chaque fusion, mise à jour ou release**, exécuter `bun run
+  post-merge` : il met à jour `release/`, vérifie qu’une seule version est
+  présente, puis nettoie les artefacts. Utiliser `bun run clean:build` après un
+  build desktop et `bun run clean:all` pour les caches globaux. Le dossier
+  `release/` n’est jamais supprimé.
 
 ### 0.3 Principes de sécurité spécifiques
 

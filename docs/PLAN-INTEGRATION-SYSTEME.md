@@ -26,20 +26,25 @@ Base de départ : `main` au 9 novembre 2026 (0.8.0, L1 à L7, L9, L11, L12 faits
 | --- | --- | --- |
 | Compte Apple Developer (Developer ID, App Group, entitlements AutoFill, notarisation) | 99 $ / an | S0, S3, S4, S5 |
 | Signature de code Windows (SmartScreen, éventuel MSIX) | Optionnel, variable | S6 |
-| GitHub Actions | **Aucun dépassement accepté** (quota de 12 $ / mois) | Tous |
+| GitHub Actions | Gratuit sur dépôt public (runners standard) | Tous |
 
 **Aucun achat n’est fait par l’agent.** Les lots S1 et S2 se font sans compte
 payant. À partir de S0, l’agent s’arrête et demande à l’utilisateur de créer le
 compte Apple et de fournir l’identifiant d’équipe.
 
-### 0.2 CI et quota
+### 0.2 CI et nettoyage
 
-- Les runners macOS coûtent 10 fois plus que Linux. **Aucun build Xcode, Swift
-  ou macOS sur les PR et les pushes** : uniquement en `workflow_dispatch` et
-  dans `release.yml`.
-- Les tests Rust du code partagé (S2) tournent sur Linux, dans le job existant.
+- Le dépôt est public : les runners GitHub standard sont gratuits. Les jobs
+  macOS, Windows et Xcode peuvent tourner sur `pull_request` et `push` si le
+  besoin de validation le justifie.
+- Les tests Rust du code partagé (S2) tournent sur Linux, macOS et Windows.
 - Les extensions natives se compilent et se testent en local sur le Mac de
   l’utilisateur ; la PR liste les tests manuels effectués.
+- **Après chaque fusion, mise à jour ou release**, exécuter `bun run
+  post-merge` : il met à jour `release/`, vérifie qu’une seule version est
+  présente, puis nettoie les artefacts. Utiliser `bun run clean:build` après un
+  build desktop et `bun run clean:all` pour les caches globaux. Le dossier
+  `release/` n’est jamais supprimé.
 
 ### 0.3 Principes de sécurité spécifiques
 

@@ -35,8 +35,12 @@ Plans liés :
    ou documente pourquoi une API manque (ex. `sidePanel`).
 5. **Taille du bundle.** Mesurée avant et après chaque lot ; aucun jeu de
    données lourd dans l’extension.
-6. **Quota GitHub Actions (12 $ / mois).** Les tests de l’extension tournent
-   sur Linux / Chromium ; aucun job macOS ou Windows sur les PR.
+6. **CI et nettoyage.** Le dépôt est public : les runners standard sont
+   gratuits, sans quota. Les tests de l’extension tournent sur Linux/Chromium,
+   et les jobs macOS/Windows peuvent être ajoutés si nécessaire. Après chaque
+   fusion ou release, exécuter `bun run post-merge` : il met à jour `release/`
+   avec la dernière version, vérifie qu’une seule version est présente, puis
+   nettoie les artefacts. `release/` n’est jamais supprimé.
 
 ---
 

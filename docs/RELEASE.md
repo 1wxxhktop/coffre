@@ -282,3 +282,45 @@ annoncée.
   minisign doit être conservée : sa perte impose une réinstallation manuelle.
 - L’AutoFill macOS, le mobile et l’audit externe restent des chantiers séparés.
 - Les secrets Apple ne doivent jamais être commités dans le dépôt.
+
+## 9. Nettoyage après release
+
+Une fois la release publiée et les artefacts vérifiés, supprimer les fichiers
+générés pour éviter de saturer le disque :
+
+```bash
+bun run clean:all
+```
+
+Cela retire `dist/`, `coverage/`, `src-tauri/target/`, les caches
+Bun/Playwright/Cargo et les fichiers temporaires. Les sources, les coffres
+`.coffre`, les secrets et le dossier **`release/`** sont conservés. Pour
+épargner les caches globaux, plus longs à reconstruire, utiliser
+`bun run clean:build`.
+
+### 9.1 Toujours conserver la dernière version dans `release/`
+
+`release/` n’est **jamais** supprimé par le nettoyage. Après chaque fusion sur
+`main` (une fois la CI verte) et après chaque finalisation de release,
+l’actualiser :
+
+```bash
+bun run post-merge
+```
+
+Cette commande enchaîne `release:update`, `release:status` et `clean` : elle
+remplace `release/` par la dernière version, vérifie qu’une seule version est
+présente, puis nettoie le reste sans toucher à `release/`.
+
+`release:update` récupère les artefacts de la dernière CI réussie sur `main`,
+remplace la version précédente et met à jour le lien `release/latest` : une
+seule version reste sur le disque. `release:status` vérifie que ce dossier
+existe, qu’il ne contient qu’une version et qu’elle correspond à
+`package.json`.
+
+Après un simple merge ou une mise à jour, `bun run clean` suffit. Vérifier
+l’espace restant avec `du -sh .` et `df -h .`.
+
+`clean:all` supprime aussi les navigateurs Playwright ; les réinstaller avec
+`bun run test:e2e:install` avant de relancer les parcours e2e. Un worktree Git
+propre et inutilisé se retire avec `bun run clean:worktrees`.

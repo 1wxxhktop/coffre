@@ -2,6 +2,13 @@
 
 ## Non publié
 
+- Outillage : couverture Vitest bloquante sur `src/lib`, builds desktop sur
+  chaque PR, vérification des versions citées dans la documentation, modèle de
+  PR et `CODEOWNERS`.
+- Nettoyage : `bun run clean`, `clean:build`, `clean:all` et
+  `clean:worktrees` ; le dossier `release/` est protégé et actualisé par
+  `bun run post-merge` / `release:update`, avec une seule version conservée.
+
 ## 0.14.2 — 12 novembre 2026
 
 - Correctif : en 0.14.1, l’association de l’extension échouait avec « La clé du
