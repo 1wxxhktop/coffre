@@ -1329,6 +1329,16 @@ settingsButton.addEventListener('click', () => {
   else openSettings()
 })
 
+window.addEventListener('keydown', (event) => {
+  if (
+    (event.metaKey || event.ctrlKey) &&
+    (event.key === ',' || event.code === 'Comma')
+  ) {
+    event.preventDefault()
+    if (!settingsOpen) openSettings()
+  }
+})
+
 settingsBackButton.addEventListener('click', () => {
   closeSettings()
 })
