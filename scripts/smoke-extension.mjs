@@ -659,6 +659,15 @@ try {
     }
   }, keyboardTab)
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`)
+  // La popup d’action Chrome dimensionne la fenêtre d’après le contenu. Une
+  // hauteur en 100vh peut se résoudre à zéro et laisser une fenêtre vide : on
+  // garde une hauteur fixe, vérifiée ici dans une fenêtre plus haute.
+  const popupBox = await popupPage.locator('.popup').boundingBox()
+  assert.ok(popupBox, 'popup introuvable')
+  assert.ok(
+    popupBox.height >= 500 && popupBox.height <= 620,
+    `hauteur de popup inattendue : ${popupBox.height}px`,
+  )
   await popupPage.locator('.result-group__title').first().waitFor()
   const popupHeadings = await popupPage
     .locator('.result-group__title')

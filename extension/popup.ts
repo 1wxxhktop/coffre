@@ -1595,4 +1595,7 @@ if (typeof ResizeObserver === 'function') {
 }
 updateDockHeight()
 
-void init()
+void init().catch((error) => {
+  console.error('Coffre popup', error)
+  showMessage(t('error_generic'), 'error')
+})
