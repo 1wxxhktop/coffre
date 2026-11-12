@@ -35,7 +35,13 @@ Exemple : depuis `0.14.2`, la bêta est `0.15.0-beta.123.1`. Elle est injectée 
 
 - dans la configuration Tauri (`version`) ;
 - dans `__APP_VERSION__` via `COFFRE_BUILD_VERSION` ;
+- dans le manifeste de l’extension (`<major>.<minor>.<patch>.<run>`, format
+  numérique accepté par Chromium) ;
 - dans `latest.json`.
+
+La version de l’extension change donc à chaque bêta. L’application remplace sa
+copie gérée dans le dossier de données, et l’extension se recharge d’elle-même
+grâce à la version annoncée par le pont natif.
 
 Elle n’est pas commitée : pas de conflit de version entre PR, et
 `bun run version:check` reste valable sur le dépôt.
