@@ -754,7 +754,11 @@ body:has(.app-shell) {
 }
 
 .item-group + .item-group {
-  margin-top: var(--space-3);
+  margin-top: 0;
+}
+
+.item-group + .item-group .item-group__title {
+  border-top: 1px solid var(--border-1);
 }
 
 .item-group__title {
