@@ -33,7 +33,7 @@ body:has(.app-shell) {
   height: 100dvh;
   flex: none;
   padding: var(--space-6) var(--space-4) var(--space-4);
-  overflow-y: auto;
+  overflow: hidden;
   border-right: 1px solid var(--border-1);
   background: var(--surface-sidebar);
   -webkit-backdrop-filter: blur(16px);
@@ -42,6 +42,7 @@ body:has(.app-shell) {
 
 .sidebar__head {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -52,6 +53,16 @@ body:has(.app-shell) {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+.sidebar__scroll {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .sidebar__close,
@@ -230,6 +241,7 @@ body:has(.app-shell) {
 
 .sidebar__footer {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: var(--space-3);
   margin-top: auto;

@@ -239,130 +239,132 @@ export function Sidebar({
           </div>
         </div>
 
-        <div className="sidebar__home">
-          <span className="sidebar__section-label">{t('sidebar.home')}</span>
-          <button
-            type="button"
-            className={`sidebar__item ${dashboardActive ? 'is-active' : ''}`}
-            aria-current={dashboardActive ? 'page' : undefined}
-            aria-label={t('sidebar.dashboard')}
-            title={t('sidebar.dashboard')}
-            onClick={onOpenDashboard}
-          >
-            <LayoutDashboard size={17} />
-            <span>{t('sidebar.dashboard')}</span>
-          </button>
-        </div>
-
-        <nav className="sidebar__nav" aria-label={t('sidebar.filters')}>
-          <span className="sidebar__section-label">{t('sidebar.library')}</span>
-          {FILTERS.map((entry) => {
-            const Icon = entry.icon
-            const count = countFor(entry.id)
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                className={`sidebar__item ${
-                  !dashboardActive && filter === entry.id ? 'is-active' : ''
-                } ${entry.id === 'trash' ? 'sidebar__item--trash' : ''}`}
-                aria-current={
-                  !dashboardActive && filter === entry.id ? 'page' : undefined
-                }
-                aria-label={t(FILTER_KEYS[entry.id])}
-                title={t(FILTER_KEYS[entry.id])}
-                onClick={() => {
-                  onFilterChange(entry.id)
-                  onClose()
-                }}
-              >
-                <Icon size={17} />
-                <span>{t(FILTER_KEYS[entry.id])}</span>
-                {count > 0 && <span className="sidebar__count">{count}</span>}
-              </button>
-            )
-          })}
-        </nav>
-
-        <div className="sidebar__vaults">
-          <div className="sidebar__section-head">
-            <span className="sidebar__section-label">{t('sidebar.vaults')}</span>
+        <div className="sidebar__scroll">
+          <div className="sidebar__home">
+            <span className="sidebar__section-label">{t('sidebar.home')}</span>
             <button
               type="button"
-              className="icon-button icon-button--sm"
-              onClick={onAddVault}
-              aria-label={t('sidebar.createVault')}
-              title={t('sidebar.createVault')}
+              className={`sidebar__item ${dashboardActive ? 'is-active' : ''}`}
+              aria-current={dashboardActive ? 'page' : undefined}
+              aria-label={t('sidebar.dashboard')}
+              title={t('sidebar.dashboard')}
+              onClick={onOpenDashboard}
             >
-              <Plus size={16} />
+              <LayoutDashboard size={17} />
+              <span>{t('sidebar.dashboard')}</span>
             </button>
           </div>
 
-          <button
-            type="button"
-            className={`sidebar__item ${
-              !dashboardActive && vaultFilter === 'all' ? 'is-active' : ''
-            }`}
-            aria-label={t('sidebar.allVaults')}
-            title={t('sidebar.allVaults')}
-            onClick={() => {
-              onVaultChange('all')
-              onClose()
-            }}
-          >
-            <ShieldCheck size={17} />
-            <span>{t('sidebar.allVaults')}</span>
-            <span className="sidebar__count">
-              {items.filter((item) => !item.deletedAt).length}
-            </span>
-          </button>
+          <nav className="sidebar__nav" aria-label={t('sidebar.filters')}>
+            <span className="sidebar__section-label">{t('sidebar.library')}</span>
+            {FILTERS.map((entry) => {
+              const Icon = entry.icon
+              const count = countFor(entry.id)
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={`sidebar__item ${
+                    !dashboardActive && filter === entry.id ? 'is-active' : ''
+                  } ${entry.id === 'trash' ? 'sidebar__item--trash' : ''}`}
+                  aria-current={
+                    !dashboardActive && filter === entry.id ? 'page' : undefined
+                  }
+                  aria-label={t(FILTER_KEYS[entry.id])}
+                  title={t(FILTER_KEYS[entry.id])}
+                  onClick={() => {
+                    onFilterChange(entry.id)
+                    onClose()
+                  }}
+                >
+                  <Icon size={17} />
+                  <span>{t(FILTER_KEYS[entry.id])}</span>
+                  {count > 0 && <span className="sidebar__count">{count}</span>}
+                </button>
+              )
+            })}
+          </nav>
 
-          {vaults.map((vault) => (
-            <div
-              key={vault.id}
-              className={`sidebar__vault ${
-                !dashboardActive && vaultFilter === vault.id ? 'is-active' : ''
-              }`}
-            >
+          <div className="sidebar__vaults">
+            <div className="sidebar__section-head">
+              <span className="sidebar__section-label">{t('sidebar.vaults')}</span>
               <button
                 type="button"
-                className="sidebar__vault-main"
-                aria-current={vaultFilter === vault.id ? 'page' : undefined}
-                aria-label={vault.name}
-                title={vault.name}
-                onClick={() => {
-                  onVaultChange(vault.id)
-                  onClose()
-                }}
+                className="icon-button icon-button--sm"
+                onClick={onAddVault}
+                aria-label={t('sidebar.createVault')}
+                title={t('sidebar.createVault')}
               >
-                <span className="sidebar__vault-dot" aria-hidden="true" />
-                <span className="sidebar__vault-name">{vault.name}</span>
-                <span className="sidebar__count">{vault.itemCount}</span>
+                <Plus size={16} />
               </button>
-              <span className="sidebar__vault-actions">
+            </div>
+
+            <button
+              type="button"
+              className={`sidebar__item ${
+                !dashboardActive && vaultFilter === 'all' ? 'is-active' : ''
+              }`}
+              aria-label={t('sidebar.allVaults')}
+              title={t('sidebar.allVaults')}
+              onClick={() => {
+                onVaultChange('all')
+                onClose()
+              }}
+            >
+              <ShieldCheck size={17} />
+              <span>{t('sidebar.allVaults')}</span>
+              <span className="sidebar__count">
+                {items.filter((item) => !item.deletedAt).length}
+              </span>
+            </button>
+
+            {vaults.map((vault) => (
+              <div
+                key={vault.id}
+                className={`sidebar__vault ${
+                  !dashboardActive && vaultFilter === vault.id ? 'is-active' : ''
+                }`}
+              >
                 <button
                   type="button"
-                  className="icon-button icon-button--sm"
-                  onClick={() => onRenameVault(vault)}
-                  aria-label={t('sidebar.renameVault', { name: vault.name })}
-                  title={t('sidebar.rename')}
+                  className="sidebar__vault-main"
+                  aria-current={vaultFilter === vault.id ? 'page' : undefined}
+                  aria-label={vault.name}
+                  title={vault.name}
+                  onClick={() => {
+                    onVaultChange(vault.id)
+                    onClose()
+                  }}
                 >
-                  <Pencil size={14} />
+                  <span className="sidebar__vault-dot" aria-hidden="true" />
+                  <span className="sidebar__vault-name">{vault.name}</span>
+                  <span className="sidebar__count">{vault.itemCount}</span>
                 </button>
-                {vaults.length > 1 && (
+                <span className="sidebar__vault-actions">
                   <button
                     type="button"
-                    className="icon-button icon-button--sm icon-button--danger"
-                    onClick={() => onDeleteVault(vault)}
-                    aria-label={t('sidebar.deleteVault', { name: vault.name })}
-                    title={t('sidebar.delete')}
+                    className="icon-button icon-button--sm"
+                    onClick={() => onRenameVault(vault)}
+                    aria-label={t('sidebar.renameVault', { name: vault.name })}
+                    title={t('sidebar.rename')}
                   >
-                    <Trash2 size={14} />
+                    <Pencil size={14} />
                   </button>
-                )}
-              </span>
-            </div>
-          ))}
+                  {vaults.length > 1 && (
+                    <button
+                      type="button"
+                      className="icon-button icon-button--sm icon-button--danger"
+                      onClick={() => onDeleteVault(vault)}
+                      aria-label={t('sidebar.deleteVault', { name: vault.name })}
+                      title={t('sidebar.delete')}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="sidebar__footer">
