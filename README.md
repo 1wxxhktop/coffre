@@ -743,33 +743,34 @@ dernier sert de proxy pour le moteur des WebViews macOS/iOS.
 
 ### Intégration continue
 
-Le dépôt est public : les runners GitHub standard sont gratuits. Le fichier
-`.github/workflows/ci.yml` lance sur chaque PR et chaque push sur `main` :
+Le dépôt est public : les runners GitHub standard sont gratuits.
 
-- **Qualité** : `bun audit --audit-level=high`, lint, vérification
-  TypeScript, tests Vitest, builds PWA et extension, avec l’artefact `dist`
-  conservé une semaine ;
-- **Parcours** : Playwright sur Chromium et WebKit, en quatre shards par
-  navigateur, avec un gate qui conserve les noms de checks requis ; traces et
-  rapport téléversés en cas d’échec ;
-- **Rust** : `cargo fmt`, `clippy`, tests de l’application, du cœur, du FFI, du
-  CLI et de l’agent SSH, smoke du relais natif, `cargo audit` et `cargo deny` ;
-- **`coffre-core` sur macOS et Windows** : formatage, clippy, tests et
-  vecteurs croisés ;
-- **Extension** : smoke test Chromium avec la CSP de production ;
-- **Builds reproductibles** et **SBOM**.
+- **PR normale** : le workflow **Bêta PR** exécute les tests minimaux
+  (`version:check`, TypeScript, lint, tests unitaires), construit un bundle
+  macOS arm64 et publie automatiquement une bêta `0.15.0-beta.<run>` dans le
+  canal bêta. Voir [docs/BETA-PR.md](docs/BETA-PR.md).
+- **Suite complète** : `.github/workflows/ci.yml` tourne sur chaque push vers
+  `main`, sur une PR étiquetée **`full-ci`** ou **`stable`**, et à la demande
+  (onglet *Actions* → *CI* → *Run workflow*) :
+  - **Qualité** : `bun audit`, lint, vérification TypeScript, tests Vitest,
+    builds PWA et extension ;
+  - **Parcours** : Playwright sur Chromium et WebKit, en quatre shards par
+    navigateur, avec un gate qui conserve les noms de checks requis ;
+  - **Rust** : `cargo fmt`, `clippy`, tests de l’application, du cœur, du FFI,
+    du CLI et de l’agent SSH, smoke du relais natif, `cargo audit` et
+    `cargo deny` ;
+  - **`coffre-core` sur macOS et Windows** : formatage, clippy, tests et
+    vecteurs croisés ;
+  - **Extension** : smoke test Chromium avec la CSP de production ;
+  - **Desktop** (macOS, Ubuntu, Windows), **builds reproductibles** et
+    **SBOM**.
 
-Les bundles **Desktop** (macOS, Ubuntu, Windows) tournent sur chaque PR, chaque
-push vers `main` et à la demande (onglet *Actions* → *CI* → *Run workflow*). La
-reproductibilité du bundle macOS, plus longue (deux builds complets), reste
-réservée aux pushes vers `main` et au déclenchement manuel.
-
-Les vérifications Qualité, Parcours, Rust, `coffre-core` macOS et Windows,
-smoke de l’extension, build reproductible et SBOM sont **obligatoires** pour
-fusionner dans `main` (protection de branche) : toute modification passe par
-une PR, y compris la documentation. Un push sur `main` qui ne touche que la
-documentation ne relance pas la CI, et un nouveau push annule l’exécution en
-cours sur la même branche.
+Les checks requis pour fusionner dans `main` sont **Qualité** et
+**Bêta macOS**. La suite complète reste la gate de `main`, des labels
+`full-ci`/`stable` et de `release.yml` avant une release stable. Toute
+modification passe par une PR, y compris la documentation. Un push sur `main`
+qui ne touche que la documentation ne relance pas la CI, et un nouveau push
+annule l’exécution en cours sur la même branche.
 
 **Exécutables en local.** `bun run release:collect` télécharge les artefacts
 de la dernière CI réussie sur `main` et les range dans

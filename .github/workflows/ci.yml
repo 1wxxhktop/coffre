@@ -1,10 +1,9 @@
 name: CI
 
-# Dépôt public : les runners GitHub standard sont gratuits. Chaque PR et chaque
-# push lancent les tests sur Linux, macOS et Windows, les parcours Playwright
-# sur Chromium et WebKit, et les builds desktop complets. La reproductibilité
-# macOS (deux bundles, une vingtaine de minutes) reste sur main et à la demande
-# pour ne pas rallonger chaque PR.
+# Dépôt public : les runners GitHub standard sont gratuits. Les PR normales
+# passent par le workflow « Bêta PR » (tests minimaux + bêta macOS). La suite
+# complète (Playwright, Rust, desktop, SBOM) tourne sur main, sur les PR
+# étiquetées full-ci/stable, et à la demande.
 # Un push sur main qui ne touche que la documentation ne relance pas la CI ;
 # les PR sont toujours vérifiées, car la protection de main l’exige.
 on:
@@ -89,6 +88,7 @@ jobs:
   e2e-shards:
     name: Playwright ${{ matrix.browser }} (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     # Quatre shards par navigateur : le serveur et le stockage sont isolés par
     # job, ce qui divise le temps de WebKit (~18 min) sans changer les noms des
     # checks requis (voir le job e2e-gate ci-dessous).
@@ -142,7 +142,7 @@ jobs:
   e2e-gate:
     name: Parcours Playwright (${{ matrix.browser }})
     needs: e2e-shards
-    if: always()
+    if: always() && needs.e2e-shards.result != 'skipped'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -160,6 +160,7 @@ jobs:
   rust:
     name: Rust (fmt, clippy, tests, audit)
     runs-on: ubuntu-22.04
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 25
     steps:
       - name: Récupérer le dépôt
@@ -233,6 +234,7 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 25
     steps:
       - name: Récupérer le dépôt
@@ -263,6 +265,7 @@ jobs:
   reproducible:
     name: Build reproductible
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 20
     env:
       SOURCE_DATE_EPOCH: 0
@@ -285,9 +288,9 @@ jobs:
 
   desktop-reproducible:
     name: Desktop reproductible (macOS)
-    # Long (deux bundles complets) : sur push vers main et à la demande. Ce
-    # n’est pas un gate de PR.
-    if: github.event_name != 'pull_request'
+    # Long (deux bundles complets) : push vers main, label full-ci/stable ou
+    # déclenchement manuel.
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     runs-on: macos-latest
     timeout-minutes: 40
     env:
@@ -317,6 +320,7 @@ jobs:
   sbom:
     name: SBOM
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 25
     env:
       SOURCE_DATE_EPOCH: 0
@@ -357,6 +361,7 @@ jobs:
   smoke-extension:
     name: Extension Chromium (smoke)
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 15
     steps:
       - name: Récupérer le dépôt
@@ -399,12 +404,14 @@ jobs:
 
   desktop:
     name: Desktop (${{ matrix.os }})
-    # Builds complets sur les trois systèmes, à chaque PR et push.
+    # Builds complets sur les trois systèmes, sur main, label full-ci/stable
+    # ou déclenchement manuel.
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-22.04, windows-latest]
     runs-on: ${{ matrix.os }}
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') || contains(github.event.pull_request.labels.*.name, 'stable')
     timeout-minutes: 40
     steps:
       - name: Récupérer le dépôt

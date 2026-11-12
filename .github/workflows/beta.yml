@@ -1,0 +1,153 @@
+name: Bêta PR
+
+# Chaque PR interne publie automatiquement une bêta macOS dans le canal bêta.
+# Tests minimaux ici ; la suite complète reste sur main, le label stable/full-ci
+# et la release stable.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Numéro de PR à publier en bêta
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: beta-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.4.3
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  beta:
+    name: Bêta macOS
+    # Les secrets ne sont pas disponibles pour les PR de forks. Les branches
+    # internes (le cas normal) publient automatiquement.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - name: Récupérer la PR
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || format('refs/pull/{0}/head', inputs.pr) }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.99.1
+          targets: aarch64-apple-darwin
+
+      - name: Mettre en cache Cargo
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Vérifier la cohérence des versions
+        run: bun run version:check
+
+      - name: Vérification TypeScript
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Tests unitaires
+        run: bun run test
+
+      - name: Calculer la version bêta
+        id: version
+        run: |
+          VERSION="$(node -e 'const raw=require("./package.json").version.split("-")[0].split(".").map(Number); console.log(`${raw[0]}.${raw[1] + 1}.0-beta.${process.env.GITHUB_RUN_NUMBER}.${process.env.GITHUB_RUN_ATTEMPT}`)')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version bêta : $VERSION"
+
+      - name: Construire le bundle bêta
+        env:
+          COFFRE_BUILD_VERSION: ${{ steps.version.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          COFFRE_UPDATER_PUBKEY: ${{ vars.COFFRE_UPDATER_PUBKEY }}
+        run: |
+          [[ -n "$TAURI_SIGNING_PRIVATE_KEY" ]] || { echo "Clé de signature absente : bêta impossible." >&2; exit 1; }
+          [[ -n "$COFFRE_UPDATER_PUBKEY" ]] || { echo "Clé publique des mises à jour absente : bêta impossible." >&2; exit 1; }
+          CONFIG="$(node -e 'console.log(JSON.stringify({
+            version: process.env.COFFRE_BUILD_VERSION,
+            bundle: { createUpdaterArtifacts: true },
+            plugins: { updater: { pubkey: process.env.COFFRE_UPDATER_PUBKEY.trim() } },
+          }))')"
+          bun run tauri build --target aarch64-apple-darwin --bundles app --config "$CONFIG"
+
+      - name: Préparer les artefacts
+        run: |
+          BUNDLE="src-tauri/target/aarch64-apple-darwin/release/bundle/macos"
+          ls -la "$BUNDLE"
+          cp "$BUNDLE/Coffre.app.tar.gz" Coffre_beta_aarch64.app.tar.gz
+          cp "$BUNDLE/Coffre.app.tar.gz.sig" Coffre_beta_aarch64.app.tar.gz.sig
+
+      - name: Générer le manifeste
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+          PR_TITLE: ${{ github.event.pull_request.title || 'workflow_dispatch' }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          NOTES="Bêta PR #${PR_NUMBER} — ${PR_TITLE} — commit ${COMMIT}"
+          bun scripts/updater-manifest.ts build \
+            --version "$VERSION" \
+            --url "https://github.com/${{ github.repository }}/releases/download/canal-beta/Coffre_beta_aarch64.app.tar.gz" \
+            --signature-file Coffre_beta_aarch64.app.tar.gz.sig \
+            --notes "$NOTES" \
+            --platforms darwin-aarch64 \
+            --out latest.json
+
+      - name: Publier dans le canal bêta
+        run: |
+          if ! gh release view canal-beta >/dev/null 2>&1; then
+            gh release create canal-beta \
+              --title "Canal bêta (manifeste de mise à jour)" \
+              --notes "Release technique : porte le manifeste latest.json du canal bêta de Coffre. Ne pas télécharger." \
+              --prerelease --latest=false
+          fi
+          gh release upload canal-beta \
+            Coffre_beta_aarch64.app.tar.gz \
+            Coffre_beta_aarch64.app.tar.gz.sig \
+            latest.json --clobber
+
+      - name: Commenter la PR
+        if: github.event_name == 'pull_request'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body "Bêta **$VERSION** publiée dans le canal bêta. Dans Coffre : Réglages → Mises à jour → canal **Bêta**, puis « Rechercher maintenant »."
+
+      - name: Résumé
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo "### Bêta macOS $VERSION"
+            echo
+            echo "Manifeste : https://github.com/${{ github.repository }}/releases/download/canal-beta/latest.json"
+            echo
+            echo "Dans Coffre : Réglages → Mises à jour → canal Bêta → Rechercher maintenant."
+          } >> "$GITHUB_STEP_SUMMARY"
