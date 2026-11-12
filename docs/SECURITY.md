@@ -1964,6 +1964,14 @@ corrigée publiée ; elle est acceptée, documentée et réévaluée à chaque m
 version. Le workflow échoue si une vulnérabilité `moderate` ou supérieure
 apparaît.
 
+`cargo audit` signale six avertissements dans l’arbre Linux de Tauri :
+`basic-toml`, `proc-macro-error`, `zbus_names`, `zvariant` et
+`zvariant_derive` (non maintenus), ainsi que `glib` (unsound). Ils proviennent
+de dépendances transitives de Tauri/zbus, ne sont pas utilisés par le code
+Coffre et aucune version corrigée n’est disponible dans les versions épinglées.
+Ils sont acceptés, suivis par Dependabot et réévalués à chaque mise à jour de
+Tauri ; `cargo deny` vérifie les avis, licences et sources.
+
 ### 6.4 Mémoire
 
 Les clés sont stockées dans des `Uint8Array` et effacées avec `fill(0)` au
