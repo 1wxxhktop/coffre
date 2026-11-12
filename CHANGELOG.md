@@ -8,6 +8,10 @@
 - Nettoyage : `bun run clean`, `clean:build`, `clean:all` et
   `clean:worktrees` ; le dossier `release/` est protégé et actualisé par
   `bun run post-merge` / `release:update`, avec une seule version conservée.
+- CI : Playwright est découpé en quatre shards par navigateur ; les checks
+  `Parcours Playwright (chromium)` et `(webkit)` sont conservés par un gate.
+- Outillage : commandes de boucle locale rapide (`test:changed`, `test:e2e:one`,
+  `test:e2e:smoke`, `test:e2e:ui`) et guide `docs/DEV-FAST.md`.
 
 ## 0.14.2 — 12 novembre 2026
 

@@ -86,16 +86,18 @@ jobs:
             dist-extension
           retention-days: 30
 
-  e2e:
-    name: Parcours Playwright (${{ matrix.browser }})
+  e2e-shards:
+    name: Playwright ${{ matrix.browser }} (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
-    # Un seul worker par navigateur (les parcours partagent le serveur et le
-    # stockage) : Chromium et WebKit tournent en parallèle, dans deux jobs.
+    # Quatre shards par navigateur : le serveur et le stockage sont isolés par
+    # job, ce qui divise le temps de WebKit (~18 min) sans changer les noms des
+    # checks requis (voir le job e2e-gate ci-dessous).
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         browser: [chromium, webkit]
+        shard: [1, 2, 3, 4]
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -107,6 +109,14 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
+      - name: Mettre en cache le navigateur Playwright
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-${{ matrix.browser }}-
+
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
 
@@ -114,17 +124,38 @@ jobs:
         run: bunx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Exécuter les parcours
-        run: bunx playwright test --project=${{ matrix.browser }}
+        run: bunx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
 
       - name: Conserver les traces en cas d’échec
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: playwright-results-${{ matrix.browser }}
+          name: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
           path: |
             playwright-report
             test-results
           retention-days: 7
+
+  # Conserve les noms de checks exigés par la protection de branche
+  # (« Parcours Playwright (chromium) » et « (webkit) »). Le gate échoue si un
+  # seul shard a échoué, mais il ne relance aucun test.
+  e2e-gate:
+    name: Parcours Playwright (${{ matrix.browser }})
+    needs: e2e-shards
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    steps:
+      - name: Vérifier les shards
+        run: |
+          if [[ "${{ needs.e2e-shards.result }}" != "success" ]]; then
+            echo "Au moins un shard Playwright a échoué ou a été annulé." >&2
+            exit 1
+          fi
 
   rust:
     name: Rust (fmt, clippy, tests, audit)
