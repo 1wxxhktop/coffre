@@ -668,6 +668,28 @@ try {
     popupBox.height >= 500 && popupBox.height <= 620,
     `hauteur de popup inattendue : ${popupBox.height}px`,
   )
+
+  // La largeur de la popup d’action est elle aussi calculée d’après son
+  // contenu : un max-width en 100vw peut la réduire à quelques pixels. On
+  // simule une fenêtre étroite et on vérifie que le contenu garde sa largeur.
+  const popupCdp = await context.newCDPSession(popupPage)
+  await popupCdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 300,
+    height: 580,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await popupPage.waitForTimeout(100)
+  const narrowPopup = await popupPage.locator('.popup').boundingBox()
+  assert.ok(narrowPopup, 'popup introuvable en fenêtre étroite')
+  assert.ok(
+    narrowPopup.width >= 340,
+    `largeur de popup inattendue : ${narrowPopup.width}px`,
+  )
+  await popupCdp.send('Emulation.clearDeviceMetricsOverride')
+  await popupCdp.detach()
+  await popupPage.reload()
+
   await popupPage.locator('.result-group__title').first().waitFor()
   const popupHeadings = await popupPage
     .locator('.result-group__title')
