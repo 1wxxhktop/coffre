@@ -221,6 +221,9 @@
   "popup_settings": {
     "message": "Réglages"
   },
+  "popup_sidePanel": {
+    "message": "Ouvrir dans le panneau latéral"
+  },
   "popup_save": {
     "message": "Enregistrer"
   },

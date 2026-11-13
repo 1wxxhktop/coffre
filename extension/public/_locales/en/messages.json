@@ -221,6 +221,9 @@
   "popup_settings": {
     "message": "Settings"
   },
+  "popup_sidePanel": {
+    "message": "Open in side panel"
+  },
   "popup_save": {
     "message": "Save"
   },

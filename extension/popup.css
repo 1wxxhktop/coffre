@@ -94,6 +94,18 @@ body {
   background: var(--bg);
 }
 
+body.side-panel {
+  width: 100%;
+  min-width: 0;
+  height: 100vh;
+}
+
+body.side-panel .popup {
+  width: 100%;
+  min-width: 0;
+  height: 100vh;
+}
+
 .popup {
   display: flex;
   width: var(--popup-width);

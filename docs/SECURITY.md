@@ -458,6 +458,13 @@ appairage) est conservée dans `chrome.storage.local`.
   aucun nom d’élément n’y figure ; les exclusions ne contiennent que des
   domaines, jamais d’URL, de chemin ni d’identifiant. Le mode Web ignore
   volontairement le pont natif.
+- **Panneau latéral (E11b)** : Chromium utilise la permission `sidePanel` et
+  Firefox `sidebar_action`. Le panneau charge la même page que la popup
+  (`popup.html?panel=1`), donc les mêmes contrôles d’origine, le même
+  verrouillage et les mêmes secrets en mémoire. Aucune permission d’hôte
+  supplémentaire n’est demandée ; le panneau ne peut pas ouvrir le coffre sans
+  appairage ou déverrouillage. Le bouton d’ouverture reste masqué si le
+  navigateur ne fournit pas l’API.
 - L’activation site par site ne demande que l’origine du site courant ; « tous
   les sites » demande `http://*/*` et `https://*/*`. Les content scripts sont
   enregistrés dynamiquement sur la liste exacte des origines accordées ; les

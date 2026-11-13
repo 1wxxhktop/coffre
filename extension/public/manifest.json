@@ -12,7 +12,8 @@
     "nativeMessaging",
     "clipboardWrite",
     "clipboardRead",
-    "contextMenus"
+    "contextMenus",
+    "sidePanel"
   ],
   "host_permissions": [
     "http://localhost:1420/*",
@@ -114,6 +115,17 @@
         "size": 128
       }
     ]
+  },
+  "side_panel": {
+    "default_path": "popup.html?panel=1"
+  },
+  "sidebar_action": {
+    "default_title": "Coffre",
+    "default_panel": "popup.html?panel=1",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
   },
   "icons": {
     "16": "icons/icon-16.png",

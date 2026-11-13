@@ -119,6 +119,7 @@ const saveText = $<HTMLParagraphElement>('save-text')
 const saveNowButton = $<HTMLButtonElement>('save-now')
 const saveIgnoreButton = $<HTMLButtonElement>('save-ignore')
 const settingsButton = $<HTMLButtonElement>('settings')
+const panelButton = $<HTMLButtonElement>('panel')
 const themeButton = $<HTMLButtonElement>('theme')
 const themeIcon = $<HTMLSpanElement>('theme-icon')
 const footerStatus = $<HTMLSpanElement>('footer-status')
@@ -274,6 +275,49 @@ async function initTheme(): Promise<void> {
   themeInitialized = true
   themePreference = await loadTheme()
   renderTheme()
+}
+
+/**
+ * Ouvre la même interface dans le panneau latéral. Chromium expose
+ * `sidePanel`, Firefox `sidebarAction` ; les autres navigateurs gardent la
+ * popup classique et le bouton reste masqué.
+ */
+function initSidePanel(): void {
+  const isPanelPage = new URLSearchParams(location.search).get('panel') === '1'
+  if (isPanelPage) document.body.classList.add('side-panel')
+
+  const sidePanel = (api as unknown as {
+    sidePanel?: { open?: (options: { windowId: number }) => Promise<void> }
+  }).sidePanel
+  const sidebarAction = (api as unknown as {
+    sidebarAction?: { open?: () => Promise<void> }
+  }).sidebarAction
+  if (isPanelPage || (!sidePanel?.open && !sidebarAction?.open)) {
+    panelButton.hidden = true
+    return
+  }
+  panelButton.hidden = false
+  panelButton.addEventListener('click', () => {
+    void (async () => {
+      try {
+        if (sidePanel?.open) {
+          const [tab] = await api.tabs.query({ active: true, currentWindow: true })
+          if (tab?.windowId !== undefined) {
+            await sidePanel.open({ windowId: tab.windowId })
+            window.close()
+            return
+          }
+        }
+        if (sidebarAction?.open) {
+          await sidebarAction.open()
+          window.close()
+        }
+      } catch {
+        // Le navigateur peut refuser l’ouverture du panneau : la popup reste
+        // utilisable et l’utilisateur peut passer par son menu natif.
+      }
+    })()
+  })
 }
 
 function updateDockHeight(): void {
@@ -1619,6 +1663,7 @@ if (typeof ResizeObserver === 'function') {
   window.addEventListener('resize', updateDockHeight)
 }
 updateDockHeight()
+initSidePanel()
 
 void init().catch((error) => {
   console.error('Coffre popup', error)
