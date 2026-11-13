@@ -2,6 +2,9 @@
 
 ## Non publié
 
+- Documentation : **périmètre et appel d’offres de l’audit de sécurité externe**
+  (`docs/AUDIT-SCOPE.md`) — cryptographie, format `.coffre`, synchronisation,
+  desktop, web, extension, Android alpha et supply chain.
 - Android : premier **APK alpha arm64** joint à la prochaine release. Il
   couvre le coffre local, le déverrouillage, les éléments, le générateur et le
   TOTP ; l’autofill, les passkeys et la biométrie Android restent en 0.18.
