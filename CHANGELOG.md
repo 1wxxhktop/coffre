@@ -6,6 +6,9 @@
   tant que l’extension n’a jamais été associée. Il indique le dossier géré,
   les étapes Chrome/Edge/Brave et Firefox, détecte l’appairage et reste
   accessible depuis Réglages → Extension navigateur.
+- Fenêtre : sur Windows, la barre de titre native est remplacée par une barre
+  intégrée à l’application (déplacement, réduire, agrandir/restaurer, fermer),
+  comme la barre en surcouche de macOS.
 - Distribution : paquets reproductibles Chrome/Edge (`coffre-extension.zip`) et
   Firefox (`coffre-extension.xpi`) avec empreintes SHA-256, fiche de store
   française et anglaise, justification des permissions et politique de

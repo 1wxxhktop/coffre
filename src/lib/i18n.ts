@@ -58,6 +58,10 @@ const fr = {
   'onboarding.extension.revealFailed':
     'Impossible d’ouvrir le dossier de l’extension.',
   'onboarding.extension.reopen': 'Revoir l’assistant d’installation',
+  'window.minimize': 'Réduire la fenêtre',
+  'window.maximize': 'Agrandir la fenêtre',
+  'window.restore': 'Restaurer la fenêtre',
+  'window.close': 'Fermer la fenêtre',
 
   'app.splash.opening': 'Ouverture du coffre local…',
   'app.error.title': 'Impossible d’ouvrir le coffre local',
@@ -559,6 +563,10 @@ const en: Record<MessageKey, string> = {
   'onboarding.extension.revealFailed':
     'Could not open the extension folder.',
   'onboarding.extension.reopen': 'Reopen the installation assistant',
+  'window.minimize': 'Minimize window',
+  'window.maximize': 'Maximize window',
+  'window.restore': 'Restore window',
+  'window.close': 'Close window',
 
   'app.splash.opening': 'Opening the local vault…',
   'app.error.title': 'Unable to open the local vault',

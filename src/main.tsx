@@ -3,12 +3,17 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 import { loadSettings } from './lib/settings'
+import { currentWindowChrome } from './lib/windowChrome'
 
-// Dans l’application desktop macOS, la barre de titre native est en surcouche :
-// on réserve la zone des feux de circulation et on laisse le contenu aller
-// jusqu’aux bords.
-if ('__TAURI_INTERNALS__' in window && navigator.userAgent.includes('Mac')) {
+// Dans l’application desktop, la barre de titre est intégrée à la fenêtre :
+// macOS garde les feux de circulation natifs en surcouche, Windows utilise une
+// barre dessinée par l’application.
+const windowChrome = currentWindowChrome()
+if (windowChrome === 'macos') {
   document.documentElement.classList.add('is-tauri-macos')
+}
+if (windowChrome === 'windows') {
+  document.documentElement.classList.add('is-tauri-windows')
 }
 
 // Applique le thème avant le premier rendu pour éviter un flash sombre.

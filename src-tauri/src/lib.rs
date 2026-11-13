@@ -869,6 +869,16 @@ pub fn run() {
             }
         })
         .setup(move |app| {
+            // Windows : la barre de titre native est remplacée par celle de
+            // l’interface. La configuration platform-specific le fait dès la
+            // création ; cet appel couvre aussi les lancements avec une
+            // configuration déjà chargée.
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main")
+                && let Err(error) = window.set_decorations(false)
+            {
+                eprintln!("Barre de titre intégrée indisponible : {error}");
+            }
             if let Err(error) = tray::init(app.handle()) {
                 eprintln!("Icône de barre de menus indisponible : {error}");
             }

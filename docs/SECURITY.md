@@ -2069,10 +2069,11 @@ du fichier `.coffre` (`file.id`). Le backend est fourni par la caisse `keyring`
 coffres ouverts dans un navigateur. Aucun accès générique aux fichiers, au
 réseau ou au shell n’est exposé.
 
-La seule permission Tauri supplémentaire est
-`core:window:allow-start-dragging`, nécessaire pour déplacer la fenêtre macOS
-sans barre de titre. Elle n’ouvre aucun accès aux fichiers, au réseau ou au
-trousseau.
+Les permissions de fenêtre supplémentaires sont limitées au chrome :
+`core:window:allow-start-dragging` pour déplacer la fenêtre sans barre de
+titre, puis `allow-close`, `allow-minimize`, `allow-toggle-maximize` et
+`allow-is-maximized` pour les boutons de la barre intégrée Windows. Elles
+n’ouvrent aucun accès aux fichiers, au réseau ou au trousseau.
 
 Le déverrouillage biométrique desktop ajoute cinq commandes :
 `biometric_available`, `biometric_store`, `biometric_delete`,
