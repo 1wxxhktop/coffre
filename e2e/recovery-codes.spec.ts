@@ -9,7 +9,7 @@ test('importe dix codes, en utilise huit et alerte le tableau de bord', async ({
   await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByRole('heading', { name: 'Nouvel élément' })).toBeVisible()
-  await dialog.getByRole('tab', { name: 'Codes de secours' }).click()
+  await dialog.getByRole('radio', { name: 'Codes de secours' }).click()
 
   await dialog.getByLabel('Titre', { exact: true }).fill('GitHub')
   const codes = [

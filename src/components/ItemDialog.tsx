@@ -2,6 +2,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react'
@@ -78,6 +79,7 @@ import {
 import { estimateEntropy, passwordStrength } from '../lib/strength'
 import { cx } from '../lib/cx'
 import { moveEntry } from '../lib/palette'
+import { nextTabIndex } from '../lib/rovingTabs'
 import { changePasswordUrl, safeExternalUrl as safeUrl } from '../lib/url'
 import { handleExternalClick, isTauriRuntime, openExternal } from '../lib/external'
 import { hostFromUrl } from '../lib/extensionProtocol'
@@ -690,6 +692,23 @@ export function ItemDialog({
     }
   }
 
+  const onTypesKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const types = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        '[role="radio"]:not(:disabled)',
+      ),
+    )
+    const next = nextTabIndex(
+      event.key,
+      types.indexOf(document.activeElement as HTMLButtonElement),
+      types.length,
+    )
+    if (next === null) return
+    event.preventDefault()
+    types[next].focus()
+    types[next].click()
+  }
+
   const switchType = (type: ItemType) => {
     if (current) return
     setDraft((previous) => ({
@@ -1206,15 +1225,17 @@ export function ItemDialog({
               {!current && (
                 <div
                   className="type-picker"
-                  role="tablist"
+                  role="radiogroup"
                   aria-label={tt('Type d’élément')}
+                  onKeyDown={onTypesKeyDown}
                 >
                   {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document', 'recovery-codes'] as ItemType[]).map((type) => (
                     <button
                       key={type}
                       type="button"
-                      role="tab"
-                      aria-selected={draft.type === type}
+                      role="radio"
+                      aria-checked={draft.type === type}
+                      tabIndex={draft.type === type ? 0 : -1}
                       className={`type-picker__item ${draft.type === type ? 'is-active' : ''}`}
                       onClick={() => switchType(type)}
                     >

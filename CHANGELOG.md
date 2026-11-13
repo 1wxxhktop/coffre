@@ -2,6 +2,11 @@
 
 ## Non publié
 
+- Accessibilité : **axe-core étendu à WCAG 2.2 A/AA** sur le générateur, la
+  palette de commandes, le nouvel élément et l’assistant d’extension. Les
+  onglets et le sélecteur de type se pilotent aux flèches avec un ordre de
+  tabulation maîtrisé. Le périmètre et les vérifications manuelles restantes
+  sont documentés dans `docs/ACCESSIBILITY.md`.
 - Documentation : **périmètre et appel d’offres de l’audit de sécurité externe**
   (`docs/AUDIT-SCOPE.md`) — cryptographie, format `.coffre`, synchronisation,
   desktop, web, extension, Android alpha et supply chain.

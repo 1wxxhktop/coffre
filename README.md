@@ -351,7 +351,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks
   entre onglets ; les liens externes Tauri s’ouvrent dans le navigateur système.
 - **Thèmes neutres sombre/clair** (noir et blanc) et **mode système**, interface responsive, sélecteurs natifs
-  habillés, accessibilité clavier et modales avec piège à focus.
+  habillés, accessibilité clavier et modales avec piège à focus. Les contrôles
+  automatisés WCAG 2.2 A/AA et la liste des vérifications manuelles restantes
+  sont dans [`docs/ACCESSIBILITY.md`](docs/ACCESSIBILITY.md).
 
 ### Corbeille et historique
 
