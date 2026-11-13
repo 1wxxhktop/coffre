@@ -4,6 +4,15 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useI18n } from '../state/I18nProvider'
 import { currentWindowChrome } from '../lib/windowChrome'
 
+/** API fenêtre indisponible dans certains environnements de test simulés. */
+function currentWindowOrNull(): ReturnType<typeof getCurrentWindow> | null {
+  try {
+    return getCurrentWindow()
+  } catch {
+    return null
+  }
+}
+
 /**
  * Barre de titre intégrée pour Windows.
  *
@@ -18,7 +27,8 @@ export function WindowTitlebar() {
 
   useEffect(() => {
     if (!windows) return
-    const current = getCurrentWindow()
+    const current = currentWindowOrNull()
+    if (!current) return
     let active = true
     const sync = () => {
       void current
@@ -38,8 +48,12 @@ export function WindowTitlebar() {
 
   if (!windows) return null
 
-  const run = (action: () => Promise<void>) => {
-    void action().catch(() => undefined)
+  const run = (
+    action: (window: ReturnType<typeof getCurrentWindow>) => Promise<void>,
+  ) => {
+    const current = currentWindowOrNull()
+    if (!current) return
+    void action(current).catch(() => undefined)
   }
 
   return (
@@ -47,7 +61,7 @@ export function WindowTitlebar() {
       <div
         className="window-titlebar__drag"
         data-tauri-drag-region
-        onDoubleClick={() => run(() => getCurrentWindow().toggleMaximize())}
+        onDoubleClick={() => run((window) => window.toggleMaximize())}
       />
       <div className="window-titlebar__controls">
         <button
@@ -55,7 +69,7 @@ export function WindowTitlebar() {
           className="window-titlebar__button"
           aria-label={t('window.minimize')}
           title={t('window.minimize')}
-          onClick={() => run(() => getCurrentWindow().minimize())}
+          onClick={() => run((window) => window.minimize())}
         >
           <Minus size={16} />
         </button>
@@ -64,7 +78,7 @@ export function WindowTitlebar() {
           className="window-titlebar__button"
           aria-label={maximized ? t('window.restore') : t('window.maximize')}
           title={maximized ? t('window.restore') : t('window.maximize')}
-          onClick={() => run(() => getCurrentWindow().toggleMaximize())}
+          onClick={() => run((window) => window.toggleMaximize())}
         >
           {maximized ? <Copy size={13} /> : <Square size={13} />}
         </button>
@@ -73,7 +87,7 @@ export function WindowTitlebar() {
           className="window-titlebar__button window-titlebar__button--close"
           aria-label={t('window.close')}
           title={t('window.close')}
-          onClick={() => run(() => getCurrentWindow().close())}
+          onClick={() => run((window) => window.close())}
         >
           <X size={16} />
         </button>
