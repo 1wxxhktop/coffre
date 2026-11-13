@@ -11,6 +11,10 @@
   overflow: hidden;
 }
 
+.is-tauri-windows .auth {
+  padding-top: calc(var(--space-6) + 32px);
+}
+
 .auth__glow {
   position: absolute;
   z-index: var(--z-base);
