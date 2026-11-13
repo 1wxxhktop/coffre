@@ -12,6 +12,8 @@ dist
 dist-extension
 dist-ssr
 coffre-extension.zip
+coffre-extension.xpi
+SHA256SUMS-extension
 # Extension copiée dans les ressources desktop par scripts/stage-extension.mjs
 /src-tauri/resources/extension/*
 !/src-tauri/resources/extension/.gitkeep
