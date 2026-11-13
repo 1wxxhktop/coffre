@@ -49,7 +49,7 @@ import { keychainAvailable } from '../lib/keychain'
 import { biometricAvailable } from '../lib/biometrics'
 import { prfSupported } from '../lib/prf'
 import { isTauriRuntime } from '../lib/external'
-import { isDesktopRuntime } from '../lib/platform'
+import { isDesktopRuntime, isMobileRuntime } from '../lib/platform'
 import { getAutostartEnabled, setAutostartEnabled } from '../lib/systemIntegration'
 import { ensureNotificationPermission } from '../lib/notifications'
 import { LOCALES, type Locale } from '../lib/i18n'
@@ -647,6 +647,12 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     document: activeItems.filter((item) => item.type === 'document').length,
   }
 
+  // Sur mobile, les réglages de bureau (tray, mises à jour, dossier synchronisé)
+  // n’ont pas de sens et masquent les fonctions réellement disponibles.
+  const pages = isMobileRuntime()
+    ? SETTINGS_PAGES.filter((entry) => entry.id !== 'updates' && entry.id !== 'sync')
+    : SETTINGS_PAGES
+
   const goToPage = (next: SettingsPage) => {
     setPage(next)
     setMobilePageOpen(true)
@@ -672,7 +678,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
       >
         <div className={`settings ${mobilePageOpen ? 'settings--page-open' : ''}`}>
           <nav className="settings__nav" aria-label={tt('Sections des réglages')}>
-            {SETTINGS_PAGES.map((entry) => {
+            {pages.map((entry) => {
               const Icon = entry.icon
               return (
                 <button
