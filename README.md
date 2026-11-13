@@ -831,7 +831,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |
 | `bun run test:e2e:install` | Installe Chromium et WebKit pour Playwright |
 | `bun run extension:build` | Compile l’extension dans `dist-extension/` |
-| `bun run extension:zip` | Compile puis crée `coffre-extension.zip` |
+| `bun run extension:zip` | Compile puis crée `coffre-extension.zip`, `coffre-extension.xpi` et `SHA256SUMS-extension` |
 | `bun run extension:smoke` | Test manuel de l’extension (serveurs requis) |
 | `bun run bridge:smoke` | Smoke du relais natif stdin/socket (binaire compilé) |
 | `bun run core:test` | Tests de `coffre-core`, de la façade FFI, du CLI et du noyau SSH |
