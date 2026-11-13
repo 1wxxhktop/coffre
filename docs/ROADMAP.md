@@ -113,7 +113,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Récupération | Phrase de récupération, kit papier, Shamir `k`/`n`, QR, restauration. |
 | Analyse | Tableau de bord sécurité, mots de passe faibles/réutilisés/anciens, 2FA, passkeys disponibles, HTTPS, HIBP opt-in, assistant de changement. |
 | Synchronisation | Dossier synchronisé, réseau local Noise XX, partage ponctuel hors ligne, conflits archivés, rotation de clés. |
-| Extension | Chromium, Firefox construit, menu inline, enregistrement/mise à jour, cartes, identités, TOTP, passkeys, autofill au chargement, pont natif macOS/Linux. |
+| Extension | Chromium, Firefox construit, menu inline, enregistrement/mise à jour, cartes, identités, TOTP, passkeys, autofill au chargement, panneau latéral Chromium/Firefox, pont natif macOS/Linux. |
 | Desktop | macOS universel, Touch ID, barre de menus, auto-type, verrouillage système, mises à jour signées, mode voyage. |
 | Développeurs | CLI, agent SSH, signature Git, `coffre run`, exports CXF/KDBX/CSV. |
 | Qualité | Tests Vitest, Playwright Chromium/WebKit, smoke extension, Rust, SBOM, builds reproductibles, bêta par PR, release stable. |
@@ -126,7 +126,6 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Application iOS | Absent ; compte Apple requis pour AutoFill | Très haut |
 | Safari / AutoFill système macOS/iOS | Absent ; bloqué par compte Apple | Très haut |
 | Publication Firefox / Chrome Web Store / Edge | Firefox linté mais non validé/publié | Haut |
-| Panneau latéral de l’extension | Absent (E11b) | Moyen |
 | Corpus de détection de formulaires | Absent (E12) | Haut (fiabilité) |
 | Pont natif Windows | Absent (S6) | Haut |
 | Windows Hello | Absent | Haut |
@@ -335,11 +334,15 @@ Le financement doit rester aligné avec la promesse : l’utilisateur paie pour 
 
 **Sortie :** 0.16.0 stable, format `4`, manifeste `3`, protocoles `2`.
 
+Le panneau latéral (E11b), initialement prévu pour la 0.16, est livré juste
+après la stable et rattaché à la 0.17 pour ne pas retarder la release.
+
 ### 5.2 `0.17.0` — Extension partout et portabilité (mois 1–2)
 
 **Objectif :** finir la surface navigateur et rendre Coffre crédible sur la sécurité et la migration.
 
-- E11b : panneau latéral Chromium/Firefox.
+- E11b : panneau latéral Chromium/Firefox. **Livré (PR #102)** : page de popup
+  partagée, ouverture depuis la popup, largeur adaptée et version en pied.
 - E12 : corpus de pages réelles et taux de détection.
 - E13 : validation Firefox, publication Chrome Web Store et Edge Add-ons.
 - Orion : installation automatique de l’hôte natif.
@@ -436,18 +439,20 @@ Le financement doit rester aligné avec la promesse : l’utilisateur paie pour 
 
 ### 6.1 Extension navigateur : finir la surface
 
-**Pourquoi.** L’extension est le point de contact quotidien. Aujourd’hui : Chromium fonctionne, Firefox est construit mais non validé, Safari manque, les stores ne sont pas utilisés, le panneau latéral et le corpus de détection manquent.
+**Pourquoi.** L’extension est le point de contact quotidien. Aujourd’hui : Chromium fonctionne, le panneau latéral est livré, Firefox est construit mais non validé, Safari manque, les stores ne sont pas utilisés et le corpus de détection manque.
 
-#### 6.1.1 Panneau latéral (E11b)
+#### 6.1.1 Panneau latéral (E11b) — livré
 
-1. Ajouter `sidePanel` (Chromium) et `sidebar_action` (Firefox) au manifeste, avec justification dans `docs/SECURITY.md`.
-2. Créer `extension/sidepanel.html` et réutiliser les composants de la popup ; adapter la largeur 320–480 px.
-3. Ajouter l’entrée Vite `sidepanel` dans `vite.extension.config.ts`.
-4. Dans `background.ts`, appeler `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })` ; conserver la popup en repli.
-5. Firefox : `sidebar_action` avec le même document ; tester l’ouverture et la fermeture.
-6. Adapter le CSS : en-tête/pied fixes, version en pied, scroll central.
-7. Tests : smoke extension, ouverture du panneau, remplissage depuis le panneau, fermeture.
-8. Docs : capture, permissions, limites Firefox.
+**État :** livré sur `main` le 13 novembre 2026 (PR #102), après la 0.16.0.
+
+1. ~~Ajouter `sidePanel` (Chromium) et `sidebar_action` (Firefox) au manifeste.~~ Fait, avec justification dans `docs/SECURITY.md`.
+2. ~~Créer un document dédié.~~ La page de la popup est réutilisée via `popup.html?panel=1` : mêmes contrôles d’origine, même verrouillage et mêmes secrets en mémoire, sans duplication.
+3. `body.side-panel` adapte la mise en page à la largeur du panneau et conserve la version en pied ; le bouton d’ouverture est masqué dans le panneau.
+4. Chromium : le bouton de la popup appelle `chrome.sidePanel.open()` après un geste utilisateur. Firefox : `browser.sidebarAction.open()`. Le bouton reste masqué si l’API est absente.
+5. Tests : smoke extension étendu à l’ouverture du panneau, au chargement de la page partagée et au remplissage.
+6. Docs : README, `docs/SECURITY.md`, CHANGELOG et traductions.
+
+**Reste à faire :** validation visuelle réelle dans Chrome/Brave et Firefox (largeur, persistance pendant la navigation, comportement selon la version du navigateur).
 
 **Acceptation :** le panneau s’ouvre, reste ouvert pendant un formulaire long, et remplit comme la popup.
 
@@ -698,11 +703,11 @@ Le financement doit rester aligné avec la promesse : l’utilisateur paie pour 
 
 | ID | Fonction | Priorité | Horizon | Effort |
 | --- | --- | --- | --- | --- |
-| A01 | Panneau latéral | P0 | 0.16 | M |
-| A02 | Corpus de détection | P0 | 0.16 | M |
-| A03 | Publication Chrome Web Store | P0 | 0.16 | S |
-| A04 | Validation et publication Firefox | P0 | 0.16 | M |
-| A05 | Edge Add-ons | P1 | 0.16 | S |
+| A01 | Panneau latéral | P0 | 0.17 (livré) | M |
+| A02 | Corpus de détection | P0 | 0.17 | M |
+| A03 | Publication Chrome Web Store | P0 | 0.17 | S |
+| A04 | Validation et publication Firefox | P0 | 0.17 | M |
+| A05 | Edge Add-ons | P1 | 0.17 | S |
 | A06 | Safari WebExtension | P1 | 1.0 (conditionnel) | L |
 | A07 | Autofill SPA / routes internes | P1 | 0.17 | M |
 | A08 | Détection Shadow DOM avancée | P1 | 0.17 | M |
