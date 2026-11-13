@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "case": "identity-checkout",
+  "category": "identity",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "identity",
+    "fields": {
+      "fullName": null,
+      "firstName": "prenom",
+      "lastName": "nom",
+      "email": "email",
+      "phone": "telephone",
+      "address": "adresse",
+      "city": "ville",
+      "postalCode": "codePostal",
+      "country": "pays"
+    },
+    "visible": [
+      "prenom",
+      "nom",
+      "email",
+      "telephone",
+      "adresse",
+      "ville",
+      "codePostal",
+      "pays"
+    ],
+    "hidden": []
+  }
+}

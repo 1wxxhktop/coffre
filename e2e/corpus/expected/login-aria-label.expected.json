@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-aria-label",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "u",
+      "password": "p",
+      "otp": null
+    },
+    "visible": [
+      "u",
+      "p"
+    ],
+    "hidden": []
+  }
+}

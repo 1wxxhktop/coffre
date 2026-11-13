@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "case": "identity-fr-address",
+  "category": "identity",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "identity",
+    "fields": {
+      "fullName": null,
+      "firstName": "prenom",
+      "lastName": "nom",
+      "email": "email",
+      "phone": null,
+      "address": "adresse",
+      "city": "ville",
+      "postalCode": "codePostal",
+      "country": "pays"
+    },
+    "visible": [
+      "prenom",
+      "nom",
+      "email",
+      "adresse",
+      "ville",
+      "codePostal",
+      "pays"
+    ],
+    "hidden": []
+  }
+}

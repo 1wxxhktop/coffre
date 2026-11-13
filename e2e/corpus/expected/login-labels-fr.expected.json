@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-labels-fr",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "identifiant",
+      "password": "mdp",
+      "otp": null
+    },
+    "visible": [
+      "identifiant",
+      "mdp"
+    ],
+    "hidden": []
+  }
+}

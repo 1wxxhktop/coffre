@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Double authentification</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 28rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { font-weight: 600; }
+    input, button { padding: 0.6rem; font: inherit; }
+    .muted { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Double authentification</h1>
+  <form action="/session/2fa" method="post">
+    <label for="login">Identifiant</label>
+    <input id="login" name="login" data-corpus-ref="login" />
+    <label for="password">Mot de passe</label>
+    <input id="password" name="password" type="password" data-corpus-ref="password" />
+    <label for="verification">Code de vérification</label>
+    <input id="verification" name="verification" inputmode="numeric" aria-label="Code de vérification" data-corpus-ref="verification" />
+    <button>Valider</button>
+  </form>
+</main>
+</body>
+</html>

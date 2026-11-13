@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-placeholders-en",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "field-1",
+      "password": "field-2",
+      "otp": null
+    },
+    "visible": [
+      "field-1",
+      "field-2"
+    ],
+    "hidden": []
+  }
+}

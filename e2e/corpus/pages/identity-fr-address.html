@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coordonnées</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 28rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { font-weight: 600; }
+    input, button { padding: 0.6rem; font: inherit; }
+    .muted { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Vos coordonnées</h1>
+  <form action="/compte/coordonnees" method="post">
+    <label for="prenom">Prénom</label>
+    <input id="prenom" name="prenom" autocomplete="given-name" data-corpus-ref="prenom" />
+    <label for="nom">Nom</label>
+    <input id="nom" name="nom" autocomplete="family-name" data-corpus-ref="nom" />
+    <label for="email">Courriel</label>
+    <input id="email" name="email" type="email" autocomplete="email" data-corpus-ref="email" />
+    <label for="adresse">Adresse</label>
+    <input id="adresse" name="adresse" autocomplete="address-line1" data-corpus-ref="adresse" />
+    <label for="ville">Ville</label>
+    <input id="ville" name="ville" autocomplete="address-level2" data-corpus-ref="ville" />
+    <label for="codePostal">Code postal</label>
+    <input id="codePostal" name="codePostal" autocomplete="postal-code" data-corpus-ref="codePostal" />
+    <label for="pays">Pays</label>
+    <input id="pays" name="pays" autocomplete="country" data-corpus-ref="pays" />
+    <button>Enregistrer</button>
+  </form>
+</main>
+</body>
+</html>

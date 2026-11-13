@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "case": "signup-context-heading",
+  "category": "signup",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "signup",
+    "fields": {
+      "username": "mail",
+      "password": "pass1",
+      "confirm": "pass2"
+    },
+    "visible": [
+      "mail",
+      "pass1",
+      "pass2"
+    ],
+    "hidden": []
+  }
+}

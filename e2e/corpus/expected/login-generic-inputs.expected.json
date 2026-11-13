@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-generic-inputs",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "a",
+      "password": "b",
+      "otp": null
+    },
+    "visible": [
+      "a",
+      "b"
+    ],
+    "hidden": []
+  }
+}

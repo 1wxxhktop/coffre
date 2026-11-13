@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-sso-alternative",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "email",
+      "password": "password",
+      "otp": null
+    },
+    "visible": [
+      "email",
+      "password"
+    ],
+    "hidden": []
+  }
+}

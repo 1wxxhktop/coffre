@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connexion</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 28rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { font-weight: 600; }
+    input, button { padding: 0.6rem; font: inherit; }
+    .muted { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Connexion</h1>
+  <form action="/session" method="post">
+    <label for="user">Adresse e-mail</label>
+    <input id="user" name="user" type="email" data-corpus-ref="user" />
+    <label for="pass">Mot de passe</label>
+    <input id="pass" name="pass" type="password" data-corpus-ref="pass" />
+    <label><input type="checkbox" name="remember" /> Rester connecté</label>
+    <a href="/forgot">Mot de passe oublié ?</a>
+    <button>Se connecter</button>
+  </form>
+</main>
+</body>
+</html>

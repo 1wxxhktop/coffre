@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-phone",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "telephone",
+      "password": "secret",
+      "otp": null
+    },
+    "visible": [
+      "telephone",
+      "secret"
+    ],
+    "hidden": []
+  }
+}

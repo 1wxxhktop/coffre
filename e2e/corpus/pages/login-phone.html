@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connexion mobile</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 28rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { font-weight: 600; }
+    input, button { padding: 0.6rem; font: inherit; }
+    .muted { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Connexion</h1>
+  <form action="/session" method="post">
+    <label for="telephone">Téléphone</label>
+    <input id="telephone" name="telephone" type="tel" autocomplete="tel" data-corpus-ref="telephone" />
+    <label for="secret">Code secret</label>
+    <input id="secret" name="secret" type="password" data-corpus-ref="secret" />
+    <button>Se connecter</button>
+  </form>
+</main>
+</body>
+</html>

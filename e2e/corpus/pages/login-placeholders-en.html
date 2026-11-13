@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 28rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { font-weight: 600; }
+    input, button { padding: 0.6rem; font: inherit; }
+    .muted { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Sign in to your account</h1>
+  <form action="/auth" method="post">
+    <input name="field-1" type="email" placeholder="Email address" data-corpus-ref="field-1" />
+    <input name="field-2" type="password" placeholder="Password" data-corpus-ref="field-2" />
+    <button>Sign in</button>
+  </form>
+</main>
+</body>
+</html>

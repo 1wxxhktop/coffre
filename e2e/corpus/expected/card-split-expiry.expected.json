@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case": "card-split-expiry",
+  "category": "card",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "card",
+    "fields": {
+      "cardholder": null,
+      "number": "number",
+      "expiry": null,
+      "expiryMonth": "month",
+      "expiryYear": "year",
+      "cvc": "cvc",
+      "pin": null,
+      "brand": null
+    },
+    "visible": [
+      "number",
+      "month",
+      "year",
+      "cvc"
+    ],
+    "hidden": []
+  }
+}

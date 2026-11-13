@@ -126,7 +126,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Application iOS | Absent ; compte Apple requis pour AutoFill | Très haut |
 | Safari / AutoFill système macOS/iOS | Absent ; bloqué par compte Apple | Très haut |
 | Publication Firefox / Chrome Web Store / Edge | Firefox linté mais non validé/publié | Haut |
-| Corpus de détection de formulaires | Absent (E12) | Haut (fiabilité) |
+| Corpus de détection de formulaires | Livré (E12) : 50 pages, 100 % ; Shadow DOM/iframes à suivre | Moyen |
 | Pont natif Windows | Absent (S6) | Haut |
 | Windows Hello | Absent | Haut |
 | Linux Secret Service | Absent (S7) | Moyen |
@@ -343,7 +343,9 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 
 - E11b : panneau latéral Chromium/Firefox. **Livré (PR #102)** : page de popup
   partagée, ouverture depuis la popup, largeur adaptée et version en pied.
-- E12 : corpus de pages réelles et taux de détection.
+- E12 : corpus de pages réelles et taux de détection. **Livré (corpus initial)**
+  : 50 pages, 100 % en JSDOM, garde-fou `baseline.json` ; Shadow DOM, iframes
+  et échantillon Playwright à compléter.
 - E13 : validation Firefox, publication Chrome Web Store et Edge Add-ons.
 - Orion : installation automatique de l’hôte natif.
 - Windows : relais du pont natif, validation de base.
@@ -439,7 +441,7 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 
 ### 6.1 Extension navigateur : finir la surface
 
-**Pourquoi.** L’extension est le point de contact quotidien. Aujourd’hui : Chromium fonctionne, le panneau latéral est livré, Firefox est construit mais non validé, Safari manque, les stores ne sont pas utilisés et le corpus de détection manque.
+**Pourquoi.** L’extension est le point de contact quotidien. Aujourd’hui : Chromium fonctionne, le panneau latéral et le corpus de détection initial sont livrés, Firefox est construit mais non validé, Safari manque et les stores ne sont pas utilisés.
 
 #### 6.1.1 Panneau latéral (E11b) — livré
 
@@ -456,16 +458,19 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 
 **Acceptation :** le panneau s’ouvre, reste ouvert pendant un formulaire long, et remplit comme la popup.
 
-#### 6.1.2 Corpus de détection (E12)
+#### 6.1.2 Corpus de détection (E12) — livré, extensions à suivre
 
-1. Créer `e2e/corpus/` avec ~50 pages HTML reconstruites (sans marques) : login, signup, changement de mot de passe, paiement, Shadow DOM, SPA, iframes, champs sans `name`.
-2. Pour chaque page, un JSON de résultat attendu (`kind`, champs, visibilité).
-3. Ajouter un test Vitest sur `detect.ts` avec JSDOM pour tout le corpus.
-4. Ajouter un échantillon e2e Chromium.
-5. Publier le taux de détection dans `docs/QA-FINAL.md`.
-6. Faire échouer la CI si le taux baisse.
+**État :** corpus initial livré le 13 novembre 2026.
 
-**Acceptation :** taux mesuré, aucune régression silencieuse.
+1. ~~Créer `e2e/corpus/` avec ~50 pages HTML reconstruites sans marques.~~ Fait : 50 pages en six catégories, sans script ni requête externe.
+2. ~~Pour chaque page, un JSON de résultat attendu (`kind`, champs, visibilité).~~ Fait avec `data-corpus-ref`, sans attribut qui influence le détecteur.
+3. ~~Ajouter un test Vitest sur `detect.ts` avec JSDOM.~~ Fait dans `src/lib/corpusDetection.test.ts`, exécuté par `bun run test:corpus` et par la couverture.
+4. Ajouter un échantillon e2e Chromium et des pages Shadow DOM/iframes : à faire, avec la correction correspondante du détecteur.
+5. ~~Publier le taux de détection dans `docs/QA-FINAL.md`.~~ Fait : 50/50 en JSDOM, 100 % par catégorie.
+6. ~~Faire échouer la CI si le taux baisse.~~ Fait via `e2e/corpus/baseline.json`, vérifié pour le taux global et chaque catégorie.
+
+**Acceptation :** taux mesuré, aucune régression silencieuse. Atteint pour le
+corpus JSDOM actuel ; les cas dynamiques restent ouverts.
 
 #### 6.1.3 Publication stores (E13)
 
@@ -704,7 +709,7 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 | ID | Fonction | Priorité | Horizon | Effort |
 | --- | --- | --- | --- | --- |
 | A01 | Panneau latéral | P0 | 0.17 (livré) | M |
-| A02 | Corpus de détection | P0 | 0.17 | M |
+| A02 | Corpus de détection | P0 | 0.17 (livré) | M |
 | A03 | Publication Chrome Web Store | P0 | 0.17 | S |
 | A04 | Validation et publication Firefox | P0 | 0.17 | M |
 | A05 | Edge Add-ons | P1 | 0.17 | S |

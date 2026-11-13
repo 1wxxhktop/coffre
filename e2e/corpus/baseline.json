@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "generated": "2026-11-13",
+  "cases": 50,
+  "overall": 1,
+  "byCategory": {
+    "login": 1,
+    "signup": 1,
+    "change": 1,
+    "card": 1,
+    "identity": 1,
+    "negative": 1
+  }
+}
