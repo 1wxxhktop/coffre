@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-hidden-csrf",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "account",
+      "password": "secret",
+      "otp": null
+    },
+    "visible": [
+      "account",
+      "secret"
+    ],
+    "hidden": []
+  }
+}

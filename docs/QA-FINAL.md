@@ -68,3 +68,24 @@ déverrouillé, même réseau Wi-Fi, aucun accès Internet.
 - Noise F2 et appairage ;
 - Argon2/AES-GCM et construction STREAM ;
 - absence de fuite de secrets dans les journaux et erreurs.
+
+## 7. Corpus de détection de formulaires (E12)
+
+Mesure du 13 novembre 2026 sur 50 pages reconstruites, sans marque ni requête
+externe (`e2e/corpus/`).
+
+| Catégorie | Cas | Réussis | Taux |
+| --- | ---: | ---: | ---: |
+| Connexion | 16 | 16 | 100 % |
+| Inscription | 7 | 7 | 100 % |
+| Changement de mot de passe | 5 | 5 | 100 % |
+| Carte bancaire | 6 | 6 | 100 % |
+| Identité et adresse | 6 | 6 | 100 % |
+| Cas négatifs | 10 | 10 | 100 % |
+| **Total** | **50** | **50** | **100 %** |
+
+- Commande : `bun run test:corpus`
+- Garde-fou : `e2e/corpus/baseline.json` ; toute baisse du taux global ou d’une
+  catégorie fait échouer la CI.
+- Non couvert : Shadow DOM, iframes, formulaires injectés après chargement et
+  échantillon Playwright dédié. Ces cas restent à traiter dans E12/E13.

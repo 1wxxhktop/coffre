@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "case": "negative-contact-form",
+  "category": "negative",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": null,
+    "fields": {},
+    "visible": [],
+    "hidden": []
+  }
+}

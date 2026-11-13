@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "case": "identity-phone",
+  "category": "identity",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "identity",
+    "fields": {
+      "fullName": "fullName",
+      "firstName": null,
+      "lastName": null,
+      "email": null,
+      "phone": "phone",
+      "address": "address",
+      "city": "city",
+      "postalCode": null,
+      "country": null
+    },
+    "visible": [
+      "fullName",
+      "phone",
+      "address",
+      "city"
+    ],
+    "hidden": []
+  }
+}

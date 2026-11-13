@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "case": "login-otp-autocomplete",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "email",
+      "password": "password",
+      "otp": "code"
+    },
+    "visible": [
+      "email",
+      "password",
+      "code"
+    ],
+    "hidden": []
+  }
+}

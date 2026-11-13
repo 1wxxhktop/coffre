@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "case": "login-search-decoy",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "login",
+      "password": "password",
+      "otp": null
+    },
+    "visible": [
+      "search",
+      "login",
+      "password"
+    ],
+    "hidden": []
+  }
+}

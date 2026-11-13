@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case": "identity-email",
+  "category": "identity",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "identity",
+    "fields": {
+      "fullName": "fullName",
+      "firstName": null,
+      "lastName": null,
+      "email": "email",
+      "phone": null,
+      "address": null,
+      "city": null,
+      "postalCode": null,
+      "country": "country"
+    },
+    "visible": [
+      "fullName",
+      "email",
+      "country"
+    ],
+    "hidden": []
+  }
+}

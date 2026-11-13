@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case": "card-with-pin",
+  "category": "card",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "card",
+    "fields": {
+      "cardholder": null,
+      "number": "number",
+      "expiry": "expiry",
+      "expiryMonth": null,
+      "expiryYear": null,
+      "cvc": "cvc",
+      "pin": "pin",
+      "brand": null
+    },
+    "visible": [
+      "number",
+      "expiry",
+      "cvc",
+      "pin"
+    ],
+    "hidden": []
+  }
+}

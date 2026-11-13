@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "case": "login-otp-inputmode",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "login",
+      "password": "password",
+      "otp": "verification"
+    },
+    "visible": [
+      "login",
+      "password",
+      "verification"
+    ],
+    "hidden": []
+  }
+}

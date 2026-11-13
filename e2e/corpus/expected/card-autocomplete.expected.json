@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case": "card-autocomplete",
+  "category": "card",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "card",
+    "fields": {
+      "cardholder": "cardholder",
+      "number": "number",
+      "expiry": "expiry",
+      "expiryMonth": null,
+      "expiryYear": null,
+      "cvc": "cvc",
+      "pin": null,
+      "brand": null
+    },
+    "visible": [
+      "cardholder",
+      "number",
+      "expiry",
+      "cvc"
+    ],
+    "hidden": []
+  }
+}

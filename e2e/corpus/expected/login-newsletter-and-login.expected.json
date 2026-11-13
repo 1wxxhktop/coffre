@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "case": "login-newsletter-and-login",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "email",
+      "password": "password",
+      "otp": null
+    },
+    "visible": [
+      "newsletter",
+      "email",
+      "password"
+    ],
+    "hidden": []
+  }
+}

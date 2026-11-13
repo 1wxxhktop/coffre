@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "case": "identity-no-autocomplete",
+  "category": "identity",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "identity",
+    "fields": {
+      "fullName": null,
+      "firstName": "firstname",
+      "lastName": "lastname",
+      "email": "email",
+      "phone": null,
+      "address": "address",
+      "city": "city",
+      "postalCode": "zip",
+      "country": null
+    },
+    "visible": [
+      "firstname",
+      "lastname",
+      "email",
+      "address",
+      "city",
+      "zip"
+    ],
+    "hidden": []
+  }
+}

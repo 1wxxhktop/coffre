@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-long-labels",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "login",
+      "password": "pass",
+      "otp": null
+    },
+    "visible": [
+      "login",
+      "pass"
+    ],
+    "hidden": []
+  }
+}

@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- Tests : **corpus de détection E12** avec 50 pages reconstruites (connexion,
+  inscription, changement de mot de passe, carte, identité, cas négatifs) et
+  un taux de référence bloquant dans la CI. Les champs attendus sont décrits
+  dans des fichiers statiques, sans dépendre de la sortie du détecteur.
 - Extension : **panneau latéral** Chromium (`sidePanel`) et Firefox
   (`sidebar_action`). La popup propose un bouton pour ouvrir la même interface
   dans le panneau, qui reste affiché pendant les formulaires longs. La page

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inscription</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 28rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { font-weight: 600; }
+    input, button { padding: 0.6rem; font: inherit; }
+    .muted { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Inscription</h1>
+  <form action="/compte" method="post">
+    <label for="mail">Adresse e-mail</label>
+    <input id="mail" name="mail" type="email" data-corpus-ref="mail" />
+    <label for="pass1">Mot de passe</label>
+    <input id="pass1" name="pass1" type="password" data-corpus-ref="pass1" />
+    <label for="pass2">Confirmation</label>
+    <input id="pass2" name="pass2" type="password" data-corpus-ref="pass2" />
+    <button>S’inscrire</button>
+  </form>
+</main>
+</body>
+</html>

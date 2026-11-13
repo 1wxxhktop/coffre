@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "signup-context-button",
+  "category": "signup",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "signup",
+    "fields": {
+      "username": "email",
+      "password": "pass",
+      "confirm": null
+    },
+    "visible": [
+      "email",
+      "pass"
+    ],
+    "hidden": []
+  }
+}

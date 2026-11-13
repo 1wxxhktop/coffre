@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "case": "card-labels-fr",
+  "category": "card",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "card",
+    "fields": {
+      "cardholder": "titulaire",
+      "number": "numero",
+      "expiry": "expiration",
+      "expiryMonth": null,
+      "expiryYear": null,
+      "cvc": "cryptogramme",
+      "pin": null,
+      "brand": null
+    },
+    "visible": [
+      "titulaire",
+      "numero",
+      "expiration",
+      "cryptogramme"
+    ],
+    "hidden": []
+  }
+}

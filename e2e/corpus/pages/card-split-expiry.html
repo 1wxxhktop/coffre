@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paiement</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 28rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { font-weight: 600; }
+    input, button { padding: 0.6rem; font: inherit; }
+    .muted { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Paiement</h1>
+  <form action="/checkout" method="post">
+    <label for="number">Numéro de carte</label>
+    <input id="number" name="number" autocomplete="cc-number" inputmode="numeric" data-corpus-ref="number" />
+    <label for="month">Mois d’expiration</label>
+    <input id="month" name="month" autocomplete="cc-exp-month" inputmode="numeric" data-corpus-ref="month" />
+    <label for="year">Année d’expiration</label>
+    <input id="year" name="year" autocomplete="cc-exp-year" inputmode="numeric" data-corpus-ref="year" />
+    <label for="cvc">Cryptogramme</label>
+    <input id="cvc" name="cvc" autocomplete="cc-csc" inputmode="numeric" data-corpus-ref="cvc" />
+    <button>Payer</button>
+  </form>
+</main>
+</body>
+</html>

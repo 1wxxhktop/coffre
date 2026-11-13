@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "case": "login-uppercase-autocomplete",
+  "category": "login",
+  "environments": [
+    "jsdom"
+  ],
+  "expected": {
+    "kind": "login",
+    "fields": {
+      "username": "user",
+      "password": "pass",
+      "otp": null
+    },
+    "visible": [
+      "user",
+      "pass"
+    ],
+    "hidden": []
+  }
+}

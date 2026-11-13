@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Compte</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 28rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { font-weight: 600; }
+    input, button { padding: 0.6rem; font: inherit; }
+    .muted { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Votre compte</h1>
+  <form action="/login" method="post">
+    <input name="u" aria-label="Nom d’utilisateur" data-corpus-ref="u" />
+    <input name="p" type="password" aria-label="Mot de passe" data-corpus-ref="p" />
+    <button>Se connecter</button>
+  </form>
+</main>
+</body>
+</html>
