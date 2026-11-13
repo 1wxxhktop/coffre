@@ -1381,8 +1381,9 @@ bun run mobile:android:build
 ```
 
 L’APK est signé en debug : il est réservé aux tests, sans autofill Android ni
-passkeys pour l’instant. La version Android complète reste planifiée en 0.18.
-Voir [`docs/ANDROID.md`](docs/ANDROID.md).
+passkeys pour l’instant. Il a été validé sur un émulateur Android 15 : création,
+redémarrage et déverrouillage du coffre. La version Android complète reste
+planifiée en 0.18. Voir [`docs/ANDROID.md`](docs/ANDROID.md).
 
 iOS n’est pas encore initialisé : Xcode, CocoaPods et un compte de signature
 restent nécessaires.

@@ -59,6 +59,24 @@ src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.
 3. Créer un coffre de test, puis vérifier création, verrouillage,
    déverrouillage, ajout d’un élément, TOTP et redémarrage de l’application.
 
+## Validation effectuée
+
+Le 13 novembre 2026, l’APK debug `0.16.0` a été testé sur un émulateur
+**Android 15 (API 35), arm64** :
+
+- installation de l’APK et lancement de l’application ;
+- création d’un coffre avec mot de passe maître ;
+- affichage du tableau de bord et de la feuille « Nouvel élément » ;
+- arrêt forcé puis relance : l’écran de déverrouillage apparaît ;
+- déverrouillage du coffre avec le mot de passe maître.
+
+Aucun crash ni écran blanc n’a été observé. Le stockage natif a été sollicité
+par la création du coffre et sa relecture après redémarrage.
+
+Restent à valider sur appareil réel : les performances Argon2, le clavier
+physique, l’import/export de fichiers, les gros coffres, la rotation d’écran,
+le mode sombre système et la restauration après mise à jour.
+
 ## Prochaines étapes
 
 La version Android complète reste planifiée en 0.18 : Autofill Framework,
