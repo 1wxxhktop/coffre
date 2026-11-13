@@ -3,7 +3,7 @@ import { Modal } from './Modal'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
-import { isTauriRuntime } from '../lib/external'
+import { isDesktopRuntime } from '../lib/platform'
 import { biometricAvailable, biometricSupported } from '../lib/biometrics'
 import {
   confirmSshAgentBiometrics,
@@ -27,7 +27,7 @@ export function SshAgentBridge() {
   const [remember, setRemember] = useState(false)
   const graceRef = useRef(new Map<string, number>())
   const touchIdEnabled =
-    isTauriRuntime() && settings.biometricUnlock && biometricSupported()
+    isDesktopRuntime() && settings.biometricUnlock && biometricSupported()
   // La disponibilité est dérivée des réglages et de la sonde asynchrone : pas
   // de setState synchrone quand les réglages changent.
   const touchIdReady = touchIdEnabled && touchIdAvailable
@@ -44,7 +44,7 @@ export function SshAgentBridge() {
   }, [touchIdEnabled])
 
   useEffect(() => {
-    if (!isTauriRuntime()) return
+    if (!isDesktopRuntime()) return
     let unlisten: (() => void) | undefined
     void onSshAgentApproval((payload) => {
       if ((graceRef.current.get(payload.fingerprint) ?? 0) > Date.now()) {

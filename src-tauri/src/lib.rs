@@ -14,6 +14,7 @@ use tauri::plugin::Plugin;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 mod alias_service;
+#[cfg(desktop)]
 mod autotype;
 mod backup_store;
 mod blob_store;
@@ -28,6 +29,85 @@ mod tray;
 #[cfg(desktop)]
 mod updater;
 mod vault_store;
+
+#[cfg(mobile)]
+mod tray {
+    #[tauri::command]
+    pub fn tray_set_language(_language: String) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn tray_set_keep_on_close(_keep: bool) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+#[cfg(mobile)]
+mod autotype {
+    #[tauri::command]
+    pub fn autotype_active_window() -> Result<serde_json::Value, String> {
+        Err("La saisie automatique n’est pas disponible sur mobile.".into())
+    }
+
+    #[tauri::command]
+    #[allow(clippy::too_many_arguments)]
+    pub fn autotype_run(
+        _sequence: String,
+        _username: String,
+        _password: String,
+        _totp: String,
+        _expected_window_id: String,
+        _expected_process_id: u64,
+    ) -> Result<usize, String> {
+        Err("La saisie automatique n’est pas disponible sur mobile.".into())
+    }
+}
+
+#[cfg(mobile)]
+mod updater {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct UpdaterInfo {
+        configured: bool,
+        current_version: String,
+    }
+
+    #[tauri::command]
+    pub fn updater_info(app: tauri::AppHandle) -> UpdaterInfo {
+        UpdaterInfo {
+            configured: false,
+            current_version: app.package_info().version.to_string(),
+        }
+    }
+
+    #[tauri::command]
+    pub fn updater_check() -> Result<Option<serde_json::Value>, String> {
+        Ok(None)
+    }
+
+    #[tauri::command]
+    pub fn updater_download() -> Result<serde_json::Value, String> {
+        Err("Les mises à jour ne sont pas disponibles sur mobile.".into())
+    }
+
+    #[tauri::command]
+    pub fn updater_install() -> Result<(), String> {
+        Err("Les mises à jour ne sont pas disponibles sur mobile.".into())
+    }
+
+    #[tauri::command]
+    pub fn updater_install_on_exit(_enabled: bool) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn updater_discard() -> Result<(), String> {
+        Ok(())
+    }
+}
 
 pub use bridge::{is_native_host_invocation, run_native_host};
 
@@ -594,10 +674,13 @@ fn launch_external(url: &str) -> Result<(), String> {
         return Err("Ouverture de lien non prise en charge sur cette plateforme.".into());
     }
 
-    command
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    {
+        command
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
 }
 
 /// Fusionne des fichiers `.coffre` déjà authentifiés sans les déchiffrer.
@@ -806,7 +889,6 @@ pub fn run() {
             updater::updater_install_on_exit,
             updater::updater_discard
         ]);
-
     #[cfg(desktop)]
     let builder = builder
         .manage(tray::TrayState::default())

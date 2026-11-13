@@ -4,6 +4,7 @@ import './index.css'
 import App from './App'
 import { loadSettings } from './lib/settings'
 import { currentWindowChrome } from './lib/windowChrome'
+import { isMobileRuntime } from './lib/platform'
 
 // Dans l’application desktop, la barre de titre est intégrée à la fenêtre :
 // macOS garde les feux de circulation natifs en surcouche, Windows utilise une
@@ -14,6 +15,9 @@ if (windowChrome === 'macos') {
 }
 if (windowChrome === 'windows') {
   document.documentElement.classList.add('is-tauri-windows')
+}
+if (isMobileRuntime()) {
+  document.documentElement.classList.add('is-tauri-mobile')
 }
 
 // Applique le thème avant le premier rendu pour éviter un flash sombre.

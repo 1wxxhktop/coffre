@@ -16,6 +16,7 @@ import {
   type ExtensionInstallInfo,
 } from '../lib/extensionInstall'
 import { loadBridgeKey } from '../lib/keychain'
+import { isMobileRuntime } from '../lib/platform'
 import {
   completeExtensionOnboarding,
   dismissExtensionOnboarding,
@@ -42,6 +43,7 @@ export function ExtensionOnboarding() {
   const [checking, setChecking] = useState(false)
 
   const openAssistant = useCallback(async () => {
+    if (isMobileRuntime()) return
     const next = await extensionInstallInfo()
     setInfo(next)
     if (!next.available) {
@@ -64,7 +66,7 @@ export function ExtensionOnboarding() {
   }, [openAssistant])
 
   useEffect(() => {
-    if (status !== 'unlocked') return
+    if (status !== 'unlocked' || isMobileRuntime()) return
     let cancelled = false
     const timer = window.setTimeout(() => {
       void Promise.all([extensionInstallInfo(), loadBridgeKey()]).then(

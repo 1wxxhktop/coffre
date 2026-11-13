@@ -7,6 +7,7 @@ import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { isTauriRuntime } from '../lib/external'
+import { isMobileRuntime } from '../lib/platform'
 import { deleteBridgeKey, loadBridgeKey, storeBridgeKey } from '../lib/keychain'
 import { extensionInstallInfo } from '../lib/extensionInstall'
 import { generateTotp, isTotpUri, parseTotpUri } from '../lib/totp'
@@ -1127,7 +1128,7 @@ export function NativeBridge() {
   }, [handleFrame])
 
   useEffect(() => {
-    if (!isTauriRuntime()) return
+    if (!isTauriRuntime() || isMobileRuntime()) return
     let disposed = false
     let unlistenMessage: (() => void) | undefined
     let unlistenClosed: (() => void) | undefined

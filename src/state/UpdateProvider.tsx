@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { isTauriRuntime } from '../lib/external'
+import { isDesktopRuntime } from '../lib/platform'
 import type { AppSettings } from '../lib/types'
 import {
   checkForUpdate,
@@ -67,7 +67,7 @@ const UpdateContext = createContext<UpdateContextValue | null>(null)
  * par son service worker : ce fournisseur reste inactif.
  */
 export function UpdateProvider({ children }: { children: ReactNode }) {
-  const supported = isTauriRuntime()
+  const supported = isDesktopRuntime()
   const { settings, updateSettings } = useSettings()
   const { prepareForRestart } = useVault()
   const [info, setInfo] = useState<UpdaterInfo | null>(null)
