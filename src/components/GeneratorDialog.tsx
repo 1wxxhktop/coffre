@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState, type KeyboardEvent } from 'react'
 import {
   Check,
   Copy,
@@ -23,6 +23,7 @@ import {
 import { copySensitive } from '../lib/clipboard'
 import { generatePasswordForRules, passwordRulesForUrl, sitePasswordEntropy } from '../lib/passwordRules'
 import { hostFromUrl } from '../lib/extensionProtocol'
+import { nextTabIndex } from '../lib/rovingTabs'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
@@ -124,6 +125,23 @@ export function GeneratorDialog({
     onClose()
   }
 
+  const onTabsKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const tabs = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        '[role="tab"]:not(:disabled)',
+      ),
+    )
+    const next = nextTabIndex(
+      event.key,
+      tabs.indexOf(document.activeElement as HTMLButtonElement),
+      tabs.length,
+    )
+    if (next === null) return
+    event.preventDefault()
+    tabs[next].focus()
+    tabs[next].click()
+  }
+
   if (showHistory) {
     return (
       <Suspense
@@ -183,11 +201,17 @@ export function GeneratorDialog({
             {tt('Règles du site appliquées :')} <strong>{siteRules.domain}</strong>
           </p>
         )}
-        <div className="tabs" role="tablist" aria-label={tt('Type de secret')}>
+        <div
+          className="tabs"
+          role="tablist"
+          aria-label={tt('Type de secret')}
+          onKeyDown={onTabsKeyDown}
+        >
           <button
             type="button"
             role="tab"
             aria-selected={mode === 'password'}
+            tabIndex={mode === 'password' ? 0 : -1}
             className={`tab ${mode === 'password' ? 'is-active' : ''}`}
             onClick={() => setMode('password')}
           >
@@ -197,6 +221,7 @@ export function GeneratorDialog({
             type="button"
             role="tab"
             aria-selected={mode === 'passphrase'}
+            tabIndex={mode === 'passphrase' ? 0 : -1}
             className={`tab ${mode === 'passphrase' ? 'is-active' : ''}`}
             onClick={() => setMode('passphrase')}
           >

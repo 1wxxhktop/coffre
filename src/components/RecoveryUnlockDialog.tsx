@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type KeyboardEvent } from 'react'
 import {
   AlertTriangle,
   KeyRound,
@@ -14,6 +14,7 @@ import { useI18n } from '../state/I18nProvider'
 import { estimateEntropy } from '../lib/strength'
 import { isRecoveryPhrase, RECOVERY_WORDS } from '../lib/recovery'
 import { parseShareInput } from '../lib/shamir'
+import { nextTabIndex } from '../lib/rovingTabs'
 
 interface RecoveryUnlockDialogProps {
   onClose: () => void
@@ -76,6 +77,23 @@ export function RecoveryUnlockDialog({ onClose }: RecoveryUnlockDialogProps) {
     setShareInputs((previous) => previous.filter((_, position) => position !== index))
   }
 
+  const onTabsKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const tabs = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        '[role="tab"]:not(:disabled)',
+      ),
+    )
+    const next = nextTabIndex(
+      event.key,
+      tabs.indexOf(document.activeElement as HTMLButtonElement),
+      tabs.length,
+    )
+    if (next === null) return
+    event.preventDefault()
+    tabs[next].focus()
+    tabs[next].click()
+  }
+
   const submit = async () => {
     if (!canSubmit) return
     setBusy(true)
@@ -129,11 +147,13 @@ export function RecoveryUnlockDialog({ onClose }: RecoveryUnlockDialogProps) {
           className="type-picker"
           role="tablist"
           aria-label={tt('Méthode de récupération')}
+          onKeyDown={onTabsKeyDown}
         >
           <button
             type="button"
             role="tab"
             aria-selected={mode === 'phrase'}
+            tabIndex={mode === 'phrase' ? 0 : -1}
             className={`type-picker__item ${mode === 'phrase' ? 'is-active' : ''}`}
             onClick={() => {
               setMode('phrase')
@@ -146,6 +166,7 @@ export function RecoveryUnlockDialog({ onClose }: RecoveryUnlockDialogProps) {
             type="button"
             role="tab"
             aria-selected={mode === 'shares'}
+            tabIndex={mode === 'shares' ? 0 : -1}
             className={`type-picker__item ${mode === 'shares' ? 'is-active' : ''}`}
             onClick={() => {
               setMode('shares')

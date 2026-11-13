@@ -4,7 +4,7 @@ import { addLogin, closeDialog, createVault, openSettings } from './helpers'
 
 async function violations(page: import('@playwright/test').Page) {
   const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa'])
+    .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
     .analyze()
   return results.violations.map((violation) => ({
     id: violation.id,
@@ -73,9 +73,17 @@ test.describe('accessibilité', () => {
     expect(problems).toEqual([])
   })
 
-  test('le focus reste dans la modale et reste visible', async ({ page }) => {
+  test('le focus reste dans la modale et reste visible', async ({ page, browserName }) => {
     await createVault(page)
     await page.keyboard.press('Tab')
+    // Safari/WebKit ne tabule pas vers les liens sans l’option système
+    // « Press Tab to highlight each item » ; la vérification VoiceOver couvre
+    // ce cas manuellement.
+    if (browserName !== 'webkit') {
+      await expect(
+        page.getByRole('link', { name: 'Aller au contenu' }),
+      ).toBeFocused()
+    }
     const focusVisible = await page.evaluate(() => {
       const active = document.activeElement as HTMLElement | null
       if (!active) return false
@@ -108,6 +116,99 @@ test.describe('accessibilité', () => {
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })
+})
+
+test('le générateur et la palette sont accessibles', async ({ page }) => {
+  await createVault(page)
+  await page.keyboard.press('Control+k')
+  const palette = page.getByRole('dialog', { name: 'Palette de commandes' })
+  await expect(palette).toBeVisible()
+  await expect(
+    palette.getByRole('combobox', { name: 'Rechercher un élément ou une action' }),
+  ).toBeFocused()
+  await page.waitForTimeout(300)
+  expect(await violations(page), 'palette').toEqual([])
+
+  await palette.getByRole('combobox').fill('Générer un mot de passe')
+  await page.keyboard.press('Enter')
+  const generator = page.getByRole('dialog', { name: 'Générateur' })
+  await expect(generator).toBeVisible()
+  // Laisser l’animation d’ouverture se terminer : axe composite les couleurs
+  // avec l’opacité en cours et signalerait un faux contraste.
+  await page.waitForTimeout(350)
+  expect(await violations(page), 'générateur').toEqual([])
+
+  const passwordTab = generator.getByRole('tab', { name: 'Mot de passe' })
+  const passphrase = generator.getByRole('tab', { name: 'Phrase de passe' })
+  await passwordTab.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(passphrase).toBeFocused()
+  await expect(passphrase).toHaveAttribute('aria-selected', 'true')
+  await page.waitForTimeout(200)
+  expect(await violations(page), 'générateur phrase de passe').toEqual([])
+
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('le sélecteur de type se pilote aux flèches', async ({ page }) => {
+  await createVault(page)
+  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('heading', { name: 'Nouvel élément' })).toBeVisible()
+  await page.waitForTimeout(350)
+  expect(await violations(page), 'nouvel élément').toEqual([])
+
+  const login = dialog.getByRole('radio', { name: 'Connexion' })
+  const note = dialog.getByRole('radio', { name: 'Note' })
+  await login.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(note).toBeFocused()
+  await expect(note).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('End')
+  await expect(
+    dialog.getByRole('radio', { name: 'Codes de secours' }),
+  ).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('Home')
+  await expect(login).toHaveAttribute('aria-checked', 'true')
+  await page.waitForTimeout(200)
+  expect(await violations(page), 'sélecteur de type').toEqual([])
+})
+
+test('la palette ouvre un élément au clavier', async ({ page }) => {
+  await createVault(page)
+  await addLogin(page)
+  await closeDialog(page)
+
+  await page.keyboard.press('Control+k')
+  const palette = page.getByRole('dialog', { name: 'Palette de commandes' })
+  await expect(palette).toBeVisible()
+  await page.keyboard.type('GitHub')
+  const option = palette.getByRole('option', { name: /GitHub/ }).first()
+  await expect(option).toBeVisible()
+  for (let index = 0; index < 3; index += 1) {
+    await page.keyboard.press('Tab')
+    expect(
+      await page.evaluate(() => Boolean(document.activeElement?.closest('.palette'))),
+      `tabulation ${index + 1} hors de la palette`,
+    ).toBe(true)
+  }
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(
+    page.locator('.item-panel').getByRole('heading', { name: 'GitHub' }),
+  ).toBeVisible()
+})
+
+test('l’assistant d’installation de l’extension est accessible', async ({ page }) => {
+  await createVault(page)
+  await page.evaluate(() =>
+    window.dispatchEvent(new CustomEvent('coffre:extension-onboarding')),
+  )
+  const dialog = page.getByRole('dialog', { name: 'Installez l’extension Coffre' })
+  await expect(dialog).toBeVisible()
+  await page.waitForTimeout(350)
+  expect(await violations(page), 'assistant extension').toEqual([])
 })
 
 test('aucune violation axe A/AA sur les écrans principaux', async ({ page }) => {

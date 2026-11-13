@@ -143,7 +143,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Notes Markdown | Absent (Q10) | Faible |
 | Éditeur de séquence auto-type | Absent | Faible |
 | i18n complète (Rust, langues) | FR/EN partiel | Moyen |
-| Accessibilité certifiée WCAG 2.2 AA | Partielle | Moyen |
+| Accessibilité certifiée WCAG 2.2 AA | Automatisée A/AA/WCAG 2.2 ; validation lecteur d’écran à faire | Moyen |
 | SSO / SCIM / administration | Absent | Haut pour l’entreprise |
 | Monitoring de corruption / crash opt-in | Absent | Moyen |
 | Site docs / support / statut | Absent | Moyen |
@@ -360,7 +360,9 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Assistant de changement de mot de passe v2 : détection de formulaire, mise à jour assistée.
 - Alias email en ligne (SimpleLogin/Addy/Fastmail/Proton), opt-in.
 - Surveillance de fuites : HIBP mots de passe + email optionnel, cache local.
-- Accessibilité : axe-core en CI, navigation clavier, WCAG 2.2 AA.
+- Accessibilité : axe-core A/AA/WCAG 2.2 en CI sur Chromium et WebKit,
+  navigation clavier des onglets et de la palette ; validation VoiceOver,
+  NVDA et TalkBack encore à faire (voir `docs/ACCESSIBILITY.md`).
 - Performance : démarrage, déverrouillage, recherche sur gros coffres.
 - Audit externe : périmètre, appel d’offres, correctifs préparatoires.
   **Préparé** : `docs/AUDIT-SCOPE.md` couvre la crypto, le format, la sync, les
@@ -662,7 +664,9 @@ requis pour soumettre.
 2. **Migration** : assistant 1Password/Bitwarden/Dashlane/Proton/Nord/KeePass, aperçu, déduplication, rapport.
 3. **Notes Markdown** (Q10) : sous-ensemble sûr, cases à cocher, liens http(s), pas de HTML.
 4. **Palette de commandes** : actions, recherche, navigation clavier.
-5. **Accessibilité** : axe-core CI, VoiceOver/NVDA, contrastes, taille de texte, focus.
+5. **Accessibilité** : axe-core CI (fait : A/AA/WCAG 2.2, générateur, palette,
+   sélecteur de type, assistant extension), VoiceOver/NVDA, contrastes, taille
+   de texte, focus.
 6. **i18n** : espagnol, allemand, portugais, italien ; messages Rust ; pluriels/dates.
 7. **Performance** : démarrage, unlock, recherche, rendu de listes.
 8. **Thèmes** : clair/sombre/système, densité, taille de police.
@@ -933,7 +937,8 @@ Le chemin critique est : **Android → AutoFill/passkeys → sync/partage → au
 4. **CXP/CXF** : écrire la spécification d’import/export et les vecteurs de test.
 5. **Audit** : rédiger le périmètre et l’appel d’offres.
 6. **Android** : spike UniFFI + Compose, ouvrir le coffre et lister les éléments.
-7. **Accessibilité** : ajouter axe-core aux parcours Playwright.
+7. **Accessibilité** : axe-core est intégré aux parcours Playwright (WCAG 2.2
+   comprise) ; consigner les tests lecteur d’écran dans `docs/ACCESSIBILITY.md`.
 8. **Documentation** : publier cette roadmap et la lier depuis le README.
 
 ---
