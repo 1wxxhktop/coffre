@@ -1,7 +1,7 @@
 # Politique de versioning de Coffre
 
-**Date :** 12 novembre 2026  
-**Version de référence :** 0.15.0  
+**Date :** 13 novembre 2026  
+**Version de référence :** 0.16.0  
 **Portée :** version produit, format `.coffre`, manifeste d’intégrité, protocoles
 locaux et stockage navigateur.
 
@@ -34,9 +34,9 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
 
 | Élément | Version | Emplacement |
 | --- | --- | --- |
-| Application | `0.15.0` | `package.json`, `src-tauri/Cargo.toml`, `tauri.conf.json` |
-| Extension | `0.15.0` | `extension/public/manifest.json` |
-| Crates | `0.15.0` | `src-tauri/crates/*/Cargo.toml` |
+| Application | `0.16.0` | `package.json`, `src-tauri/Cargo.toml`, `tauri.conf.json` |
+| Extension | `0.16.0` | `extension/public/manifest.json` |
+| Crates | `0.16.0` | `src-tauri/crates/*/Cargo.toml` |
 | Format `.coffre` | `4` | `VAULT_FILE_VERSION`, `format.rs` |
 | Manifeste d’intégrité | `3` (lecture `3`, `2`, `1`) | `VAULT_MANIFEST_VERSION`, `format.rs` |
 | Pont natif | `2` (0.14) | `BRIDGE_PROTOCOL_VERSION` |
@@ -56,9 +56,9 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
 
 - **Patch** `0.14.x` : corrections sans changement de format, de manifeste ou
   de protocole. Un fichier produit par `0.14.1` reste lisible par `0.14.0`.
-- **Mineure** `0.14.0`, `0.15.0` : changement de manifeste, de protocole ou de
-  format, même si la lecture des anciens fichiers reste assurée. C’est le cas
-  des releases de sécurité qui durcissent un contrat.
+- **Mineure** `0.14.0`, `0.15.0`, `0.16.0` : changement de manifeste, de
+  protocole ou de format, même si la lecture des anciens fichiers reste
+  assurée. C’est le cas des releases de sécurité qui durcissent un contrat.
 - **Majeure** `1.0.0` : format et protocoles stables, politique de support
   écrite, audit externe réalisé.
 - Les préversions suivent SemVer : `0.14.0-beta.1 < 0.14.0`.
@@ -72,9 +72,11 @@ référence pour les releases et pour `scripts/check-versions.mjs`.
   fichier ne change pas.
 - **0.15.0 reste en format `4`.** Les correctifs d’interface et d’extension ne
   changent pas la structure du fichier.
+- **0.16.0 reste en format `4`.** Le remplissage au chargement et les mises à
+  jour de dépendances ne changent pas la structure du fichier.
 - Le passage au format `5` (nouvelles pierres tombales pour les pièces
-  jointes, l’historique du générateur et les clés d’alias) est reporté à une
-  version ultérieure.
+  jointes, l’historique du générateur et les clés d’alias) est reporté à la
+  version `0.17.0` ou ultérieure.
 - Une version lit tous les formats qu’elle connaît (`v1` à `v5` selon la
   version) et n’écrit que son format courant.
 - Un fichier dont le format est **supérieur** à celui de l’application est
@@ -163,7 +165,8 @@ comprise.
 | **`0.14.0`** | **P0 + P1** : urgence, LAN, blobs, verrouillage, mode voyage, extension | `4` | `3` | `2` |
 | `0.14.x` | P2 sans changement de format | `4` | `3` | `2` |
 | `0.15.0` | Finition interface et extension, sans changement de format | `4` | `3` | `2` |
-| `0.16.0` | Tombstones et format `5` | `5` | `3` | `2` |
+| `0.16.0` | Remplissage au chargement et fiabilité, sans changement de format | `4` | `3` | `2` |
+| `0.17.0` | Extension partout, CXP et préparation du format `5` | `5` | `3` | `2` |
 | `1.0.0` | Après audit externe et stabilisation | `5` | `3` | `2` |
 
 Le P0 n’est pas publié en `0.13.1` : le manifeste `3` est déjà une rupture de

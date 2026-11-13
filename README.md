@@ -8,8 +8,8 @@ La synchronisation et la vérification des fuites sont optionnelles ; cette
 dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
 L’interface est disponible en français et en anglais.
 
-> **État du projet — 0.15.0 (barre latérale et menu des coffres, version de l’extension, raccourci ⌘, et fiabilité du pont natif, manifeste 3).**
-> La version web/PWA est fonctionnelle et couverte par 793 tests unitaires et
+> **État du projet — 0.16.0 (remplissage au chargement, fiabilité des réglages et du pont natif, dépendances à jour, manifeste 3).**
+> La version web/PWA est fonctionnelle et couverte par 808 tests unitaires et
 > des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
 > continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;
 > les bundles desktop des trois systèmes sont compilés à chaque PR et à chaque
@@ -759,7 +759,7 @@ Le dépôt est public : les runners GitHub standard sont gratuits.
 
 - **PR normale** : le workflow **Bêta PR** exécute les tests minimaux
   (`version:check`, TypeScript, lint, tests unitaires), construit un bundle
-  macOS arm64 et publie automatiquement une bêta `0.15.0-beta.<run>` dans le
+  macOS arm64 et publie automatiquement une bêta `0.17.0-beta.<run>` dans le
   canal bêta. Voir [docs/BETA-PR.md](docs/BETA-PR.md).
 - **Suite complète** : `.github/workflows/ci.yml` tourne sur chaque push vers
   `main`, sur une PR étiquetée **`full-ci`** ou **`stable`**, et à la demande
