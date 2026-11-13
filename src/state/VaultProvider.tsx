@@ -76,6 +76,7 @@ import {
   loadVaultKey,
   storeVaultKey,
 } from '../lib/keychain'
+import { markExtensionOnboardingPending } from '../lib/extensionOnboarding'
 import {
   deleteBiometricKey,
   loadBiometricKey,
@@ -944,6 +945,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           syncPending: false,
           syncRevision: 0,
         }))
+        markExtensionOnboardingPending()
         rememberCurrentKey()
       }),
     [apply, enqueue, rememberCurrentKey, requireVaultLock, saveOpenedFile],

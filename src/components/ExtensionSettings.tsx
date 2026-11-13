@@ -14,7 +14,7 @@ import {
  * l’extension suit les mises à jour de Coffre sans autre manipulation.
  */
 export function ExtensionSettings() {
-  const { tt } = useI18n()
+  const { t, tt } = useI18n()
   const { toast } = useToast()
   const [info, setInfo] = useState<ExtensionInstallInfo | null>(null)
 
@@ -70,6 +70,16 @@ export function ExtensionSettings() {
             >
               <FolderOpen size={16} />
               {tt('Afficher le dossier')}
+            </button>
+            <button
+              type="button"
+              className="button button--ghost"
+              onClick={() =>
+                window.dispatchEvent(new Event('coffre:extension-onboarding'))
+              }
+            >
+              <Puzzle size={16} />
+              {t('onboarding.extension.reopen')}
             </button>
           </div>
           <ol className="settings-copy extension-steps">

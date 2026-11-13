@@ -272,6 +272,7 @@ export function NativeBridge() {
       clearPairingTimer()
       setPendingPairing(null)
       setPairingBusy(false)
+      window.dispatchEvent(new Event('coffre:bridge-paired'))
     } catch (error) {
       setPairingBusy(false)
       setPairingError(

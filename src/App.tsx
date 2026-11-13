@@ -7,6 +7,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { NativeBridge } from './components/NativeBridge'
 import { BackupScheduler } from './components/BackupScheduler'
 import { UpdateNotice } from './components/UpdateNotice'
+import { ExtensionOnboarding } from './components/ExtensionOnboarding'
 import { UpdateProvider } from './state/UpdateProvider'
 import { VaultProvider, useVault } from './state/VaultProvider'
 import { I18nProvider, useI18n } from './state/I18nProvider'
@@ -28,6 +29,7 @@ export default function App() {
                 data-tauri-drag-region
                 aria-hidden="true"
               />
+              <ExtensionOnboarding />
               <NativeBridge />
               <BackupScheduler />
               <Root />
