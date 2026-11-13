@@ -2,11 +2,28 @@
 
 ## Non publié
 
+## 0.16.0 — 13 novembre 2026
+
+Version de finition de l’extension. Le format `.coffre` reste `4`, le manifeste
+`3` et les protocoles `2` : la mise à jour est compatible avec les fichiers et
+les appareils 0.15.
+
 - Extension : **remplissage au chargement** en opt-in. Sur HTTPS, dans le
   cadre principal et lorsqu’une seule connexion correspond, Coffre remplit
   identifiant et mot de passe après le chargement, sans TOTP ni soumission
   automatique. Les sites exclus, les formulaires déjà remplis et les signaux
   anti-hameçonnage bloquent le remplissage.
+- Interface : le contenu des réglages revient en haut à chaque changement de
+  section, au lieu de conserver la position de la page précédente.
+- Maintenance : mises à jour de `notify`, `snow`, `windows`, `sha2`,
+  `getrandom` et `actions/attest-build-provenance` ; adaptation des appels
+  `snow 0.10` et Windows Hello pour `windows 0.62`.
+- CI : les PR Dependabot exécutent `cargo check --workspace` au lieu d’une
+  bêta signée impossible sans secrets ; les PR internes continuent de publier
+  leur bêta.
+- Release : les assets GitHub incluent désormais les installateurs Windows
+  (MSI/NSIS), les paquets Linux (`.deb`, `.rpm`, `AppImage`) et les outils CLI
+  des deux plateformes, récupérés depuis la CI du commit tagué.
 
 ## 0.15.0 — 12 novembre 2026
 

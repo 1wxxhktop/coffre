@@ -100,7 +100,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 
 ## 2. État des lieux
 
-**Version de référence :** 0.15.0 stable (12 novembre 2026) ; 0.16.0 en préparation avec le remplissage au chargement.
+**Version de référence :** 0.16.0 stable (13 novembre 2026) ; 0.17.0 en préparation.
 
 ### 2.1 Ce qui est déjà livré
 
@@ -323,27 +323,31 @@ Le financement doit rester aligné avec la promesse : l’utilisateur paie pour 
 
 ## 5. Roadmap par horizons
 
-### 5.1 `0.16.0` — Extension partout (semaines 1–3)
+### 5.1 `0.16.0` — Remplissage au chargement et fiabilité (13 novembre 2026)
 
-**Objectif :** finir la surface navigateur et les plateformes desktop avant d’ouvrir de nouveaux fronts.
+**Objectif :** livrer le remplissage au chargement et les correctifs de fiabilité sans changer le format.
+
+- E11a : remplissage au chargement en opt-in (HTTPS, cadre principal, une seule connexion, TOTP vide, aucune soumission).
+- Réglages : retour en haut du contenu à chaque changement de section.
+- Windows Hello : adaptation à `windows 0.62`.
+- Dépendances : `snow 0.10`, `sha2 0.11`, `getrandom 0.4`, `notify 8.2`.
+- CI : `cargo check` pour les PR Dependabot, sans bêta signée impossible.
+
+**Sortie :** 0.16.0 stable, format `4`, manifeste `3`, protocoles `2`.
+
+### 5.2 `0.17.0` — Extension partout et portabilité (mois 1–2)
+
+**Objectif :** finir la surface navigateur et rendre Coffre crédible sur la sécurité et la migration.
 
 - E11b : panneau latéral Chromium/Firefox.
 - E12 : corpus de pages réelles et taux de détection.
 - E13 : validation Firefox, publication Chrome Web Store et Edge Add-ons.
 - Orion : installation automatique de l’hôte natif.
-- Windows : relais du pont natif, `cargo check` Dependabot, validation de base.
-- Linux : validation GNOME/KDE.
+- Windows : relais du pont natif, validation de base.
+- Linux : validation GNOME/KDE, Secret Service.
 - i18n : messages Rust en anglais.
 - Éditeur de séquence auto-type.
-- Correctifs issus du test beta du remplissage au chargement.
-
-**Sortie :** 0.16.0 stable, extension publiée sur au moins un store, bêta Firefox validée.
-
-### 5.2 `0.17.0` — Confiance et portabilité (mois 1–2)
-
-**Objectif :** rendre Coffre crédible face aux grands sur la sécurité et la migration.
-
-- CXP/CXF : import/export de passkeys et de identifiants entre gestionnaires.
+- CXP/CXF : import/export de passkeys et d’identifiants entre gestionnaires.
 - Passkey unlock (PRF) et revue du déverrouillage biométrique.
 - Tableau de bord sécurité v2 : évolution, remédiation guidée, export.
 - Assistant de changement de mot de passe v2 : détection de formulaire, mise à jour assistée.
@@ -354,7 +358,7 @@ Le financement doit rester aligné avec la promesse : l’utilisateur paie pour 
 - Audit externe : périmètre, appel d’offres, correctifs préparatoires.
 - Format v5 : préparation des coffres partagés et des métadonnées CXP.
 
-**Sortie :** 0.17.0 stable, rapport d’audit planifié, CXP utilisable sur desktop.
+**Sortie :** 0.17.0 stable, extension publiée sur au moins un store, CXP utilisable sur desktop, audit planifié.
 
 ### 5.3 `0.18.0` — Android (mois 2–4)
 

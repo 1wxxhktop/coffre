@@ -8,8 +8,8 @@ La synchronisation et la vérification des fuites sont optionnelles ; cette
 dernière, désactivée par défaut, n’envoie qu’un préfixe SHA-1 de 5 caractères.
 L’interface est disponible en français et en anglais.
 
-> **État du projet — 0.15.0 (barre latérale et menu des coffres, version de l’extension, raccourci ⌘, et fiabilité du pont natif, manifeste 3).**
-> La version web/PWA est fonctionnelle et couverte par 793 tests unitaires et
+> **État du projet — 0.16.0 (remplissage au chargement, fiabilité des réglages et du pont natif, dépendances à jour, manifeste 3).**
+> La version web/PWA est fonctionnelle et couverte par 808 tests unitaires et
 > des parcours Playwright exécutés sur Chromium et WebKit. Une intégration
 > continue vérifie lint, types, tests et build sur Linux, macOS et Windows ;
 > les bundles desktop des trois systèmes sont compilés à chaque PR et à chaque
@@ -759,7 +759,7 @@ Le dépôt est public : les runners GitHub standard sont gratuits.
 
 - **PR normale** : le workflow **Bêta PR** exécute les tests minimaux
   (`version:check`, TypeScript, lint, tests unitaires), construit un bundle
-  macOS arm64 et publie automatiquement une bêta `0.15.0-beta.<run>` dans le
+  macOS arm64 et publie automatiquement une bêta `0.17.0-beta.<run>` dans le
   canal bêta. Voir [docs/BETA-PR.md](docs/BETA-PR.md).
 - **Suite complète** : `.github/workflows/ci.yml` tourne sur chaque push vers
   `main`, sur une PR étiquetée **`full-ci`** ou **`stable`**, et à la demande
@@ -799,13 +799,15 @@ est présente, puis nettoie le reste. Les artefacts sont conservés
 30 jours ; au-delà, relancer la CI (`gh workflow run ci.yml --ref main`). Ce
 sont des builds de développement, sans paquet de mise à jour signé.
 
-`.github/workflows/release.yml` prépare une release macOS sur un tag `v*` :
-build universel signé ad hoc (sans compte Apple), DMG + SHA-256, paquet de mise
-à jour signé et release GitHub en brouillon. Le workflow `publish-update.yml`
-publie ensuite cette release (canal stable) et met à jour `canal-beta` ; la
-vérification des mises à jour reste désactivée par défaut et se règle dans
-Réglages → Mises à jour. Un certificat Developer ID reste possible mais
-optionnel. Voir [docs/RELEASE.md](docs/RELEASE.md).
+`.github/workflows/release.yml` prépare une release sur un tag `v*` : build
+macOS universel signé ad hoc (sans compte Apple), DMG + SHA-256, paquet de mise
+à jour signé et release GitHub en brouillon. Le même workflow récupère les
+artefacts Windows et Linux de la CI du commit tagué et les ajoute aux assets
+(MSI/NSIS, `.deb`/`.rpm`/`AppImage`, outils CLI). Le workflow
+`publish-update.yml` publie ensuite cette release (canal stable) et met à jour
+`canal-beta` ; la vérification des mises à jour reste désactivée par défaut et
+se règle dans Réglages → Mises à jour. Un certificat Developer ID reste possible
+mais optionnel. Voir [docs/RELEASE.md](docs/RELEASE.md).
 
 `.github/dependabot.yml` propose chaque semaine les mises à jour npm et Cargo,
 et chaque mois celles des actions GitHub. L’audit échoue au niveau `high` et
