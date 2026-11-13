@@ -59,6 +59,7 @@
     "desktop:build": "tauri build",
     "mobile:android:init": "tauri android init",
     "mobile:android:dev": "tauri android dev",
+    "mobile:android:build": "tauri android build --debug --apk --target aarch64",
     "mobile:ios:init": "tauri ios init",
     "mobile:ios:dev": "tauri ios dev"
   },

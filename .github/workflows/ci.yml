@@ -492,3 +492,8 @@ jobs:
             outils/**
           if-no-files-found: warn
           retention-days: 30
+
+  android:
+    name: APK Android (alpha)
+    if: contains(github.event.pull_request.labels.*.name, 'android')
+    uses: ./.github/workflows/android-build.yml

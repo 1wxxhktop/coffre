@@ -1886,6 +1886,15 @@ body:has(.app-shell) {
   display: none;
 }
 
+/* Fenêtre Tauri mobile : la WebView passe sous la barre d’état. */
+.is-tauri-mobile .sidebar {
+  padding-top: calc(var(--space-6) + max(env(safe-area-inset-top, 0px), 24px));
+}
+
+.is-tauri-mobile .topbar {
+  padding-top: calc(var(--space-5) + max(env(safe-area-inset-top, 0px), 24px));
+}
+
 /* ------------------------------------------------------------------ */
 /* Colonnes redimensionnables                                          */
 /* ------------------------------------------------------------------ */
@@ -2328,6 +2337,7 @@ body:has(.app-shell) {
     left: 0;
     z-index: var(--z-sticky);
     display: grid;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     grid-template-columns: repeat(6, minmax(0, 1fr));
     border-top: 1px solid var(--border-1);
     background: var(--surface-toolbar);

@@ -49,6 +49,7 @@ import { keychainAvailable } from '../lib/keychain'
 import { biometricAvailable } from '../lib/biometrics'
 import { prfSupported } from '../lib/prf'
 import { isTauriRuntime } from '../lib/external'
+import { isDesktopRuntime } from '../lib/platform'
 import { getAutostartEnabled, setAutostartEnabled } from '../lib/systemIntegration'
 import { ensureNotificationPermission } from '../lib/notifications'
 import { LOCALES, type Locale } from '../lib/i18n'
@@ -229,7 +230,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   }, [])
 
   useEffect(() => {
-    if (!isTauriRuntime()) return
+    if (!isDesktopRuntime()) return
     let cancelled = false
     void getAutostartEnabled()
       .then((enabled) => {
@@ -804,7 +805,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     </p>
                   </details>
 
-                  {isTauriRuntime() && (
+                  {isDesktopRuntime() && (
                     <>
                       <label className="checkbox">
                         <input
@@ -839,7 +840,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                   </label>
                 </section>
 
-                {isTauriRuntime() && (
+                {isDesktopRuntime() && (
                   <section className="settings-section">
                     <div className="settings-section__head">
                       <span className="settings-section__icon">

@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- Android : premier **APK alpha arm64** joint à la prochaine release. Il
+  couvre le coffre local, le déverrouillage, les éléments, le générateur et le
+  TOTP ; l’autofill, les passkeys et la biométrie Android restent en 0.18.
+  L’APK est signé en debug et réservé aux tests.
 - Extension : **assistant d’installation** après la création d’un coffre ou
   tant que l’extension n’a jamais été associée. Il indique le dossier géré,
   les étapes Chrome/Edge/Brave et Firefox, détecte l’appairage et reste

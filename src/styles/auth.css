@@ -15,6 +15,10 @@
   padding-top: calc(var(--space-6) + 32px);
 }
 
+.is-tauri-mobile .auth {
+  padding-top: calc(var(--space-6) + max(env(safe-area-inset-top, 0px), 24px));
+}
+
 .auth__glow {
   position: absolute;
   z-index: var(--z-base);

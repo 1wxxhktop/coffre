@@ -6,6 +6,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { isTauriRuntime } from './external'
+import { isDesktopRuntime } from './platform'
 
 export const DEFAULT_AUTOTYPE_SEQUENCE = '{USERNAME}{TAB}{PASSWORD}{ENTER}'
 
@@ -27,7 +28,7 @@ export interface AutoTypeInput {
 }
 
 export function autotypeAvailable(): boolean {
-  return isTauriRuntime()
+  return isDesktopRuntime()
 }
 
 export async function autotypeActiveWindow(): Promise<ActiveWindowInfo> {

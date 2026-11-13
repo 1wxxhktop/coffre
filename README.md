@@ -1370,22 +1370,22 @@ sans Xcode ni signature. Le format Apple ne contient que les connexions
 actives ; le format « Coffre complet » inclut les autres types d’éléments mais
 pas les pièces jointes.
 
-### Mobile — à initialiser
+### Android — APK alpha pour la 0.17
 
-Tauri v2 permet de cibler iOS et Android avec la même interface. Il faut :
-
-- Android : SDK/NDK Android, Java 17+, `tauri android init` ;
-- iOS : Xcode, CocoaPods, compte de signature, `tauri ios init`.
+Un APK Android arm64 de test est produit par la CI et joint à la prochaine
+release. Il permet de tester le coffre local, le déverrouillage, les éléments,
+le générateur et le TOTP.
 
 ```bash
-bun run mobile:android:init
-bun run mobile:android:dev
-bun run mobile:ios:init
-bun run mobile:ios:dev
+bun run mobile:android:build
 ```
 
-Le mobile n’a pas été testé dans cet environnement. Les limites de stockage et
-de presse-papiers propres aux WebViews mobiles devront être validées.
+L’APK est signé en debug : il est réservé aux tests, sans autofill Android ni
+passkeys pour l’instant. La version Android complète reste planifiée en 0.18.
+Voir [`docs/ANDROID.md`](docs/ANDROID.md).
+
+iOS n’est pas encore initialisé : Xcode, CocoaPods et un compte de signature
+restent nécessaires.
 
 ---
 

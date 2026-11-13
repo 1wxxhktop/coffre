@@ -364,8 +364,11 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Performance : démarrage, déverrouillage, recherche sur gros coffres.
 - Audit externe : périmètre, appel d’offres, correctifs préparatoires.
 - Format v5 : préparation des coffres partagés et des métadonnées CXP.
+- Android alpha : APK arm64 de test avec coffre local, déverrouillage,
+  éléments, générateur et TOTP. Build CI et signature debug ;
+  autofill/passkeys/biométrie restent en 0.18.
 
-**Sortie :** 0.17.0 stable, extension publiée sur au moins un store, CXP utilisable sur desktop, audit planifié.
+**Sortie :** 0.17.0 stable, extension publiée sur au moins un store, CXP utilisable sur desktop, APK Android alpha testable, audit planifié.
 
 ### 5.3 `0.18.0` — Android (mois 2–4)
 

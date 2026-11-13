@@ -8,7 +8,7 @@ import {
 } from 'react'
 import type { AppSettings } from '../lib/types'
 import { loadSettings, saveSettings } from '../lib/settings'
-import { isTauriRuntime } from '../lib/external'
+import { isDesktopRuntime } from '../lib/platform'
 import { setTrayKeepOnClose, setTrayLanguage } from '../lib/systemIntegration'
 
 interface SettingsContextValue {
@@ -49,12 +49,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (!isTauriRuntime()) return
+    if (!isDesktopRuntime()) return
     void setTrayLanguage(settings.language).catch(() => undefined)
   }, [settings.language])
 
   useEffect(() => {
-    if (!isTauriRuntime()) return
+    if (!isDesktopRuntime()) return
     void setTrayKeepOnClose(settings.trayKeepOnClose).catch(() => undefined)
   }, [settings.trayKeepOnClose])
 
