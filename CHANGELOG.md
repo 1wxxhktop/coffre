@@ -21,6 +21,9 @@ les appareils 0.15.
 - CI : les PR Dependabot exécutent `cargo check --workspace` au lieu d’une
   bêta signée impossible sans secrets ; les PR internes continuent de publier
   leur bêta.
+- Release : les assets GitHub incluent désormais les installateurs Windows
+  (MSI/NSIS), les paquets Linux (`.deb`, `.rpm`, `AppImage`) et les outils CLI
+  des deux plateformes, récupérés depuis la CI du commit tagué.
 
 ## 0.15.0 — 12 novembre 2026
 

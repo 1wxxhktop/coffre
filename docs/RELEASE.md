@@ -179,7 +179,11 @@ Le workflow :
 - avec la clé de mise à jour (3.1), produit `Coffre_<version>_universal.app.tar.gz`,
   sa signature `.sig` et le manifeste `latest.json` ;
 - crée une **release GitHub en brouillon** (marquée préversion si la version
-  contient un suffixe, par exemple `1.3.0-beta.1`).
+  contient un suffixe, par exemple `1.3.0-beta.1`) ;
+- récupère les artefacts Windows et Linux de la CI du commit tagué et les
+  attache à la release : installateurs MSI/NSIS, paquets `.deb`/`.rpm`/
+  `AppImage` et outils CLI préfixés par plateforme, avec
+  `SHA256SUMS-windows-linux`.
 
 Le trousseau temporaire est supprimé même en cas d’échec.
 

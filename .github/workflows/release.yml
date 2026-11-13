@@ -201,3 +201,92 @@ jobs:
       - name: Supprimer le trousseau temporaire
         if: always()
         run: security delete-keychain build.keychain 2>/dev/null || true
+
+  platforms:
+    name: Assets Windows et Linux
+    needs: macos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Retrouver le commit du tag
+        id: tag
+        run: echo "commit=$(git rev-list -n 1 "$GITHUB_REF_NAME")" >> "$GITHUB_OUTPUT"
+
+      - name: Attendre la CI du commit
+        id: ci
+        env:
+          COMMIT: ${{ steps.tag.outputs.commit }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 90); do
+            runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+              --commit "$COMMIT" --limit 20 \
+              --json databaseId,status,conclusion)"
+            success="$(jq -r '[.[] | select(.status == "completed" and .conclusion == "success")][0].databaseId // empty' <<<"$runs")"
+            if [[ -n "$success" ]]; then
+              echo "run_id=$success" >> "$GITHUB_OUTPUT"
+              echo "CI réussie : $success"
+              exit 0
+            fi
+            failure="$(jq -r '[.[] | select(.status == "completed" and (.conclusion == "failure" or .conclusion == "cancelled"))][0].databaseId // empty' <<<"$runs")"
+            if [[ -n "$failure" ]]; then
+              echo "La CI du commit $COMMIT a échoué : $failure" >&2
+              exit 1
+            fi
+            echo "CI en cours (tentative $attempt/90)…"
+            sleep 20
+          done
+          echo "CI introuvable ou toujours en cours après 30 minutes." >&2
+          exit 1
+
+      - name: Télécharger les artefacts Windows et Linux
+        run: |
+          set -euo pipefail
+          rm -rf artifacts
+          mkdir -p artifacts/windows artifacts/linux
+          gh run download "${{ steps.ci.outputs.run_id }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name coffre-desktop-windows-latest --dir artifacts/windows
+          gh run download "${{ steps.ci.outputs.run_id }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name coffre-desktop-ubuntu-22.04 --dir artifacts/linux
+
+      - name: Préparer les exécutables
+        run: |
+          set -euo pipefail
+          rm -rf upload
+          mkdir -p upload/windows upload/linux
+          find artifacts/windows -type f -name '*.msi' -exec cp {} upload/windows/ \;
+          find artifacts/windows -type f -name '*-setup.exe' -exec cp {} upload/windows/ \;
+          find artifacts/linux -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -exec cp {} upload/linux/ \;
+          find artifacts/windows -type f -path '*/outils/*' -exec cp {} upload/windows/ \;
+          find artifacts/linux -type f -path '*/outils/*' -exec cp {} upload/linux/ \;
+          # Les outils portent le même nom sur les deux plateformes : préfixe
+          # pour éviter les collisions dans les assets GitHub.
+          find upload/windows -maxdepth 1 -type f -name 'coffre-*' -exec sh -c \
+            'mv "$1" "$(dirname "$1")/windows-$(basename "$1")"' _ {} \;
+          find upload/linux -maxdepth 1 -type f -name 'coffre-*' -exec sh -c \
+            'mv "$1" "$(dirname "$1")/linux-$(basename "$1")"' _ {} \;
+          test "$(find upload/windows -maxdepth 1 -type f -name '*.msi' | wc -l)" -ge 1
+          test "$(find upload/linux -maxdepth 1 -type f \( -name '*.deb' -o -name '*.AppImage' \) | wc -l)" -ge 1
+          (cd upload/windows && sha256sum * > ../SHA256SUMS-windows-linux)
+          (cd upload/linux && sha256sum * >> ../SHA256SUMS-windows-linux)
+          find upload -maxdepth 2 -type f -print | sort
+
+      - name: Ajouter les assets à la release
+        run: |
+          gh release upload "$GITHUB_REF_NAME" \
+            upload/windows/* upload/linux/* upload/SHA256SUMS-windows-linux \
+            --clobber --repo "$GITHUB_REPOSITORY"
