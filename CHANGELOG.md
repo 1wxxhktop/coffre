@@ -2,6 +2,11 @@
 
 ## Non publié
 
+- Distribution : paquets reproductibles Chrome/Edge (`coffre-extension.zip`) et
+  Firefox (`coffre-extension.xpi`) avec empreintes SHA-256, fiche de store
+  française et anglaise, justification des permissions et politique de
+  confidentialité. La soumission reste manuelle : elle exige les comptes
+  développeur Chrome Web Store, Firefox AMO et Edge.
 - Tests : **corpus de détection E12** avec 50 pages reconstruites (connexion,
   inscription, changement de mot de passe, carte, identité, cas négatifs) et
   un taux de référence bloquant dans la CI. Les champs attendus sont décrits

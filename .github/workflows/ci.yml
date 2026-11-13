@@ -77,6 +77,9 @@ jobs:
       - name: Build extension navigateur
         run: bun run extension:build
 
+      - name: Empaqueter l’extension pour les stores
+        run: node scripts/package-extension.mjs
+
       - name: Conserver le build
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

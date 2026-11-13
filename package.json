@@ -37,7 +37,7 @@
     "cli:build": "cargo build --manifest-path src-tauri/Cargo.toml -p coffre-cli --release",
     "ssh:build": "cargo build --manifest-path src-tauri/Cargo.toml -p coffre-ssh-agent --release",
     "extension:build": "vite build --config vite.extension.config.ts && vite build --config vite.content.config.ts && vite build --config vite.webauthn.config.ts",
-    "extension:zip": "bun run extension:build && cd dist-extension && zip -qr ../coffre-extension.zip .",
+    "extension:zip": "bun run extension:build && node scripts/package-extension.mjs",
     "extension:smoke": "bun scripts/smoke-extension.mjs",
     "bridge:smoke": "node scripts/smoke-bridge.mjs",
     "icons": "bun run scripts/generate-icons.mjs",

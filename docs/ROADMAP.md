@@ -125,7 +125,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Application Android | Absent | Très haut |
 | Application iOS | Absent ; compte Apple requis pour AutoFill | Très haut |
 | Safari / AutoFill système macOS/iOS | Absent ; bloqué par compte Apple | Très haut |
-| Publication Firefox / Chrome Web Store / Edge | Firefox linté mais non validé/publié | Haut |
+| Publication Firefox / Chrome Web Store / Edge | Paquets et fiche prêts ; soumission bloquée par les comptes développeur | Haut |
 | Corpus de détection de formulaires | Livré (E12) : 50 pages, 100 % ; Shadow DOM/iframes à suivre | Moyen |
 | Pont natif Windows | Absent (S6) | Haut |
 | Windows Hello | Absent | Haut |
@@ -347,6 +347,8 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
   : 50 pages, 100 % en JSDOM, garde-fou `baseline.json` ; Shadow DOM, iframes
   et échantillon Playwright à compléter.
 - E13 : validation Firefox, publication Chrome Web Store et Edge Add-ons.
+  **Préparé** : paquets ZIP/XPI, fiche FR/EN, politique de confidentialité ;
+  soumission utilisateur et validation post-publication à faire.
 - Orion : installation automatique de l’hôte natif.
 - Windows : relais du pont natif, validation de base.
 - Linux : validation GNOME/KDE, Secret Service.
@@ -472,16 +474,19 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 **Acceptation :** taux mesuré, aucune régression silencieuse. Atteint pour le
 corpus JSDOM actuel ; les cas dynamiques restent ouverts.
 
-#### 6.1.3 Publication stores (E13)
+#### 6.1.3 Publication stores (E13) — préparé, soumission à faire
 
-1. Chrome Web Store : fiche, captures, description, politique de confidentialité, justification des permissions.
-2. Firefox AMO : `web-ext lint`, build XPI, signature, fiche.
-3. Edge Add-ons : réutiliser le paquet Chromium.
-4. Ajouter un workflow de release d’extension (version, tag, upload).
-5. Documenter le délai de revue et la procédure de mise à jour.
-6. Après publication : vérifier l’installation propre, l’autofill et les passkeys.
+**État :** paquets et fiche prêts le 13 novembre 2026 ; comptes développeur
+requis pour soumettre.
 
-**Acceptation :** extension installable depuis au moins Chrome et Firefox, mise à jour automatique.
+1. ~~Chrome Web Store : fiche, description, politique de confidentialité, justification des permissions.~~ Fait dans `docs/STORES.md` et `docs/PRIVACY.md` ; captures et soumission à faire.
+2. ~~Firefox AMO : build XPI.~~ Fait avec `bun run extension:zip` ; `web-ext lint`, signature et fiche à faire depuis un compte AMO.
+3. ~~Edge Add-ons : réutiliser le paquet Chromium.~~ Paquet prêt ; soumission au Partner Center à faire.
+4. ~~Workflow de release d’extension.~~ Le paquet reproductible, la vérification de version et `SHA256SUMS-extension` sont dans `bun run extension:zip` ; la soumission reste manuelle.
+5. ~~Documenter le délai de revue et la procédure de mise à jour.~~ Fait dans `docs/STORES.md`.
+6. Après publication : vérifier l’installation propre, l’autofill et les passkeys avec la checklist de `docs/STORES.md`.
+
+**Acceptation :** extension installable depuis au moins Chrome et Firefox, mise à jour automatique. En attente des comptes et de la revue externe.
 
 #### 6.1.4 Orion et navigateurs secondaires
 
