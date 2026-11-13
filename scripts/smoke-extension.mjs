@@ -186,6 +186,25 @@ try {
   assert.equal(status.appOpen, true)
   assert.equal(status.unlocked, true)
   assert.equal(status.siteAccess, true)
+
+  const panelApi = await extensionPage.evaluate(() =>
+    Boolean(chrome.sidePanel?.open),
+  )
+  if (panelApi) {
+    assert.equal(await extensionPage.locator('#panel').isVisible(), true)
+  }
+  const panelPage = await context.newPage()
+  await panelPage.goto(`chrome-extension://${extensionId}/popup.html?panel=1`)
+  assert.equal(
+    await panelPage.evaluate(() =>
+      document.body.classList.contains('side-panel'),
+    ),
+    true,
+  )
+  assert.equal(await panelPage.locator('#panel').isVisible(), false)
+  await panelPage.close()
+  await extensionPage.bringToFront()
+
   const unlockRequest = await extensionPage.evaluate(() =>
     chrome.runtime.sendMessage({ type: 'UNLOCK_REQUEST' }),
   )

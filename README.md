@@ -110,7 +110,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   optionnelles. Le **remplissage au chargement** est disponible en opt-in :
   sur HTTPS, dans le cadre principal et lorsqu’une seule connexion correspond,
   il remplit identifiant et mot de passe sans jamais saisir le TOTP ni
-  soumettre le formulaire. L’extension ne stocke aucun identifiant et ne copie
+  soumettre le formulaire. Le **panneau latéral** (Chromium et Firefox) permet
+  de garder la même interface ouverte pendant un formulaire long. L’extension
+  ne stocke aucun identifiant et ne copie
   dans le presse-papiers qu’à la demande explicite (raccourcis de copie) ou, si
   l’option est activée, pour le code TOTP après un remplissage ; seule la clé
   de session du pont natif est conservée dans son stockage local.
