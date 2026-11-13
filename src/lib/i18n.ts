@@ -27,6 +27,37 @@ const fr = {
   'common.processing': 'Traitement…',
   'common.error': 'Une erreur est survenue',
   'common.typeToConfirm': 'Tapez {text} pour confirmer',
+  'onboarding.extension.title': 'Installez l’extension Coffre',
+  'onboarding.extension.description':
+    'Votre coffre est prêt. L’extension remplit vos identifiants dans le navigateur et se connecte à cette application.',
+  'onboarding.extension.stepInstall': 'Installer l’extension',
+  'onboarding.extension.stepPair': 'Associer l’extension',
+  'onboarding.extension.installCopy':
+    'Coffre garde une copie à jour de l’extension. Chargez-la une fois ; elle suivra ensuite les mises à jour de l’application.',
+  'onboarding.extension.chrome':
+    'Chrome, Edge ou Brave : ouvrez la page des extensions, activez le mode développeur, puis « Charger l’extension non empaquetée ».',
+  'onboarding.extension.firefox':
+    'Firefox : ouvrez about:debugging, cliquez sur « Ce Firefox », puis « Charger un module temporaire » et choisissez manifest.json.',
+  'onboarding.extension.path': 'Dossier de l’extension',
+  'onboarding.extension.reveal': 'Afficher le dossier',
+  'onboarding.extension.installed': 'J’ai installé l’extension',
+  'onboarding.extension.later': 'Plus tard',
+  'onboarding.extension.pairTitle': 'Associez l’extension',
+  'onboarding.extension.pairCopy':
+    'Ouvrez l’extension dans le navigateur et cliquez sur « Associer ». Coffre affichera un code à confirmer ici.',
+  'onboarding.extension.pairWaiting': 'En attente de l’extension…',
+  'onboarding.extension.pairCheck': 'Vérifier à nouveau',
+  'onboarding.extension.pairDoneTitle': 'Extension associée',
+  'onboarding.extension.pairDoneCopy':
+    'Vous pouvez remplir vos identifiants depuis le navigateur. Les étapes restent disponibles dans Réglages → Extension navigateur.',
+  'onboarding.extension.finish': 'Terminer',
+  'onboarding.extension.unavailable':
+    'Ce build n’embarque pas l’extension. Utilisez une version publiée de Coffre, puis rouvrez cet assistant depuis les réglages.',
+  'onboarding.extension.settingsHint':
+    'Vous pourrez retrouver ces étapes dans Réglages → Extension navigateur.',
+  'onboarding.extension.revealFailed':
+    'Impossible d’ouvrir le dossier de l’extension.',
+  'onboarding.extension.reopen': 'Revoir l’assistant d’installation',
 
   'app.splash.opening': 'Ouverture du coffre local…',
   'app.error.title': 'Impossible d’ouvrir le coffre local',
@@ -497,6 +528,37 @@ const en: Record<MessageKey, string> = {
   'common.processing': 'Processing…',
   'common.error': 'Something went wrong',
   'common.typeToConfirm': 'Type {text} to confirm',
+  'onboarding.extension.title': 'Install the Coffre extension',
+  'onboarding.extension.description':
+    'Your vault is ready. The extension fills your credentials in the browser and connects to this app.',
+  'onboarding.extension.stepInstall': 'Install the extension',
+  'onboarding.extension.stepPair': 'Pair the extension',
+  'onboarding.extension.installCopy':
+    'Coffre keeps an up-to-date copy of the extension. Load it once; it will then follow the app updates.',
+  'onboarding.extension.chrome':
+    'Chrome, Edge or Brave: open the extensions page, enable developer mode, then “Load unpacked”.',
+  'onboarding.extension.firefox':
+    'Firefox: open about:debugging, click “This Firefox”, then “Load Temporary Add-on” and choose manifest.json.',
+  'onboarding.extension.path': 'Extension folder',
+  'onboarding.extension.reveal': 'Show folder',
+  'onboarding.extension.installed': 'I installed the extension',
+  'onboarding.extension.later': 'Later',
+  'onboarding.extension.pairTitle': 'Pair the extension',
+  'onboarding.extension.pairCopy':
+    'Open the extension in your browser and click “Pair”. Coffre will show a code to confirm here.',
+  'onboarding.extension.pairWaiting': 'Waiting for the extension…',
+  'onboarding.extension.pairCheck': 'Check again',
+  'onboarding.extension.pairDoneTitle': 'Extension paired',
+  'onboarding.extension.pairDoneCopy':
+    'You can fill credentials from the browser. These steps remain available in Settings → Browser extension.',
+  'onboarding.extension.finish': 'Finish',
+  'onboarding.extension.unavailable':
+    'This build does not include the extension. Use a published Coffre build, then reopen this assistant from settings.',
+  'onboarding.extension.settingsHint':
+    'You can find these steps again in Settings → Browser extension.',
+  'onboarding.extension.revealFailed':
+    'Could not open the extension folder.',
+  'onboarding.extension.reopen': 'Reopen the installation assistant',
 
   'app.splash.opening': 'Opening the local vault…',
   'app.error.title': 'Unable to open the local vault',

@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- Extension : **assistant d’installation** après la création d’un coffre ou
+  tant que l’extension n’a jamais été associée. Il indique le dossier géré,
+  les étapes Chrome/Edge/Brave et Firefox, détecte l’appairage et reste
+  accessible depuis Réglages → Extension navigateur.
 - Distribution : paquets reproductibles Chrome/Edge (`coffre-extension.zip`) et
   Firefox (`coffre-extension.xpi`) avec empreintes SHA-256, fiche de store
   française et anglaise, justification des permissions et politique de
@@ -22,12 +26,6 @@ Version de finition de l’extension. Le format `.coffre` reste `4`, le manifest
 `3` et les protocoles `2` : la mise à jour est compatible avec les fichiers et
 les appareils 0.15.
 
-=======
-- Extension : **panneau latéral** Chromium (`sidePanel`) et Firefox
-  (`sidebar_action`). La popup propose un bouton pour ouvrir la même interface
-  dans le panneau, qui reste affiché pendant les formulaires longs. La page
-  s’adapte à la largeur du panneau et conserve la version en pied.
->>>>>>> 0121eee (extension: ajouter le panneau latéral)
 - Extension : **remplissage au chargement** en opt-in. Sur HTTPS, dans le
   cadre principal et lorsqu’une seule connexion correspond, Coffre remplit
   identifiant et mot de passe après le chargement, sans TOTP ni soumission
