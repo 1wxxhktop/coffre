@@ -183,7 +183,10 @@ Le workflow :
 - récupère les artefacts Windows et Linux de la CI du commit tagué et les
   attache à la release : installateurs MSI/NSIS, paquets `.deb`/`.rpm`/
   `AppImage` et outils CLI préfixés par plateforme, avec
-  `SHA256SUMS-windows-linux`.
+  `SHA256SUMS-windows-linux` ;
+- construit l’**APK Android alpha arm64** (signé en debug) et l’attache avec
+  `SHA256SUMS-android`. Cet APK sert uniquement aux tests : il ne remplace pas
+  une publication Play Store.
 
 Le trousseau temporaire est supprimé même en cas d’échec.
 
