@@ -32,6 +32,9 @@ r27c.
 export JAVA_HOME=/chemin/vers/jdk-21
 export ANDROID_HOME=$HOME/Android/Sdk
 export NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973
+# Sans symboles de debug : APK d’environ 50 Mo au lieu de 230 Mo.
+export CARGO_PROFILE_DEV_DEBUG=0
+export CARGO_PROFILE_DEV_STRIP=debuginfo
 rustup target add aarch64-linux-android
 bun run mobile:android:build
 ```
