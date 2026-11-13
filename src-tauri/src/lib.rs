@@ -30,6 +30,85 @@ mod tray;
 mod updater;
 mod vault_store;
 
+#[cfg(mobile)]
+mod tray {
+    #[tauri::command]
+    pub fn tray_set_language(_language: String) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn tray_set_keep_on_close(_keep: bool) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+#[cfg(mobile)]
+mod autotype {
+    #[tauri::command]
+    pub fn autotype_active_window() -> Result<serde_json::Value, String> {
+        Err("La saisie automatique n’est pas disponible sur mobile.".into())
+    }
+
+    #[tauri::command]
+    #[allow(clippy::too_many_arguments)]
+    pub fn autotype_run(
+        _sequence: String,
+        _username: String,
+        _password: String,
+        _totp: String,
+        _expected_window_id: String,
+        _expected_process_id: u64,
+    ) -> Result<usize, String> {
+        Err("La saisie automatique n’est pas disponible sur mobile.".into())
+    }
+}
+
+#[cfg(mobile)]
+mod updater {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct UpdaterInfo {
+        configured: bool,
+        current_version: String,
+    }
+
+    #[tauri::command]
+    pub fn updater_info(app: tauri::AppHandle) -> UpdaterInfo {
+        UpdaterInfo {
+            configured: false,
+            current_version: app.package_info().version.to_string(),
+        }
+    }
+
+    #[tauri::command]
+    pub fn updater_check() -> Result<Option<serde_json::Value>, String> {
+        Ok(None)
+    }
+
+    #[tauri::command]
+    pub fn updater_download() -> Result<serde_json::Value, String> {
+        Err("Les mises à jour ne sont pas disponibles sur mobile.".into())
+    }
+
+    #[tauri::command]
+    pub fn updater_install() -> Result<(), String> {
+        Err("Les mises à jour ne sont pas disponibles sur mobile.".into())
+    }
+
+    #[tauri::command]
+    pub fn updater_install_on_exit(_enabled: bool) -> Result<(), String> {
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn updater_discard() -> Result<(), String> {
+        Ok(())
+    }
+}
+
 pub use bridge::{is_native_host_invocation, run_native_host};
 
 const KEYCHAIN_SERVICE: &str = "app.coffre.desktop";
@@ -735,150 +814,81 @@ pub fn run() {
         .plugin(NavigationGuard)
         // Utilisé uniquement depuis les commandes Rust ci-dessus : aucune
         // permission `clipboard-manager:*` n’est accordée à la WebView.
-        .plugin(tauri_plugin_clipboard_manager::init());
-
-    #[cfg(desktop)]
-    let builder = builder.invoke_handler(tauri::generate_handler![
-        keychain_store,
-        keychain_load,
-        keychain_delete,
-        extension_store::bridge_key_load,
-        extension_store::bridge_key_store,
-        extension_store::bridge_key_delete,
-        extension_store::extension_info,
-        extension_store::extension_reveal,
-        biometric_available,
-        biometric_confirm,
-        biometric_store,
-        biometric_delete,
-        biometric_load,
-        open_external_url,
-        hibp_range,
-        core_merge_files,
-        ssh_agent::ssh_agent_start,
-        ssh_agent::ssh_agent_stop,
-        ssh_agent::ssh_agent_status,
-        ssh_agent::ssh_agent_respond,
-        bridge::bridge_send,
-        clipboard_copy_secret,
-        clipboard_clear_if,
-        vault_read,
-        vault_write,
-        vault_backup_read,
-        vault_backup_write,
-        vault_state_read,
-        vault_state_write,
-        vault_clear,
-        backup_status,
-        backup_list,
-        backup_delete,
-        backup_copy_current,
-        backup_read,
-        backup_current_file_id,
-        alias_service::alias_create,
-        blob_store::blob_encrypt,
-        blob_store::blob_list,
-        blob_store::blob_export_to,
-        blob_store::blob_import_from,
-        blob_store::blob_decrypt,
-        blob_store::blob_preview,
-        blob_store::blob_remove,
-        autotype::autotype_active_window,
-        autotype::autotype_run,
-        lan_sync::lan_discover,
-        lan_sync::lan_update_peer_host,
-        lan_sync::lan_identity,
-        lan_sync::lan_pair_start,
-        lan_sync::lan_pair_join,
-        lan_sync::lan_peers,
-        lan_sync::lan_forget_peer,
-        lan_sync::lan_sync_serve,
-        lan_sync::lan_sync_pull,
-        sync_prepare,
-        sync_list,
-        sync_read,
-        sync_write,
-        sync_watch,
-        sync_unwatch,
-        autostart_enabled,
-        autostart_set,
-        startup_is_hidden,
-        tray::tray_set_language,
-        tray::tray_set_keep_on_close,
-        updater::updater_info,
-        updater::updater_check,
-        updater::updater_download,
-        updater::updater_install,
-        updater::updater_install_on_exit,
-        updater::updater_discard
-    ]);
-
-    #[cfg(mobile)]
-    let builder = builder.invoke_handler(tauri::generate_handler![
-        keychain_store,
-        keychain_load,
-        keychain_delete,
-        extension_store::bridge_key_load,
-        extension_store::bridge_key_store,
-        extension_store::bridge_key_delete,
-        extension_store::extension_info,
-        extension_store::extension_reveal,
-        biometric_available,
-        biometric_confirm,
-        biometric_store,
-        biometric_delete,
-        biometric_load,
-        open_external_url,
-        hibp_range,
-        core_merge_files,
-        ssh_agent::ssh_agent_start,
-        ssh_agent::ssh_agent_stop,
-        ssh_agent::ssh_agent_status,
-        ssh_agent::ssh_agent_respond,
-        bridge::bridge_send,
-        clipboard_copy_secret,
-        clipboard_clear_if,
-        vault_read,
-        vault_write,
-        vault_backup_read,
-        vault_backup_write,
-        vault_state_read,
-        vault_state_write,
-        vault_clear,
-        backup_status,
-        backup_list,
-        backup_delete,
-        backup_copy_current,
-        backup_read,
-        backup_current_file_id,
-        alias_service::alias_create,
-        blob_store::blob_encrypt,
-        blob_store::blob_list,
-        blob_store::blob_export_to,
-        blob_store::blob_import_from,
-        blob_store::blob_decrypt,
-        blob_store::blob_preview,
-        blob_store::blob_remove,
-        lan_sync::lan_discover,
-        lan_sync::lan_update_peer_host,
-        lan_sync::lan_identity,
-        lan_sync::lan_pair_start,
-        lan_sync::lan_pair_join,
-        lan_sync::lan_peers,
-        lan_sync::lan_forget_peer,
-        lan_sync::lan_sync_serve,
-        lan_sync::lan_sync_pull,
-        sync_prepare,
-        sync_list,
-        sync_read,
-        sync_write,
-        sync_watch,
-        sync_unwatch,
-        autostart_enabled,
-        autostart_set,
-        startup_is_hidden
-    ]);
-
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .invoke_handler(tauri::generate_handler![
+            keychain_store,
+            keychain_load,
+            keychain_delete,
+            extension_store::bridge_key_load,
+            extension_store::bridge_key_store,
+            extension_store::bridge_key_delete,
+            extension_store::extension_info,
+            extension_store::extension_reveal,
+            biometric_available,
+            biometric_confirm,
+            biometric_store,
+            biometric_delete,
+            biometric_load,
+            open_external_url,
+            hibp_range,
+            core_merge_files,
+            ssh_agent::ssh_agent_start,
+            ssh_agent::ssh_agent_stop,
+            ssh_agent::ssh_agent_status,
+            ssh_agent::ssh_agent_respond,
+            bridge::bridge_send,
+            clipboard_copy_secret,
+            clipboard_clear_if,
+            vault_read,
+            vault_write,
+            vault_backup_read,
+            vault_backup_write,
+            vault_state_read,
+            vault_state_write,
+            vault_clear,
+            backup_status,
+            backup_list,
+            backup_delete,
+            backup_copy_current,
+            backup_read,
+            backup_current_file_id,
+            alias_service::alias_create,
+            blob_store::blob_encrypt,
+            blob_store::blob_list,
+            blob_store::blob_export_to,
+            blob_store::blob_import_from,
+            blob_store::blob_decrypt,
+            blob_store::blob_preview,
+            blob_store::blob_remove,
+            autotype::autotype_active_window,
+            autotype::autotype_run,
+            lan_sync::lan_discover,
+            lan_sync::lan_update_peer_host,
+            lan_sync::lan_identity,
+            lan_sync::lan_pair_start,
+            lan_sync::lan_pair_join,
+            lan_sync::lan_peers,
+            lan_sync::lan_forget_peer,
+            lan_sync::lan_sync_serve,
+            lan_sync::lan_sync_pull,
+            sync_prepare,
+            sync_list,
+            sync_read,
+            sync_write,
+            sync_watch,
+            sync_unwatch,
+            autostart_enabled,
+            autostart_set,
+            startup_is_hidden,
+            tray::tray_set_language,
+            tray::tray_set_keep_on_close,
+            updater::updater_info,
+            updater::updater_check,
+            updater::updater_download,
+            updater::updater_install,
+            updater::updater_install_on_exit,
+            updater::updater_discard
+        ]);
     #[cfg(desktop)]
     let builder = builder
         .manage(tray::TrayState::default())
