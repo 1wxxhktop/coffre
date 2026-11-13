@@ -29,8 +29,10 @@ corrections appliquées et plan de remédiation ; le suivi des lots et de la
 release 0.14.0 est dans
 [docs/AUDIT-REMEDIATION.md](docs/AUDIT-REMEDIATION.md). L’audit précédent
 (0.8.0) reste disponible dans
-[docs/AUDIT-2026-11-07.md](docs/AUDIT-2026-11-07.md). L’état de
-préparation grand public et les bloquants de distribution sont détaillés dans
+[docs/AUDIT-2026-11-07.md](docs/AUDIT-2026-11-07.md). Le périmètre, le modèle de
+menace et l’appel d’offres du futur audit externe sont préparés dans
+[docs/AUDIT-SCOPE.md](docs/AUDIT-SCOPE.md). L’état de préparation grand public
+et les bloquants de distribution sont détaillés dans
 [docs/RELEASE-READINESS.md](docs/RELEASE-READINESS.md).
 
 Le point de départ demandé était

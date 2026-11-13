@@ -131,7 +131,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Windows Hello | Absent | Haut |
 | Linux Secret Service | Absent (S7) | Moyen |
 | Validation Windows/Linux/Intel | Builds CI seulement | Haut |
-| Audit externe | Absent | Critique pour la confiance |
+| Audit externe | Absent ; périmètre, menace et appel d’offres prêts | Critique pour la confiance |
 | Notarisation / Developer ID | Absent (compte Apple) | Haut (installation) |
 | Partage familial/équipe | Absent ; seul le partage hors ligne existe | Très haut |
 | Sync WebDAV/S3/Nextcloud | Absent | Haut (différenciation) |
@@ -363,6 +363,8 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Accessibilité : axe-core en CI, navigation clavier, WCAG 2.2 AA.
 - Performance : démarrage, déverrouillage, recherche sur gros coffres.
 - Audit externe : périmètre, appel d’offres, correctifs préparatoires.
+  **Préparé** : `docs/AUDIT-SCOPE.md` couvre la crypto, le format, la sync, les
+  clients, Android alpha et la supply chain ; reste à budgéter et consulter.
 - Format v5 : préparation des coffres partagés et des métadonnées CXP.
 - Android alpha : APK arm64 de test avec coffre local, déverrouillage,
   éléments, générateur et TOTP. Build CI et signature debug ;
@@ -629,7 +631,7 @@ requis pour soumettre.
 
 ### 6.10 Sécurité, audit et post-quantique
 
-1. **Audit externe** : périmètre (crypto, format, sync, parsers, mobile, extension), appel d’offres, corrections, rapport public.
+1. **Audit externe** : périmètre (crypto, format, sync, parsers, mobile, extension), appel d’offres, corrections, rapport public. **Périmètre et modèle de menace prêts** dans `docs/AUDIT-SCOPE.md` ; reste à budgéter, consulter 3 à 5 prestataires, corriger et retester.
 2. **Post-quantique** : hybride X25519 + ML-KEM-768, Ed25519 + ML-DSA-65 ; format v6 ; migration et vecteurs.
 3. **Matériel** : Secure Enclave macOS, Windows Hello, Android Keystore, TPM.
 4. **Mémoire** : `zeroize`, `mlock`, éviter le swap, effacer les secrets.
@@ -891,7 +893,7 @@ Le chemin critique est : **Android → AutoFill/passkeys → sync/partage → au
 | Apple Developer | 99 $/an |
 | Google Play | 25 $ une fois |
 | Certificat Windows | 200–500 $/an |
-| Audit externe | 25 000–80 000 $ selon périmètre |
+| Audit externe | 40 000–70 000 € (périmètre complet + retest) |
 | Matériel de test (Android, Windows, Linux) | 1 500–3 000 $ |
 | Bug bounty | variable |
 | Support/CI | variable |
