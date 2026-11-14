@@ -219,7 +219,12 @@ function sshKeyType(publicKey: string): string {
 }
 
 function sshPrivateKeyPem(value: string): string {
-  const base64 = toBase64(fromBase64Url(value))
+  const der = fromBase64Url(value)
+  // Une clé PKCS#8 DER commence toujours par un SEQUENCE (0x30).
+  if (der.length < 16 || der[0] !== 0x30) {
+    throw new Error('clé PKCS#8 invalide')
+  }
+  const base64 = toBase64(der)
   const lines = base64.match(/.{1,64}/g) ?? [base64]
   return `-----BEGIN PRIVATE KEY-----\n${lines.join('\n')}\n-----END PRIVATE KEY-----`
 }

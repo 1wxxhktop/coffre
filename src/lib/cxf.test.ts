@@ -385,6 +385,37 @@ describe('import CXF 1.0', () => {
     expect(parsed.items).toHaveLength(0)
     expect(parsed.warnings.join(' ')).toContain('quantum-key')
 
+    const invalidSsh = await parseCxf(
+      JSON.stringify({
+        version: { major: 1, minor: 0 },
+        exporterRpId: 'example.com',
+        accounts: [
+          {
+            id: 'a',
+            username: '',
+            email: '',
+            collections: [],
+            items: [
+              {
+                id: 'i',
+                title: 'SSH invalide',
+                credentials: [
+                  {
+                    type: 'ssh-key',
+                    keyType: 'ssh-ed25519',
+                    privateKey: 'AAAA',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+      'v1',
+    )
+    expect(invalidSsh.items).toHaveLength(0)
+    expect(invalidSsh.warnings.join(' ')).toContain('clé SSH CXF invalide')
+
     await expect(
       parseCxf(
         JSON.stringify({
