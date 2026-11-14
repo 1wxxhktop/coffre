@@ -301,11 +301,19 @@ export function NativeBridge() {
       // Une seule demande à la fois : une nouvelle demande remplace la
       // précédente au lieu de laisser deux clés concurrentes.
       if (pendingPairingRef.current) {
-        if (pendingPairingRef.current.connectionId === connectionId) {
+        const previous = pendingPairingRef.current
+        if (previous.connectionId === connectionId) {
           clearPairingTimer()
           pendingPairingRef.current = null
           setPendingPairing(null)
           setPairingError(null)
+          // Répondre explicitement à l’ancienne tentative : sans cela,
+          // l’extension attendait 120 s puis coupait la connexion de la
+          // nouvelle tentative.
+          await send(previous.connectionId, {
+            id: previous.id,
+            type: 'pair-rejected',
+          })
         } else {
           rejectPairing('rejected')
         }

@@ -63,10 +63,13 @@
     "message": "Extension fingerprint: $1"
   },
   "welcome_pairing": {
-    "message": "Request sent. Confirm the code shown in Coffre."
+    "message": "Opening Coffre… Unlock it if needed, then confirm the code shown."
   },
   "welcome_pairConfirm": {
     "message": "Confirm the code in Coffre to finish pairing."
+  },
+  "welcome_pairLocked": {
+    "message": "Coffre stayed locked. Unlock it, then click Pair extension again."
   },
   "welcome_paired": {
     "message": "Extension paired with Coffre."

@@ -1055,13 +1055,17 @@ Dans Firefox :
 d’hôte de messagerie native pour les navigateurs présents (Chrome, Chromium,
 Edge, Brave et Firefox). Dans le popup de l’extension :
 
-1. cliquer sur « Associer l’extension » alors que Coffre est déverrouillé ;
+1. cliquer sur « Associer l’extension » : Coffre s’ouvre ou revient au premier
+   plan, et attend le déverrouillage si nécessaire ;
 2. comparer le code à six chiffres affiché dans le popup et dans Coffre ;
 3. cliquer sur « Autoriser l’extension » dans Coffre.
 
-La clé de session est conservée dans le trousseau du système et dans
-`chrome.storage.local` ; les échanges sont chiffrés en AES-256-GCM. Si
-l’application est verrouillée, le popup propose **Déverrouiller Coffre** :
+Une seule demande d’appairage est active à la fois : recliquer sur le bouton
+pendant l’opération ne crée pas de tentative concurrente. La clé de session est
+conservée dans le stockage privé de l’application (fichier `0600` sur macOS,
+trousseau ailleurs) et dans `chrome.storage.local` ; les échanges sont chiffrés
+en AES-256-GCM. Si l’application est verrouillée, le popup propose
+**Déverrouiller Coffre** :
 Coffre affiche sa fenêtre et déclenche Touch ID si l’option est active, sinon
 la saisie du mot de passe maître se fait dans l’application — jamais dans la
 popup ni par le pont. Un refus laisse le coffre verrouillé. Si l’application
