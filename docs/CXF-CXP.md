@@ -1,7 +1,9 @@
 # Portabilité CXF 1.0 et CXP
 
-**État :** CXF 1.0 import/export complet ; CXP non implémenté.  
-**Dernière vérification :** 14 novembre 2026, version 0.16.0.  
+**État :** CXF 1.0 import/export complet ; CXP non implémenté (spec instable).
+
+**Dernière vérification :** 14 novembre 2026, version 0.16.0.
+
 **Références :** [CXF 1.0 Proposed Standard + errata](https://fidoalliance.org/specs/cx/cxf-v1.0-ps-errata-20260309.html),
 [CXP 1.0 Working Draft](https://fidoalliance.org/specs/cx/cxp-v1.0-wd-20241003.html).
 
@@ -140,7 +142,7 @@ gestionnaire de mots de passe.
 | --- | --- | --- |
 | Android | `ProviderEventsManager` de Credential Manager (Play Services 26.21+) | 0.18 |
 | iOS / macOS 26+ | API système d’échange de credentials | 1.0 conditionnel |
-| Desktop Linux/Windows | Mode `indirect` avec fichiers `ExportRequest`/`ExportResponse` et CXF, si un fournisseur externe le demande | 0.17+ |
+| Desktop Linux/Windows | Mode `indirect` avec fichiers `ExportRequest`/`ExportResponse` et CXF, si la spécification est stabilisée | différé |
 | Web/PWA | Import/export CXF uniquement ; pas de CXP natif | — |
 
 Le mode `indirect` reste utile même sans API système : il permet à un
@@ -148,10 +150,36 @@ utilisateur de produire une demande, de la remettre à un autre gestionnaire et
 de récupérer une réponse chiffrée. Il exige une bibliothèque HPKE auditée ou
 une implémentation Rust relue, plus le support JWE et DEFLATE.
 
-### 2.3 Prérequis avant implémentation
+### 2.3 Risques de la spécification
 
-- [ ] Choisir une bibliothèque HPKE auditée (Rust ou TypeScript) ou décider
-      d’attendre les API système.
+Le document CXP 1.0 disponible en novembre 2026 est un **Working Draft daté
+d’octobre 2024**, pas un Proposed Standard. Sa lecture révèle des écarts qui
+empêchent une implémentation interopérable :
+
+- le flux décrit un *challenge* et une signature du challenge, mais le CDDL
+  `ExportRequest` et `ExportResponse` ne contient aucun champ de challenge ni de
+  signature ;
+- l’« identifiant anonyme » utilisé pour nommer les fichiers du ZIP n’est défini
+  nulle part ;
+- les paramètres JWE (`alg`, `enc`, AAD, dérivation de clé) ne sont pas
+  spécifiés ;
+- la version 1.0 est décrite avec un champ `version` par défaut à `0`, sans
+  valeur normative explicite ;
+- la protection contre le rejeu et l’authentification de l’exportateur ne sont
+  pas définies.
+
+**Décision.** Coffre ne livrera pas d’implémentation CXP maison tant que ces
+points ne sont pas stabilisés. Une implémentation partielle donnerait une fausse
+impression d’interopérabilité et exposerait les utilisateurs à des erreurs de
+chiffrement ou d’authentification. Le mode fichier CXF reste la voie supportée
+en 0.17 ; CXP sera repris avec les API système ou une version stable de la
+spécification.
+
+### 2.4 Prérequis avant implémentation
+
+- [ ] Obtenir une version stable de CXP ou les API système qui l’encapsulent.
+- [ ] Choisir une bibliothèque HPKE auditée (Rust ou TypeScript) si le mode
+      fichier est retenu.
 - [ ] Ajouter les vecteurs HPKE/JWE de la spécification et des tests croisés.
 - [ ] Définir le format de fichier `ExportRequest`/`ExportResponse` en mode
       `indirect`.
@@ -160,7 +188,7 @@ une implémentation Rust relue, plus le support JWE et DEFLATE.
 - [ ] Fuzzer le parseur ZIP/JWE et les champs base64url.
 - [ ] Faire relire l’implémentation par l’audit externe avant la 1.0.
 
-### 2.4 Ce qui n’est pas couvert
+### 2.5 Ce qui n’est pas couvert
 
 - La destruction des credentials chez l’exportateur après migration (hors
   périmètre CXP).

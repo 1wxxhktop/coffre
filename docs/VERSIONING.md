@@ -166,7 +166,7 @@ comprise.
 | `0.14.x` | P2 sans changement de format | `4` | `3` | `2` |
 | `0.15.0` | Finition interface et extension, sans changement de format | `4` | `3` | `2` |
 | `0.16.0` | Remplissage au chargement et fiabilité, sans changement de format | `4` | `3` | `2` |
-| `0.17.0` | Extension partout, CXP et préparation du format `5` | `5` | `3` | `2` |
+| `0.17.0` | Extension partout, CXF complet et préparation du format `5` | `5` | `3` | `2` |
 | `1.0.0` | Après audit externe et stabilisation | `5` | `3` | `2` |
 
 Le P0 n’est pas publié en `0.13.1` : le manifeste `3` est déjà une rupture de
