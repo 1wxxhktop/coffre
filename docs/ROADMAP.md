@@ -31,7 +31,7 @@ Coffre a déjà un socle rare : format ouvert, chiffrement local, synchronisatio
 ### Séquence recommandée
 
 ```text
-0.16  Extension partout, Windows/Linux, CXP
+0.16  Extension partout, Windows/Linux
 0.17  Confiance, portabilité, UX, audit préparatoire
 0.18  Android
 0.19  Synchronisation utilisateur, famille, partage
@@ -135,7 +135,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Notarisation / Developer ID | Absent (compte Apple) | Haut (installation) |
 | Partage familial/équipe | Absent ; seul le partage hors ligne existe | Très haut |
 | Sync WebDAV/S3/Nextcloud | Absent | Haut (différenciation) |
-| CXP (passkeys portables) | CXF fichier seulement | Haut |
+| CXP (passkeys portables) | CXF fichier seulement ; CXP différé (spec instable) | Haut |
 | Passkey unlock / cross-device | Partiel (PRF matériel) | Moyen |
 | Alertes de fuite email / dark web | HIBP mots de passe seulement | Moyen |
 | Alias email en ligne | Alias hors ligne seulement | Moyen |
@@ -356,7 +356,9 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Éditeur de séquence auto-type.
 - CXP/CXF : import/export de passkeys et d’identifiants entre gestionnaires.
   **CXF 1.0 livré pour tous les types Coffre** (Wi-Fi, SSH, API, licences,
-  documents, identités) ; mapping et plan CXP dans `docs/CXF-CXP.md`.
+  documents, identités) ; mapping dans `docs/CXF-CXP.md`. **CXP reporté** :
+  le Working Draft 2024 ne définit ni challenge, ni signature, ni paramètres
+  JWE ; voir les risques documentés.
 - Passkey unlock (PRF) et revue du déverrouillage biométrique.
 - Tableau de bord sécurité v2 : évolution, remédiation guidée, export.
 - Assistant de changement de mot de passe v2 : détection de formulaire, mise à jour assistée.
@@ -374,7 +376,7 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
   éléments, générateur et TOTP. Build CI et signature debug ;
   autofill/passkeys/biométrie restent en 0.18.
 
-**Sortie :** 0.17.0 stable, extension publiée sur au moins un store, CXP utilisable sur desktop, APK Android alpha testable, audit planifié.
+**Sortie :** 0.17.0 stable, extension publiée sur au moins un store, CXF complet et portable, APK Android alpha testable, audit planifié. CXP dépend d’une spécification stable ou des API système.
 
 ### 5.3 `0.18.0` — Android (mois 2–4)
 
@@ -766,7 +768,7 @@ requis pour soumettre.
 
 | ID | Fonction | Priorité | Horizon | Effort |
 | --- | --- | --- | --- | --- |
-| P01 | CXP import/export | P0 | 0.17 | L |
+| P01 | CXP import/export | P0 | 0.17 (bloqué : spec instable) | L |
 | P02 | CXF complet (tous types) | P1 | 0.17 (livré) | M |
 | P03 | Passkey unlock (PRF) | P1 | 0.17 | M |
 | P04 | Transfert de passkey par QR | P1 | 0.18 | M |

@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- Documentation : **CXP reporté** après analyse du Working Draft 2024 — absence
+  de challenge/signature, d’identifiant anonyme et de paramètres JWE normatifs.
+  CXF 1.0 reste la voie de portabilité supportée ; les risques et les prérequis
+  sont dans `docs/CXF-CXP.md`.
 - Robustesse : **fuzzing par propriétés** des parseurs CXF, imports, TOTP,
   parts Shamir et KDBX (`fast-check`). Les entrées arbitraires doivent produire
   une erreur contrôlée, jamais un crash. Un libellé TOTP mal encodé n’empêche
