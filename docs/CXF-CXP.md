@@ -38,7 +38,7 @@ après confirmation du mot de passe maître. Le fichier produit s’appelle
 | `api-credential` | `api-key` | `secret` → `key`, `keyId` → `username`, `endpoint` → `url`, `expiresAt` → `expiryDate`, environnement en champ personnalisé. |
 | `software-license` | `custom-fields`, `note` | Champs « Clé de licence », « Titulaire », « Version », « Site web », « Date d’achat ». Type restauré par extension. |
 | `document` | `identity-document` ou `custom-fields`, `note` | Les documents d’identité utilisent `identity-document` ; les autres gardent leurs champs en libellés. Type restauré par extension. |
-| `recovery-codes` | `note` | Les codes sont exportés en texte, avec la date d’utilisation. |
+| `recovery-codes` | `note` | Les codes sont exportés en texte, avec la date d’utilisation ; l’extension restaure le type et les codes à l’import. |
 
 Les champs personnalisés Coffre sont exportés dans un justificatif
 `custom-fields`. Les libellés et types sont conservés : `hidden`, `password`,
@@ -58,7 +58,7 @@ format `EXPORTER_RP_ID/EXTENSION_NAME` :
 }
 ```
 
-Valeurs utilisées : `software-license` et `document`. Les autres importateurs
+Valeurs utilisées : `software-license`, `document` et `recovery-codes`. Les autres importateurs
 doivent ignorer cette extension ; Coffre s’en sert uniquement pour restaurer le
 type d’élément et ses champs. Aucun secret supplémentaire n’y est stocké.
 

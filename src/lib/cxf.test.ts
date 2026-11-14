@@ -256,8 +256,10 @@ describe('export CXF 1.0', () => {
     expect(typeof passkeyCredential.key).toBe('string')
   })
 
-  it('exporte les codes de secours comme note', () => {
-    const result = exportCxf([recoveryCodes()])
+  it('exporte les codes de secours comme note et les restaure', async () => {
+    const item = recoveryCodes()
+    item.notes = 'Note de secours'
+    const result = exportCxf([item])
     const credentials = result.document.accounts[0].items[0].credentials
     expect(credentials[0]).toMatchObject({
       type: 'note',
@@ -268,6 +270,24 @@ describe('export CXF 1.0', () => {
     expect(
       (credentials[0].content as { value: string }).value,
     ).toContain('CCCC-DDDD')
+    expect(result.document.accounts[0].items[0].extensions).toEqual([
+      { name: 'coffre.local/item-type', itemType: 'recovery-codes' },
+    ])
+
+    const parsed = await parseCxf(result.json, 'v_codes')
+    expect(parsed.items[0]).toMatchObject({
+      type: 'recovery-codes',
+      notes: 'Note de secours',
+    })
+    const imported = parsed.items[0]
+    expect(imported.type === 'recovery-codes' ? imported.codes : []).toEqual([
+      { id: expect.any(String), code: 'AAAA-BBBB', usedAt: null },
+      {
+        id: expect.any(String),
+        code: 'CCCC-DDDD',
+        usedAt: '2026-11-09T10:00:00.000Z',
+      },
+    ])
   })
 
   it('exclut les passkeys à compteur non nul et signale les pièces jointes', async () => {

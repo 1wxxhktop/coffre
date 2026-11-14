@@ -21,6 +21,7 @@ import {
   type CustomField,
   type DocumentKind,
   type ItemDraft,
+  type RecoveryCode,
   type VaultItem,
 } from './types'
 
@@ -535,7 +536,9 @@ export function exportCxf(
       ...(scope ? { scope } : {}),
       credentials,
       ...(item.tags.length > 0 ? { tags: item.tags.slice(0, 30) } : {}),
-      ...(item.type === 'software-license' || item.type === 'document'
+      ...(item.type === 'software-license' ||
+      item.type === 'document' ||
+      item.type === 'recovery-codes'
         ? { extensions: [itemTypeExtension(item.type)] }
         : {}),
     })
@@ -642,6 +645,22 @@ function wifiSecurityFromCxf(value: string): 'WPA' | 'WEP' | 'nopass' {
 /** Retire les champs déjà convertis en propriétés structurées. */
 function withoutFields(fields: CustomField[], labels: string[]): CustomField[] {
   return fields.filter((entry) => !labels.includes(entry.label))
+}
+
+/** Relit le texte produit par `recoveryCodesExportText`. */
+function recoveryCodesFromText(text: string): RecoveryCode[] {
+  const codes: RecoveryCode[] = []
+  for (const line of text.split(/\r?\n/)) {
+    const value = line.trim()
+    if (!value) continue
+    const match = /^(.*) \(utilisé le ([^)]+)\)$/.exec(value)
+    codes.push({
+      id: cxfId(),
+      code: (match ? match[1] : value).slice(0, 500),
+      usedAt: match ? match[2] : null,
+    })
+  }
+  return codes
 }
 
 function customFieldsFromCxf(credential: Record<string, unknown>): CustomField[] {
@@ -1050,6 +1069,24 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
           draft.version = version?.value ?? ''
           draft.website = website?.value ?? ''
           draft.purchaseDate = purchaseDate?.value ?? ''
+        }
+        items.push(draft)
+        created = true
+      }
+
+      if (coffreType === 'recovery-codes') {
+        const notes = credentials
+          .filter((entry) => credentialType(entry) === 'note')
+          .map((entry) => editableValue(entry.content))
+        const draft = emptyDraft('recovery-codes', vaultId)
+        if (draft.type === 'recovery-codes') {
+          draft.title = common.title
+          draft.notes = notes.slice(1).join('\n\n')
+          draft.tags = common.tags
+          draft.favorite = common.favorite
+          draft.customFields = common.customFields
+          draft.expiresAt = common.expiresAt
+          draft.codes = recoveryCodesFromText(notes[0] ?? '')
         }
         items.push(draft)
         created = true
