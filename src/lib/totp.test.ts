@@ -85,6 +85,13 @@ describe('URI otpauth', () => {
     expect(isTotpUri('https://example.com')).toBe(false)
   })
 
+  it('tolère un libellé mal encodé quand le secret est valide', () => {
+    const parsed = parseTotpUri(
+      'otpauth://totp/A%ZZ?secret=JBSWY3DPEHPK3PXP',
+    )
+    expect(parsed.account).toBe('A%ZZ')
+  })
+
   it('refuse les algorithmes inconnus et les paramètres hors limites', () => {
     const base = 'otpauth://totp/Test?secret=JBSWY3DPEHPK3PXP'
     expect(() => parseTotpUri(`${base}&algorithm=MD5`)).toThrow(/algorithme/i)

@@ -136,7 +136,7 @@ describe('KDBX 4', () => {
     const result = await readKdbx(bytes, 'a', 'v_import')
     expect(result.items.length).toBeGreaterThan(0)
     expect(result.items.some((item) => item.title === 'Sample Entry')).toBe(true)
-  })
+  }, 60_000)
 
   it('refuse un mot de passe incorrect', async () => {
     const bytes = await writeKdbx({

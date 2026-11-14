@@ -643,7 +643,9 @@ requis pour soumettre.
 6. **Fuites** : HIBP mots de passe, email opt-in, cache local, aucune persistance des résultats sensibles.
 7. **Duress/panique** : mot de passe de contrainte, coffre leurre, effacement d’urgence.
 8. **Journal d’audit** : chaîne de hachage, export, vérification.
-9. **Fuzzing** : KDBX, CXF, CXP, imports, parsers ; `cargo-fuzz`.
+9. **Fuzzing** : KDBX, CXF, CXP, imports, parsers ; `cargo-fuzz` pour le cœur
+   Rust et tests `fast-check` pour CXF, imports, TOTP, Shamir et KDBX. Le
+   fuzzing binaire KDBX/CXF et CXP reste à ajouter.
 10. **Bug bounty** : périmètre, récompenses, divulgation.
 
 **Acceptation :** audit sans finding critique/haut, migration PQ testée, fuzzing en CI.
@@ -777,7 +779,7 @@ requis pour soumettre.
 | P11 | Surveillance email/dark web opt-in | P2 | 0.17 | M |
 | P12 | Mode contrainte / coffre leurre | P3 | 1.0+ | M |
 | P13 | Journal d’audit à chaîne de hachage | P2 | 0.20 | M |
-| P14 | Fuzzing des parseurs | P1 | 0.17 | M |
+| P14 | Fuzzing des parseurs | P1 | 0.17 (partiel) | M |
 | P15 | Bug bounty | P2 | 1.0 | M |
 
 ### 7.5 Plateformes
