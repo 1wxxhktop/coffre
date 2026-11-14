@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- Robustesse : **fuzzing par propriétés** des parseurs CXF, imports, TOTP,
+  parts Shamir et KDBX (`fast-check`). Les entrées arbitraires doivent produire
+  une erreur contrôlée, jamais un crash. Un libellé TOTP mal encodé n’empêche
+  plus de lire un secret valide.
 - Portabilité : **CXF 1.0 couvre désormais tous les types Coffre** — Wi-Fi,
   identifiants d’API, clés SSH PKCS#8, licences, documents et documents
   d’identité, en plus des connexions, notes, cartes, identités et passkeys.
