@@ -77,7 +77,14 @@ export function parseTotpUri(uri: string): TotpConfig {
   }
   const period = periodRaw
 
-  const label = decodeURIComponent(parsed.pathname.replace(/^\/+/, ''))
+  const rawLabel = parsed.pathname.replace(/^\/+/, '')
+  let label = rawLabel
+  try {
+    label = decodeURIComponent(rawLabel)
+  } catch {
+    // Un pourcentage invalide ne doit pas faire échouer un lien TOTP dont le
+    // secret et les paramètres sont valides.
+  }
   const [labelIssuer, ...labelAccount] = label.split(':')
   const account = (labelAccount.join(':') || labelIssuer || '').trim()
   const issuer = (parsed.searchParams.get('issuer') || (labelAccount.length ? labelIssuer : '')).trim()
