@@ -94,8 +94,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   détection des colonnes, aperçu, rapport des colonnes ignorées et
   déduplication avant import.
 - **Export CXF 1.0** : document JSON de portabilité FIDO pour les connexions,
-  notes, cartes, identités et passkeys, avec avertissement explicite sur les
-  secrets en clair.
+  notes, cartes, identités, passkeys, Wi-Fi, clés SSH, identifiants d’API,
+  licences et documents, avec avertissement explicite sur les secrets en clair.
+  Le mapping complet est dans
+  [`docs/CXF-CXP.md`](docs/CXF-CXP.md).
 - **Extension navigateur** (Manifest V3, Chromium et Firefox) : remplissage
   automatique des connexions, codes TOTP, **cartes bancaires** et **identités /
   adresses** depuis l’onglet Coffre déverrouillé, ou directement depuis
@@ -532,7 +534,7 @@ envoyé sur le réseau.
 | SafeInCloud | CSV | `Title`, `Login`, `Password`, `URL`, `Notes` |
 | Enpass | CSV | `Title`, `Username`, `Password`, `URL`, `Notes`, `Folder` |
 | 1Password 1PUX | ZIP + JSON | `export.data`, connexions, cartes, notes, identités et champs personnalisés |
-| CXF 1.0 | JSON | Connexions, notes, cartes, identités et **passkeys** ; la clé publique COSE est recalculée localement |
+| CXF 1.0 | JSON | Connexions, notes, cartes, identités, **passkeys**, Wi-Fi, clés SSH, identifiants d’API, licences et documents ; la clé publique COSE est recalculée localement |
 
 Les colonnes inconnues deviennent des champs personnalisés ; les colonnes de
 métadonnées non utilisées sont listées dans le rapport d’import. Avant l’import,
@@ -569,9 +571,16 @@ Coffre importe et exporte le **Credential Exchange Format 1.0** de la FIDO
 Alliance sous forme de document JSON (`coffre.cxf.json`) :
 
 - connexions (`basic-auth`, `totp`), notes, cartes, identités (`address`,
-  `person-name`) et passkeys ;
+  `person-name`, `passport`, `drivers-license`, `identity-document`), passkeys,
+  Wi-Fi (`wifi`), identifiants d’API (`api-key`) et clés SSH (`ssh-key`) ;
+- les licences logicielles et les documents sans équivalent CXF natif sont
+  exportés en champs personnalisés, avec une extension `coffre.local/item-type`
+  pour restaurer leur type à l’import ;
 - les passkeys sont converties dans les deux sens ; la clé publique COSE est
   recalculée localement depuis la clé privée PKCS#8 à l’import ;
+- les clés SSH ne sont exportées comme `ssh-key` que si elles sont au format
+  PKCS#8 ; une clé OpenSSH reste portable via les champs personnalisés, avec un
+  avertissement ;
 - les passkeys dont le compteur de signature n’est pas nul sont exclues de
   l’export, conformément à la spécification ;
 - les pièces jointes et l’historique ne sont pas inclus.
@@ -580,7 +589,8 @@ Le document CXF **n’est pas chiffré** : il contient les mots de passe et les
 clés privées des passkeys en clair. L’interface demande une confirmation
 explicite avant l’export ; le fichier doit être transféré uniquement vers un
 gestionnaire de confiance, puis supprimé. Le chiffrement du transport CXP n’est
-pas implémenté.
+pas implémenté ; le plan et les prérequis sont dans
+[`docs/CXF-CXP.md`](docs/CXF-CXP.md).
 
 ### Modèles d’éléments
 

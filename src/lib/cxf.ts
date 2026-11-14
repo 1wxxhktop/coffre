@@ -16,10 +16,41 @@ import {
   publicKeyCoseFromPrivateKey,
   toBase64Url,
 } from './passkeys'
-import { emptyDraft, type CustomField, type ItemDraft, type VaultItem } from './types'
+import {
+  emptyDraft,
+  type CustomField,
+  type DocumentKind,
+  type ItemDraft,
+  type VaultItem,
+} from './types'
 
 const CXF_MAJOR = 1
 const CXF_MINOR = 0
+
+/**
+ * Extension propriétaire pour les types sans équivalent CXF natif. Le nom
+ * respecte `EXPORTER_RP_ID/EXTENSION_NAME` ; les autres importateurs doivent
+ * l’ignorer.
+ */
+const ITEM_TYPE_EXTENSION = 'coffre.local/item-type'
+
+const WIFI_TO_CXF: Record<string, string> = {
+  WPA: 'wpa2-personal',
+  WEP: 'wep',
+  nopass: 'unsecured',
+}
+
+const CXF_TO_WIFI: Record<string, 'WPA' | 'WEP' | 'nopass'> = {
+  'wpa-personal': 'WPA',
+  'wpa2-personal': 'WPA',
+  'wpa3-personal': 'WPA',
+  wep: 'WEP',
+  unsecured: 'nopass',
+}
+
+function itemTypeExtension(itemType: string): CxfExtension {
+  return { name: ITEM_TYPE_EXTENSION, itemType }
+}
 
 export interface CxfEditableField {
   id?: string
@@ -33,6 +64,11 @@ export interface CxfCredential {
   [key: string]: unknown
 }
 
+export interface CxfExtension {
+  name: string
+  [key: string]: unknown
+}
+
 export interface CxfItem {
   id: string
   creationAt?: number
@@ -40,9 +76,10 @@ export interface CxfItem {
   title: string
   subtitle?: string
   favorite?: boolean
-  scope?: { urls: string[]; androidApps?: unknown[] }
+  scope?: { urls: string[]; androidApps: unknown[] }
   credentials: CxfCredential[]
   tags?: string[]
+  extensions?: CxfExtension[]
 }
 
 export interface CxfCollection {
@@ -162,6 +199,40 @@ function scopeUrls(item: VaultItem): string[] {
     : []
 }
 
+function scopeFor(item: VaultItem): CxfItem['scope'] | undefined {
+  const urls = scopeUrls(item)
+  // `androidApps` est un tableau requis par CXF 1.0, même vide.
+  return urls.length > 0 ? { urls, androidApps: [] } : undefined
+}
+
+/** Convertit une clé PKCS#8 PEM en DER base64url, ou null si le format diffère. */
+function pkcs8Base64Url(privateKey: string): string | null {
+  const match =
+    /-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/.exec(privateKey)
+  if (!match) return null
+  const base64 = match[1].replace(/\s+/g, '')
+  return base64 ? base64ToBase64Url(base64) : null
+}
+
+function sshKeyType(publicKey: string): string {
+  return publicKey.trim().split(/\s+/)[0] ?? ''
+}
+
+function sshPrivateKeyPem(value: string): string {
+  const base64 = toBase64(fromBase64Url(value))
+  const lines = base64.match(/.{1,64}/g) ?? [base64]
+  return `-----BEGIN PRIVATE KEY-----\n${lines.join('\n')}\n-----END PRIVATE KEY-----`
+}
+
+function fieldValue(
+  fields: CustomField[],
+  labels: string[],
+): CustomField | undefined {
+  return fields.find(
+    (entry) => entry.label && labels.includes(entry.label),
+  )
+}
+
 function baseCustomFields(item: VaultItem): CxfEditableField[] {
   const fields = item.customFields
     .filter((entry) => entry.label.trim() || entry.value.trim())
@@ -190,6 +261,9 @@ function credentialsFor(item: VaultItem, warnings: string[]): CxfCredential[] {
     }
   } else if (item.type === 'note') {
     credentials.push({ type: 'note', content: field(item.notes, 'string') })
+    const custom = customFieldsCredential(baseCustomFields(item))
+    if (custom) credentials.push(custom)
+    return credentials
   } else if (item.type === 'recovery-codes') {
     credentials.push({
       type: 'note',
@@ -213,6 +287,121 @@ function credentialsFor(item: VaultItem, warnings: string[]): CxfCredential[] {
         ? { expiryDate: field(cardExpiry(item.expiry), 'year-month') }
         : {}),
     })
+  } else if (item.type === 'ssh-key') {
+    const keyType = sshKeyType(item.publicKey)
+    const privateKey = pkcs8Base64Url(item.privateKey)
+    if (keyType && privateKey) {
+      credentials.push({
+        type: 'ssh-key',
+        keyType,
+        privateKey,
+        ...(item.comment ? { keyComment: item.comment.slice(0, 500) } : {}),
+      })
+    } else {
+      warnings.push(
+        `« ${item.title} » : clé SSH exportée en champs personnalisés (CXF exige une clé PKCS#8 et un type de clé publique).`,
+      )
+    }
+    const extra = baseCustomFields(item)
+    if (!privateKey) {
+      extra.push(
+        field(item.privateKey.slice(0, 10_000), 'concealed-string', 'Clé privée SSH'),
+      )
+    }
+    if (item.publicKey) {
+      extra.push(field(item.publicKey.slice(0, 10_000), 'string', 'Clé publique SSH'))
+    }
+    if (item.fingerprint) {
+      extra.push(field(item.fingerprint.slice(0, 500), 'string', 'Empreinte SSH'))
+    }
+    if (!privateKey && item.comment) {
+      extra.push(field(item.comment.slice(0, 500), 'string', 'Commentaire SSH'))
+    }
+    if (item.notes.trim()) {
+      credentials.push({ type: 'note', content: field(item.notes, 'string') })
+    }
+    const custom = customFieldsCredential(extra)
+    if (custom) credentials.push(custom)
+    return credentials
+  } else if (item.type === 'wifi') {
+    credentials.push({
+      type: 'wifi',
+      ...(item.ssid ? { ssid: field(item.ssid, 'string') } : {}),
+      networkSecurityType: field(
+        WIFI_TO_CXF[item.security] ?? 'wpa2-personal',
+        'wifi-network-security-type',
+      ),
+      ...(item.password
+        ? { passphrase: field(item.password, 'concealed-string') }
+        : {}),
+      hidden: field(String(item.hidden), 'boolean'),
+    })
+  } else if (item.type === 'api-credential') {
+    credentials.push({
+      type: 'api-key',
+      ...(item.secret ? { key: field(item.secret, 'concealed-string') } : {}),
+      ...(item.keyId ? { username: field(item.keyId, 'string') } : {}),
+      ...(item.endpoint ? { url: field(item.endpoint, 'string') } : {}),
+      ...(item.expiresAt ? { expiryDate: field(item.expiresAt, 'date') } : {}),
+    })
+    const extra = baseCustomFields(item).filter((entry) => entry.label !== 'Échéance')
+    if (item.environment) {
+      extra.push(field(item.environment, 'string', 'Environnement'))
+    }
+    if (item.notes.trim()) {
+      credentials.push({ type: 'note', content: field(item.notes, 'string') })
+    }
+    const custom = customFieldsCredential(extra)
+    if (custom) credentials.push(custom)
+    return credentials
+  } else if (item.type === 'software-license') {
+    const extra = baseCustomFields(item)
+    if (item.licenseKey) {
+      extra.unshift(field(item.licenseKey, 'concealed-string', 'Clé de licence'))
+    }
+    if (item.licensedTo) extra.push(field(item.licensedTo, 'string', 'Titulaire'))
+    if (item.version) extra.push(field(item.version, 'string', 'Version'))
+    if (item.website) extra.push(field(item.website, 'string', 'Site web'))
+    if (item.purchaseDate) {
+      extra.push(field(item.purchaseDate, 'date', 'Date d’achat'))
+    }
+    if (item.notes.trim()) {
+      credentials.push({ type: 'note', content: field(item.notes, 'string') })
+    }
+    const custom = customFieldsCredential(extra)
+    if (custom) credentials.push(custom)
+    return credentials
+  } else if (item.type === 'document') {
+    const extra = baseCustomFields(item).filter((entry) => entry.label !== 'Échéance')
+    if (item.documentKind === 'identity') {
+      credentials.push({
+        type: 'identity-document',
+        ...(item.documentNumber
+          ? { documentNumber: field(item.documentNumber, 'string') }
+          : {}),
+        ...(item.issuer
+          ? { issuingAuthority: field(item.issuer, 'string') }
+          : {}),
+        ...(item.issuedAt ? { issueDate: field(item.issuedAt, 'date') } : {}),
+        ...(item.expiresAt ? { expiryDate: field(item.expiresAt, 'date') } : {}),
+      })
+    } else {
+      extra.push(field(item.documentKind, 'string', 'Type de document'))
+      if (item.issuer) extra.push(field(item.issuer, 'string', 'Émetteur'))
+      if (item.documentNumber) {
+        extra.push(field(item.documentNumber, 'string', 'Numéro du document'))
+      }
+      if (item.issuedAt) {
+        extra.push(field(item.issuedAt, 'date', 'Date d’émission'))
+      }
+      if (item.expiresAt) extra.push(field(item.expiresAt, 'date', 'Échéance'))
+    }
+    if (item.notes.trim()) {
+      credentials.push({ type: 'note', content: field(item.notes, 'string') })
+    }
+    const custom = customFieldsCredential(extra)
+    if (custom) credentials.push(custom)
+    return credentials
   } else if (item.type === 'identity') {
     if (
       item.address ||
@@ -237,17 +426,33 @@ function credentialsFor(item: VaultItem, warnings: string[]): CxfCredential[] {
         ...(item.lastName ? { surname: field(item.lastName, 'string') } : {}),
       })
     }
-    const extra = baseCustomFields(item)
-    if (item.email) extra.push(field(item.email, 'email', 'E-mail'))
-    if (item.birthDate) extra.push(field(item.birthDate, 'date', 'Naissance'))
+    const fullName = [item.firstName, item.lastName].filter(Boolean).join(' ')
     if (item.passportExpiry) {
-      extra.push(field(item.passportExpiry, 'date', 'Expiration passeport'))
-    }
-    if (item.idCardExpiry) {
-      extra.push(field(item.idCardExpiry, 'date', "Expiration carte d’identité"))
+      credentials.push({
+        type: 'passport',
+        ...(fullName ? { fullName: field(fullName, 'string') } : {}),
+        expiryDate: field(item.passportExpiry, 'date'),
+      })
     }
     if (item.licenseExpiry) {
-      extra.push(field(item.licenseExpiry, 'date', 'Expiration permis'))
+      credentials.push({
+        type: 'drivers-license',
+        ...(fullName ? { fullName: field(fullName, 'string') } : {}),
+        expiryDate: field(item.licenseExpiry, 'date'),
+      })
+    }
+    if (item.idCardExpiry) {
+      credentials.push({
+        type: 'identity-document',
+        ...(fullName ? { fullName: field(fullName, 'string') } : {}),
+        ...(item.birthDate ? { birthDate: field(item.birthDate, 'date') } : {}),
+        expiryDate: field(item.idCardExpiry, 'date'),
+      })
+    }
+    const extra = baseCustomFields(item)
+    if (item.email) extra.push(field(item.email, 'email', 'E-mail'))
+    if (item.birthDate && !item.idCardExpiry) {
+      extra.push(field(item.birthDate, 'date', 'Naissance'))
     }
     if (item.notes.trim()) {
       credentials.push({ type: 'note', content: field(item.notes, 'string') })
@@ -311,7 +516,7 @@ export function exportCxf(
     attachments += item.attachments.length
     const createdAt = Date.parse(item.createdAt)
     const modifiedAt = Date.parse(item.updatedAt)
-    const urls = scopeUrls(item)
+    const scope = scopeFor(item)
     cxfItems.push({
       id: cxfId(),
       ...(Number.isFinite(createdAt)
@@ -322,9 +527,12 @@ export function exportCxf(
         : {}),
       title: item.title || 'Sans titre',
       ...(item.favorite ? { favorite: true } : {}),
-      ...(urls.length > 0 ? { scope: { urls } } : {}),
+      ...(scope ? { scope } : {}),
       credentials,
       ...(item.tags.length > 0 ? { tags: item.tags.slice(0, 30) } : {}),
+      ...(item.type === 'software-license' || item.type === 'document'
+        ? { extensions: [itemTypeExtension(item.type)] }
+        : {}),
     })
   }
 
@@ -399,6 +607,36 @@ function importFieldType(value: unknown): CustomField['type'] {
     default:
       return 'text'
   }
+}
+
+function cxfItemTypeExtension(item: Record<string, unknown>): string {
+  if (!Array.isArray(item.extensions)) return ''
+  for (const entry of item.extensions) {
+    const record = asRecord(entry)
+    if (record && asString(record.name) === ITEM_TYPE_EXTENSION) {
+      return asString(record.itemType)
+    }
+  }
+  return ''
+}
+
+function documentKindFromValue(value: string): DocumentKind {
+  return value === 'identity' ||
+    value === 'contract' ||
+    value === 'invoice' ||
+    value === 'certificate' ||
+    value === 'other'
+    ? value
+    : 'other'
+}
+
+function wifiSecurityFromCxf(value: string): 'WPA' | 'WEP' | 'nopass' {
+  return CXF_TO_WIFI[value] ?? 'WPA'
+}
+
+/** Retire les champs déjà convertis en propriétés structurées. */
+function withoutFields(fields: CustomField[], labels: string[]): CustomField[] {
+  return fields.filter((entry) => !labels.includes(entry.label))
 }
 
 function customFieldsFromCxf(credential: Record<string, unknown>): CustomField[] {
@@ -551,6 +789,21 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
       const passkeys = credentials.filter(
         (entry) => credentialType(entry) === 'passkey',
       )
+      const wifi = credentials.find((entry) => credentialType(entry) === 'wifi')
+      const apiKey = credentials.find((entry) => credentialType(entry) === 'api-key')
+      const sshKey = credentials.find(
+        (entry) => credentialType(entry) === 'ssh-key',
+      )
+      const passport = credentials.find(
+        (entry) => credentialType(entry) === 'passport',
+      )
+      const driversLicense = credentials.find(
+        (entry) => credentialType(entry) === 'drivers-license',
+      )
+      const identityDocument = credentials.find(
+        (entry) => credentialType(entry) === 'identity-document',
+      )
+      const coffreType = cxfItemTypeExtension(item)
       for (const credential of credentials) {
         const type = credentialType(credential)
         if (
@@ -564,19 +817,29 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
             'address',
             'person-name',
             'passkey',
+            'wifi',
+            'api-key',
+            'ssh-key',
+            'passport',
+            'drivers-license',
+            'identity-document',
           ].includes(type)
         ) {
           unsupported.add(type)
         }
       }
 
+      const importedFields = custom
+        .flatMap(customFieldsFromCxf)
+        .slice(0, 30)
+      const expiryField = fieldValue(importedFields, ['Échéance'])
       const common = {
         title,
         notes: note ? editableValue(note.content) : '',
         tags,
         favorite,
-        customFields: custom.flatMap(customFieldsFromCxf).slice(0, 30),
-        expiresAt: '',
+        customFields: withoutFields(importedFields, ['Échéance']),
+        expiresAt: expiryField?.value ?? '',
       }
 
       let created = false
@@ -589,6 +852,7 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
           draft.tags = common.tags
           draft.favorite = common.favorite
           draft.customFields = common.customFields
+          draft.expiresAt = common.expiresAt
           draft.username = basic ? editableValue(basic.username) : ''
           draft.password = basic ? editableValue(basic.password) : ''
           draft.urls = urls.length > 0 ? urls : ['']
@@ -606,6 +870,7 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
           draft.tags = common.tags
           draft.favorite = common.favorite
           draft.customFields = common.customFields
+          draft.expiresAt = common.expiresAt
           draft.number = editableValue(card.number)
           draft.cardholder = editableValue(card.fullName)
           draft.brand = editableValue(card.cardType)
@@ -617,7 +882,91 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
         created = true
       }
 
-      if (address || person) {
+      if (wifi) {
+        const draft = emptyDraft('wifi', vaultId)
+        if (draft.type === 'wifi') {
+          draft.title = common.title
+          draft.notes = common.notes
+          draft.tags = common.tags
+          draft.favorite = common.favorite
+          draft.customFields = common.customFields
+          draft.expiresAt = common.expiresAt
+          draft.ssid = editableValue(wifi.ssid)
+          draft.password = editableValue(wifi.passphrase)
+          draft.security = wifiSecurityFromCxf(
+            editableValue(wifi.networkSecurityType),
+          )
+          draft.hidden = editableValue(wifi.hidden) === 'true'
+        }
+        items.push(draft)
+        created = true
+      }
+
+      if (apiKey) {
+        const environment = fieldValue(common.customFields, ['Environnement'])
+        const draft = emptyDraft('api-credential', vaultId)
+        if (draft.type === 'api-credential') {
+          draft.title = common.title
+          draft.notes = common.notes
+          draft.tags = common.tags
+          draft.favorite = common.favorite
+          draft.customFields = withoutFields(common.customFields, ['Environnement'])
+          draft.expiresAt =
+            editableValue(apiKey.expiryDate) || common.expiresAt
+          draft.keyId = editableValue(apiKey.username)
+          draft.secret = editableValue(apiKey.key)
+          draft.environment = environment?.value ?? ''
+          draft.endpoint = editableValue(apiKey.url)
+        }
+        items.push(draft)
+        created = true
+      }
+
+      const sshFallback = sshKey
+        ? undefined
+        : fieldValue(common.customFields, ['Clé privée SSH'])
+      if (sshKey || sshFallback) {
+        const publicKey = fieldValue(common.customFields, ['Clé publique SSH'])
+        const fingerprint = fieldValue(common.customFields, ['Empreinte SSH'])
+        const comment = fieldValue(common.customFields, ['Commentaire SSH'])
+        try {
+          const privateKey = sshKey
+            ? sshPrivateKeyPem(asString(sshKey.privateKey))
+            : sshFallback?.value ?? ''
+          if (!privateKey) throw new Error('clé absente')
+          const draft = emptyDraft('ssh-key', vaultId)
+          if (draft.type === 'ssh-key') {
+            draft.title = common.title
+            draft.notes = common.notes
+            draft.tags = common.tags
+            draft.favorite = common.favorite
+            draft.customFields = withoutFields(common.customFields, [
+              'Clé publique SSH',
+              'Empreinte SSH',
+              'Clé privée SSH',
+              'Commentaire SSH',
+            ])
+            draft.expiresAt = common.expiresAt
+            draft.privateKey = privateKey
+            draft.publicKey = publicKey?.value ?? ''
+            draft.fingerprint = fingerprint?.value ?? ''
+            draft.comment = sshKey
+              ? asString(sshKey.keyComment)
+              : comment?.value ?? ''
+          }
+          items.push(draft)
+          created = true
+        } catch {
+          warnings.push(`« ${title} » : clé SSH CXF invalide, ignorée.`)
+        }
+      }
+
+      const specialCoffreType =
+        coffreType === 'document' || coffreType === 'software-license'
+      if (
+        !specialCoffreType &&
+        (address || person || passport || driversLicense || identityDocument)
+      ) {
         const draft = emptyDraft('identity', vaultId)
         if (draft.type === 'identity') {
           draft.title = common.title
@@ -625,6 +974,7 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
           draft.tags = common.tags
           draft.favorite = common.favorite
           draft.customFields = common.customFields
+          draft.expiresAt = common.expiresAt
           draft.firstName = person ? editableValue(person.given) : ''
           draft.lastName = person ? editableValue(person.surname) : ''
           draft.address = address ? editableValue(address.streetAddress) : ''
@@ -632,12 +982,114 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
           draft.city = address ? editableValue(address.city) : ''
           draft.country = address ? editableValue(address.country) : ''
           draft.phone = address ? editableValue(address.tel) : ''
+          draft.passportExpiry = passport ? editableValue(passport.expiryDate) : ''
+          draft.licenseExpiry = driversLicense
+            ? editableValue(driversLicense.expiryDate)
+            : ''
+          draft.idCardExpiry = identityDocument
+            ? editableValue(identityDocument.expiryDate)
+            : ''
+          const documentBirthDate = identityDocument
+            ? editableValue(identityDocument.birthDate)
+            : ''
+          if (documentBirthDate) draft.birthDate = documentBirthDate
           for (const fieldEntry of common.customFields) {
             if (fieldEntry.label === 'E-mail' && !draft.email) draft.email = fieldEntry.value
             if (fieldEntry.label === 'Naissance' && !draft.birthDate) {
               draft.birthDate = fieldEntry.value
             }
           }
+          const fullName = [passport, driversLicense, identityDocument]
+            .map((credential) =>
+              credential ? editableValue(credential.fullName) : '',
+            )
+            .find(Boolean)
+          if (fullName && !draft.firstName && !draft.lastName) {
+            draft.customFields = [
+              ...draft.customFields,
+              {
+                id: cxfId(),
+                label: 'Nom complet',
+                value: fullName,
+                type: 'text' as const,
+              },
+            ].slice(0, 30)
+          }
+        }
+        items.push(draft)
+        created = true
+      }
+
+      if (coffreType === 'software-license') {
+        const licenseKey = fieldValue(common.customFields, ['Clé de licence'])
+        const licensedTo = fieldValue(common.customFields, ['Titulaire'])
+        const version = fieldValue(common.customFields, ['Version'])
+        const website = fieldValue(common.customFields, ['Site web'])
+        const purchaseDate = fieldValue(common.customFields, ['Date d’achat'])
+        const draft = emptyDraft('software-license', vaultId)
+        if (draft.type === 'software-license') {
+          draft.title = common.title
+          draft.notes = common.notes
+          draft.tags = common.tags
+          draft.favorite = common.favorite
+          draft.customFields = withoutFields(common.customFields, [
+            'Clé de licence',
+            'Titulaire',
+            'Version',
+            'Site web',
+            'Date d’achat',
+          ])
+          draft.expiresAt = common.expiresAt
+          draft.licenseKey = licenseKey?.value ?? ''
+          draft.licensedTo = licensedTo?.value ?? ''
+          draft.version = version?.value ?? ''
+          draft.website = website?.value ?? ''
+          draft.purchaseDate = purchaseDate?.value ?? ''
+        }
+        items.push(draft)
+        created = true
+      }
+
+      if (coffreType === 'document') {
+        const kind = fieldValue(common.customFields, ['Type de document'])
+        const issuer = fieldValue(common.customFields, ['Émetteur'])
+        const documentNumber = fieldValue(common.customFields, [
+          'Numéro du document',
+        ])
+        const issuedAt = fieldValue(common.customFields, ['Date d’émission'])
+        const draft = emptyDraft('document', vaultId)
+        if (draft.type === 'document') {
+          draft.title = common.title
+          draft.notes = common.notes
+          draft.tags = common.tags
+          draft.favorite = common.favorite
+          draft.customFields = withoutFields(common.customFields, [
+            'Type de document',
+            'Émetteur',
+            'Numéro du document',
+            'Date d’émission',
+          ])
+          draft.documentKind = documentKindFromValue(
+            kind?.value ?? (identityDocument ? 'identity' : 'other'),
+          )
+          draft.issuer =
+            issuer?.value ??
+            (identityDocument
+              ? editableValue(identityDocument.issuingAuthority)
+              : '')
+          draft.documentNumber =
+            documentNumber?.value ??
+            (identityDocument
+              ? editableValue(identityDocument.documentNumber)
+              : '')
+          draft.issuedAt =
+            issuedAt?.value ??
+            (identityDocument ? editableValue(identityDocument.issueDate) : '')
+          draft.expiresAt =
+            common.expiresAt ||
+            (identityDocument
+              ? editableValue(identityDocument.expiryDate)
+              : '')
         }
         items.push(draft)
         created = true
@@ -650,6 +1102,7 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
         draft.tags = common.tags
         draft.favorite = common.favorite
         draft.customFields = common.customFields
+        draft.expiresAt = common.expiresAt
         items.push(draft)
         created = true
       }
@@ -672,6 +1125,7 @@ export async function parseCxf(text: string, vaultId: string): Promise<ParsedImp
             draft.tags = common.tags
             draft.favorite = common.favorite
             draft.customFields = common.customFields
+            draft.expiresAt = common.expiresAt
             draft.rpId = rpId
             draft.userName =
               asString(passkey.username) || asString(passkey.userName)

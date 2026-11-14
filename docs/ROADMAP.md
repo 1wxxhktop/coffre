@@ -355,6 +355,8 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - i18n : messages Rust en anglais.
 - Éditeur de séquence auto-type.
 - CXP/CXF : import/export de passkeys et d’identifiants entre gestionnaires.
+  **CXF 1.0 livré pour tous les types Coffre** (Wi-Fi, SSH, API, licences,
+  documents, identités) ; mapping et plan CXP dans `docs/CXF-CXP.md`.
 - Passkey unlock (PRF) et revue du déverrouillage biométrique.
 - Tableau de bord sécurité v2 : évolution, remédiation guidée, export.
 - Assistant de changement de mot de passe v2 : détection de formulaire, mise à jour assistée.
@@ -763,7 +765,7 @@ requis pour soumettre.
 | ID | Fonction | Priorité | Horizon | Effort |
 | --- | --- | --- | --- | --- |
 | P01 | CXP import/export | P0 | 0.17 | L |
-| P02 | CXF complet (tous types) | P1 | 0.17 | M |
+| P02 | CXF complet (tous types) | P1 | 0.17 (livré) | M |
 | P03 | Passkey unlock (PRF) | P1 | 0.17 | M |
 | P04 | Transfert de passkey par QR | P1 | 0.18 | M |
 | P05 | Windows passkey provider | P2 | 1.0 | L |
@@ -934,7 +936,9 @@ Le chemin critique est : **Android → AutoFill/passkeys → sync/partage → au
 1. **0.16.0** : tester la bêta `0.16.0-beta.26.1`, corriger, publier la stable.
 2. **Dependabot** : fusionner #79, #83, #97 ; rebaser #80–#82/#84 avec `cargo check`.
 3. **Orion** : ajouter Orion à `install_native_hosts` et documenter.
-4. **CXP/CXF** : écrire la spécification d’import/export et les vecteurs de test.
+4. **CXP/CXF** : spécification, mapping et vecteurs CXF écrits dans
+   `docs/CXF-CXP.md` et `src/lib/cxf.test.ts` ; choisir une bibliothèque HPKE
+   auditée pour le mode `indirect` CXP.
 5. **Audit** : rédiger le périmètre et l’appel d’offres.
 6. **Android** : spike UniFFI + Compose, ouvrir le coffre et lister les éléments.
 7. **Accessibilité** : axe-core est intégré aux parcours Playwright (WCAG 2.2

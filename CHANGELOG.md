@@ -2,6 +2,13 @@
 
 ## Non publié
 
+- Portabilité : **CXF 1.0 couvre désormais tous les types Coffre** — Wi-Fi,
+  identifiants d’API, clés SSH PKCS#8, licences, documents et documents
+  d’identité, en plus des connexions, notes, cartes, identités et passkeys.
+  `scope.androidApps` est conforme au format ; les types sans équivalent CXF
+  utilisent une extension `coffre.local/item-type` pour un aller-retour fidèle.
+  Le mapping, les limites et le plan CXP sont documentés dans
+  `docs/CXF-CXP.md`.
 - Accessibilité : **axe-core étendu à WCAG 2.2 A/AA** sur le générateur, la
   palette de commandes, le nouvel élément et l’assistant d’extension. Les
   onglets et le sélecteur de type se pilotent aux flèches avec un ordre de

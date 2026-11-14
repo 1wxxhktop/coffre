@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { exportCxf, parseCxf } from './cxf'
 import { createPasskey, toBase64Url } from './passkeys'
+import { toBase64 } from './crypto'
 import type {
+  ApiCredentialItem,
   CardItem,
+  DocumentItem,
   IdentityItem,
   LoginItem,
   NoteItem,
   PasskeyItem,
   RecoveryCodesItem,
+  SoftwareLicenseItem,
+  SshKeyItem,
   VaultItem,
+  WifiItem,
 } from './types'
 
 const NOW = '2026-11-08T10:00:00.000Z'
@@ -97,6 +103,74 @@ function identity(): IdentityItem {
   }) as IdentityItem
 }
 
+function wifi(): WifiItem {
+  return base({
+    type: 'wifi',
+    title: 'Wi-Fi maison',
+    ssid: 'Studio26',
+    password: 'mot-de-passe-wifi',
+    security: 'WPA',
+    hidden: true,
+  }) as WifiItem
+}
+
+function apiCredential(): ApiCredentialItem {
+  return base({
+    type: 'api-credential',
+    title: 'API paiement',
+    keyId: 'pk_live_123',
+    secret: 'sk_live_secret',
+    environment: 'production',
+    endpoint: 'https://api.example.com/v1',
+    expiresAt: '2027-06-30',
+  }) as ApiCredentialItem
+}
+
+async function sshKey(): Promise<SshKeyItem> {
+  const pair = (await crypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign', 'verify'],
+  )) as CryptoKeyPair
+  const der = new Uint8Array(
+    await crypto.subtle.exportKey('pkcs8', pair.privateKey),
+  )
+  const base64 = toBase64(der)
+  const pem = `-----BEGIN PRIVATE KEY-----\n${base64.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----`
+  return base({
+    type: 'ssh-key',
+    title: 'Clé de déploiement',
+    privateKey: pem,
+    publicKey: 'ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTY',
+    fingerprint: 'SHA256:abc123',
+    comment: 'deploy@example.com',
+  }) as SshKeyItem
+}
+
+function softwareLicense(): SoftwareLicenseItem {
+  return base({
+    type: 'software-license',
+    title: 'Licence outil',
+    licenseKey: 'XXXX-YYYY-ZZZZ',
+    licensedTo: 'Studio 26',
+    version: '2.4',
+    website: 'https://example.com/achat',
+    purchaseDate: '2026-01-15',
+  }) as SoftwareLicenseItem
+}
+
+function documentItem(): DocumentItem {
+  return base({
+    type: 'document',
+    title: 'Passeport',
+    documentKind: 'identity',
+    issuer: 'Préfecture de Paris',
+    documentNumber: 'FR1234567',
+    issuedAt: '2021-03-01',
+    expiresAt: '2031-03-01',
+  }) as DocumentItem
+}
+
 async function passkey(signCount = 0): Promise<PasskeyItem> {
   const created = await createPasskey({
     rpId: 'example.com',
@@ -148,6 +222,13 @@ describe('export CXF 1.0', () => {
       algorithm: 'sha1',
       digits: 6,
       period: 30,
+    })
+
+    const noteItem = result.document.accounts[0].items[1]
+    expect(noteItem.credentials).toHaveLength(1)
+    expect(noteItem.credentials[0]).toMatchObject({
+      type: 'note',
+      content: { value: 'Contenu de la note', fieldType: 'string' },
     })
 
     const cardItem = result.document.accounts[0].items[2]
@@ -293,7 +374,7 @@ describe('import CXF 1.0', () => {
               {
                 id: 'i',
                 title: 'Inconnu',
-                credentials: [{ type: 'ssh-key', privateKey: 'x' }],
+                credentials: [{ type: 'quantum-key' }],
               },
             ],
           },
@@ -302,7 +383,7 @@ describe('import CXF 1.0', () => {
       'v1',
     )
     expect(parsed.items).toHaveLength(0)
-    expect(parsed.warnings.join(' ')).toContain('ssh-key')
+    expect(parsed.warnings.join(' ')).toContain('quantum-key')
 
     await expect(
       parseCxf(
@@ -314,5 +395,196 @@ describe('import CXF 1.0', () => {
         'v1',
       ),
     ).rejects.toThrow(/CXF 1/)
+  })
+})
+
+describe('CXF — types étendus', () => {
+  it('ajoute le tableau androidApps requis au scope', () => {
+    const result = exportCxf([login()])
+    expect(result.document.accounts[0].items[0].scope).toEqual({
+      urls: ['https://github.com', 'https://gist.github.com'],
+      androidApps: [],
+    })
+  })
+
+  it('exporte et relit Wi-Fi, API, SSH, licence et document', async () => {
+    const key = await sshKey()
+    const exported = exportCxf([
+      wifi(),
+      apiCredential(),
+      key,
+      softwareLicense(),
+      documentItem(),
+    ])
+    const items = exported.document.accounts[0].items
+    expect(items).toHaveLength(5)
+
+    expect(
+      items[0].credentials.find((entry) => entry.type === 'wifi'),
+    ).toMatchObject({
+      ssid: { value: 'Studio26' },
+      networkSecurityType: { value: 'wpa2-personal' },
+      passphrase: { value: 'mot-de-passe-wifi', fieldType: 'concealed-string' },
+      hidden: { value: 'true', fieldType: 'boolean' },
+    })
+    expect(
+      items[1].credentials.find((entry) => entry.type === 'api-key'),
+    ).toMatchObject({
+      key: { value: 'sk_live_secret', fieldType: 'concealed-string' },
+      username: { value: 'pk_live_123' },
+      url: { value: 'https://api.example.com/v1' },
+      expiryDate: { value: '2027-06-30' },
+    })
+    expect(
+      items[2].credentials.find((entry) => entry.type === 'ssh-key'),
+    ).toMatchObject({ keyType: 'ecdsa-sha2-nistp256' })
+    expect(String(
+      items[2].credentials.find((entry) => entry.type === 'ssh-key')?.privateKey,
+    )).not.toContain('BEGIN')
+    expect(items[3].extensions).toEqual([
+      { name: 'coffre.local/item-type', itemType: 'software-license' },
+    ])
+    expect(items[4].extensions).toEqual([
+      { name: 'coffre.local/item-type', itemType: 'document' },
+    ])
+
+    const parsed = await parseCxf(exported.json, 'v_extended')
+    expect(parsed.items.map((item) => item.type)).toEqual([
+      'wifi',
+      'api-credential',
+      'ssh-key',
+      'software-license',
+      'document',
+    ])
+
+    expect(parsed.items[0]).toMatchObject({
+      type: 'wifi',
+      ssid: 'Studio26',
+      password: 'mot-de-passe-wifi',
+      security: 'WPA',
+      hidden: true,
+    })
+    expect(parsed.items[1]).toMatchObject({
+      type: 'api-credential',
+      keyId: 'pk_live_123',
+      secret: 'sk_live_secret',
+      environment: 'production',
+      endpoint: 'https://api.example.com/v1',
+      expiresAt: '2027-06-30',
+    })
+    const importedSsh = parsed.items[2]
+    expect(importedSsh).toMatchObject({
+      type: 'ssh-key',
+      publicKey: key.publicKey,
+      fingerprint: 'SHA256:abc123',
+      comment: 'deploy@example.com',
+    })
+    expect(
+      importedSsh.type === 'ssh-key' ? importedSsh.privateKey : '',
+    ).toContain('-----BEGIN PRIVATE KEY-----')
+    expect(parsed.items[3]).toMatchObject({
+      type: 'software-license',
+      licenseKey: 'XXXX-YYYY-ZZZZ',
+      licensedTo: 'Studio 26',
+      version: '2.4',
+      website: 'https://example.com/achat',
+      purchaseDate: '2026-01-15',
+    })
+    expect(parsed.items[4]).toMatchObject({
+      type: 'document',
+      documentKind: 'identity',
+      issuer: 'Préfecture de Paris',
+      documentNumber: 'FR1234567',
+      issuedAt: '2021-03-01',
+      expiresAt: '2031-03-01',
+    })
+  })
+
+  it('exporte et relit une clé OpenSSH en champs personnalisés', async () => {
+    const key = base({
+      type: 'ssh-key',
+      title: 'Clé OpenSSH',
+      privateKey:
+        '-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----',
+      publicKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest',
+      fingerprint: 'SHA256:def456',
+      comment: 'open ssh',
+    }) as SshKeyItem
+    const result = exportCxf([key])
+    const credentials = result.document.accounts[0].items[0].credentials
+    expect(result.warnings.join(' ')).toContain('PKCS#8')
+    expect(credentials.find((entry) => entry.type === 'ssh-key')).toBeUndefined()
+    expect(
+      credentials
+        .find((entry) => entry.type === 'custom-fields')
+        ?.fields,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'Clé privée SSH' }),
+        expect.objectContaining({ label: 'Clé publique SSH' }),
+      ]),
+    )
+
+    const parsed = await parseCxf(result.json, 'v_ssh')
+    expect(parsed.items[0]).toMatchObject({
+      type: 'ssh-key',
+      publicKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest',
+      fingerprint: 'SHA256:def456',
+      comment: 'open ssh',
+    })
+    expect(
+      parsed.items[0].type === 'ssh-key' ? parsed.items[0].privateKey : '',
+    ).toContain('BEGIN OPENSSH PRIVATE KEY')
+  })
+
+  it('relit un document sans équivalent CXF natif', async () => {
+    const document = base({
+      type: 'document',
+      title: 'Contrat de service',
+      documentKind: 'contract',
+      issuer: 'ACME',
+      documentNumber: 'CTR-42',
+      issuedAt: '2025-01-10',
+    }) as DocumentItem
+    const parsed = await parseCxf(exportCxf([document]).json, 'v_document')
+    expect(parsed.items[0]).toMatchObject({
+      type: 'document',
+      documentKind: 'contract',
+      issuer: 'ACME',
+      documentNumber: 'CTR-42',
+      issuedAt: '2025-01-10',
+    })
+  })
+
+  it('exporte et relit les expirations de documents d’identité', async () => {
+    const identityItem = identity()
+    identityItem.passportExpiry = '2030-01-01'
+    identityItem.licenseExpiry = '2029-06-30'
+    identityItem.idCardExpiry = '2028-12-31'
+
+    const exported = exportCxf([identityItem])
+    const credentials = exported.document.accounts[0].items[0].credentials
+    expect(credentials.find((entry) => entry.type === 'passport')).toMatchObject({
+      fullName: { value: 'Ada Lovelace' },
+      expiryDate: { value: '2030-01-01' },
+    })
+    expect(
+      credentials.find((entry) => entry.type === 'drivers-license'),
+    ).toMatchObject({ expiryDate: { value: '2029-06-30' } })
+    expect(
+      credentials.find((entry) => entry.type === 'identity-document'),
+    ).toMatchObject({
+      birthDate: { value: '1815-12-10' },
+      expiryDate: { value: '2028-12-31' },
+    })
+
+    const parsed = await parseCxf(exported.json, 'v_identity')
+    expect(parsed.items[0]).toMatchObject({
+      type: 'identity',
+      passportExpiry: '2030-01-01',
+      licenseExpiry: '2029-06-30',
+      idCardExpiry: '2028-12-31',
+      birthDate: '1815-12-10',
+    })
   })
 })
