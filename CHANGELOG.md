@@ -6,7 +6,8 @@
   identifiants d’API, clés SSH PKCS#8, licences, documents et documents
   d’identité, en plus des connexions, notes, cartes, identités et passkeys.
   `scope.androidApps` est conforme au format ; les types sans équivalent CXF
-  utilisent une extension `coffre.local/item-type` pour un aller-retour fidèle.
+  utilisent une extension `coffre.local/item-type` pour un aller-retour fidèle,
+  y compris les codes de secours et leur date d’utilisation.
   Le mapping, les limites et le plan CXP sont documentés dans
   `docs/CXF-CXP.md`.
 - Accessibilité : **axe-core étendu à WCAG 2.2 A/AA** sur le générateur, la
