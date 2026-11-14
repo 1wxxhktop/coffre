@@ -66,6 +66,13 @@ let pairingAttempt:
       code: string | null
     }
   | null = null
+/**
+ * Une seule demande d’appairage à la fois. Un utilisateur qui clique plusieurs
+ * fois sur « Associer » ne doit pas créer plusieurs tentatives concurrentes :
+ * leurs délais expirés finissaient par couper la connexion de la tentative
+ * réellement en cours.
+ */
+let pairingPromise: Promise<{ ok?: true; error?: string }> | null = null
 
 function nativeError(error: string): Error {
   return new Error(error)
@@ -766,14 +773,49 @@ export async function nativeOpen(): Promise<boolean> {
   }
 }
 
-export async function nativePair(): Promise<{ ok?: true; error?: string }> {
+async function waitForUnlocked(timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
+    try {
+      if ((await plainStatus()).unlocked) return true
+    } catch {
+      // L’application peut être en cours de démarrage ou de redémarrage :
+      // une nouvelle connexion avec lancement est tentée au prochain tour.
+      try {
+        resetConnection()
+        await connect(true)
+      } catch {
+        // Le prochain tour réessaiera dans la limite du délai.
+      }
+    }
+  }
+  return false
+}
+
+async function performPairing(): Promise<{ ok?: true; error?: string }> {
+  // Le service worker MV3 peut être suspendu après ~30 s d’inactivité, ce qui
+  // ferme le port natif pendant que l’utilisateur déverrouille l’application ou
+  // confirme le code. Un appel d’API périodique le maintient éveillé pendant
+  // toute la séquence, y compris le lancement de l’application.
+  const keepAlive = setInterval(() => {
+    void api.runtime.getPlatformInfo().catch(() => undefined)
+  }, 20_000)
   try {
-    const current = await connect()
-    const status = await plainStatus()
+    // Un clic explicite sur « Associer » peut lancer l’application desktop si
+    // elle est fermée, comme le bouton « Déverrouiller ».
+    resetConnection()
+    await connect(true)
+    let status = await plainStatus()
+    if (!status.unlocked) {
+      await requestFocus()
+      status = { unlocked: await waitForUnlocked(60_000), paired: status.paired }
+    }
     if (!status.unlocked) {
       return { error: 'locked' }
     }
 
+    const current = await connect()
     const pair = await createBridgeKeyPair()
     const id = nextId()
     pairingAttempt = {
@@ -784,43 +826,49 @@ export async function nativePair(): Promise<{ ok?: true; error?: string }> {
       code: null,
     }
     const waiting = waitFor(id, 120_000, true)
-    // Le service worker MV3 peut être suspendu après ~30 s d’inactivité,
-    // ce qui ferme le port natif pendant que l’utilisateur confirme le code
-    // dans l’application. Un appel d’API périodique le maintient éveillé.
-    const keepAlive = setInterval(() => {
-      void api.runtime.getPlatformInfo().catch(() => undefined)
-    }, 20_000)
-    try {
-      await send({ id, type: 'pair-begin', publicKey: pair.publicKey })
-      const response = await waiting
+    await send({ id, type: 'pair-begin', publicKey: pair.publicKey })
+    const response = await waiting
 
-      if (response.type === 'locked') return { error: 'locked' }
-      if (response.type !== 'pair-accepted') return { error: 'pair-rejected' }
-      if (response.session !== current.session || !pairingAttempt?.appPublicKey) {
-        return { error: 'pair-protocol' }
-      }
-      const key = await deriveBridgeSessionKey(
-        pair.privateKey,
-        pair.publicKey,
-        pairingAttempt.appPublicKey,
-      )
-      await storeKey(key)
-      pairingAttempt = null
-      extCounter = 0
-      lastAppCounter = 0
+    if (response.type === 'locked') return { error: 'locked' }
+    if (response.type !== 'pair-accepted') return { error: 'pair-rejected' }
+    if (response.session !== current.session || !pairingAttempt?.appPublicKey) {
+      return { error: 'pair-protocol' }
+    }
+    const key = await deriveBridgeSessionKey(
+      pair.privateKey,
+      pair.publicKey,
+      pairingAttempt.appPublicKey,
+    )
+    await storeKey(key)
+    pairingAttempt = null
+    extCounter = 0
+    lastAppCounter = 0
 
-      const check = await encryptedRequest({ type: 'status' })
-      if (typeof check.error === 'string') {
-        return { error: check.error }
-      }
-      return { ok: true }
-    } finally {
-      clearInterval(keepAlive)
+    // Une vérification transitoire (application verrouillée, timeout) ne doit
+    // pas transformer une association réussie en échec : la clé est déjà
+    // enregistrée des deux côtés. Seul un rejet explicite du pair est fatal.
+    const check = await encryptedRequest({ type: 'status' })
+    if (check.error === 'needs-pairing') {
+      return { error: 'pair-protocol' }
     }
-  } catch (error) {
-    resetConnection()
-    return {
-      error: error instanceof Error ? error.message : 'native-unavailable',
-    }
+    return { ok: true }
+  } finally {
+    clearInterval(keepAlive)
   }
+}
+
+export function nativePair(): Promise<{ ok?: true; error?: string }> {
+  if (!pairingPromise) {
+    pairingPromise = performPairing()
+      .catch((error: unknown) => {
+        resetConnection()
+        return {
+          error: error instanceof Error ? error.message : 'native-unavailable',
+        }
+      })
+      .finally(() => {
+        pairingPromise = null
+      })
+  }
+  return pairingPromise
 }

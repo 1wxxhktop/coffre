@@ -123,7 +123,13 @@ async function pair(): Promise<void> {
       error?: string
     }
     if (!response?.ok) {
-      setStatus(pairStatus, t('welcome_pairFailed'), 'error')
+      setStatus(
+        pairStatus,
+        response?.error === 'locked'
+          ? t('welcome_pairLocked')
+          : t('welcome_pairFailed'),
+        'error',
+      )
       return
     }
     setStatus(

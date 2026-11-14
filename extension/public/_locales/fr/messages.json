@@ -63,10 +63,13 @@
     "message": "Empreinte de l’extension : $1"
   },
   "welcome_pairing": {
-    "message": "Demande envoyée. Confirmez le code affiché dans Coffre."
+    "message": "Ouverture de Coffre… Déverrouillez-le si nécessaire, puis confirmez le code affiché."
   },
   "welcome_pairConfirm": {
     "message": "Confirmez le code dans Coffre pour terminer l’association."
+  },
+  "welcome_pairLocked": {
+    "message": "Coffre est resté verrouillé. Déverrouillez-le, puis cliquez à nouveau sur Associer."
   },
   "welcome_paired": {
     "message": "Extension associée à Coffre."

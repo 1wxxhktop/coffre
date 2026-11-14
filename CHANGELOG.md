@@ -2,6 +2,11 @@
 
 ## Non publié
 
+- Extension : **appairage fiabilisé**. Un clic sur « Associer l’extension »
+  lance Coffre s’il est fermé et attend le déverrouillage ; une seule tentative
+  est active à la fois, les anciennes demandes sont annulées explicitement, et
+  une vérification transitoire ne transforme plus une association réussie en
+  échec. Le message distingue désormais un coffre resté verrouillé.
 - Documentation : **CXP reporté** après analyse du Working Draft 2024 — absence
   de challenge/signature, d’identifiant anonyme et de paramètres JWE normatifs.
   CXF 1.0 reste la voie de portabilité supportée ; les risques et les prérequis
