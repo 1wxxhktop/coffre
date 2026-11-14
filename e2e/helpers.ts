@@ -77,7 +77,21 @@ export async function openSettings(page: Page, section?: string): Promise<Locato
 /** Ferme la vue courante (modale ou panneau de détail) avec Échap. */
 export async function closeDialog(page: Page): Promise<void> {
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog')).toHaveCount(0)
+  const dialogs = page.getByRole('dialog')
+  if ((await dialogs.count()) === 0) return
+
+  try {
+    await expect(dialogs).toHaveCount(0, { timeout: 1_500 })
+  } catch {
+    // Après un téléchargement, WebKit peut laisser le focus hors de la page et
+    // ignorer Échap. Le bouton de fermeture de la modale reste équivalent.
+    await dialogs
+      .last()
+      .locator('.modal__header')
+      .getByRole('button', { name: /^(Fermer|Close)$/ })
+      .click()
+    await expect(dialogs).toHaveCount(0)
+  }
 }
 
 /** Ouvre le menu d’actions d’un élément et clique sur une entrée. */
