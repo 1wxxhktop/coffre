@@ -395,6 +395,12 @@
   "popup_pairFailed": {
     "message": "Pairing failed."
   },
+  "popup_pairExtensionLost": {
+    "message": "Coffre recognises the extension, but the extension lost its key. Reload it from the folder shown in Coffre, then try again."
+  },
+  "popup_pairDesktopLost": {
+    "message": "The extension has a key, but Coffre does not recognise it. Remove the pairing in Coffre, then try again."
+  },
   "popup_pairCode": {
     "message": "Code $1 — confirm it in Coffre."
   },

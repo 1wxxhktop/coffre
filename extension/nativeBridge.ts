@@ -35,6 +35,10 @@ export interface NativeStatus {
   appOpen: true
   unlocked: boolean
   paired: boolean
+  /** Coffre desktop possède une clé d’appairage. */
+  desktopPaired: boolean
+  /** L’extension possède sa copie de la clé. */
+  extensionKey: boolean
 }
 
 interface NativeHello {
@@ -387,6 +391,8 @@ export async function nativeStatus(): Promise<NativeStatus | null> {
         appOpen: true,
         unlocked: status.unlocked,
         paired: status.paired && Boolean(key),
+        desktopPaired: status.paired,
+        extensionKey: Boolean(key),
       }
     } catch {
       resetConnection()

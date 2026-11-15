@@ -395,6 +395,12 @@
   "popup_pairFailed": {
     "message": "Association impossible."
   },
+  "popup_pairExtensionLost": {
+    "message": "Coffre reconnaît l’extension, mais l’extension a perdu sa clé. Rechargez-la depuis le dossier indiqué dans Coffre, puis réessayez."
+  },
+  "popup_pairDesktopLost": {
+    "message": "L’extension possède une clé, mais Coffre ne la reconnaît pas. Supprimez l’association côté Coffre, puis réessayez."
+  },
   "popup_pairCode": {
     "message": "Code $1 — confirmez-le dans Coffre."
   },
