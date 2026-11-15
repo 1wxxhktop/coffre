@@ -618,7 +618,10 @@ function activateLabel(): string {
 }
 
 function renderStatus(): void {
-  hideMessage()
+  // Un rafraîchissement d’état tardif ne doit pas effacer le message d’une
+  // action utilisateur (copie du générateur, par exemple) pendant que le
+  // panneau du générateur est ouvert.
+  if (generatorPanel.hidden) hideMessage()
   hideState()
   inlineStatusDot.hidden = true
   searchWrap.hidden = true
