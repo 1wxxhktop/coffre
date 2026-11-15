@@ -255,7 +255,7 @@ function storedKeyValue(value: unknown): string | null {
     try {
       record = JSON.parse(record)
     } catch {
-      return validStoredKey(record)
+      return typeof record === 'string' ? validStoredKey(record) : null
     }
   }
   const object = record as { version?: number; key?: string } | undefined
