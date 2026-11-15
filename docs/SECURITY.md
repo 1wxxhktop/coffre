@@ -654,25 +654,32 @@ longueur entre stdin/stdout et un socket local.
 - Le socket est `app_data_dir()/bridge/bridge.sock`, dans un dossier `0700`,
   avec le socket en `0600` : seul le compte de l’utilisateur peut s’y connecter.
 - Les manifestes d’hôte natif sont installés par l’application pour Chrome,
-  Chromium, Edge, Brave et Firefox. Chromium n’autorise que l’identifiant
-  d’extension épinglé par la clé du manifeste ; Firefox n’autorise que
-  `coffre@1wxxhktop.github.io`.
+  Chromium, Edge, Brave, Vivaldi, Orion (macOS/Linux) et Firefox. Chromium et
+  Orion n’autorisent que l’identifiant d’extension épinglé par la clé du
+  manifeste ; Firefox n’autorise que `coffre@1wxxhktop.github.io`.
 - **Appairage** : l’extension génère une paire ECDH P-256 et demande
   l’association. L’application affiche un code à six chiffres, l’extension
   affiche le même code, et l’utilisateur confirme explicitement dans
   l’application. La clé de session est dérivée par ECDH puis HKDF-SHA-256 et
   liée aux deux clés publiques.
-- La clé de session est conservée côté application et dans
-  `chrome.storage.local` côté extension. Elle n’est jamais écrite dans le
-  fichier `.coffre`. Sous Windows et Linux, l’application la garde dans le
-  trousseau du système. Sous macOS, elle la garde dans un fichier privé de son
-  dossier de données (`bridge/session.key`, mode 0600, dossier 0700) : le
-  trousseau lie chaque entrée à la signature de l’application, et celle d’une
-  application signée ad hoc change à chaque version, ce qui rendait la clé
-  illisible après chaque mise à jour et redemandait l’association. Cette clé ne
-  protège que le canal local et l’extension en détient déjà une copie en clair
-  dans son stockage : le fichier n’abaisse pas le niveau de protection. La clé
-  maîtresse du coffre reste, elle, dans le trousseau.
+- La clé de session est conservée côté application et, côté extension, dans
+  `chrome.storage.local`, `chrome.storage.session` et IndexedDB. La lecture
+  accepte un objet ou une chaîne JSON, car Orion peut sérialiser différemment
+  les valeurs. La clé n’est jamais écrite dans le fichier `.coffre`. Sous
+  Windows et Linux, l’application la garde dans le trousseau du système. Sous
+  macOS, elle la garde dans un fichier privé de son dossier de données
+  (`bridge/session.key`, mode 0600, dossier 0700) : le trousseau lie chaque
+  entrée à la signature de l’application, et celle d’une application signée ad
+  hoc change à chaque version, ce qui rendait la clé illisible après chaque
+  mise à jour et redemandait l’association. Cette clé ne protège que le canal
+  local et l’extension en détient déjà une copie en clair dans son stockage :
+  le fichier n’abaisse pas le niveau de protection. La clé maîtresse du coffre
+  reste, elle, dans le trousseau.
+- **Orion.** Orion peut perdre le stockage local des extensions après un
+  redémarrage ou une mise à jour. L’extension conserve donc la clé dans trois
+  backends et vérifie qu’elle est réellement relisible avant de déclarer
+  l’appairage réussi. Si Orion les perd tous, le popup propose une reconnexion
+  en un clic ; aucune clé n’est recréée silencieusement.
 - **Copie gérée de l’extension** : l’application embarque l’extension et en
   recopie les fichiers dans `extension/` de son dossier de données, au
   démarrage, quand la version diffère. L’utilisateur charge ce dossier une fois

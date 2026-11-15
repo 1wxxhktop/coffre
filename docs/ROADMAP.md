@@ -501,6 +501,11 @@ requis pour soumettre.
 
 #### 6.1.4 Orion et navigateurs secondaires
 
+**Audit complet :** `docs/EXTENSION-AUDIT-2026-11-15.md`. Le point bloquant
+n’est pas le manifeste seul : Orion perd le stockage de l’extension, donc la clé
+d’appairage. Le plan P0 ajoute un diagnostic de stockage, un backend IndexedDB,
+Orion dans `install_native_hosts` et une reconnexion réellement testée.
+
 1. Ajouter `Orion` à la liste macOS de `install_native_hosts` (`src-tauri/src/bridge.rs`) avec le manifeste `allowed_origins`.
 2. Écrire le manifeste au démarrage et lors de l’installation.
 3. Vérifier l’ID d’extension et le format attendu par Orion.

@@ -336,6 +336,9 @@ pub fn install_native_hosts() -> Result<(), String> {
         "BraveSoftware/Brave-Browser-Beta",
         "BraveSoftware/Brave-Browser-Dev",
         "Vivaldi",
+        // Orion (WebKit, extensions Chromium) et sa version RC.
+        "Orion",
+        "Orion RC",
     ] {
         let base = support.join(relative);
         if !base.exists() {
@@ -384,6 +387,8 @@ pub fn install_native_hosts() -> Result<(), String> {
         "BraveSoftware/Brave-Browser-Beta",
         "BraveSoftware/Brave-Browser-Dev",
         "vivaldi",
+        "Orion",
+        "Orion RC",
     ] {
         let base = config.join(relative);
         if !base.exists() {
