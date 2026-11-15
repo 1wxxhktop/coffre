@@ -11,6 +11,11 @@
 > **Verdict.** Le socle natif est globalement bien conçu : socket privé, ECDH P-256, HKDF-SHA-256, AES-256-GCM, compteurs par session, identifiant d’extension épinglé et validation des domaines. Mais l’extension repose sur un maillon faible : **la persistance de la clé d’appairage dans le stockage de l’extension**. Orion perd ce stockage, et le mécanisme de reconnexion actuel ne le compense pas. Deux autres sujets méritent une correction avant la 1.0 : **l’appairage n’est pas lié cryptographiquement au code affiché** et **le mode Web ne vérifie pas l’identité de l’application**.
 >
 > **Recommandation immédiate.** Tant que le stockage Orion n’est pas résolu, considérer Orion comme **expérimental** et recommander Chrome, Brave, Edge ou Firefox pour un usage quotidien. Ne pas promettre « associer une fois » sur Orion.
+>
+> **Mise en œuvre P0 (15 novembre 2026).** IndexedDB ajouté comme troisième
+> backend, vérification de relecture avant succès d’appairage, chemins Orion
+> ajoutés à `install_native_hosts`, diagnostic `bridgeStorageReport`. Reste à
+> valider sur Orion réel et à compléter la matrice navigateurs.
 
 ### Plan en une page
 

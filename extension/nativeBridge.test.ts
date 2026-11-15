@@ -1,4 +1,5 @@
 // @vitest-environment node
+import 'fake-indexeddb/auto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBridgeKeyPair } from '../src/lib/bridgeProtocol'
 
@@ -13,6 +14,10 @@ interface Harness {
   chrome: Record<string, unknown>
   nativePair: () => Promise<{ ok?: true; error?: string }>
   nativeStatus: () => Promise<{ paired: boolean; extensionKey: boolean }>
+  reload: () => Promise<{
+    nativePair: () => Promise<{ ok?: true; error?: string }>
+    nativeStatus: () => Promise<{ paired: boolean; extensionKey: boolean }>
+  }>
   state: {
     pairBegins: number
     unlockRequests: number
@@ -21,8 +26,10 @@ interface Harness {
   }
 }
 
+let harnessCounter = 0
+
 async function createHarness(
-  options: { failLocal?: boolean } = {},
+  options: { failLocal?: boolean; failSession?: boolean } = {},
 ): Promise<Harness> {
   const state = {
     pairBegins: 0,
@@ -100,6 +107,7 @@ async function createHarness(
 
   const chrome = {
     runtime: {
+      id: `test-${++harnessCounter}-${Date.now()}`,
       connectNative: () => {
         portListeners = []
         const port: FakePort = {
@@ -134,6 +142,7 @@ async function createHarness(
         get: async (key: string) =>
           key in sessionStore ? { [key]: sessionStore[key] } : {},
         set: async (values: Record<string, unknown>) => {
+          if (options.failSession) throw new Error('quota')
           Object.assign(sessionStore, values)
         },
         remove: async (key: string) => {
@@ -146,14 +155,23 @@ async function createHarness(
   vi.stubGlobal('chrome', chrome)
   vi.resetModules()
   const module = await import('./nativeBridge')
+  const statusOf = (loaded: typeof module) => async () => {
+    const current = await loaded.nativeStatus()
+    return {
+      paired: Boolean(current?.paired),
+      extensionKey: Boolean(current?.extensionKey),
+    }
+  }
   return {
     chrome,
     nativePair: module.nativePair,
-    nativeStatus: async () => {
-      const current = await module.nativeStatus()
+    nativeStatus: statusOf(module),
+    reload: async () => {
+      vi.resetModules()
+      const loaded = await import('./nativeBridge')
       return {
-        paired: Boolean(current?.paired),
-        extensionKey: Boolean(current?.extensionKey),
+        nativePair: loaded.nativePair,
+        nativeStatus: statusOf(loaded),
       }
     },
     state,
@@ -193,6 +211,18 @@ describe('appairage du pont natif', () => {
     const harness = await createHarness({ failLocal: true })
     await expect(harness.nativePair()).resolves.toEqual({ ok: true })
     await expect(harness.nativeStatus()).resolves.toEqual({
+      paired: true,
+      extensionKey: true,
+    })
+  })
+
+  it('retrouve la clé depuis IndexedDB après redémarrage du worker', async () => {
+    const harness = await createHarness({ failLocal: true, failSession: true })
+    await expect(harness.nativePair()).resolves.toEqual({ ok: true })
+
+    // Un nouveau contexte/service worker ne partage pas la mémoire du premier.
+    const reloaded = await harness.reload()
+    await expect(reloaded.nativeStatus()).resolves.toEqual({
       paired: true,
       extensionKey: true,
     })

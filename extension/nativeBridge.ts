@@ -225,15 +225,139 @@ async function connect(launch = false): Promise<NativeHello> {
  * Les deux sont effacées au redémarrage du navigateur, ce qui impose au pire
  * une reconnexion par session.
  */
-function storageAreas(): chrome.storage.StorageArea[] {
+type KeyBackend = 'local' | 'session' | 'indexeddb'
+
+function storageAreas(): Array<{
+  name: Exclude<KeyBackend, 'indexeddb'>
+  area: chrome.storage.StorageArea
+}> {
   const storage = api.storage as typeof chrome.storage & {
     session?: chrome.storage.StorageArea
   }
-  const areas: chrome.storage.StorageArea[] = [
-    storage.local as chrome.storage.StorageArea,
-  ]
-  if (storage.session) areas.push(storage.session)
+  const areas: Array<{
+    name: Exclude<KeyBackend, 'indexeddb'>
+    area: chrome.storage.StorageArea
+  }> = [{ name: 'local', area: storage.local as chrome.storage.StorageArea }]
+  if (storage.session) areas.push({ name: 'session', area: storage.session })
   return areas
+}
+
+const KEY_DB_STORE = 'keys'
+let keyDatabase: Promise<IDBDatabase | null> | null = null
+
+function keyDatabaseName(): string {
+  const id = typeof api.runtime?.id === 'string' ? api.runtime.id : 'default'
+  return `coffre-bridge-${id.replace(/[^A-Za-z0-9_-]/g, '_')}`
+}
+
+function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (value: T | null) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(value)
+    }
+    const timer = setTimeout(() => finish(null), milliseconds)
+    promise.then(
+      (value) => finish(value),
+      () => finish(null),
+    )
+  })
+}
+
+function openKeyDatabase(): Promise<IDBDatabase | null> {
+  if (keyDatabase) return keyDatabase
+  keyDatabase = withTimeout(
+    new Promise<IDBDatabase | null>((resolve) => {
+      if (typeof indexedDB === 'undefined') {
+        resolve(null)
+        return
+      }
+      try {
+        const request = indexedDB.open(keyDatabaseName(), 1)
+        request.onupgradeneeded = () => {
+          const database = request.result
+          if (!database.objectStoreNames.contains(KEY_DB_STORE)) {
+            database.createObjectStore(KEY_DB_STORE)
+          }
+        }
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => resolve(null)
+        request.onblocked = () => resolve(null)
+      } catch {
+        resolve(null)
+      }
+    }),
+    1_500,
+  )
+  return keyDatabase
+}
+
+async function readIndexedKey(): Promise<unknown> {
+  const database = await openKeyDatabase()
+  if (!database) return null
+  return withTimeout(
+    new Promise<unknown>((resolve) => {
+      try {
+        const transaction = database.transaction(KEY_DB_STORE, 'readonly')
+        const request = transaction
+          .objectStore(KEY_DB_STORE)
+          .get(BRIDGE_SESSION_STORAGE_KEY)
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => resolve(null)
+        transaction.onerror = () => resolve(null)
+        transaction.onabort = () => resolve(null)
+      } catch {
+        resolve(null)
+      }
+    }),
+    1_500,
+  )
+}
+
+async function writeIndexedKey(value: string): Promise<boolean> {
+  const database = await openKeyDatabase()
+  if (!database) return false
+  return (
+    (await withTimeout(
+      new Promise<boolean>((resolve) => {
+        try {
+          const transaction = database.transaction(KEY_DB_STORE, 'readwrite')
+          transaction.objectStore(KEY_DB_STORE).put(
+            value,
+            BRIDGE_SESSION_STORAGE_KEY,
+          )
+          transaction.oncomplete = () => resolve(true)
+          transaction.onerror = () => resolve(false)
+          transaction.onabort = () => resolve(false)
+        } catch {
+          resolve(false)
+        }
+      }),
+      1_500,
+    )) === true
+  )
+}
+
+async function deleteIndexedKey(): Promise<void> {
+  const database = await openKeyDatabase()
+  if (!database) return
+  await withTimeout(
+    new Promise<boolean>((resolve) => {
+      try {
+        const transaction = database.transaction(KEY_DB_STORE, 'readwrite')
+        transaction.objectStore(KEY_DB_STORE).delete(BRIDGE_SESSION_STORAGE_KEY)
+        transaction.oncomplete = () => resolve(true)
+        transaction.onerror = () => resolve(false)
+        transaction.onabort = () => resolve(false)
+      } catch {
+        resolve(false)
+      }
+    }),
+    1_500,
+  )
 }
 
 function validStoredKey(value: string): string | null {
@@ -271,17 +395,26 @@ function storedKeyValue(value: unknown): string | null {
 }
 
 /** Lit la clé réellement persistée, sans utiliser le cache mémoire. */
-async function readPersistedKey(): Promise<string | null> {
-  for (const area of storageAreas()) {
+async function readPersistedKeyDetailed(): Promise<{
+  key: string | null
+  backend: KeyBackend | null
+}> {
+  for (const { name, area } of storageAreas()) {
     try {
       const stored = await area.get(BRIDGE_SESSION_STORAGE_KEY)
       const key = storedKeyValue(stored[BRIDGE_SESSION_STORAGE_KEY])
-      if (key) return key
+      if (key) return { key, backend: name }
     } catch {
       // Une zone peut être indisponible ; essayer la suivante.
     }
   }
-  return null
+  const indexed = storedKeyValue(await readIndexedKey())
+  if (indexed) return { key: indexed, backend: 'indexeddb' }
+  return { key: null, backend: null }
+}
+
+async function readPersistedKey(): Promise<string | null> {
+  return (await readPersistedKeyDetailed()).key
 }
 
 async function readStoredKey(): Promise<string | null> {
@@ -289,6 +422,27 @@ async function readStoredKey(): Promise<string | null> {
   const key = await readPersistedKey()
   if (key) sessionKey = key
   return key
+}
+
+/** Diagnostic sans secret : indique quels backends répondent. */
+export async function bridgeStorageReport(): Promise<{
+  local: boolean
+  session: boolean
+  indexedDb: boolean
+  persistedKey: boolean
+}> {
+  const report = { local: false, session: false, indexedDb: false, persistedKey: false }
+  for (const { name, area } of storageAreas()) {
+    try {
+      await area.get(BRIDGE_SESSION_STORAGE_KEY)
+      report[name] = true
+    } catch {
+      // Backend indisponible.
+    }
+  }
+  report.indexedDb = (await readIndexedKey()) !== null
+  report.persistedKey = Boolean(await readPersistedKey())
+  return report
 }
 
 async function storeKey(key: string): Promise<void> {
@@ -299,28 +453,34 @@ async function storeKey(key: string): Promise<void> {
     key,
     pairedAt: new Date().toISOString(),
   })
-  let stored = false
-  for (const area of storageAreas()) {
-    try {
+  const writes: Array<Promise<boolean>> = storageAreas().map(
+    async ({ area }) => {
       await area.set({ [BRIDGE_SESSION_STORAGE_KEY]: value })
-      stored = true
-    } catch {
-      // Continuer avec l’autre zone.
-    }
+      return true
+    },
+  )
+  writes.push(writeIndexedKey(value))
+  const results = await Promise.allSettled(writes)
+  if (
+    !results.some(
+      (result) => result.status === 'fulfilled' && result.value === true,
+    )
+  ) {
+    throw new Error('bridge-storage')
   }
-  if (!stored) throw new Error('bridge-storage')
   sessionKey = key
 }
 
 async function forgetKey(): Promise<void> {
   sessionKey = null
-  for (const area of storageAreas()) {
+  for (const { area } of storageAreas()) {
     try {
       await area.remove(BRIDGE_SESSION_STORAGE_KEY)
     } catch {
       // Le stockage peut être indisponible ; l’appairage sera redemandé.
     }
   }
+  await deleteIndexedKey()
 }
 
 async function send(message: Record<string, unknown>): Promise<void> {
@@ -918,6 +1078,25 @@ async function performPairing(): Promise<{ ok?: true; error?: string }> {
       pairingAttempt.appPublicKey,
     )
     await storeKey(key)
+    // Vérifier que la clé est réellement relisible depuis un stockage
+    // persistant, et pas seulement depuis la mémoire de ce contexte. Sans
+    // cela, Orion pouvait répondre « associé » puis perdre la clé au prochain
+    // `GET_STATUS`.
+    let persisted = false
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      if (await readPersistedKey()) {
+        persisted = true
+        break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
+    if (!persisted) {
+      console.warn(
+        '[coffre] clé d’appairage non persistée',
+        await bridgeStorageReport(),
+      )
+      throw new Error('bridge-storage')
+    }
     pairingAttempt = null
     extCounter = 0
     lastAppCounter = 0

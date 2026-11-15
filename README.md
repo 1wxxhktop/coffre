@@ -1061,9 +1061,13 @@ Edge, Brave et Firefox). Dans le popup de l’extension :
 3. cliquer sur « Autoriser l’extension » dans Coffre.
 
 **Orion.** Orion peut perdre le stockage local des extensions après un
-redémarrage ou une mise à jour du navigateur. Coffre conserve alors la clé dans
-le stockage de session et affiche **« Reconnecter l’extension »** : une seule
-confirmation suffit pour la session suivante.
+redémarrage ou une mise à jour du navigateur. Coffre conserve la clé dans
+`storage.local`, `storage.session` et IndexedDB, relit indifféremment l’objet
+ou la chaîne JSON, et vérifie qu’elle est réellement persistée avant de
+déclarer l’appairage réussi. Orion est désormais installé explicitement comme
+navigateur pour l’hôte natif. Si tous les stockages sont perdus, le popup
+affiche **« Reconnecter l’extension »** : une seule confirmation suffit pour la
+session suivante.
 
 Une seule demande d’appairage est active à la fois : recliquer sur le bouton
 pendant l’opération ne crée pas de tentative concurrente. La clé de session est
