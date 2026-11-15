@@ -1084,7 +1084,7 @@ async function performPairing(): Promise<{ ok?: true; error?: string }> {
     // `GET_STATUS`.
     let persisted = false
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      if (await readPersistedKey()) {
+      if ((await readPersistedKey()) === key) {
         persisted = true
         break
       }
