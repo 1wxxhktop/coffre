@@ -12,6 +12,7 @@ interface FakePort {
 interface Harness {
   chrome: Record<string, unknown>
   nativePair: () => Promise<{ ok?: true; error?: string }>
+  nativeStatus: () => Promise<{ paired: boolean; extensionKey: boolean }>
   state: {
     pairBegins: number
     unlockRequests: number
@@ -20,7 +21,9 @@ interface Harness {
   }
 }
 
-async function createHarness(): Promise<Harness> {
+async function createHarness(
+  options: { failLocal?: boolean } = {},
+): Promise<Harness> {
   const state = {
     pairBegins: 0,
     unlockRequests: 0,
@@ -30,7 +33,8 @@ async function createHarness(): Promise<Harness> {
   let unlocked = false
   let session = 'session-test'
   let portListeners: Array<(message: unknown) => void> = []
-  const storage: Record<string, unknown> = {}
+  const localStore: Record<string, unknown> = {}
+  const sessionStore: Record<string, unknown> = {}
 
   const reply = (message: Record<string, unknown>) => {
     for (const listener of portListeners) listener(message)
@@ -117,12 +121,23 @@ async function createHarness(): Promise<Harness> {
     storage: {
       local: {
         get: async (key: string) =>
-          key in storage ? { [key]: storage[key] } : {},
+          key in localStore ? { [key]: localStore[key] } : {},
         set: async (values: Record<string, unknown>) => {
-          Object.assign(storage, values)
+          if (options.failLocal) throw new Error('quota')
+          Object.assign(localStore, values)
         },
         remove: async (key: string) => {
-          delete storage[key]
+          delete localStore[key]
+        },
+      },
+      session: {
+        get: async (key: string) =>
+          key in sessionStore ? { [key]: sessionStore[key] } : {},
+        set: async (values: Record<string, unknown>) => {
+          Object.assign(sessionStore, values)
+        },
+        remove: async (key: string) => {
+          delete sessionStore[key]
         },
       },
     },
@@ -131,7 +146,18 @@ async function createHarness(): Promise<Harness> {
   vi.stubGlobal('chrome', chrome)
   vi.resetModules()
   const module = await import('./nativeBridge')
-  return { chrome, nativePair: module.nativePair, state }
+  return {
+    chrome,
+    nativePair: module.nativePair,
+    nativeStatus: async () => {
+      const current = await module.nativeStatus()
+      return {
+        paired: Boolean(current?.paired),
+        extensionKey: Boolean(current?.extensionKey),
+      }
+    },
+    state,
+  }
 }
 
 afterEach(() => {
@@ -161,5 +187,14 @@ describe('appairage du pont natif', () => {
     await expect(harness.nativePair()).resolves.toEqual({ ok: true })
     // Un nouveau clic sur « Associer » ne doit pas générer une nouvelle clé.
     expect(harness.state.pairBegins).toBe(1)
+  })
+
+  it('conserve la clé via storage.session si storage.local échoue', async () => {
+    const harness = await createHarness({ failLocal: true })
+    await expect(harness.nativePair()).resolves.toEqual({ ok: true })
+    await expect(harness.nativeStatus()).resolves.toEqual({
+      paired: true,
+      extensionKey: true,
+    })
   })
 })

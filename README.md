@@ -1060,6 +1060,11 @@ Edge, Brave et Firefox). Dans le popup de l’extension :
 2. comparer le code à six chiffres affiché dans le popup et dans Coffre ;
 3. cliquer sur « Autoriser l’extension » dans Coffre.
 
+**Orion.** Orion peut perdre le stockage local des extensions après un
+redémarrage ou une mise à jour du navigateur. Coffre conserve alors la clé dans
+le stockage de session et affiche **« Reconnecter l’extension »** : une seule
+confirmation suffit pour la session suivante.
+
 Une seule demande d’appairage est active à la fois : recliquer sur le bouton
 pendant l’opération ne crée pas de tentative concurrente. La clé de session est
 conservée dans le stockage privé de l’application (fichier `0600` sur macOS,

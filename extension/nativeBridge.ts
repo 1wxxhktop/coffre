@@ -218,45 +218,83 @@ async function connect(launch = false): Promise<NativeHello> {
   return connecting
 }
 
+/**
+ * Zones de stockage de la clé d’appairage. `storage.local` est la source
+ * durable ; `storage.session` sert de secours pour les navigateurs qui
+ * perdent `storage.local` au redémarrage du service worker (Orion notamment).
+ * Les deux sont effacées au redémarrage du navigateur, ce qui impose au pire
+ * une reconnexion par session.
+ */
+function storageAreas(): chrome.storage.StorageArea[] {
+  const storage = api.storage as typeof chrome.storage & {
+    session?: chrome.storage.StorageArea
+  }
+  const areas: chrome.storage.StorageArea[] = [
+    storage.local as chrome.storage.StorageArea,
+  ]
+  if (storage.session) areas.push(storage.session)
+  return areas
+}
+
+function storedKeyValue(value: unknown): string | null {
+  const record = value as { version?: number; key?: string } | undefined
+  if (!record || record.version !== 1 || typeof record.key !== 'string' || !record.key) {
+    return null
+  }
+  try {
+    const bytes = decodeBase64(record.key)
+    const valid = bytes.length === 32
+    bytes.fill(0)
+    return valid ? record.key : null
+  } catch {
+    return null
+  }
+}
+
 async function readStoredKey(): Promise<string | null> {
   if (sessionKey) return sessionKey
-  try {
-    const stored = await api.storage.local.get(BRIDGE_SESSION_STORAGE_KEY)
-    const value = stored[BRIDGE_SESSION_STORAGE_KEY] as
-      | { version?: number; key?: string }
-      | undefined
-    if (value && value.version === 1 && typeof value.key === 'string' && value.key) {
-      const bytes = decodeBase64(value.key)
-      if (bytes.length === 32) {
-        sessionKey = value.key
-      } else {
-        sessionKey = null
+  for (const area of storageAreas()) {
+    try {
+      const stored = await area.get(BRIDGE_SESSION_STORAGE_KEY)
+      const key = storedKeyValue(stored[BRIDGE_SESSION_STORAGE_KEY])
+      if (key) {
+        sessionKey = key
+        return key
       }
-      bytes.fill(0)
+    } catch {
+      // Une zone peut être indisponible ; essayer la suivante.
     }
-  } catch {
-    sessionKey = null
   }
-  return sessionKey
+  return null
 }
 
 async function storeKey(key: string): Promise<void> {
-  await api.storage.local.set({
-    [BRIDGE_SESSION_STORAGE_KEY]: {
-      version: 1,
-      key,
-      pairedAt: new Date().toISOString(),
-    },
-  })
+  const value = {
+    version: 1,
+    key,
+    pairedAt: new Date().toISOString(),
+  }
+  let stored = false
+  for (const area of storageAreas()) {
+    try {
+      await area.set({ [BRIDGE_SESSION_STORAGE_KEY]: value })
+      stored = true
+    } catch {
+      // Continuer avec l’autre zone.
+    }
+  }
+  if (!stored) throw new Error('bridge-storage')
   sessionKey = key
 }
 
 async function forgetKey(): Promise<void> {
   sessionKey = null
-  try {
-    await api.storage.local.remove(BRIDGE_SESSION_STORAGE_KEY)
-  } catch {
-    // Le stockage local peut être indisponible ; l’appairage sera redemandé.
+  for (const area of storageAreas()) {
+    try {
+      await area.remove(BRIDGE_SESSION_STORAGE_KEY)
+    } catch {
+      // Le stockage peut être indisponible ; l’appairage sera redemandé.
+    }
   }
 }
 
