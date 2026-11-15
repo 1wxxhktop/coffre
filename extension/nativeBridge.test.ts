@@ -155,15 +155,11 @@ describe('appairage du pont natif', () => {
     expect(harness.state.paired).toBe(true)
   })
 
-  it('reste réutilisable après une association réussie', async () => {
+  it('ne remplace pas une association existante', async () => {
     const harness = await createHarness()
     await harness.nativePair()
-    const port = harness.chrome.runtime as {
-      connectNative: () => FakePort
-    }
-    expect(typeof port.connectNative).toBe('function')
     await expect(harness.nativePair()).resolves.toEqual({ ok: true })
-    // La deuxième association repart d’une tentative propre.
-    expect(harness.state.pairBegins).toBe(2)
+    // Un nouveau clic sur « Associer » ne doit pas générer une nouvelle clé.
+    expect(harness.state.pairBegins).toBe(1)
   })
 })

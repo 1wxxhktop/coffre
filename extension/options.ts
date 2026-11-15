@@ -140,6 +140,7 @@ async function describeStatus(): Promise<void> {
     paired?: boolean
     mode?: 'native' | 'tab'
   }
+  pairButton.disabled = response.mode === 'native' && response.paired !== false
   if (response.mode === 'native') {
     if (!response.unlocked) {
       setStatus(status, t('settings_status_locked'), 'error')
