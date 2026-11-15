@@ -236,31 +236,47 @@ function storageAreas(): chrome.storage.StorageArea[] {
   return areas
 }
 
-function storedKeyValue(value: unknown): string | null {
-  const record = value as { version?: number; key?: string } | undefined
-  if (!record || record.version !== 1 || typeof record.key !== 'string' || !record.key) {
-    return null
-  }
+function validStoredKey(value: string): string | null {
   try {
-    const bytes = decodeBase64(record.key)
+    const bytes = decodeBase64(value)
     const valid = bytes.length === 32
     bytes.fill(0)
-    return valid ? record.key : null
+    return valid ? value : null
   } catch {
     return null
   }
 }
 
-async function readStoredKey(): Promise<string | null> {
-  if (sessionKey) return sessionKey
+function storedKeyValue(value: unknown): string | null {
+  // Orion peut renvoyer la valeur sous forme de chaîne JSON au lieu de
+  // l’objet écrit. Accepter les deux formes évite de croire la clé perdue.
+  let record: unknown = value
+  for (let depth = 0; depth < 3 && typeof record === 'string'; depth += 1) {
+    try {
+      record = JSON.parse(record)
+    } catch {
+      return typeof record === 'string' ? validStoredKey(record) : null
+    }
+  }
+  const object = record as { version?: number; key?: string } | undefined
+  if (
+    !object ||
+    object.version !== 1 ||
+    typeof object.key !== 'string' ||
+    !object.key
+  ) {
+    return null
+  }
+  return validStoredKey(object.key)
+}
+
+/** Lit la clé réellement persistée, sans utiliser le cache mémoire. */
+async function readPersistedKey(): Promise<string | null> {
   for (const area of storageAreas()) {
     try {
       const stored = await area.get(BRIDGE_SESSION_STORAGE_KEY)
       const key = storedKeyValue(stored[BRIDGE_SESSION_STORAGE_KEY])
-      if (key) {
-        sessionKey = key
-        return key
-      }
+      if (key) return key
     } catch {
       // Une zone peut être indisponible ; essayer la suivante.
     }
@@ -268,12 +284,21 @@ async function readStoredKey(): Promise<string | null> {
   return null
 }
 
+async function readStoredKey(): Promise<string | null> {
+  if (sessionKey) return sessionKey
+  const key = await readPersistedKey()
+  if (key) sessionKey = key
+  return key
+}
+
 async function storeKey(key: string): Promise<void> {
-  const value = {
+  // Stocker une chaîne JSON : certains navigateurs WebKit (Orion) sérialisent
+  // différemment les objets et renvoient une chaîne à la lecture.
+  const value = JSON.stringify({
     version: 1,
     key,
     pairedAt: new Date().toISOString(),
-  }
+  })
   let stored = false
   for (const area of storageAreas()) {
     try {
@@ -861,8 +886,10 @@ async function performPairing(): Promise<{ ok?: true; error?: string }> {
     }
 
     // Déjà associée des deux côtés : ne pas remplacer une clé qui fonctionne
-    // parce que l’utilisateur a recliqué sur « Associer ».
-    if (status.paired && (await readStoredKey())) {
+    // parce que l’utilisateur a recliqué sur « Associer ». Vérifier le stockage
+    // réel, pas seulement le cache mémoire : un contexte Orion peut avoir la
+    // clé en mémoire alors qu’un autre contexte ne la voit pas.
+    if (status.paired && (await readPersistedKey())) {
       return { ok: true }
     }
 

@@ -16,7 +16,9 @@
   celle de l’extension : après un échec, le popup indique laquelle des deux a
   été perdue. La clé est aussi conservée dans `storage.session` quand
   `storage.local` est peu fiable (Orion) ; le popup propose alors
-  « Reconnecter l’extension » après un redémarrage du navigateur.
+  « Reconnecter l’extension » après un redémarrage du navigateur. La clé est
+  stockée en chaîne JSON et relue même si Orion renvoie une chaîne au lieu de
+  l’objet d’origine.
 - Documentation : **CXP reporté** après analyse du Working Draft 2024 — absence
   de challenge/signature, d’identifiant anonyme et de paramètres JWE normatifs.
   CXF 1.0 reste la voie de portabilité supportée ; les risques et les prérequis
