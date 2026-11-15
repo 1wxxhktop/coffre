@@ -117,6 +117,7 @@ async function pair(): Promise<void> {
   pairButton.disabled = true
   pairCode.hidden = true
   setStatus(pairStatus, t('welcome_pairing'))
+  let successful = false
   try {
     const response = await api.runtime.sendMessage({ type: 'PAIR' }) as {
       ok?: boolean
@@ -132,6 +133,7 @@ async function pair(): Promise<void> {
       )
       return
     }
+    successful = true
     setStatus(
       pairStatus,
       pairedCode
@@ -142,7 +144,7 @@ async function pair(): Promise<void> {
   } catch {
     setStatus(pairStatus, t('welcome_pairFailed'), 'error')
   } finally {
-    pairButton.disabled = false
+    pairButton.disabled = successful
   }
 }
 

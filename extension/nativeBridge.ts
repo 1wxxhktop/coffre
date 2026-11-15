@@ -816,6 +816,12 @@ async function performPairing(): Promise<{ ok?: true; error?: string }> {
       return { error: 'locked' }
     }
 
+    // Déjà associée des deux côtés : ne pas remplacer une clé qui fonctionne
+    // parce que l’utilisateur a recliqué sur « Associer ».
+    if (status.paired && (await readStoredKey())) {
+      return { ok: true }
+    }
+
     const current = await connect()
     const pair = await createBridgeKeyPair()
     const id = nextId()
@@ -858,9 +864,25 @@ async function performPairing(): Promise<{ ok?: true; error?: string }> {
   }
 }
 
+async function pairOnce(): Promise<{ ok?: true; error?: string }> {
+  try {
+    return await performPairing()
+  } catch (error) {
+    // Le port natif peut se fermer pendant le démarrage de l’application :
+    // une seconde tentative après un court délai suffit dans la majorité des
+    // cas, sans redemander à l’utilisateur de recliquer.
+    if (error instanceof Error && error.message === 'native-disconnected') {
+      resetConnection()
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      return performPairing()
+    }
+    throw error
+  }
+}
+
 export function nativePair(): Promise<{ ok?: true; error?: string }> {
   if (!pairingPromise) {
-    pairingPromise = performPairing()
+    pairingPromise = pairOnce()
       .catch((error: unknown) => {
         resetConnection()
         return {
