@@ -30,6 +30,16 @@ import { considerSelfUpdate } from './selfUpdate'
 
 const api = (globalThis as unknown as { browser?: typeof chrome }).browser ?? chrome
 
+export interface BridgeStorageReport {
+  localAvailable: boolean
+  sessionAvailable: boolean
+  indexedDbAvailable: boolean
+  localKey: boolean
+  sessionKey: boolean
+  indexedDbKey: boolean
+  persistedKey: boolean
+}
+
 export interface NativeStatus {
   mode: 'native'
   appOpen: true
@@ -39,6 +49,8 @@ export interface NativeStatus {
   desktopPaired: boolean
   /** L’extension possède sa copie de la clé. */
   extensionKey: boolean
+  /** Renseigné quand la clé manque, pour diagnostiquer le stockage. */
+  storage?: BridgeStorageReport
 }
 
 interface NativeHello {
@@ -446,23 +458,34 @@ async function readStoredKey(): Promise<string | null> {
   return key
 }
 
-/** Diagnostic sans secret : indique quels backends répondent. */
-export async function bridgeStorageReport(): Promise<{
-  local: boolean
-  session: boolean
-  indexedDb: boolean
-  persistedKey: boolean
-}> {
-  const report = { local: false, session: false, indexedDb: false, persistedKey: false }
+/** Diagnostic sans secret : indique quels backends répondent et contiennent la clé. */
+export async function bridgeStorageReport(): Promise<BridgeStorageReport> {
+  const report: BridgeStorageReport = {
+    localAvailable: false,
+    sessionAvailable: false,
+    indexedDbAvailable: false,
+    localKey: false,
+    sessionKey: false,
+    indexedDbKey: false,
+    persistedKey: false,
+  }
   for (const { name, area } of storageAreas()) {
     try {
-      await area.get(BRIDGE_SESSION_STORAGE_KEY)
-      report[name] = true
+      const stored = await area.get(BRIDGE_SESSION_STORAGE_KEY)
+      const entry = storedKeyEntry(stored[BRIDGE_SESSION_STORAGE_KEY])
+      if (name === 'local') {
+        report.localAvailable = true
+        report.localKey = Boolean(entry)
+      } else {
+        report.sessionAvailable = true
+        report.sessionKey = Boolean(entry)
+      }
     } catch {
       // Backend indisponible.
     }
   }
-  report.indexedDb = (await readIndexedKey()) !== null
+  report.indexedDbAvailable = (await openKeyDatabase()) !== null
+  report.indexedDbKey = Boolean(storedKeyEntry(await readIndexedKey()))
   report.persistedKey = Boolean(await readPersistedKey())
   return report
 }
@@ -631,6 +654,8 @@ export async function nativeStatus(): Promise<NativeStatus | null> {
       await connect()
       const status = await plainStatus()
       const key = await readStoredKey()
+      const storage =
+        !key && status.paired ? await bridgeStorageReport() : undefined
       return {
         mode: 'native',
         appOpen: true,
@@ -638,6 +663,7 @@ export async function nativeStatus(): Promise<NativeStatus | null> {
         paired: status.paired && Boolean(key),
         desktopPaired: status.paired,
         extensionKey: Boolean(key),
+        ...(storage ? { storage } : {}),
       }
     } catch {
       resetConnection()

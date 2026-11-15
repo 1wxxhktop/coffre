@@ -37,6 +37,15 @@ interface AppStatus {
   paired?: boolean
   desktopPaired?: boolean
   extensionKey?: boolean
+  storage?: {
+    localAvailable: boolean
+    sessionAvailable: boolean
+    indexedDbAvailable: boolean
+    localKey: boolean
+    sessionKey: boolean
+    indexedDbKey: boolean
+    persistedKey: boolean
+  }
   hostAccess?: boolean
   siteAccess?: boolean
   mode?: 'native' | 'tab'
@@ -622,10 +631,17 @@ function renderStatus(): void {
   if (status.mode === 'native' && status.paired === false) {
     const reconnect =
       status.desktopPaired === true && status.extensionKey === false
+    const storage = status.storage
+    const diagnostic =
+      reconnect && storage
+        ? ` — Stockage : local ${storage.localKey ? '✓' : '✗'} · session ${
+            storage.sessionKey ? '✓' : '✗'
+          } · IndexedDB ${storage.indexedDbKey ? '✓' : '✗'}`
+        : ''
     showState(
       'pair',
       reconnect ? t('state_reconnectTitle') : t('state_pairTitle'),
-      reconnect ? t('state_reconnectText') : t('state_pairText'),
+      `${reconnect ? t('state_reconnectText') : t('state_pairText')}${diagnostic}`,
       {
         label: reconnect ? t('popup_reconnect') : t('popup_pair'),
         run: () => void pairExtension(),
