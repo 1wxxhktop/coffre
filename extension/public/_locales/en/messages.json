@@ -308,6 +308,9 @@
   "popup_footerPairing": {
     "message": "Coffre desktop · not paired"
   },
+  "popup_footerReconnect": {
+    "message": "Coffre desktop · needs reconnecting"
+  },
   "popup_footerClosed": {
     "message": "Coffre is not open"
   },
@@ -377,6 +380,15 @@
   "state_pairText": {
     "message": "Pair this extension with Coffre: the code appears here and in the app."
   },
+  "state_reconnectTitle": {
+    "message": "Extension needs reconnecting"
+  },
+  "state_reconnectText": {
+    "message": "Coffre recognises you, but the extension lost its key after a browser restart or update. Reconnect it to continue."
+  },
+  "popup_reconnect": {
+    "message": "Reconnect extension"
+  },
   "state_lockedTitle": {
     "message": "Coffre locked"
   },
@@ -396,10 +408,10 @@
     "message": "Pairing failed."
   },
   "popup_pairExtensionLost": {
-    "message": "Coffre recognises the extension, but the extension lost its key. Reload it from the folder shown in Coffre, then try again."
+    "message": "Coffre recognises the extension, but it lost its key after a browser restart or update. Click “Reconnect extension” to pair it again."
   },
   "popup_pairDesktopLost": {
-    "message": "The extension has a key, but Coffre does not recognise it. Remove the pairing in Coffre, then try again."
+    "message": "The extension has a key, but Coffre does not recognise it. Click “Reconnect extension” again to renew the pairing."
   },
   "popup_pairCode": {
     "message": "Code $1 — confirm it in Coffre."

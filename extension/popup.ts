@@ -620,11 +620,20 @@ function renderStatus(): void {
   siteBlocked = false
 
   if (status.mode === 'native' && status.paired === false) {
-    showState('pair', t('state_pairTitle'), t('state_pairText'), {
-      label: t('popup_pair'),
-      run: () => void pairExtension(),
-    })
-    footerStatus.textContent = t('popup_footerPairing')
+    const reconnect =
+      status.desktopPaired === true && status.extensionKey === false
+    showState(
+      'pair',
+      reconnect ? t('state_reconnectTitle') : t('state_pairTitle'),
+      reconnect ? t('state_reconnectText') : t('state_pairText'),
+      {
+        label: reconnect ? t('popup_reconnect') : t('popup_pair'),
+        run: () => void pairExtension(),
+      },
+    )
+    footerStatus.textContent = reconnect
+      ? t('popup_footerReconnect')
+      : t('popup_footerPairing')
     return
   }
 
