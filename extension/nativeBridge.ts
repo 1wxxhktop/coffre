@@ -371,7 +371,12 @@ function validStoredKey(value: string): string | null {
   }
 }
 
-function storedKeyValue(value: unknown): string | null {
+interface StoredKeyEntry {
+  key: string
+  pairedAt: number
+}
+
+function storedKeyEntry(value: unknown): StoredKeyEntry | null {
   // Orion peut renvoyer la valeur sous forme de chaîne JSON au lieu de
   // l’objet écrit. Accepter les deux formes évite de croire la clé perdue.
   let record: unknown = value
@@ -379,10 +384,13 @@ function storedKeyValue(value: unknown): string | null {
     try {
       record = JSON.parse(record)
     } catch {
-      return typeof record === 'string' ? validStoredKey(record) : null
+      const key = typeof record === 'string' ? validStoredKey(record) : null
+      return key ? { key, pairedAt: 0 } : null
     }
   }
-  const object = record as { version?: number; key?: string } | undefined
+  const object = record as
+    | { version?: number; key?: string; pairedAt?: string }
+    | undefined
   if (
     !object ||
     object.version !== 1 ||
@@ -391,7 +399,14 @@ function storedKeyValue(value: unknown): string | null {
   ) {
     return null
   }
-  return validStoredKey(object.key)
+  const key = validStoredKey(object.key)
+  if (!key) return null
+  const timestamp =
+    typeof object.pairedAt === 'string' ? Date.parse(object.pairedAt) : NaN
+  return {
+    key,
+    pairedAt: Number.isFinite(timestamp) ? timestamp : 0,
+  }
 }
 
 /** Lit la clé réellement persistée, sans utiliser le cache mémoire. */
@@ -399,18 +414,25 @@ async function readPersistedKeyDetailed(): Promise<{
   key: string | null
   backend: KeyBackend | null
 }> {
+  let best: { key: string; backend: KeyBackend; pairedAt: number } | null = null
   for (const { name, area } of storageAreas()) {
     try {
       const stored = await area.get(BRIDGE_SESSION_STORAGE_KEY)
-      const key = storedKeyValue(stored[BRIDGE_SESSION_STORAGE_KEY])
-      if (key) return { key, backend: name }
+      const entry = storedKeyEntry(stored[BRIDGE_SESSION_STORAGE_KEY])
+      if (entry && (!best || entry.pairedAt > best.pairedAt)) {
+        best = { key: entry.key, backend: name, pairedAt: entry.pairedAt }
+      }
     } catch {
       // Une zone peut être indisponible ; essayer la suivante.
     }
   }
-  const indexed = storedKeyValue(await readIndexedKey())
-  if (indexed) return { key: indexed, backend: 'indexeddb' }
-  return { key: null, backend: null }
+  const indexed = storedKeyEntry(await readIndexedKey())
+  if (indexed && (!best || indexed.pairedAt > best.pairedAt)) {
+    best = { key: indexed.key, backend: 'indexeddb', pairedAt: indexed.pairedAt }
+  }
+  return best
+    ? { key: best.key, backend: best.backend }
+    : { key: null, backend: null }
 }
 
 async function readPersistedKey(): Promise<string | null> {
