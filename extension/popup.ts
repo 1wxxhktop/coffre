@@ -35,6 +35,8 @@ interface AppStatus {
   appOpen: boolean
   unlocked: boolean
   paired?: boolean
+  desktopPaired?: boolean
+  extensionKey?: boolean
   hostAccess?: boolean
   siteAccess?: boolean
   mode?: 'native' | 'tab'
@@ -1339,7 +1341,13 @@ async function pairExtension(): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 250))
     }
     if (!paired) {
-      showMessage(t('error_needsPairing'), 'error')
+      if (status.desktopPaired && status.extensionKey === false) {
+        showMessage(t('popup_pairExtensionLost'), 'error')
+      } else if (status.extensionKey && status.desktopPaired === false) {
+        showMessage(t('popup_pairDesktopLost'), 'error')
+      } else {
+        showMessage(t('error_needsPairing'), 'error')
+      }
       return
     }
     showMessage(t('popup_paired'), 'success')

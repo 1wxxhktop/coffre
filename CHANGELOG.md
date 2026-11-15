@@ -12,7 +12,9 @@
   remplace plus la clé existante ; le bouton est désactivé dans les réglages.
   Une déconnexion native pendant le démarrage est retentée une fois. Le message
   distingue un coffre resté verrouillé et conserve le code technique en cas
-  d’échec inconnu.
+  d’échec inconnu. Le statut expose désormais séparément la clé du desktop et
+  celle de l’extension : après un échec, le popup indique laquelle des deux a
+  été perdue.
 - Documentation : **CXP reporté** après analyse du Working Draft 2024 — absence
   de challenge/signature, d’identifiant anonyme et de paramètres JWE normatifs.
   CXF 1.0 reste la voie de portabilité supportée ; les risques et les prérequis

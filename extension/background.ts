@@ -192,6 +192,10 @@ interface AppStatus {
   appOpen: boolean
   unlocked: boolean
   paired?: boolean
+  /** Diagnostic : Coffre desktop possède une clé d’appairage. */
+  desktopPaired?: boolean
+  /** Diagnostic : l’extension possède sa copie de la clé. */
+  extensionKey?: boolean
   hostAccess?: boolean
   siteAccess?: boolean
   mode?: 'native' | 'tab'
@@ -362,6 +366,8 @@ async function readStatus(): Promise<AppStatus> {
       appOpen: true,
       unlocked: native.unlocked,
       paired: native.paired,
+      desktopPaired: native.desktopPaired,
+      extensionKey: native.extensionKey,
       hostAccess,
       siteAccess,
       mode: 'native',
