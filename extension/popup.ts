@@ -206,6 +206,13 @@ function errorText(code: string | undefined): string {
   return (code && ERROR_MESSAGES[code] && t(ERROR_MESSAGES[code])) || t('error_generic')
 }
 
+/** Conserve le code technique pour diagnostiquer un échec d’appairage inconnu. */
+function pairingErrorText(code: string | undefined): string {
+  const key = code ? ERROR_MESSAGES[code] : undefined
+  if (key) return t(key)
+  return code ? `${t('error_generic')} (${code})` : t('error_generic')
+}
+
 function setBusy(value: boolean) {
   busy = value
   for (const button of results.querySelectorAll('button')) {
@@ -1307,10 +1314,34 @@ async function pairExtension(): Promise<void> {
       type: 'PAIR',
     })
     if (!response.ok) {
-      showMessage(errorText(response.error), 'error')
+      showMessage(pairingErrorText(response.error), 'error')
       return
     }
-    await init()
+
+    // Le desktop vient de confirmer l’association. Mettre l’état local à jour
+    // tout de suite évite de laisser la carte « Extension non associée » et
+    // son bouton alors que la clé est déjà enregistrée.
+    status = {
+      ...status,
+      mode: 'native',
+      appOpen: true,
+      paired: true,
+    }
+    renderStatus()
+
+    // Le statut natif peut mettre quelques centaines de millisecondes à
+    // refléter la nouvelle clé après le redémarrage du service worker.
+    let paired = false
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await init()
+      paired = status.mode === 'native' && status.paired !== false
+      if (paired) break
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+    if (!paired) {
+      showMessage(t('error_needsPairing'), 'error')
+      return
+    }
     showMessage(t('popup_paired'), 'success')
   } catch {
     showMessage(t('popup_pairFailed'), 'error')

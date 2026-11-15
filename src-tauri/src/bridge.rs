@@ -516,7 +516,10 @@ pub fn run_native_host() -> Result<(), String> {
                 );
             }
             launch_desktop_app()?;
-            let stream = connect_socket_with_retry(&path, 40, Duration::from_millis(250))?;
+            // Un premier lancement à froid peut dépasser 10 s sur macOS.
+            // Attendre 30 s évite de faire échouer le premier clic alors que
+            // l’application est en train de démarrer.
+            let stream = connect_socket_with_retry(&path, 120, Duration::from_millis(250))?;
             let mut writer = stream.try_clone().map_err(|error| error.to_string())?;
             write_frame(&mut writer, &first)?;
             stream

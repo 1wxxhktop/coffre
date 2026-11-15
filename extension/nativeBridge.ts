@@ -176,7 +176,8 @@ async function connect(launch = false): Promise<NativeHello> {
     const id = nextId()
     // Un lancement explicite laisse au système le temps de démarrer
     // l’application ; une lecture d’état tolère un réveil de service worker.
-    const waiting = waitFor(id, launch ? 20_000 : 3_000)
+    // 30 s couvre un premier lancement à froid sur macOS.
+    const waiting = waitFor(id, launch ? 30_000 : 3_000)
     try {
       instance.postMessage(
         launch
