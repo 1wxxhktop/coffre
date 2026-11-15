@@ -70,6 +70,7 @@ import {
   nativeStatus,
   nativeUnlock,
   nativeOpen,
+  type BridgeStorageReport,
 } from './nativeBridge'
 
 /** Firefox expose `browser` (promesses) ; Chrome expose `chrome`. */
@@ -196,6 +197,7 @@ interface AppStatus {
   desktopPaired?: boolean
   /** Diagnostic : l’extension possède sa copie de la clé. */
   extensionKey?: boolean
+  storage?: BridgeStorageReport
   hostAccess?: boolean
   siteAccess?: boolean
   mode?: 'native' | 'tab'
@@ -368,6 +370,7 @@ async function readStatus(): Promise<AppStatus> {
       paired: native.paired,
       desktopPaired: native.desktopPaired,
       extensionKey: native.extensionKey,
+      storage: native.storage,
       hostAccess,
       siteAccess,
       mode: 'native',

@@ -10,7 +10,8 @@
   `storage.session`, IndexedDB), avec vérification de relecture avant de
   déclarer l’appairage réussi. Orion est ajouté explicitement à
   `install_native_hosts` sous macOS/Linux. Un diagnostic sans secret expose
-  l’état des backends, et le popup propose une reconnexion en un clic.
+  l’état des backends (`local`, `session`, IndexedDB) directement dans l’écran
+  de reconnexion, et le popup propose une reconnexion en un clic.
 - Extension : **appairage fiabilisé**. Un clic sur « Associer l’extension »
   lance Coffre s’il est fermé et attend le déverrouillage ; une seule tentative
   est active à la fois, les anciennes demandes sont annulées explicitement, et
