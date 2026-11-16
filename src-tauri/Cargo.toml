@@ -57,7 +57,7 @@ windows = { version = "0.62", features = ["Security_Credentials_UI", "Win32_Foun
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["sync-secret-service"] }
-zbus = "5.19"
+zbus = "6.2"
 
 [workspace]
 members = [
