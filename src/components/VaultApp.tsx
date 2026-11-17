@@ -465,7 +465,8 @@ export function VaultApp() {
     return () => window.clearInterval(timer)
   }, [settings.expiryNotifications, t, toast])
 
-  /** Enregistre l’ouverture ou la copie d’un élément pour la vue « Récents ». */
+  /** Enregistre l’ouverture ou la copie d’un élément : c’est cet horodatage
+   * qui alimente le tri « Dernière utilisation » et la vue « Récents ». */
   const markUsed = useCallback((itemId: string) => {
     setUsage(recordItemUsage(itemId))
   }, [])
@@ -574,8 +575,8 @@ export function VaultApp() {
   const groupDateOf = useCallback(
     (item: VaultItem): string | number | null => {
       if (filter === 'trash') return item.deletedAt
-      if (filter === 'recent' || sort === 'recent') {
-        return usage[item.id] ?? item.updatedAt
+      if (filter === 'recent' || sort === 'last-used') {
+        return usage[item.id] ?? null
       }
       if (sort === 'created') return item.createdAt
       return item.updatedAt
@@ -631,9 +632,12 @@ export function VaultApp() {
         if (aDate !== bDate) return aDate.localeCompare(bDate)
         return a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
       }
-      // Les vues « Récents » suivent l’horodatage d’utilisation.
-      if ((filter === 'recent' || sort === 'recent') && !securityCategory) {
-        return (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
+      // Les vues « Récents » et le tri « Dernière utilisation » suivent
+      // l’horodatage de la dernière utilisation.
+      if ((filter === 'recent' || sort === 'last-used') && !securityCategory) {
+        const delta = (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
+        if (delta !== 0) return delta
+        return b.updatedAt.localeCompare(a.updatedAt)
       }
       // Les favoris restent en tête, puis le tri choisi s’applique.
       if (a.favorite !== b.favorite) return a.favorite ? -1 : 1

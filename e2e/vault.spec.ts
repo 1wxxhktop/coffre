@@ -65,6 +65,12 @@ test.describe('coffre et éléments', () => {
       'aria-checked',
       'true',
     )
+
+    await page.getByRole('menuitemradio', { name: 'Dernière utilisation' }).click()
+    await page.getByRole('button', { name: 'Options de la liste' }).click()
+    await expect(
+      page.getByRole('menuitemradio', { name: 'Dernière utilisation' }),
+    ).toHaveAttribute('aria-checked', 'true')
   })
 
   test('affiche « Aucun élément » pour une catégorie vide', async ({ page }) => {

@@ -2226,6 +2226,7 @@ export function ItemDialog({
                 onDeleteAttachment={setAttachmentToDelete}
                 onCopyRecoveryCode={copyRecoveryCode}
                 onToggleRecoveryCode={toggleRecoveryCode}
+                onUsed={onUsed}
               />
             </>
           ) : null}
@@ -2379,6 +2380,8 @@ interface ItemDetailsProps {
   onDeleteAttachment: (attachment: AttachmentMeta) => void
   onCopyRecoveryCode: (code: RecoveryCode) => Promise<void>
   onToggleRecoveryCode: (code: RecoveryCode) => Promise<void>
+  /** Appelé après une copie depuis la fiche. */
+  onUsed?: () => void
 }
 
 function ItemDetails({
@@ -2405,6 +2408,7 @@ function ItemDetails({
   onDeleteAttachment,
   onCopyRecoveryCode,
   onToggleRecoveryCode,
+  onUsed,
 }: ItemDetailsProps) {
   const { tt, intl } = useI18n()
   const [showWifiQr, setShowWifiQr] = useState(false)
@@ -2582,7 +2586,7 @@ function ItemDetails({
             <div className="detail-row">
               <span className="detail-row__label">{tt("Code 2FA")}</span>
               <div className="detail-row__value">
-                <TotpCode uri={item.totp} />
+                <TotpCode uri={item.totp} onCopied={onUsed} />
               </div>
             </div>
           )}
@@ -2929,7 +2933,7 @@ function ItemDetails({
                   <span className="detail-row__label">{field.label}</span>
                   <div className="detail-row__value">
                     {isTotpUri(field.value) ? (
-                      <TotpCode uri={field.value} />
+                      <TotpCode uri={field.value} onCopied={onUsed} />
                     ) : (
                       <span className="is-empty">{tt('Clé TOTP invalide')}</span>
                     )}
