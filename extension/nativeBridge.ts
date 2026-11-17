@@ -1167,6 +1167,9 @@ async function performPairing(): Promise<{
       } catch {
         key = null
       }
+      // Une charge de récupération présente mais invalide ne doit jamais
+      // retomber sur une nouvelle clé : le desktop garde l’ancienne.
+      if (!key) return { error: 'pair-protocol' }
     }
     if (!key) {
       key = await deriveBridgeSessionKey(
