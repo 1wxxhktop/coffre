@@ -51,13 +51,15 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Auditer les dépendances
-        # Les deux avis modérés restants sont des dépendances de build
-        # (glob/minimatch via workbox et cyclonedx) sans correctif compatible ;
-        # ils sont suivis et ignorés explicitement pour garder le gate utile.
+        # Les avis restants sont des dépendances de build (glob/minimatch via
+        # workbox et cyclonedx, picomatch via vite/fdir) sans version corrigée
+        # publiée ; ils sont suivis et ignorés explicitement pour garder le
+        # gate utile.
         run: >-
           bun audit --audit-level=moderate
           --ignore=GHSA-3g3m-2fjr-6pw4
           --ignore=GHSA-g3hv-75wg-m249
+          --ignore=GHSA-fc5q-39xc-vjpf
 
       - name: Vérifier la cohérence des versions
         run: node scripts/check-versions.mjs
