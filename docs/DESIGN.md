@@ -77,12 +77,19 @@ du thème. La trame de fond est atténuée de moitié dans l’application.
 
 ## 3. Modèle de détail et d’édition
 
-- **≥ 1100 px** : liste et panneau de détail côte à côte. « Nouvel élément »
-  ouvre une modale de création ; après « Enregistrer », la fiche s’affiche dans
-  le panneau de détail. La lecture et la modification d’un élément existant se
-  font dans le panneau. Les autres modales servent aux confirmations, au
-  générateur, à l’historique et aux réglages.
-- **< 1100 px** : la modale de création reste centrée, puis le détail remplace
+- **≥ 1141 px** : barre latérale déployée, liste et panneau de détail côte à
+  côte. « Nouvel élément » ouvre une modale de création ; après
+  « Enregistrer », la fiche s’affiche dans le panneau de détail. La lecture et
+  la modification d’un élément existant se font dans le panneau. Les autres
+  modales servent aux confirmations, au générateur, à l’historique et aux
+  réglages.
+- **1024–1140 px** : la barre latérale se replie automatiquement en rail de
+  64 px, mais reste dépliable à la demande ; la liste et le détail restent
+  côte à côte.
+- **768–1023 px** : la barre latérale devient un tiroir ouvert par le menu ;
+  seuls la liste et le détail restent visibles. La liste occupe au plus 46 %
+  de la largeur.
+- **< 768 px** : la modale de création reste centrée, puis le détail remplace
   la liste avec un bouton retour vers la liste d’origine.
 - **< 640 px** : barre d’onglets basse (Tout, Favoris, Récents, Sécurité,
   Réglages), barre d’actions basse de 52 px de haut et menu latéral limité aux
@@ -130,14 +137,18 @@ revenir à une liste plate ; le choix est mémorisé dans `localStorage`.
 
 ### Colonnes redimensionnables
 
-Sur desktop, deux poignées permettent d’ajuster la largeur de la barre
+À partir de 1024 px, deux poignées permettent d’ajuster la largeur de la barre
 latérale (220–420 px) et de la liste (320–640 px, avec au moins 360 px
 réservés au détail). Les largeurs sont mémorisées dans `localStorage` et
 peuvent être ajustées au clavier (flèches, `Home`, `End`) ou réinitialisées par
-double-clic.
+double-clic. Sous 1024 px, la liste se dimensionne seule et les poignées sont
+masquées.
 
 La barre latérale peut être repliée en un rail de 64 px qui ne conserve que les
 icônes, avec des infobulles et des noms accessibles. L’état replié est mémorisé.
+Entre 1024 et 1140 px, le rail s’active automatiquement ; un clic sur le bouton
+de déploiement rétablit la barre complète jusqu’au prochain changement de
+palier.
 Sur mobile, la barre reste un tiroir complet et les poignées sont masquées.
 
 ### Modèles et icônes de service

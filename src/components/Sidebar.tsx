@@ -131,7 +131,7 @@ export function Sidebar({
 }: SidebarProps) {
   const { settings } = useSettings()
   const { t } = useI18n()
-  const compact = useMediaQuery('(max-width: 1099px)')
+  const compact = useMediaQuery('(max-width: 1023px)')
   const asideRef = useRef<HTMLElement>(null)
   const tone = securityTone(securityReport.score)
   const SecurityIcon = securityReport.affected > 0 ? ShieldAlert : ShieldCheck

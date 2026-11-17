@@ -234,7 +234,30 @@ export function VaultApp() {
   const { t, tt, intl } = useI18n()
   const { toast } = useToast()
   const layout = useLayoutPreferences()
-  const desktopLayout = useMediaQuery('(min-width: 1100px)')
+  // Trois colonnes dès 1024 px ; entre 1024 et 1140 px, la barre latérale se
+  // replie automatiquement en icônes pour laisser respirer la liste et le
+  // détail. En dessous de 1024 px, elle devient un tiroir.
+  const desktopLayout = useMediaQuery('(min-width: 1024px)')
+  const compactSidebar = useMediaQuery('(max-width: 1140px)')
+  const drawerSidebar = useMediaQuery('(max-width: 1023px)')
+  const [compactSidebarExpanded, setCompactSidebarExpanded] = useState(false)
+  useEffect(() => {
+    if (!compactSidebar) setCompactSidebarExpanded(false)
+  }, [compactSidebar])
+
+  const sidebarCollapsed =
+    !drawerSidebar &&
+    (compactSidebar ? !compactSidebarExpanded : layout.sidebarCollapsed)
+
+  const toggleSidebar = useCallback(() => {
+    if (drawerSidebar) return
+    if (compactSidebar) {
+      setCompactSidebarExpanded((value) => !value)
+      return
+    }
+    layout.toggleSidebar()
+  }, [compactSidebar, drawerSidebar, layout])
+
   const splitRef = useRef<HTMLElement>(null)
   const [splitWidth, setSplitWidth] = useState(0)
   const listMax = desktopLayout
@@ -292,6 +315,9 @@ export function VaultApp() {
   // Changer de filtre ou de recherche repart d’une liste complète.
   const visibleLimit = limitState.scope === listScope ? limitState.value : 200
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  useEffect(() => {
+    if (!drawerSidebar) setSidebarOpen(false)
+  }, [drawerSidebar])
   const [vaultForm, setVaultForm] = useState<
     { mode: 'create' } | { mode: 'rename'; vault: VaultSummary } | null
   >(null)
@@ -1147,7 +1173,7 @@ export function VaultApp() {
         filter={filter}
         vaultFilter={activeVaultFilter}
         open={sidebarOpen}
-        collapsed={layout.sidebarCollapsed}
+        collapsed={sidebarCollapsed}
         dashboardActive={dashboardActive}
         onOpenDashboard={() => {
           setView('dashboard')
@@ -1156,7 +1182,7 @@ export function VaultApp() {
           setSecurityCategory(null)
           setSidebarOpen(false)
         }}
-        onToggleCollapsed={layout.toggleSidebar}
+        onToggleCollapsed={toggleSidebar}
         onFilterChange={(next) => {
           setView('vault')
           setSecurityCategory(null)
@@ -1179,7 +1205,7 @@ export function VaultApp() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      {!layout.sidebarCollapsed && (
+      {!sidebarCollapsed && !drawerSidebar && (
         <ColumnResizer
           className="column-resizer--sidebar"
           label={t('layout.resizeSidebar')}

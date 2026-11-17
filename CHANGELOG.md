@@ -2,6 +2,10 @@
 
 ## Non publié
 
+- Interface : disposition **responsive par paliers** — barre latérale
+  complète, rail d’icônes automatique entre 1024 et 1140 px, tiroir avec deux
+  panneaux entre 768 et 1023 px, puis un seul panneau avec retour à la liste
+  sous 768 px. La largeur minimale de la fenêtre passe à 720 px.
 - Éléments : nouveau type **Compte bancaire** (titulaire, banque, IBAN,
   BIC/SWIFT, numéro de compte, routing/sort code, agence, devise), avec modèle
   intégré, recherche, filtre, icône et export/import génériques.
