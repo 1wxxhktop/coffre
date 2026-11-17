@@ -32,6 +32,7 @@ const TYPE_KEYS: Record<VaultItem['type'], MessageKey> = {
   note: 'itemType.note',
   card: 'itemType.card',
   identity: 'itemType.identity',
+  'bank-account': 'itemType.bankAccount',
   passkey: 'itemType.passkey',
   'ssh-key': 'itemType.sshKey',
   wifi: 'itemType.wifi',

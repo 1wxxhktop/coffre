@@ -59,9 +59,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   règle de lint qui refuse les nouvelles chaînes d’interface en dur. Les
   messages Rust restent à traduire.
 - **Coffres multiples** : création, renommage, suppression, filtre par coffre.
-- **Dix types d’éléments** : connexion, note sécurisée, carte bancaire,
-  identité, passkey WebAuthn, clé SSH, réseau Wi-Fi, identifiant d’API, licence
-  logicielle et document avec pièce jointe principale.
+- **Douze types d’éléments** : connexion, note sécurisée, carte bancaire,
+  identité, compte bancaire (IBAN, BIC/SWIFT, titulaire), passkey WebAuthn,
+  clé SSH, réseau Wi-Fi, identifiant d’API, licence logicielle, document avec
+  pièce jointe principale et codes de secours.
 - **Adresses web multiples** : une connexion peut contenir plusieurs URL. Chaque
   adresse peut être ouverte dans le navigateur, ou copiée directement via son
   icône, sans l’ouvrir.
@@ -196,10 +197,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   mêmes règles que la synchronisation par dossier. Aucun serveur, aucune
   connexion Internet ; le port d’écoute n’est ouvert que pendant une réception.
 - **Modèles intégrés et personnalisés** : un modèle complet pour chacun des
-  dix types d’éléments (connexion, note, carte, identité, passkey, clé SSH,
-  Wi-Fi, identifiant d’API, licence logicielle, document), avec tous leurs
-  champs ; les modèles personnalisés choisissent leur type et restent chiffrés
-  dans le coffre avec une clé et une AAD dédiées.
+  douze types d’éléments (connexion, note, carte, identité, compte bancaire,
+  passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle, document,
+  codes de secours), avec tous leurs champs ; les modèles personnalisés
+  choisissent leur type et restent chiffrés dans le coffre avec une clé et une
+  AAD dédiées.
 - **Icônes de service locales** : les éléments affichent le glyphe du service
   détecté depuis leur URL, leur RP ID, leur endpoint ou leur site (GitHub,
   Google, Apple, Amazon, cartes bancaires, etc.), ou un monogramme pour les
@@ -311,7 +313,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   recherche unique pour ouvrir un élément ou lancer une action (nouvel élément,
   générateur, bilan de sécurité, réglages, verrouillage). Elle ne lit jamais les
   secrets. Un élément choisi s’affiche dans une modale, sans changer la
-  sélection de la bibliothèque.
+  sélection de la bibliothèque. `⌘N` / `Ctrl+N` crée directement un nouvel
+  élément.
 - **Accès rapide** : les **10 éléments les plus utilisés** apparaissent en tête
   de la bibliothèque, classés par nombre d’utilisations puis par dernière
   utilisation.

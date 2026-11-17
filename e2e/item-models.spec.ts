@@ -32,12 +32,13 @@ test('propose un modèle intégré pour chaque type', async ({ page }) => {
   await createVault(page)
   const settings = await openSettings(page, 'Modèles')
   const grid = settings.locator('.model-grid')
-  await expect(grid.locator('.model-card')).toHaveCount(11)
+  await expect(grid.locator('.model-card')).toHaveCount(12)
   for (const type of [
     'login',
     'note',
     'card',
     'identity',
+    'bank-account',
     'passkey',
     'ssh-key',
     'wifi',

@@ -2,6 +2,12 @@
 
 ## Non publié
 
+- Éléments : nouveau type **Compte bancaire** (titulaire, banque, IBAN,
+  BIC/SWIFT, numéro de compte, routing/sort code, agence, devise), avec modèle
+  intégré, recherche, filtre, icône et export/import génériques.
+- Raccourci : **⌘N / Ctrl+N** crée directement un nouvel élément.
+- Interface : le sélecteur de type du nouvel élément tient sur **une seule
+  ligne** ; les types qui ne rentrent pas sont accessibles par le bouton « … ».
 - Bibliothèque : option de tri **« Dernière utilisation »** (anciennement
   « Récents » dans le menu de tri). L’ordre suit l’horodatage de la dernière
   ouverture ou copie d’un élément ; copier un champ (mot de passe, code 2FA,

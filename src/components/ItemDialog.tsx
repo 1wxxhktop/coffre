@@ -1,6 +1,8 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -139,6 +141,23 @@ const TWO_FACTOR_LABELS: Record<string, string> = {
   'custom-software': 'Application',
   'custom-hardware': 'Matériel',
 }
+
+const TYPE_PICKER_TYPES: ItemType[] = [
+  'login',
+  'note',
+  'card',
+  'identity',
+  'bank-account',
+  'ssh-key',
+  'wifi',
+  'api-credential',
+  'software-license',
+  'document',
+  'recovery-codes',
+]
+
+/** Largeur approximative d’une pastille, utilisée pour calculer l’ellipse. */
+const TYPE_PICKER_ITEM_WIDTH = 150
 
 interface ItemDialogProps {
   item?: VaultItem
@@ -364,6 +383,37 @@ export function ItemDialog({
   const [attachmentToDelete, setAttachmentToDelete] = useState<AttachmentMeta | null>(null)
   const [recoveryImport, setRecoveryImport] = useState('')
   const [pendingRecoveryCode, setPendingRecoveryCode] = useState<RecoveryCode | null>(null)
+  const typePickerRef = useRef<HTMLDivElement>(null)
+  const [typePickerWidth, setTypePickerWidth] = useState(0)
+
+  useLayoutEffect(() => {
+    const element = typePickerRef.current
+    if (!element) return
+    const update = () => setTypePickerWidth(element.clientWidth)
+    update()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update)
+      return () => window.removeEventListener('resize', update)
+    }
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const visibleTypeCount = Math.max(
+    2,
+    Math.floor((Math.max(0, typePickerWidth) - 48) / TYPE_PICKER_ITEM_WIDTH),
+  )
+  const overflowTypes = TYPE_PICKER_TYPES.length > visibleTypeCount
+  const visibleTypes = overflowTypes
+    ? TYPE_PICKER_TYPES.slice(0, visibleTypeCount)
+    : TYPE_PICKER_TYPES
+  if (overflowTypes && !visibleTypes.includes(draft.type)) {
+    visibleTypes[visibleTypes.length - 1] = draft.type
+  }
+  const hiddenTypes = TYPE_PICKER_TYPES.filter(
+    (type) => !visibleTypes.includes(type),
+  )
 
   const vault = useMemo(
     () => vaults.find((candidate) => candidate.id === draft.vaultId),
@@ -1259,12 +1309,13 @@ export function ItemDialog({
             <>
               {!current && (
                 <div
+                  ref={typePickerRef}
                   className="type-picker"
                   role="radiogroup"
                   aria-label={tt('Type d’élément')}
                   onKeyDown={onTypesKeyDown}
                 >
-                  {(['login', 'note', 'card', 'identity', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document', 'recovery-codes'] as ItemType[]).map((type) => (
+                  {visibleTypes.map((type) => (
                     <button
                       key={type}
                       type="button"
@@ -1272,14 +1323,41 @@ export function ItemDialog({
                       aria-checked={draft.type === type}
                       tabIndex={draft.type === type ? 0 : -1}
                       className={`type-picker__item ${draft.type === type ? 'is-active' : ''}`}
+                      title={itemTypeLabel(type)}
                       onClick={() => switchType(type)}
                     >
                       <span className={`item-icon item-icon--${type}`}>
                         <ItemIcon type={type} size={17} />
                       </span>
-                      {itemTypeLabel(type)}
+                      <span className="type-picker__label">
+                        {itemTypeLabel(type)}
+                      </span>
                     </button>
                   ))}
+                  {hiddenTypes.length > 0 && (
+                    <Menu
+                      label={tt('Plus de types d’éléments')}
+                      trigger={<MoreHorizontal size={18} />}
+                      triggerClassName="type-picker__item type-picker__more"
+                      panelClassName="type-picker__menu"
+                    >
+                      {hiddenTypes.map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={draft.type === type}
+                          className="menu__item"
+                          onClick={() => switchType(type)}
+                        >
+                          <span className={`item-icon item-icon--${type}`}>
+                            <ItemIcon type={type} size={16} />
+                          </span>
+                          {itemTypeLabel(type)}
+                        </button>
+                      ))}
+                    </Menu>
+                  )}
                 </div>
               )}
 
@@ -1669,6 +1747,90 @@ export function ItemDialog({
                       type="date"
                       value={draft.licenseExpiry}
                       onChange={(event) => patch({ licenseExpiry: event.target.value })}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {draft.type === 'bank-account' && (
+                <div className="form-grid">
+                  <label className="field">
+                    <span className="field__label">{tt('Titulaire du compte')}</span>
+                    <input
+                      className="input"
+                      value={draft.accountHolder}
+                      onChange={(event) => patch({ accountHolder: event.target.value })}
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Banque')}</span>
+                    <input
+                      className="input"
+                      value={draft.bankName}
+                      onChange={(event) => patch({ bankName: event.target.value })}
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field field--full">
+                    <span className="field__label">{tt('IBAN')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.iban}
+                      onChange={(event) => patch({ iban: event.target.value })}
+                      placeholder={tt('FR76 3000 6000 0112 3456 7890 189')}
+                      maxLength={64}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('BIC / SWIFT')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.swift}
+                      onChange={(event) => patch({ swift: event.target.value })}
+                      placeholder={tt('AGRIFRPP')}
+                      maxLength={32}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Numéro de compte')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.accountNumber}
+                      onChange={(event) => patch({ accountNumber: event.target.value })}
+                      maxLength={64}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Routing / sort code')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.routingNumber}
+                      onChange={(event) => patch({ routingNumber: event.target.value })}
+                      maxLength={64}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Agence')}</span>
+                    <input
+                      className="input"
+                      value={draft.branch}
+                      onChange={(event) => patch({ branch: event.target.value })}
+                      maxLength={200}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Devise')}</span>
+                    <input
+                      className="input"
+                      value={draft.currency}
+                      onChange={(event) => patch({ currency: event.target.value })}
+                      placeholder={tt('EUR')}
+                      maxLength={8}
                     />
                   </label>
                 </div>
@@ -2774,6 +2936,39 @@ function ItemDetails({
           {item.licenseExpiry && (
             <ExpiryDetail label="Permis" value={item.licenseExpiry} />
           )}
+        </div>
+      )}
+
+      {item.type === 'bank-account' && (
+        <div className="detail-list">
+          <DetailRow label="Titulaire du compte" value={item.accountHolder} />
+          <DetailRow label="Banque" value={item.bankName} />
+          <SecretRow
+            label="IBAN"
+            value={item.iban}
+            revealed={revealed.has('bank-iban')}
+            onToggle={() => toggleReveal('bank-iban')}
+            onCopy={() => void copyValue(item.iban, 'IBAN')}
+            copied={copied === 'IBAN'}
+          />
+          <DetailRow
+            label="BIC / SWIFT"
+            value={item.swift}
+            onCopy={() => void copyValue(item.swift, 'BIC / SWIFT')}
+            copied={copied === 'BIC / SWIFT'}
+            mono
+          />
+          <SecretRow
+            label="Numéro de compte"
+            value={item.accountNumber}
+            revealed={revealed.has('bank-number')}
+            onToggle={() => toggleReveal('bank-number')}
+            onCopy={() => void copyValue(item.accountNumber, 'Numéro de compte')}
+            copied={copied === 'Numéro de compte'}
+          />
+          <DetailRow label="Routing / sort code" value={item.routingNumber} mono />
+          <DetailRow label="Agence" value={item.branch} />
+          <DetailRow label="Devise" value={item.currency} />
         </div>
       )}
 

@@ -94,6 +94,21 @@ export async function closeDialog(page: Page): Promise<void> {
   }
 }
 
+/**
+ * Choisit un type d’élément dans le dialogue de création. Les types qui ne
+ * tiennent pas sur la ligne sont repliés dans le menu « … ».
+ */
+export async function selectItemType(page: Page, label: string): Promise<void> {
+  const dialog = page.getByRole('dialog')
+  const radio = dialog.getByRole('radio', { name: label })
+  if ((await radio.count()) > 0) {
+    await radio.click()
+    return
+  }
+  await dialog.getByRole('button', { name: 'Plus de types d’éléments' }).click()
+  await page.getByRole('menuitemradio', { name: label }).click()
+}
+
 /** Ouvre le menu d’actions d’un élément et clique sur une entrée. */
 export async function clickItemMenu(page: Page, panel: Locator, label: string) {
   await panel.getByRole('button', { name: 'Plus d’actions' }).click()

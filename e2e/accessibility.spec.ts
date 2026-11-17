@@ -166,9 +166,11 @@ test('le sélecteur de type se pilote aux flèches', async ({ page }) => {
   await expect(note).toBeFocused()
   await expect(note).toHaveAttribute('aria-checked', 'true')
   await page.keyboard.press('End')
-  await expect(
-    dialog.getByRole('radio', { name: 'Codes de secours' }),
-  ).toHaveAttribute('aria-checked', 'true')
+  const visibleRadios = dialog.getByRole('radio')
+  await expect(visibleRadios.nth((await visibleRadios.count()) - 1)).toHaveAttribute(
+    'aria-checked',
+    'true',
+  )
   await page.keyboard.press('Home')
   await expect(login).toHaveAttribute('aria-checked', 'true')
   await page.waitForTimeout(200)

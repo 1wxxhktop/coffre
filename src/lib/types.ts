@@ -11,6 +11,7 @@ export const ITEM_TYPES = [
   'note',
   'card',
   'identity',
+  'bank-account',
   'passkey',
   'ssh-key',
   'wifi',
@@ -161,6 +162,19 @@ export interface IdentityItem extends ItemBase {
  * Passkey WebAuthn. La clé privée PKCS#8 et la clé publique COSE sont stockées
  * dans le contenu chiffré de l’élément ; l’extension ne les reçoit jamais.
  */
+/** Coordonnées d’un compte bancaire, sans données de carte de paiement. */
+export interface BankAccountItem extends ItemBase {
+  type: 'bank-account'
+  accountHolder: string
+  bankName: string
+  iban: string
+  swift: string
+  accountNumber: string
+  routingNumber: string
+  branch: string
+  currency: string
+}
+
 export interface PasskeyItem extends ItemBase {
   type: 'passkey'
   /** Domaine du relying party (sans schéma). */
@@ -243,6 +257,7 @@ export type VaultItem =
   | NoteItem
   | CardItem
   | IdentityItem
+  | BankAccountItem
   | PasskeyItem
   | SshKeyItem
   | WifiItem
@@ -761,6 +776,19 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         idCardExpiry: '',
         licenseExpiry: '',
       }
+    case 'bank-account':
+      return {
+        ...base,
+        type: 'bank-account',
+        accountHolder: '',
+        bankName: '',
+        iban: '',
+        swift: '',
+        accountNumber: '',
+        routingNumber: '',
+        branch: '',
+        currency: '',
+      }
     case 'passkey':
       return {
         ...base,
@@ -836,6 +864,11 @@ export function itemSubtitle(item: VaultItem): string {
       const name = [item.firstName, item.lastName].filter(Boolean).join(' ')
       return name || item.email || 'Identité'
     }
+    case 'bank-account': {
+      const iban = item.iban.replace(/\s+/g, '')
+      const masked = iban.length > 4 ? `•••• ${iban.slice(-4)}` : iban
+      return [item.bankName, masked].filter(Boolean).join(' · ') || 'Compte bancaire'
+    }
     case 'passkey':
       return item.userName || item.rpId || 'Passkey'
     case 'ssh-key':
@@ -867,6 +900,8 @@ export function itemTypeLabel(type: ItemType): string {
       return 'Carte'
     case 'identity':
       return 'Identité'
+    case 'bank-account':
+      return 'Compte bancaire'
     case 'passkey':
       return 'Passkey'
     case 'ssh-key':

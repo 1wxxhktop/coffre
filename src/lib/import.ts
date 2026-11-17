@@ -520,6 +520,12 @@ function makeDraft(
         idCardExpiry: extras.idCardExpiry ?? '',
         licenseExpiry: extras.licenseExpiry ?? '',
       }
+    case 'bank-account':
+      return {
+        ...emptyDraft('bank-account', vaultId),
+        ...common,
+        type: 'bank-account',
+      } as ItemDraft
     case 'note':
       return { ...draft, type: 'note' }
     case 'passkey':
@@ -1436,6 +1442,8 @@ function fingerprintKey(item: FingerprintItem): string {
       return `card|${title}|${item.number.replace(/\s+/g, '').slice(-4)}`
     case 'identity':
       return `identity|${title}|${normalizeText(item.email)}`
+    case 'bank-account':
+      return `bank-account|${title}|${normalizeText(item.iban).slice(-8)}`
     case 'note':
       return `note|${title}|${normalizeText(item.notes).slice(0, 200)}`
     case 'passkey':

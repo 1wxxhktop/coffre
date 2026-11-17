@@ -699,6 +699,19 @@ const identityContentSchema = z.object({
   licenseExpiry: z.string().max(40).default(''),
 })
 
+const bankAccountContentSchema = z.object({
+  ...itemBaseSchema,
+  type: z.literal('bank-account'),
+  accountHolder: z.string().max(500),
+  bankName: z.string().max(500),
+  iban: z.string().max(64),
+  swift: z.string().max(32),
+  accountNumber: z.string().max(64),
+  routingNumber: z.string().max(64),
+  branch: z.string().max(200),
+  currency: z.string().max(8),
+})
+
 const passkeyContentSchema = z.object({
   ...itemBaseSchema,
   type: z.literal('passkey'),
@@ -774,6 +787,7 @@ const itemContentSchema = z.discriminatedUnion('type', [
   noteContentSchema,
   cardContentSchema,
   identityContentSchema,
+  bankAccountContentSchema,
   passkeyContentSchema,
   sshKeyContentSchema,
   wifiContentSchema,
@@ -2469,6 +2483,19 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         passportExpiry: normalizeDateOnly(draft.passportExpiry ?? ''),
         idCardExpiry: normalizeDateOnly(draft.idCardExpiry ?? ''),
         licenseExpiry: normalizeDateOnly(draft.licenseExpiry ?? ''),
+      }
+    case 'bank-account':
+      return {
+        ...common,
+        type: 'bank-account',
+        accountHolder: cleanText(draft.accountHolder, 500),
+        bankName: cleanText(draft.bankName, 500),
+        iban: cleanText(draft.iban, 64).replace(/\s+/g, ' ').trim().toUpperCase(),
+        swift: cleanText(draft.swift, 32).replace(/\s+/g, '').toUpperCase(),
+        accountNumber: cleanText(draft.accountNumber, 64),
+        routingNumber: cleanText(draft.routingNumber, 64),
+        branch: cleanText(draft.branch, 200),
+        currency: cleanText(draft.currency, 8).toUpperCase(),
       }
     case 'passkey':
       return {

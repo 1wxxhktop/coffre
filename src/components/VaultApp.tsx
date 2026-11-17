@@ -162,6 +162,15 @@ function searchableText(item: ReturnType<typeof useVault>['items'][number]): str
         item.country,
       )
       break
+    case 'bank-account':
+      common.push(
+        item.accountHolder,
+        item.bankName,
+        item.iban.replace(/\s+/g, '').slice(-4),
+        item.swift,
+        item.currency,
+      )
+      break
     case 'note':
       break
     case 'passkey':
@@ -190,7 +199,7 @@ function searchableText(item: ReturnType<typeof useVault>['items'][number]): str
   return normalize(common.join(' '))
 }
 
-const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'passkey', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document', 'recovery-codes']
+const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'bank-account', 'passkey', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document', 'recovery-codes']
 
 const SECURITY_CATEGORY_KEYS: Record<SecurityCategory, MessageKey> = {
   breached: 'security.category.breached',
@@ -516,6 +525,19 @@ export function VaultApp() {
       const typing =
         target?.matches('input, textarea, select, [contenteditable="true"]') ?? false
 
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === 'n' &&
+        !dialogOpen &&
+        !readOnly
+      ) {
+        event.preventDefault()
+        setView('vault')
+        setSecurityCategory(null)
+        setCreateType('login')
+        return
+      }
+
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k' && !dialogOpen) {
         event.preventDefault()
         setPaletteOpen(true)
@@ -557,7 +579,7 @@ export function VaultApp() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [createType, filter])
+  }, [createType, filter, readOnly])
 
   const activeVault = vaults.find((vault) => vault.id === activeVaultFilter)
   const scopedItems = useMemo(() => {
