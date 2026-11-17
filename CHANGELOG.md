@@ -6,6 +6,9 @@
   « Récents » dans le menu de tri). L’ordre suit l’horodatage de la dernière
   ouverture ou copie d’un élément ; copier un champ (mot de passe, code 2FA,
   etc.) actualise immédiatement cet horodatage.
+- Générateur : **options mémorisées**. Le mode, la longueur, les classes de
+  caractères, le nombre de mots, le séparateur et les options de phrase de
+  passe sont conservés localement et restaurés à la prochaine ouverture.
 - Extension : **stockage d’appairage à trois backends** (`storage.local`,
   `storage.session`, IndexedDB), avec vérification de relecture avant de
   déclarer l’appairage réussi. Orion est ajouté explicitement à

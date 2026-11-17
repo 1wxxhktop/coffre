@@ -1645,6 +1645,10 @@ démarrage à l’ouverture de session et activation du trousseau ou de la
 biométrie. Elles ne contiennent aucun secret. Le choix de langue ne déclenche
 aucune requête réseau.
 
+Les options du générateur (mode, longueur, classes de caractères, réglages de
+phrase de passe) sont conservées sous `coffre:generator-options:v1` : elles ne
+contiennent aucun secret et ne sont pas incluses dans les exports.
+
 L’historique « Récents » est stocké séparément sous `coffre:usage:v1` : une
 table d’identifiants aléatoires d’éléments et d’horodatages, plafonnée à 500
 entrées. Aucun titre, identifiant de compte ni secret n’y figure, mais le rythme

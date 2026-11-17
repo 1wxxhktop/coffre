@@ -147,7 +147,7 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Actions groupées** : sélection multiple, ajout/retrait des favoris et mise
   à la corbeille en une seule opération.
 - **Générateur** de mots de passe et de phrases de passe (liste EFF de
-  7 776 mots), avec réglages et estimation d’entropie.
+  7 776 mots), avec réglages mémorisés et estimation d’entropie.
 - **Historique chiffré du générateur** : les 50 derniers secrets générés
   (application, extension, assistant de changement) restent dans le contenu
   chiffré du coffre, avec leur date et leur domaine. Rétention de 1, 7 ou
