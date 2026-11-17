@@ -6,6 +6,18 @@
   « Récents » dans le menu de tri). L’ordre suit l’horodatage de la dernière
   ouverture ou copie d’un élément ; copier un champ (mot de passe, code 2FA,
   etc.) actualise immédiatement cet horodatage.
+- Pièces jointes : **aperçu intégré** des images, PDF, textes, sons et vidéos,
+  qu’elles soient stockées dans le fichier ou en blob chiffré. Le contenu est
+  déchiffré en mémoire, jamais écrit en clair sur le disque, et peut être
+  téléchargé depuis l’aperçu.
+- Palette de commandes : un élément choisi avec `⌘K` / `Ctrl+K` s’ouvre
+  désormais dans une **modale**, sans remplacer la sélection de la bibliothèque.
+- Accès rapide : la rangée affiche les **10 éléments les plus utilisés**, classés
+  par nombre d’utilisations puis par dernière utilisation. L’ancien historique
+  horodaté est migré automatiquement.
+- Générateur : **options mémorisées**. Le mode, la longueur, les classes de
+  caractères, le nombre de mots, le séparateur et les options de phrase de
+  passe sont conservés localement et restaurés à la prochaine ouverture.
 - Extension : **stockage d’appairage à trois backends** (`storage.local`,
   `storage.session`, IndexedDB), avec vérification de relecture avant de
   déclarer l’appairage réussi. Orion est ajouté explicitement à

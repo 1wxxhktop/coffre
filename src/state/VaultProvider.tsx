@@ -77,6 +77,7 @@ import {
   storeVaultKey,
 } from '../lib/keychain'
 import { markExtensionOnboardingPending } from '../lib/extensionOnboarding'
+import { previewBlob } from '../lib/blobStore'
 import {
   deleteBiometricKey,
   loadBiometricKey,
@@ -197,6 +198,7 @@ import {
   type ActivityKind,
   type AliasKeyService,
   type ItemTemplate,
+  type AttachmentMeta,
   type VaultItem,
   type VaultStatus,
   type VaultSummary,
@@ -339,6 +341,11 @@ interface VaultContextValue extends ProviderState {
   addAttachment: (item: VaultItem, file: File) => Promise<VaultItem>
   removeAttachment: (item: VaultItem, attachmentId: string) => Promise<VaultItem>
   downloadAttachment: (item: VaultItem, attachmentId: string) => Promise<void>
+  /** Lit une pièce jointe en mémoire pour l’aperçu, sans écriture disque. */
+  readAttachment: (
+    item: VaultItem,
+    attachment: AttachmentMeta,
+  ) => Promise<{ meta: AttachmentMeta; bytes: Uint8Array }>
   importItems: (drafts: ItemDraft[]) => Promise<ImportResult>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   setRecoveryPhrase: (phrase: string | null) => Promise<void>
@@ -2713,6 +2720,38 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [enqueue],
   )
 
+  const readAttachment = useCallback(
+    (item: VaultItem, attachment: AttachmentMeta) =>
+      enqueue(async () => {
+        const current = stateRef.current
+        if (!current.file || !current.session) throw new Error('Coffre verrouillé')
+        if (
+          attachment.storage === 'blob' &&
+          attachment.blobId &&
+          attachment.blobKey
+        ) {
+          const base64 = await previewBlob({
+            id: attachment.blobId,
+            key: attachment.blobKey,
+            maxBytes: 16 * 1024 * 1024,
+          })
+          const binary = atob(base64)
+          const bytes = new Uint8Array(binary.length)
+          for (let index = 0; index < binary.length; index += 1) {
+            bytes[index] = binary.charCodeAt(index)
+          }
+          return { meta: attachment, bytes }
+        }
+        return openAttachment(
+          current.file,
+          current.session,
+          item,
+          attachment.id,
+        )
+      }),
+    [enqueue],
+  )
+
   const importItems = useCallback(
     (drafts: ItemDraft[]) =>
       enqueue(async () => {
@@ -3836,6 +3875,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     addAttachment,
     removeAttachment,
     downloadAttachment,
+    readAttachment,
     importItems,
     changePassword,
     setRecoveryPhrase,

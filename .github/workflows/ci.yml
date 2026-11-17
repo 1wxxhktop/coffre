@@ -52,9 +52,9 @@ jobs:
 
       - name: Auditer les dépendances
         # Les avis restants sont des dépendances de build (glob/minimatch via
-        # workbox et cyclonedx, picomatch via vite/fdir) sans version corrigée
-        # publiée ; ils sont suivis et ignorés explicitement pour garder le
-        # gate utile.
+        # workbox et cyclonedx, picomatch via Vite/Vitest) sans correctif
+        # publié ; ils sont suivis et ignorés explicitement pour garder le gate
+        # utile sur le code livré.
         run: >-
           bun audit --audit-level=moderate
           --ignore=GHSA-3g3m-2fjr-6pw4

@@ -91,7 +91,9 @@ du thème. La trame de fond est atténuée de moitié dans l’application.
 L’en-tête du détail contient l’icône, le titre, l’étoile de favori et, à droite,
 « Modifier », « Copier le mot de passe » et le menu « … » (historique,
 déplacement, partage hors ligne, duplication, suppression). Le contenu suit
-l’ordre champs → étiquettes → notes → pièces jointes → métadonnées.
+l’ordre champs → étiquettes → notes → pièces jointes → métadonnées. Les pièces
+jointes compatibles (images, PDF, textes, sons, vidéos) s’ouvrent dans une
+visionneuse modale, alimentée par un déchiffrement en mémoire.
 
 ### Réglages
 
@@ -119,7 +121,7 @@ La bibliothèque regroupe automatiquement les éléments par date. Les sections
 sont « Aujourd’hui », « Hier », « 7 derniers jours », « Ce mois-ci », puis un
 groupe par mois pour les dates plus anciennes. Le regroupement suit la date de
 modification par défaut ; il suit la date de création avec le tri « Créés »,
-l’horodatage d’utilisation avec « Récents » et la date de suppression dans la
+l’horodatage de la dernière utilisation avec « Dernière utilisation » et la date de suppression dans la
 corbeille. Le tri choisi s’applique à l’intérieur de chaque groupe.
 
 Les en-têtes de date restent collés en haut de la liste pendant le défilement.

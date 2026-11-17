@@ -15,9 +15,11 @@ import { useToast } from '../state/ToastProvider'
 interface TotpCodeProps {
   uri: string
   compact?: boolean
+  /** Appelé après une copie réussie, pour marquer l’élément comme utilisé. */
+  onCopied?: () => void
 }
 
-export function TotpCode({ uri, compact = false }: TotpCodeProps) {
+export function TotpCode({ uri, compact = false, onCopied }: TotpCodeProps) {
   const { settings } = useSettings()
   const { tt } = useI18n()
   const { toast } = useToast()
@@ -85,6 +87,7 @@ export function TotpCode({ uri, compact = false }: TotpCodeProps) {
       () => toast(tt('Presse-papiers effacé'), 'info'),
     )
     if (success) {
+      onCopied?.()
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
       toast(tt('Code TOTP copié'), 'success')

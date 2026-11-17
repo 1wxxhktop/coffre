@@ -16,9 +16,21 @@ test.describe('confort de la fiche et accès rapides', () => {
     await expect(palette.getByRole('option')).toHaveCount(1)
     await page.keyboard.press('Enter')
     await expect(palette).toHaveCount(0)
-    await expect(
-      page.locator('.item-panel').getByRole('heading', { name: 'Banque Postale' }),
-    ).toBeVisible()
+    const itemModal = page.getByRole('dialog', { name: 'Banque Postale' })
+    await expect(itemModal).toBeVisible()
+    // La fiche s’ouvre en modale : le panneau latéral reste inchangé.
+    await expect(itemModal.getByRole('heading', { name: 'Banque Postale' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(itemModal).toHaveCount(0)
+
+    // Un clic sur un résultat ouvre lui aussi la fiche en modale.
+    await page.keyboard.press('ControlOrMeta+k')
+    await palette.getByRole('combobox').fill('intra')
+    await palette.getByRole('option', { name: /Intranet/ }).click()
+    const intranetModal = page.getByRole('dialog', { name: 'Intranet' })
+    await expect(intranetModal).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(intranetModal).toHaveCount(0)
 
     await page.keyboard.press('ControlOrMeta+k')
     await palette.getByRole('combobox').fill('reglages')
@@ -54,6 +66,11 @@ test.describe('confort de la fiche et accès rapides', () => {
 
     const quick = page.getByRole('group', { name: 'Accès rapide' })
     await expect(quick.getByRole('button')).toHaveCount(2)
+    // « Accès rapide » classe par nombre d’utilisations, pas seulement par date.
+    for (let click = 0; click < 3; click += 1) {
+      await page.locator('.item-row', { hasText: 'Banque Postale' }).click()
+    }
+    await expect(quick.getByRole('button').first()).toHaveAccessibleName('Banque Postale')
     await quick.getByRole('button', { name: 'Banque Postale' }).click()
     await expect(
       page.locator('.item-panel').getByRole('heading', { name: 'Banque Postale' }),

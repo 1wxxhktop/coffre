@@ -1,5 +1,5 @@
 import type { VaultItem } from './types'
-import type { UsageMap } from './usage'
+import { usageCount, usageTimestamp, type UsageMap } from './usage'
 
 /** Action proposée par la palette de commandes. */
 export interface PaletteAction {
@@ -13,6 +13,7 @@ export interface PaletteAction {
 
 export const PALETTE_MAX_ITEMS = 8
 export const PALETTE_RECENT_ITEMS = 5
+export const QUICK_ACCESS_LIMIT = 10
 
 function normalize(value: string): string {
   return value
@@ -56,7 +57,7 @@ export function searchPalette<A extends PaletteAction>(
   if (words.length === 0) {
     const recent = active
       .filter((item) => usage[item.id])
-      .sort((a, b) => (usage[b.id] ?? 0) - (usage[a.id] ?? 0))
+      .sort((a, b) => usageTimestamp(usage, b.id) - usageTimestamp(usage, a.id))
       .slice(0, PALETTE_RECENT_ITEMS)
     return { actions, items: recent }
   }
@@ -75,7 +76,8 @@ export function searchPalette<A extends PaletteAction>(
     .sort(
       (a, b) =>
         a.rank - b.rank ||
-        (usage[b.item.id] ?? 0) - (usage[a.item.id] ?? 0) ||
+        usageCount(usage, b.item.id) - usageCount(usage, a.item.id) ||
+        usageTimestamp(usage, b.item.id) - usageTimestamp(usage, a.item.id) ||
         a.item.title.localeCompare(b.item.title),
     )
     .slice(0, PALETTE_MAX_ITEMS)
@@ -84,15 +86,19 @@ export function searchPalette<A extends PaletteAction>(
   return { actions: matchedActions, items: matchedItems }
 }
 
-/** Éléments les plus récemment utilisés, pour la rangée « Accès rapide ». */
+/** Éléments les plus utilisés, pour la rangée « Accès rapide ». */
 export function quickAccessItems(
   items: VaultItem[],
   usage: UsageMap,
-  limit = 5,
+  limit = QUICK_ACCESS_LIMIT,
 ): VaultItem[] {
   return items
-    .filter((item) => !item.deletedAt && usage[item.id])
-    .sort((a, b) => (usage[b.id] ?? 0) - (usage[a.id] ?? 0))
+    .filter((item) => !item.deletedAt && usageCount(usage, item.id) > 0)
+    .sort(
+      (a, b) =>
+        usageCount(usage, b.id) - usageCount(usage, a.id) ||
+        usageTimestamp(usage, b.id) - usageTimestamp(usage, a.id),
+    )
     .slice(0, limit)
 }
 

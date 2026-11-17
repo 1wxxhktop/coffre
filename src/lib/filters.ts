@@ -52,11 +52,17 @@ export function isItemFilter(value: string): value is ItemFilter {
   return Object.hasOwn(FILTER_LABELS, value)
 }
 
-export type ItemSort = 'recent' | 'name-asc' | 'name-desc' | 'updated' | 'created' | 'type'
+export type ItemSort =
+  | 'last-used'
+  | 'name-asc'
+  | 'name-desc'
+  | 'updated'
+  | 'created'
+  | 'type'
 
 /** Options de tri proposées au-dessus de la liste. */
 export const SORT_LABELS: Record<ItemSort, string> = {
-  recent: 'Récents',
+  'last-used': 'Dernière utilisation',
   'name-asc': 'Nom A–Z',
   'name-desc': 'Nom Z–A',
   updated: 'Modifiés',
@@ -65,7 +71,7 @@ export const SORT_LABELS: Record<ItemSort, string> = {
 }
 
 export const SORT_MESSAGE_KEYS: Record<ItemSort, MessageKey> = {
-  recent: 'vault.sort.recent',
+  'last-used': 'vault.sort.lastUsed',
   'name-asc': 'vault.sort.nameAsc',
   'name-desc': 'vault.sort.nameDesc',
   updated: 'vault.sort.updated',
