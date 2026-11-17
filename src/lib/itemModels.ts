@@ -104,6 +104,23 @@ export const ITEM_MODELS: ItemModel[] = [
     ],
   },
   {
+    type: 'bank-account',
+    name: 'Compte bancaire',
+    icon: '🏦',
+    description: 'Titulaire, banque, IBAN, BIC/SWIFT et coordonnées du compte.',
+    creatable: true,
+    fields: [
+      { label: 'Titulaire du compte', kind: 'text' },
+      { label: 'Banque', kind: 'text' },
+      { label: 'IBAN', kind: 'text' },
+      { label: 'BIC / SWIFT', kind: 'text' },
+      { label: 'Numéro de compte', kind: 'secret' },
+      { label: 'Routing / sort code', kind: 'text' },
+      { label: 'Agence', kind: 'text' },
+      { label: 'Devise', kind: 'text' },
+    ],
+  },
+  {
     type: 'passkey',
     name: 'Passkey',
     icon: '🔐',

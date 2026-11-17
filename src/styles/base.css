@@ -1142,6 +1142,8 @@ kbd {
   bottom: auto;
   left: auto;
   top: auto;
+  /* Un menu ancré dans une modale doit passer au-dessus d’elle. */
+  z-index: var(--z-menu);
 }
 
 .menu__item {
