@@ -69,6 +69,9 @@ interface PendingPairing {
   extensionFingerprint: string
   appPrivateKey: CryptoKey
   appPublicKey: string
+  /** Récupération de la clé existante au lieu d’en créer une nouvelle. */
+  recover: boolean
+  existingKey: string | null
 }
 
 const encoder = new TextEncoder()
@@ -232,41 +235,76 @@ export function NativeBridge() {
       }
 
       const previousKey = sessionKeyRef.current
-      const key = await deriveBridgeSessionKey(
-        pending.appPrivateKey,
-        pending.appPublicKey,
-        pending.extensionPublicKey,
-      )
-      sessionKeyRef.current = key
-      session.key = key
-      session.extCounter = 0
-      session.appCounter = 0
-
-      const stored = await storeBridgeKey(key)
-      if (!stored) {
-        sessionKeyRef.current = previousKey
-        session.key = previousKey
-        throw new Error(
-          'La clé du pont natif n’a pas pu être enregistrée.',
+      if (pending.recover && pending.existingKey) {
+        // L’extension a perdu sa copie de la clé mais le desktop la possède
+        // encore. On réutilise la clé existante : les autres contextes qui
+        // l’ont déjà ne sont pas invalidés, et l’extension n’a pas besoin de
+        // la persister pour cette session.
+        const key = pending.existingKey
+        const wrapKey = await deriveBridgeSessionKey(
+          pending.appPrivateKey,
+          pending.appPublicKey,
+          pending.extensionPublicKey,
         )
-      }
-
-      const sent = await send(pending.connectionId, {
-        id: pending.id,
-        type: 'pair-accepted',
-        session: session.session,
-      })
-      if (!sent) {
-        // La trame n’est jamais partie : restaurer l’ancienne clé pour ne pas
-        // déconnecter l’extension déjà associée.
-        sessionKeyRef.current = previousKey
-        session.key = previousKey
-        if (previousKey) {
-          await storeBridgeKey(previousKey)
-        } else {
-          await deleteBridgeKey()
+        const recovered = await encryptBridgePayload(
+          wrapKey,
+          session.session,
+          1,
+          'app-to-extension',
+          { type: 'bridge-key', key },
+        )
+        sessionKeyRef.current = key
+        session.key = key
+        session.extCounter = 0
+        session.appCounter = 0
+        const sent = await send(pending.connectionId, {
+          id: pending.id,
+          type: 'pair-accepted',
+          session: session.session,
+          recovered,
+        })
+        if (!sent) {
+          sessionKeyRef.current = previousKey
+          session.key = previousKey
+          throw new Error('La session du pont natif a expiré. Réessayez.')
         }
-        throw new Error('La session du pont natif a expiré. Réessayez.')
+      } else {
+        const key = await deriveBridgeSessionKey(
+          pending.appPrivateKey,
+          pending.appPublicKey,
+          pending.extensionPublicKey,
+        )
+        sessionKeyRef.current = key
+        session.key = key
+        session.extCounter = 0
+        session.appCounter = 0
+
+        const stored = await storeBridgeKey(key)
+        if (!stored) {
+          sessionKeyRef.current = previousKey
+          session.key = previousKey
+          throw new Error(
+            'La clé du pont natif n’a pas pu être enregistrée.',
+          )
+        }
+
+        const sent = await send(pending.connectionId, {
+          id: pending.id,
+          type: 'pair-accepted',
+          session: session.session,
+        })
+        if (!sent) {
+          // La trame n’est jamais partie : restaurer l’ancienne clé pour ne pas
+          // déconnecter l’extension déjà associée.
+          sessionKeyRef.current = previousKey
+          session.key = previousKey
+          if (previousKey) {
+            await storeBridgeKey(previousKey)
+          } else {
+            await deleteBridgeKey()
+          }
+          throw new Error('La session du pont natif a expiré. Réessayez.')
+        }
       }
 
       pendingPairingRef.current = null
@@ -320,6 +358,7 @@ export function NativeBridge() {
       }
 
       const pair = await createBridgeKeyPair()
+      const existingKey = message.recover ? await loadSessionKey() : null
       const pending: PendingPairing = {
         connectionId,
         id: message.id,
@@ -328,6 +367,8 @@ export function NativeBridge() {
         extensionFingerprint: await bridgePublicKeyFingerprint(message.publicKey),
         appPrivateKey: pair.privateKey,
         appPublicKey: pair.publicKey,
+        recover: Boolean(existingKey),
+        existingKey,
       }
       clearPairingTimer()
       pendingPairingRef.current = pending
@@ -342,7 +383,7 @@ export function NativeBridge() {
       await focusWindow()
       pairingTimerRef.current = window.setTimeout(() => rejectPairing('expired'), 120_000)
     },
-    [clearPairingTimer, rejectPairing, send],
+    [clearPairingTimer, loadSessionKey, rejectPairing, send],
   )
 
   const handlePayload = useCallback(

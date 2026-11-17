@@ -77,6 +77,9 @@
   "welcome_pairedNoCode": {
     "message": "Association confirmée."
   },
+  "welcome_pairedSession": {
+    "message": "Association confirmée pour cette session. Le navigateur n’a pas conservé la clé."
+  },
   "welcome_pairFailed": {
     "message": "Association impossible. Vérifiez que Coffre est ouvert et déverrouillé."
   },
@@ -403,6 +406,9 @@
   },
   "popup_paired": {
     "message": "Extension associée à Coffre."
+  },
+  "popup_pairedSession": {
+    "message": "Extension associée pour cette session. Le navigateur n’a pas conservé la clé ; une reconnexion sera peut-être nécessaire après redémarrage."
   },
   "popup_pairFailed": {
     "message": "Association impossible."

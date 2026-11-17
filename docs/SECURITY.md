@@ -679,7 +679,11 @@ longueur entre stdin/stdout et un socket local.
   redémarrage ou une mise à jour. L’extension conserve donc la clé dans trois
   backends et vérifie qu’elle est réellement relisible avant de déclarer
   l’appairage réussi. Si Orion les perd tous, le popup propose une reconnexion
-  en un clic ; aucune clé n’est recréée silencieusement.
+  en un clic : après confirmation, le desktop renvoie la clé existante dans une
+  enveloppe ECDH/AES-GCM, sans créer de nouvelle paire. Les autres contextes qui
+  possèdent déjà la clé restent donc valides. Si le navigateur ne persiste
+  toujours rien, la clé reste en mémoire pour la session et le popup l’indique ;
+  aucune clé n’est recréée silencieusement.
 - **Copie gérée de l’extension** : l’application embarque l’extension et en
   recopie les fichiers dans `extension/` de son dossier de données, au
   démarrage, quand la version diffère. L’utilisateur charge ce dossier une fois

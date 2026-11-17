@@ -1066,8 +1066,9 @@ redémarrage ou une mise à jour du navigateur. Coffre conserve la clé dans
 ou la chaîne JSON, et vérifie qu’elle est réellement persistée avant de
 déclarer l’appairage réussi. Orion est désormais installé explicitement comme
 navigateur pour l’hôte natif. Si tous les stockages sont perdus, le popup
-affiche **« Reconnecter l’extension »** : une seule confirmation suffit pour la
-session suivante.
+affiche **« Reconnecter l’extension »** : Coffre réémet la clé existante après
+une confirmation, sans la remplacer. Si le navigateur ne persiste toujours rien,
+l’association reste valable pour la session et le popup l’indique clairement.
 
 Une seule demande d’appairage est active à la fois : recliquer sur le bouton
 pendant l’opération ne crée pas de tentative concurrente. La clé de session est

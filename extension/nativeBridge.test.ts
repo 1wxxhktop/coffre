@@ -29,7 +29,11 @@ interface Harness {
 let harnessCounter = 0
 
 async function createHarness(
-  options: { failLocal?: boolean; failSession?: boolean } = {},
+  options: {
+    failLocal?: boolean
+    failSession?: boolean
+    failIndexedDb?: boolean
+  } = {},
 ): Promise<Harness> {
   const state = {
     pairBegins: 0,
@@ -153,6 +157,7 @@ async function createHarness(
   }
 
   vi.stubGlobal('chrome', chrome)
+  if (options.failIndexedDb) vi.stubGlobal('indexedDB', undefined)
   vi.resetModules()
   const module = await import('./nativeBridge')
   const statusOf = (loaded: typeof module) => async () => {
@@ -223,6 +228,22 @@ describe('appairage du pont natif', () => {
     // Un nouveau contexte/service worker ne partage pas la mémoire du premier.
     const reloaded = await harness.reload()
     await expect(reloaded.nativeStatus()).resolves.toEqual({
+      paired: true,
+      extensionKey: true,
+    })
+  })
+
+  it('bascule en session volatile si aucun stockage ne fonctionne', async () => {
+    const harness = await createHarness({
+      failLocal: true,
+      failSession: true,
+      failIndexedDb: true,
+    })
+    await expect(harness.nativePair()).resolves.toEqual({
+      ok: true,
+      volatile: true,
+    })
+    await expect(harness.nativeStatus()).resolves.toEqual({
       paired: true,
       extensionKey: true,
     })
