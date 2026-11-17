@@ -91,7 +91,9 @@ du thème. La trame de fond est atténuée de moitié dans l’application.
 L’en-tête du détail contient l’icône, le titre, l’étoile de favori et, à droite,
 « Modifier », « Copier le mot de passe » et le menu « … » (historique,
 déplacement, partage hors ligne, duplication, suppression). Le contenu suit
-l’ordre champs → étiquettes → notes → pièces jointes → métadonnées.
+l’ordre champs → étiquettes → notes → pièces jointes → métadonnées. Les pièces
+jointes compatibles (images, PDF, textes, sons, vidéos) s’ouvrent dans une
+visionneuse modale, alimentée par un déchiffrement en mémoire.
 
 ### Réglages
 

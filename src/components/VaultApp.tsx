@@ -38,7 +38,7 @@ import {
 import { ItemRow } from './ItemRow'
 import { ItemIcon } from './ItemIcon'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
-import { quickAccessItems } from '../lib/palette'
+import { QUICK_ACCESS_LIMIT, quickAccessItems } from '../lib/palette'
 import { AutoTypePicker } from './AutoTypePicker'
 import { SshAgentBridge } from './SshAgentBridge'
 import { VaultFormDialog } from './VaultFormDialog'
@@ -53,7 +53,12 @@ import { pluralKey, type MessageKey } from '../lib/i18n'
 import { useAutoLock } from '../hooks/useAutoLock'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { LAYOUT_LIMITS, useLayoutPreferences } from '../hooks/useLayoutPreferences'
-import { loadUsage, recordItemUsage, type UsageMap } from '../lib/usage'
+import {
+  loadUsage,
+  recordItemUsage,
+  usageTimestamp,
+  type UsageMap,
+} from '../lib/usage'
 import { dateGroupInfo, groupItemsByDate, type DateGroup } from '../lib/dateGroups'
 import { formatMonthYear } from '../lib/settings'
 import {
@@ -285,6 +290,7 @@ export function VaultApp() {
   const [showEmptyTrash, setShowEmptyTrash] = useState(false)
   const [generatorOpen, setGeneratorOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [paletteItemId, setPaletteItemId] = useState<string | null>(null)
   const breachRevision = useMemo(
     () =>
       items
@@ -576,7 +582,7 @@ export function VaultApp() {
     (item: VaultItem): string | number | null => {
       if (filter === 'trash') return item.deletedAt
       if (filter === 'recent' || sort === 'last-used') {
-        return usage[item.id] ?? null
+        return usage[item.id]?.lastUsedAt ?? null
       }
       if (sort === 'created') return item.createdAt
       return item.updatedAt
@@ -635,7 +641,7 @@ export function VaultApp() {
       // Les vues « Récents » et le tri « Dernière utilisation » suivent
       // l’horodatage de la dernière utilisation.
       if ((filter === 'recent' || sort === 'last-used') && !securityCategory) {
-        const delta = (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
+        const delta = usageTimestamp(usage, b.id) - usageTimestamp(usage, a.id)
         if (delta !== 0) return delta
         return b.updatedAt.localeCompare(a.updatedAt)
       }
@@ -774,6 +780,9 @@ export function VaultApp() {
     selectedId && filteredItems.some((entry) => entry.id === selectedId)
       ? items.find((item) => item.id === selectedId)
       : undefined
+  const paletteItem = paletteItemId
+    ? items.find((item) => item.id === paletteItemId && !item.deletedAt)
+    : undefined
   const activeItems = items.filter((item) => !item.deletedAt)
   const singleEmpty =
     activeItems.length === 0 &&
@@ -851,6 +860,14 @@ export function VaultApp() {
     setSearch('')
     setCreateType(null)
     setSelectedId(itemId)
+    markUsed(itemId)
+  }
+
+  /** Résultat de la palette : la fiche s’ouvre dans une modale, sans changer
+   * la vue ni la sélection courante de la bibliothèque. */
+  const openPaletteItem = (itemId: string) => {
+    setCreateType(null)
+    setPaletteItemId(itemId)
     markUsed(itemId)
   }
 
@@ -1066,7 +1083,7 @@ export function VaultApp() {
   // Rangée « Accès rapide » : seulement sur la liste complète, sans recherche.
   const quickAccess =
     filter === 'all' && !search.trim() && !securityCategory && !selectionMode
-      ? quickAccessItems(filteredItems, usage)
+      ? quickAccessItems(filteredItems, usage, QUICK_ACCESS_LIMIT)
       : []
 
   const renderItemRow = (item: VaultItem) => (
@@ -1907,9 +1924,30 @@ export function VaultApp() {
           items={activeItems}
           usage={usage}
           commands={paletteCommands}
-          onOpenItem={openDashboardItem}
+          onOpenItem={openPaletteItem}
           onClose={() => setPaletteOpen(false)}
         />
+      )}
+
+      {paletteItem && (
+        <Suspense fallback={<DialogLoading onClose={() => setPaletteItemId(null)} />}>
+          <ItemDialog
+            key={paletteItem.id}
+            item={paletteItem}
+            vaults={vaults}
+            defaultVaultId={paletteItem.vaultId}
+            presentation="dialog"
+            securityReport={securityReport}
+            onClose={() => setPaletteItemId(null)}
+            onSaved={(item) => setPaletteItemId(item.id)}
+            onDuplicated={(item) => setPaletteItemId(item.id)}
+            onUsed={() => markUsed(paletteItem.id)}
+            onOpenItem={(itemId) => {
+              setPaletteItemId(itemId)
+              markUsed(itemId)
+            }}
+          />
+        </Suspense>
       )}
 
       {generatorOpen && (

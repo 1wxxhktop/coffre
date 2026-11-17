@@ -307,10 +307,14 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   Extension navigateur). Chargée une fois depuis ce dossier, elle se recharge
   d’elle-même après chaque mise à jour de Coffre. L’association avec
   l’application n’est demandée qu’une fois.
-- **Palette de commandes et accès rapide** : `⌘K` / `Ctrl+K` ouvre une
+- **Palette de commandes** : `⌘K` / `Ctrl+K` ouvre une
   recherche unique pour ouvrir un élément ou lancer une action (nouvel élément,
   générateur, bilan de sécurité, réglages, verrouillage). Elle ne lit jamais les
-  secrets. Les éléments utilisés récemment restent en tête de la liste.
+  secrets. Un élément choisi s’affiche dans une modale, sans changer la
+  sélection de la bibliothèque.
+- **Accès rapide** : les **10 éléments les plus utilisés** apparaissent en tête
+  de la bibliothèque, classés par nombre d’utilisations puis par dernière
+  utilisation.
 - **Fiche lisible d’un coup d’œil** : clic sur une ligne pour copier, robustesse
   et alerte sous le mot de passe, bloc « Sécurité » (ancienneté, réutilisation,
   fuites connues, double authentification), pastilles à initiale teintées
@@ -476,6 +480,11 @@ dans le contenu chiffré de l’élément. Limites actuelles :
 | Pièces jointes par élément | 10 |
 | Total par élément | 25 Mo |
 | Total par coffre | 50 Mo |
+
+Un **aperçu intégré** déchiffre les images, PDF, textes, sons et vidéos en
+mémoire, sans écrire de copie en clair sur le disque. Il fonctionne pour les
+pièces jointes stockées dans le fichier comme pour les blobs chiffrés du
+desktop, et permet de télécharger le document depuis la visionneuse.
 
 ### Santé et changement de mot de passe
 
