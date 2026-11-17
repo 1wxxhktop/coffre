@@ -2490,7 +2490,7 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         type: 'bank-account',
         accountHolder: cleanText(draft.accountHolder, 500),
         bankName: cleanText(draft.bankName, 500),
-        iban: cleanText(draft.iban, 64).replace(/\s+/g, ' ').trim(),
+        iban: cleanText(draft.iban, 64).replace(/\s+/g, ' ').trim().toUpperCase(),
         swift: cleanText(draft.swift, 32).replace(/\s+/g, '').toUpperCase(),
         accountNumber: cleanText(draft.accountNumber, 64),
         routingNumber: cleanText(draft.routingNumber, 64),
