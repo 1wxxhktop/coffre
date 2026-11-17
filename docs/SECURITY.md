@@ -2002,12 +2002,13 @@ versions (`bun.lock`) et auditez les mises à jour avant de publier.
 La CI exécute `bun audit --audit-level=moderate` à chaque poussée et Dependabot
 propose les mises à jour chaque semaine. Les dépendances de build `glob` et
 `minimatch` sont forcées vers des versions corrigées par `overrides` ; elles ne
-sont pas incluses dans le bundle livré. Dernier état connu (0.14.0) : aucune
-vulnérabilité `moderate`, `high` ou `critical`. `deepmerge@4.3.1` reste une
-alerte faible, transitive de `vite-plugin-pwa > workbox-build`, sans version
-corrigée publiée ; elle est acceptée, documentée et réévaluée à chaque montée de
-version. Le workflow échoue si une vulnérabilité `moderate` ou supérieure
-apparaît.
+sont pas incluses dans le bundle livré. `deepmerge@4.3.1` reste une alerte
+faible, transitive de `vite-plugin-pwa > workbox-build`, sans version corrigée
+publiée. `picomatch@4.0.7` (`GHSA-fc5q-39xc-vjpf`, ReDoS) est une dépendance de
+build de Vite, Vitest et cyclonedx, absente du bundle d’exécution ; aucune
+version corrigée n’est publiée. Ces deux avis sont documentés et ignorés
+explicitement dans la CI, puis réévalués à chaque montée de version. Le workflow
+échoue si une autre vulnérabilité `moderate` ou supérieure apparaît.
 
 `cargo audit` signale six avertissements dans l’arbre Linux de Tauri :
 `basic-toml`, `proc-macro-error`, `zbus_names`, `zvariant` et
