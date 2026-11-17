@@ -194,10 +194,11 @@ test('la palette ouvre un élément au clavier', async ({ page }) => {
     ).toBe(true)
   }
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(
-    page.locator('.item-panel').getByRole('heading', { name: 'GitHub' }),
-  ).toBeVisible()
+  const itemModal = page.getByRole('dialog', { name: 'GitHub' })
+  await expect(itemModal).toBeVisible()
+  await expect(itemModal.getByRole('heading', { name: 'GitHub' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(itemModal).toHaveCount(0)
 })
 
 test('l’assistant d’installation de l’extension est accessible', async ({ page }) => {
