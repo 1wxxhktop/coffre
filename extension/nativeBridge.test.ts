@@ -1,7 +1,12 @@
 // @vitest-environment node
 import 'fake-indexeddb/auto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createBridgeKeyPair } from '../src/lib/bridgeProtocol'
+import {
+  BRIDGE_SESSION_STORAGE_KEY,
+  createBridgeKeyPair,
+  deriveBridgeSessionKey,
+  encryptBridgePayload,
+} from '../src/lib/bridgeProtocol'
 
 interface FakePort {
   onMessage: { addListener: (listener: (message: unknown) => void) => void }
@@ -15,14 +20,16 @@ interface Harness {
   nativePair: () => Promise<{ ok?: true; error?: string }>
   nativeStatus: () => Promise<{ paired: boolean; extensionKey: boolean }>
   reload: () => Promise<{
-    nativePair: () => Promise<{ ok?: true; error?: string }>
+    nativePair: () => Promise<{ ok?: true; error?: string; volatile?: boolean }>
     nativeStatus: () => Promise<{ paired: boolean; extensionKey: boolean }>
   }>
+  clearExtensionKey: () => void
   state: {
     pairBegins: number
     unlockRequests: number
     helloLaunches: boolean[]
     paired: boolean
+    sessionKey: string | null
   }
 }
 
@@ -40,6 +47,7 @@ async function createHarness(
     unlockRequests: 0,
     helloLaunches: [] as boolean[],
     paired: false,
+    sessionKey: null as string | null,
   }
   let unlocked = false
   let session = 'session-test'
@@ -86,6 +94,16 @@ async function createHarness(
     if (message.type === 'pair-begin') {
       state.pairBegins += 1
       const app = await createBridgeKeyPair()
+      const peerPublicKey =
+        typeof message.publicKey === 'string' ? message.publicKey : ''
+      const derived = peerPublicKey
+        ? await deriveBridgeSessionKey(
+            app.privateKey,
+            app.publicKey,
+            peerPublicKey,
+          )
+        : null
+      const recover = message.recover === true && Boolean(state.sessionKey)
       setTimeout(() => {
         send({
           id,
@@ -95,8 +113,20 @@ async function createHarness(
         })
         // Laisser le temps à l’extension de traiter la clé publique avant
         // l’acceptation.
-        setTimeout(() => {
+        setTimeout(async () => {
           state.paired = true
+          if (recover && state.sessionKey && derived) {
+            const recovered = await encryptBridgePayload(
+              derived,
+              session,
+              1,
+              'app-to-extension',
+              { type: 'bridge-key', key: state.sessionKey },
+            )
+            send({ id, type: 'pair-accepted', session, recovered })
+            return
+          }
+          if (derived) state.sessionKey = derived
           send({ id, type: 'pair-accepted', session })
         }, 20)
       }, 0)
@@ -179,6 +209,10 @@ async function createHarness(
         nativeStatus: statusOf(loaded),
       }
     },
+    clearExtensionKey: () => {
+      delete localStore[BRIDGE_SESSION_STORAGE_KEY]
+      delete sessionStore[BRIDGE_SESSION_STORAGE_KEY]
+    },
     state,
   }
 }
@@ -247,5 +281,23 @@ describe('appairage du pont natif', () => {
       paired: true,
       extensionKey: true,
     })
+  })
+
+  it('récupère la clé existante après effacement du stockage de l’extension', async () => {
+    const harness = await createHarness({ failIndexedDb: true })
+    await harness.nativePair()
+    const existing = harness.state.sessionKey
+    expect(existing).toBeTruthy()
+
+    harness.clearExtensionKey()
+    const reloaded = await harness.reload()
+    await expect(reloaded.nativePair()).resolves.toEqual({ ok: true })
+    await expect(reloaded.nativeStatus()).resolves.toEqual({
+      paired: true,
+      extensionKey: true,
+    })
+    // La récupération ne doit pas créer une nouvelle clé.
+    expect(harness.state.sessionKey).toBe(existing)
+    expect(harness.state.pairBegins).toBe(2)
   })
 })
