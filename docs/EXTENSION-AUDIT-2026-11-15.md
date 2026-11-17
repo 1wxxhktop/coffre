@@ -12,9 +12,11 @@
 >
 > **Recommandation immédiate.** Tant que le stockage Orion n’est pas résolu, considérer Orion comme **expérimental** et recommander Chrome, Brave, Edge ou Firefox pour un usage quotidien. Ne pas promettre « associer une fois » sur Orion.
 >
-> **Mise en œuvre P0 (15 novembre 2026).** IndexedDB ajouté comme troisième
+> **Mise en œuvre P0 (17 novembre 2026).** IndexedDB ajouté comme troisième
 > backend, vérification de relecture avant succès d’appairage, chemins Orion
-> ajoutés à `install_native_hosts`, diagnostic `bridgeStorageReport`. Reste à
+> ajoutés à `install_native_hosts`, diagnostic des backends. Une récupération
+> médiée par le desktop réémet la clé existante après confirmation ; si aucun
+> stockage ne persiste, l’association reste valable pour la session. Reste à
 > valider sur Orion réel et à compléter la matrice navigateurs.
 
 ### Plan en une page

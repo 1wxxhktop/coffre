@@ -24,6 +24,11 @@
   `install_native_hosts` sous macOS/Linux. Un diagnostic sans secret expose
   l’état des backends (`local`, `session`, IndexedDB) directement dans l’écran
   de reconnexion, et le popup propose une reconnexion en un clic.
+- Extension : **récupération médiée par le desktop** quand l’extension a perdu
+  sa clé. Le desktop réémet la clé existante après confirmation, sans rotation
+  ni nouvelle paire : les autres contextes restent valides. Si aucun stockage du
+  navigateur ne persiste, l’association reste utilisable pour la session et le
+  popup le signale explicitement.
 - Extension : **appairage fiabilisé**. Un clic sur « Associer l’extension »
   lance Coffre s’il est fermé et attend le déverrouillage ; une seule tentative
   est active à la fois, les anciennes demandes sont annulées explicitement, et

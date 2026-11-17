@@ -284,10 +284,17 @@ async function pair(): Promise<void> {
     const response = await api.runtime.sendMessage({ type: 'PAIR' }) as {
       ok?: boolean
       error?: string
+      volatile?: boolean
     }
     if (response?.ok) {
       successful = true
-      setStatus(status, t('welcome_pairedNoCode'), 'ok')
+      setStatus(
+        status,
+        response.volatile
+          ? t('welcome_pairedSession')
+          : t('welcome_pairedNoCode'),
+        'ok',
+      )
     } else {
       setStatus(
         status,

@@ -88,7 +88,11 @@ let pairingAttempt:
  * leurs délais expirés finissaient par couper la connexion de la tentative
  * réellement en cours.
  */
-let pairingPromise: Promise<{ ok?: true; error?: string }> | null = null
+let pairingPromise: Promise<{
+  ok?: true
+  error?: string
+  volatile?: boolean
+}> | null = null
 
 function nativeError(error: string): Error {
   return new Error(error)
@@ -1071,7 +1075,11 @@ async function waitForUnlocked(timeoutMs: number): Promise<boolean> {
   return false
 }
 
-async function performPairing(): Promise<{ ok?: true; error?: string }> {
+async function performPairing(): Promise<{
+  ok?: true
+  error?: string
+  volatile?: boolean
+}> {
   // Le service worker MV3 peut être suspendu après ~30 s d’inactivité, ce qui
   // ferme le port natif pendant que l’utilisateur déverrouille l’application ou
   // confirme le code. Un appel d’API périodique le maintient éveillé pendant
@@ -1101,6 +1109,7 @@ async function performPairing(): Promise<{ ok?: true; error?: string }> {
       return { ok: true }
     }
 
+    const recover = status.paired
     const current = await connect()
     const pair = await createBridgeKeyPair()
     const id = nextId()
@@ -1112,7 +1121,12 @@ async function performPairing(): Promise<{ ok?: true; error?: string }> {
       code: null,
     }
     const waiting = waitFor(id, 120_000, true)
-    await send({ id, type: 'pair-begin', publicKey: pair.publicKey })
+    await send({
+      id,
+      type: 'pair-begin',
+      publicKey: pair.publicKey,
+      ...(recover ? { recover: true } : {}),
+    })
     const response = await waiting
 
     if (response.type === 'locked') return { error: 'locked' }
@@ -1120,49 +1134,106 @@ async function performPairing(): Promise<{ ok?: true; error?: string }> {
     if (response.session !== current.session || !pairingAttempt?.appPublicKey) {
       return { error: 'pair-protocol' }
     }
-    const key = await deriveBridgeSessionKey(
-      pair.privateKey,
-      pair.publicKey,
-      pairingAttempt.appPublicKey,
-    )
-    await storeKey(key)
-    // Vérifier que la clé est réellement relisible depuis un stockage
-    // persistant, et pas seulement depuis la mémoire de ce contexte. Sans
-    // cela, Orion pouvait répondre « associé » puis perdre la clé au prochain
-    // `GET_STATUS`.
-    let persisted = false
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      if ((await readPersistedKey()) === key) {
-        persisted = true
-        break
+
+    let key: string | null = null
+    const recovered = response.recovered as
+      | { iv?: unknown; data?: unknown }
+      | undefined
+    if (
+      recover &&
+      recovered &&
+      typeof recovered.iv === 'string' &&
+      typeof recovered.data === 'string'
+    ) {
+      try {
+        const wrapKey = await deriveBridgeSessionKey(
+          pair.privateKey,
+          pair.publicKey,
+          pairingAttempt.appPublicKey,
+        )
+        const decoded = (await decryptBridgePayload(
+          wrapKey,
+          current.session,
+          1,
+          'app-to-extension',
+          { iv: recovered.iv, data: recovered.data },
+        )) as { type?: unknown; key?: unknown }
+        if (
+          decoded?.type === 'bridge-key' &&
+          typeof decoded.key === 'string'
+        ) {
+          key = validStoredKey(decoded.key)
+        }
+      } catch {
+        key = null
       }
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      // Une charge de récupération présente mais invalide ne doit jamais
+      // retomber sur une nouvelle clé : le desktop garde l’ancienne.
+      if (!key) return { error: 'pair-protocol' }
     }
-    if (!persisted) {
-      console.warn(
-        '[coffre] clé d’appairage non persistée',
-        await bridgeStorageReport(),
+    if (!key) {
+      key = await deriveBridgeSessionKey(
+        pair.privateKey,
+        pair.publicKey,
+        pairingAttempt.appPublicKey,
       )
-      throw new Error('bridge-storage')
+    }
+
+    // Si le stockage du navigateur ne persiste rien (Orion), la clé reste en
+    // mémoire pour cette session. Le desktop la connaît déjà, donc elle n’a
+    // pas besoin d’être recréée ; la reconnexion suivante réutilisera la même.
+    let volatile = false
+    try {
+      await storeKey(key)
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'bridge-storage') {
+        throw error
+      }
+      sessionKey = key
+      volatile = true
+    }
+    if (!volatile) {
+      let persisted = false
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        if ((await readPersistedKey()) === key) {
+          persisted = true
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
+      if (!persisted) {
+        sessionKey = key
+        volatile = true
+        console.warn(
+          '[coffre] clé d’appairage non persistée',
+          await bridgeStorageReport(),
+        )
+      }
     }
     pairingAttempt = null
     extCounter = 0
     lastAppCounter = 0
 
-    // Une vérification transitoire (application verrouillée, timeout) ne doit
-    // pas transformer une association réussie en échec : la clé est déjà
-    // enregistrée des deux côtés. Seul un rejet explicite du pair est fatal.
-    const check = await encryptedRequest({ type: 'status' })
-    if (check.error === 'needs-pairing') {
-      return { error: 'pair-protocol' }
+    if (!volatile) {
+      // Une vérification transitoire (application verrouillée, timeout) ne
+      // doit pas transformer une association réussie en échec : la clé est
+      // déjà enregistrée des deux côtés. Seul un rejet explicite est fatal.
+      const check = await encryptedRequest({ type: 'status' })
+      if (check.error === 'needs-pairing') {
+        return { error: 'pair-protocol' }
+      }
     }
-    return { ok: true }
+    return { ok: true, ...(volatile ? { volatile: true } : {}) }
   } finally {
     clearInterval(keepAlive)
   }
 }
 
-async function pairOnce(): Promise<{ ok?: true; error?: string }> {
+async function pairOnce(): Promise<{
+  ok?: true
+  error?: string
+  volatile?: boolean
+}> {
   try {
     return await performPairing()
   } catch (error) {
@@ -1178,7 +1249,11 @@ async function pairOnce(): Promise<{ ok?: true; error?: string }> {
   }
 }
 
-export function nativePair(): Promise<{ ok?: true; error?: string }> {
+export function nativePair(): Promise<{
+  ok?: true
+  error?: string
+  volatile?: boolean
+}> {
   if (!pairingPromise) {
     pairingPromise = pairOnce()
       .catch((error: unknown) => {

@@ -77,6 +77,9 @@
   "welcome_pairedNoCode": {
     "message": "Pairing confirmed."
   },
+  "welcome_pairedSession": {
+    "message": "Pairing confirmed for this session. The browser did not keep the key."
+  },
   "welcome_pairFailed": {
     "message": "Pairing failed. Check that Coffre is open and unlocked."
   },
@@ -403,6 +406,9 @@
   },
   "popup_paired": {
     "message": "Extension paired with Coffre."
+  },
+  "popup_pairedSession": {
+    "message": "Extension paired for this session. The browser did not keep the key; you may need to reconnect after a restart."
   },
   "popup_pairFailed": {
     "message": "Pairing failed."

@@ -30,6 +30,11 @@ export interface BridgePairBegin {
   id: string
   type: 'pair-begin'
   publicKey: string
+  /**
+   * Demande de récupération de la clé existante. L’application ne la traite
+   * que si elle possède déjà une clé ; sinon elle refait un appairage normal.
+   */
+  recover?: boolean
 }
 
 export interface BridgePairPending {

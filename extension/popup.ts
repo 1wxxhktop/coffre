@@ -1340,11 +1340,32 @@ async function pairExtension(): Promise<void> {
   stateAction.disabled = true
   showMessage(t('popup_pairRequested'), 'info')
   try {
-    const response = await send<{ ok?: boolean; error?: string }>({
+    const response = await send<{
+      ok?: boolean
+      error?: string
+      volatile?: boolean
+    }>({
       type: 'PAIR',
     })
     if (!response.ok) {
       showMessage(pairingErrorText(response.error), 'error')
+      return
+    }
+
+    if (response.volatile) {
+      // La clé n’a pas pu être persistée (Orion) : elle reste en mémoire pour
+      // cette session. Ne pas appeler init(), qui interrogerait un autre
+      // contexte et afficherait de nouveau « non associé ».
+      status = {
+        ...status,
+        mode: 'native',
+        appOpen: true,
+        paired: true,
+      }
+      renderStatus()
+      if (initialHost) await loadInitial(initialHost)
+      else await loadSearch('')
+      showMessage(t('popup_pairedSession'), 'success')
       return
     }
 
