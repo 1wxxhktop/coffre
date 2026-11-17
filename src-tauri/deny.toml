@@ -8,6 +8,7 @@ ignore = [
   { id = "RUSTSEC-2026-0372", reason = "zvariant_derive transitoire via tauri-plugin-single-instance ; aucun correctif disponible" },
   { id = "RUSTSEC-2026-0374", reason = "basic-toml transitoire de la chaîne de build ; aucun correctif disponible" },
   { id = "RUSTSEC-2024-0370", reason = "proc-macro-error transitoire de la chaîne de build ; aucun correctif disponible" },
+  { id = "RUSTSEC-2026-0543", reason = "chrono est unmaintenu via kdotool et active-win-pos-rs ; aucun correctif disponible" },
 ]
 
 [licenses]

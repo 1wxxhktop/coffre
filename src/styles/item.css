@@ -778,6 +778,43 @@
   background: var(--surface-1);
 }
 
+.blob-preview-audio {
+  display: block;
+  width: 100%;
+  margin: var(--space-6) auto;
+}
+
+.blob-preview-video {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+}
+
+.blob-preview-text-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.blob-preview-text {
+  max-height: 70vh;
+  margin: 0;
+  overflow: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .autotype-picker {
   display: grid;
   gap: var(--space-1);

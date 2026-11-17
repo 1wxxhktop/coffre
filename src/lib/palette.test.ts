@@ -45,7 +45,11 @@ const ITEMS: VaultItem[] = [
 
 describe('palette de commandes', () => {
   it('sans requête : toutes les actions et les éléments utilisés récemment', () => {
-    const result = searchPalette('', ACTIONS, ITEMS, { b: 20, a: 10, d: 30 })
+    const result = searchPalette('', ACTIONS, ITEMS, {
+      b: { count: 1, lastUsedAt: 20 },
+      a: { count: 5, lastUsedAt: 10 },
+      d: { count: 9, lastUsedAt: 30 },
+    })
     expect(result.actions).toHaveLength(3)
     // « d » est en corbeille : ignoré même s’il est le plus récent.
     expect(result.items.map((item) => item.id)).toEqual(['b', 'a'])
@@ -87,11 +91,50 @@ describe('palette de commandes', () => {
 })
 
 describe('accès rapide', () => {
-  it('garde les éléments utilisés, du plus récent au plus ancien', () => {
+  it('garde les éléments les plus utilisés, puis les plus récents', () => {
     expect(
-      quickAccessItems(ITEMS, { a: 5, c: 50, b: 20, d: 99 }, 2).map((item) => item.id),
-    ).toEqual(['c', 'b'])
+      quickAccessItems(
+        ITEMS,
+        {
+          a: { count: 2, lastUsedAt: 5 },
+          c: { count: 1, lastUsedAt: 50 },
+          b: { count: 4, lastUsedAt: 20 },
+          d: { count: 10, lastUsedAt: 99 },
+        },
+        2,
+      ).map((item) => item.id),
+    ).toEqual(['b', 'a'])
     expect(quickAccessItems(ITEMS, {})).toEqual([])
+  })
+
+  it('départage à nombre égal par la dernière utilisation', () => {
+    expect(
+      quickAccessItems(
+        ITEMS,
+        {
+          a: { count: 3, lastUsedAt: 10 },
+          b: { count: 3, lastUsedAt: 30 },
+          c: { count: 3, lastUsedAt: 20 },
+        },
+        3,
+      ).map((item) => item.id),
+    ).toEqual(['b', 'c', 'a'])
+  })
+
+  it('limite l’accès rapide aux dix éléments les plus utilisés', () => {
+    const items = Array.from({ length: 12 }, (_, index) =>
+      login(`item-${index}`, `Élément ${index}`),
+    )
+    const usage = Object.fromEntries(
+      items.map((item, index) => [
+        item.id,
+        { count: index + 1, lastUsedAt: index },
+      ]),
+    )
+    const result = quickAccessItems(items, usage)
+    expect(result).toHaveLength(10)
+    expect(result[0].id).toBe('item-11')
+    expect(result[9].id).toBe('item-2')
   })
 })
 

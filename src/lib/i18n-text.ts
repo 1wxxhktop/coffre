@@ -337,6 +337,8 @@ export const EN_TEXT: Record<string, string> = {
   'Aperçu impossible': 'Preview failed',
   'Aperçu en mémoire, sans écriture en clair sur le disque.':
     'In-memory preview, without writing clear text to disk.',
+  'Aperçu tronqué aux 2 premiers Mo.':
+    'Preview truncated to the first 2 MB.',
   'Choisir un document volumineux': 'Choose a large document',
   'Document chiffré ajouté': 'Encrypted document added',
   'Ajout du document impossible': 'Unable to add document',

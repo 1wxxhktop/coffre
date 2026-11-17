@@ -56,7 +56,13 @@ import { useSettings } from '../state/SettingsProvider'
 import { useToast } from '../state/ToastProvider'
 import { copySensitive } from '../lib/clipboard'
 import { randomId } from '../lib/crypto'
-import { decryptBlob, encryptBlob, newBlobKey, previewBlob, removeBlob } from '../lib/blobStore'
+import { decryptBlob, encryptBlob, newBlobKey, removeBlob } from '../lib/blobStore'
+import {
+  attachmentMime,
+  attachmentPreviewKind,
+  TEXT_PREVIEW_MAX_BYTES,
+  type AttachmentPreviewKind,
+} from '../lib/attachments'
 import { formatDateTime } from '../lib/settings'
 import {
   cardExpiryDate,
@@ -311,6 +317,7 @@ export function ItemDialog({
     addAttachment,
     removeAttachment,
     downloadAttachment,
+    readAttachment,
     recordGeneratedPassword,
   } = useVault()
   const { settings } = useSettings()
@@ -339,7 +346,16 @@ export function ItemDialog({
   const [showShare, setShowShare] = useState(false)
   const [showAutoType, setShowAutoType] = useState(false)
   const [showAlias, setShowAlias] = useState(false)
-  const [preview, setPreview] = useState<{ name: string; mime: string; url: string } | null>(null)
+  const [preview, setPreview] = useState<{
+    id: string
+    name: string
+    mime: string
+    size: number
+    kind: AttachmentPreviewKind
+    url?: string
+    text?: string
+    truncated?: boolean
+  } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
@@ -545,29 +561,43 @@ export function ItemDialog({
   }
 
   const previewAttachment = async (attachment: AttachmentMeta) => {
-    if (
-      attachment.storage !== 'blob' ||
-      !attachment.blobId ||
-      !attachment.blobKey ||
-      !(attachment.mime.startsWith('image/') || attachment.mime === 'application/pdf')
-    ) {
-      return
-    }
+    if (!current) return
+    const kind = attachmentPreviewKind(attachment)
+    if (!kind) return
     setAttachmentBusy(true)
     setAttachmentError(null)
     try {
-      const base64 = await previewBlob({
-        id: attachment.blobId,
-        key: attachment.blobKey,
-        maxBytes: 16 * 1024 * 1024,
-      })
-      const binary = atob(base64)
-      const bytes = new Uint8Array(binary.length)
-      for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index)
+      const { meta, bytes } = await readAttachment(current, attachment)
+      try {
+        const mime = attachmentMime(meta)
+        if (kind === 'text') {
+          const truncated = bytes.length > TEXT_PREVIEW_MAX_BYTES
+          setPreview({
+            id: meta.id,
+            name: meta.name,
+            mime,
+            size: meta.size,
+            kind,
+            text: new TextDecoder('utf-8').decode(
+              bytes.subarray(0, TEXT_PREVIEW_MAX_BYTES),
+            ),
+            truncated,
+          })
+        } else {
+          setPreview({
+            id: meta.id,
+            name: meta.name,
+            mime,
+            size: meta.size,
+            kind,
+            url: URL.createObjectURL(
+              new Blob([new Uint8Array(bytes)], { type: mime }),
+            ),
+          })
+        }
+      } finally {
+        bytes.fill(0)
       }
-      const url = URL.createObjectURL(new Blob([bytes], { type: attachment.mime }))
-      setPreview({ name: attachment.name, mime: attachment.mime, url })
     } catch (caught) {
       setAttachmentError(
         caught instanceof Error ? caught.message : tt('Aperçu impossible'),
@@ -577,8 +607,13 @@ export function ItemDialog({
     }
   }
 
+  useEffect(() => {
+    if (!preview?.url) return
+    const url = preview.url
+    return () => URL.revokeObjectURL(url)
+  }, [preview])
+
   const closePreview = () => {
-    if (preview) URL.revokeObjectURL(preview.url)
     setPreview(null)
   }
 
@@ -2226,6 +2261,8 @@ export function ItemDialog({
                 onDeleteAttachment={setAttachmentToDelete}
                 onCopyRecoveryCode={copyRecoveryCode}
                 onToggleRecoveryCode={toggleRecoveryCode}
+                onPreviewAttachment={previewAttachment}
+                onUsed={onUsed}
               />
             </>
           ) : null}
@@ -2288,14 +2325,46 @@ export function ItemDialog({
       {preview && (
         <Modal
           title={preview.name}
-          description={tt('Aperçu en mémoire, sans écriture en clair sur le disque.')}
-          size="lg"
+          description={`${formatBytes(preview.size)} · ${preview.mime} — ${tt(
+            'Aperçu en mémoire, sans écriture en clair sur le disque.',
+          )}`}
+          size="xl"
           onClose={closePreview}
+          footer={
+            <div className="modal__footer-actions">
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => void saveAttachment(preview.id)}
+                disabled={attachmentBusy}
+              >
+                <Download size={16} />
+                {tt('Télécharger')}
+              </button>
+            </div>
+          }
         >
-          {preview.mime.startsWith('image/') ? (
+          {preview.kind === 'image' && preview.url ? (
             <img className="blob-preview" src={preview.url} alt={preview.name} />
-          ) : (
+          ) : preview.kind === 'pdf' && preview.url ? (
             <iframe className="blob-preview-frame" src={preview.url} title={preview.name} />
+          ) : preview.kind === 'audio' && preview.url ? (
+            <audio className="blob-preview-audio" controls src={preview.url}>
+              {preview.name}
+            </audio>
+          ) : preview.kind === 'video' && preview.url ? (
+            <video className="blob-preview-video" controls src={preview.url}>
+              {preview.name}
+            </video>
+          ) : (
+            <div className="blob-preview-text-wrapper">
+              <pre className="blob-preview-text">{preview.text}</pre>
+              {preview.truncated && (
+                <p className="field__hint">
+                  {tt('Aperçu tronqué aux 2 premiers Mo.')}
+                </p>
+              )}
+            </div>
           )}
         </Modal>
       )}
@@ -2379,6 +2448,10 @@ interface ItemDetailsProps {
   onDeleteAttachment: (attachment: AttachmentMeta) => void
   onCopyRecoveryCode: (code: RecoveryCode) => Promise<void>
   onToggleRecoveryCode: (code: RecoveryCode) => Promise<void>
+  /** Ouvre l’aperçu en mémoire d’une pièce jointe. */
+  onPreviewAttachment?: (attachment: AttachmentMeta) => Promise<void>
+  /** Appelé après une copie depuis la fiche. */
+  onUsed?: () => void
 }
 
 function ItemDetails({
@@ -2405,6 +2478,8 @@ function ItemDetails({
   onDeleteAttachment,
   onCopyRecoveryCode,
   onToggleRecoveryCode,
+  onPreviewAttachment,
+  onUsed,
 }: ItemDetailsProps) {
   const { tt, intl } = useI18n()
   const [showWifiQr, setShowWifiQr] = useState(false)
@@ -2582,7 +2657,7 @@ function ItemDetails({
             <div className="detail-row">
               <span className="detail-row__label">{tt("Code 2FA")}</span>
               <div className="detail-row__value">
-                <TotpCode uri={item.totp} />
+                <TotpCode uri={item.totp} onCopied={onUsed} />
               </div>
             </div>
           )}
@@ -2929,7 +3004,7 @@ function ItemDetails({
                   <span className="detail-row__label">{field.label}</span>
                   <div className="detail-row__value">
                     {isTotpUri(field.value) ? (
-                      <TotpCode uri={field.value} />
+                      <TotpCode uri={field.value} onCopied={onUsed} />
                     ) : (
                       <span className="is-empty">{tt('Clé TOTP invalide')}</span>
                     )}
@@ -3069,6 +3144,7 @@ function ItemDetails({
         canAdd={!readOnly}
         canDelete={!readOnly}
         onAdd={onAddAttachment}
+        onPreview={onPreviewAttachment}
         onDownload={onDownloadAttachment}
         onDelete={onDeleteAttachment}
       />
@@ -3380,6 +3456,10 @@ function AttachmentsSection({
   onDelete,
 }: AttachmentsSectionProps) {
   const { tt } = useI18n()
+  const canPreview = (attachment: AttachmentMeta) =>
+    attachmentPreviewKind(attachment) !== null &&
+    (attachment.storage !== 'blob' ||
+      Boolean(attachment.blobId && attachment.blobKey))
   return (
     <div className="attachments">
       <div className="custom-fields__head">
@@ -3438,9 +3518,7 @@ function AttachmentsSection({
                 </span>
               </span>
               {onPreview &&
-                attachment.storage === 'blob' &&
-                (attachment.mime.startsWith('image/') ||
-                  attachment.mime === 'application/pdf') && (
+                canPreview(attachment) && (
                   <button
                     type="button"
                     className="icon-button icon-button--sm"

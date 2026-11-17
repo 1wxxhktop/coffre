@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState, type KeyboardEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import {
   Check,
   Copy,
@@ -10,8 +10,6 @@ import {
 import { Modal } from './Modal'
 import { PasswordStrength } from './PasswordStrength'
 import {
-  DEFAULT_PASSPHRASE_OPTIONS,
-  DEFAULT_PASSWORD_OPTIONS,
   generatePassphrase,
   generatePassword,
   generatedEntropy,
@@ -20,6 +18,11 @@ import {
   type PassphraseOptions,
   type PasswordOptions,
 } from '../lib/generator'
+import {
+  loadGeneratorPreferences,
+  saveGeneratorPreferences,
+  type GeneratorPreferences,
+} from '../lib/generatorOptions'
 import { copySensitive } from '../lib/clipboard'
 import { generatePasswordForRules, passwordRulesForUrl, sitePasswordEntropy } from '../lib/passwordRules'
 import { hostFromUrl } from '../lib/extensionProtocol'
@@ -43,8 +46,6 @@ interface GeneratorDialogProps {
   onRecord?: (input: { password: string; host?: string }) => Promise<void>
 }
 
-type Mode = 'password' | 'passphrase'
-
 export function GeneratorDialog({
   onClose,
   onUse,
@@ -54,12 +55,20 @@ export function GeneratorDialog({
   const { settings } = useSettings()
   const { tt } = useI18n()
   const { toast } = useToast()
-  const [mode, setMode] = useState<Mode>('password')
-  const [passwordOptions, setPasswordOptions] = useState<PasswordOptions>(DEFAULT_PASSWORD_OPTIONS)
-  const [passphraseOptions, setPassphraseOptions] =
-    useState<PassphraseOptions>(DEFAULT_PASSPHRASE_OPTIONS)
+  const [preferences, setPreferences] = useState<GeneratorPreferences>(
+    loadGeneratorPreferences,
+  )
+  const {
+    mode,
+    password: passwordOptions,
+    passphrase: passphraseOptions,
+  } = preferences
   const [copied, setCopied] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+
+  useEffect(() => {
+    saveGeneratorPreferences(preferences)
+  }, [preferences])
 
   const domain = hostFromUrl(url ?? '')
   const siteRules = useMemo(() => passwordRulesForUrl(url ?? ''), [url])
@@ -84,19 +93,28 @@ export function GeneratorDialog({
       : passphraseEntropy(passphraseOptions)
 
   const updatePassword = (partial: Partial<PasswordOptions>) => {
-    setPasswordOptions((previous) => ({ ...previous, ...partial }))
+    setPreferences((previous) => ({
+      ...previous,
+      password: { ...previous.password, ...partial },
+    }))
     setCopied(false)
   }
 
   const updatePassphrase = (partial: Partial<PassphraseOptions>) => {
-    setPassphraseOptions((previous) => ({ ...previous, ...partial }))
+    setPreferences((previous) => ({
+      ...previous,
+      passphrase: { ...previous.passphrase, ...partial },
+    }))
     setCopied(false)
   }
 
   const regenerate = () => {
     // De nouveaux objets d’options forcent la régénération des deux modes.
-    setPasswordOptions((previous) => ({ ...previous }))
-    setPassphraseOptions((previous) => ({ ...previous }))
+    setPreferences((previous) => ({
+      ...previous,
+      password: { ...previous.password },
+      passphrase: { ...previous.passphrase },
+    }))
     setCopied(false)
   }
 
@@ -213,7 +231,7 @@ export function GeneratorDialog({
             aria-selected={mode === 'password'}
             tabIndex={mode === 'password' ? 0 : -1}
             className={`tab ${mode === 'password' ? 'is-active' : ''}`}
-            onClick={() => setMode('password')}
+            onClick={() => setPreferences((previous) => ({ ...previous, mode: 'password' }))}
           >
             Mot de passe
           </button>
@@ -223,7 +241,7 @@ export function GeneratorDialog({
             aria-selected={mode === 'passphrase'}
             tabIndex={mode === 'passphrase' ? 0 : -1}
             className={`tab ${mode === 'passphrase' ? 'is-active' : ''}`}
-            onClick={() => setMode('passphrase')}
+            onClick={() => setPreferences((previous) => ({ ...previous, mode: 'passphrase' }))}
           >
             Phrase de passe
           </button>

@@ -35,7 +35,7 @@ import {
   type SecurityReport,
 } from '../lib/security'
 import type { ItemFilter } from '../lib/filters'
-import type { UsageMap } from '../lib/usage'
+import { usageTimestamp, type UsageMap } from '../lib/usage'
 import { BACKUP_ALERT_TEXTS, type BackupAlert } from '../lib/backup'
 import { lowRecoveryCodeItems } from '../lib/recoveryCodes'
 import {
@@ -211,7 +211,7 @@ export function Dashboard({
   const recentItems = [...activeItems]
     .sort(
       (a, b) =>
-        (usage[b.id] ?? 0) - (usage[a.id] ?? 0) ||
+        usageTimestamp(usage, b.id) - usageTimestamp(usage, a.id) ||
         b.updatedAt.localeCompare(a.updatedAt),
     )
     .slice(0, 5)
