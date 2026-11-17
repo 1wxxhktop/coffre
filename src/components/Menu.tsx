@@ -46,6 +46,12 @@ export function Menu({
   })
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  /**
+   * Un focus ou un défilement déclenché par l’ouverture peut arriver juste
+   * après le montage du panneau ; on ignore ces événements pour ne pas fermer
+   * le menu dans la même frame.
+   */
+  const openedAtRef = useRef(0)
 
   const close = useCallback((returnFocus = false) => {
     setOpen(false)
@@ -119,7 +125,10 @@ export function Menu({
       }
     }
 
-    const onViewportChange = () => setOpen(false)
+    const onViewportChange = () => {
+      if (performance.now() - openedAtRef.current < 200) return
+      setOpen(false)
+    }
 
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown, true)
@@ -151,7 +160,10 @@ export function Menu({
         aria-expanded={open}
         title={title}
         disabled={disabled}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) openedAtRef.current = performance.now()
+          setOpen((value) => !value)
+        }}
       >
         {trigger}
       </button>

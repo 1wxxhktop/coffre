@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createVault } from './helpers'
+import { createVault, selectItemType } from './helpers'
 
 test.describe('compte bancaire', () => {
   test('se crée avec ⌘N/Ctrl-N et conserve IBAN et BIC', async ({ page }) => {
@@ -9,17 +9,7 @@ test.describe('compte bancaire', () => {
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByRole('heading', { name: 'Nouvel élément' })).toBeVisible()
 
-    const bank = dialog.getByRole('radio', { name: 'Compte bancaire' })
-    if ((await bank.count()) > 0) {
-      await bank.click()
-    } else {
-      await dialog
-        .getByRole('button', { name: 'Plus de types d’éléments' })
-        .click()
-      await page
-        .getByRole('menuitemradio', { name: 'Compte bancaire' })
-        .click()
-    }
+    await selectItemType(page, 'Compte bancaire')
 
     await dialog.getByLabel('Titre', { exact: true }).fill('Compte courant')
     await dialog.getByLabel('Titulaire du compte').fill('Ada Lovelace')
