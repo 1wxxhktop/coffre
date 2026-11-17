@@ -104,6 +104,63 @@ test('replie la barre latérale en icônes puis la déploie', async ({ page }) =
   await expect(allItems).toBeVisible()
 })
 
+test('adapte la disposition par paliers quand la fenêtre rétrécit', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await createVault(page)
+  await addLogin(page)
+  await closeDialog(page)
+
+  const sidebar = page.locator('.sidebar')
+  const brandText = page.locator('.sidebar .brand__text')
+  const list = page.locator('.list-pane')
+  const detail = page.locator('.detail-pane')
+
+  // Trois colonnes, barre latérale complète.
+  await expect(sidebar).not.toHaveClass(/is-collapsed/)
+  await expect(brandText).toBeVisible()
+  await expect(list).toBeVisible()
+  await expect(detail).toBeVisible()
+
+  // Paliers intermédiaires : barre latérale en icônes, trois colonnes.
+  await page.setViewportSize({ width: 1100, height: 800 })
+  await expect(sidebar).toHaveClass(/is-collapsed/)
+  await expect
+    .poll(() =>
+      sidebar.evaluate((element) => Number.parseFloat(getComputedStyle(element).width)),
+    )
+    .toBe(64)
+  await expect(brandText).toBeHidden()
+  await expect(list).toBeVisible()
+  await expect(detail).toBeVisible()
+
+  // Le rail reste dépliable à la demande, puis se replie.
+  await page.getByRole('button', { name: 'Déployer la barre latérale' }).click()
+  await expect(sidebar).not.toHaveClass(/is-collapsed/)
+  await expect(brandText).toBeVisible()
+  await page.getByRole('button', { name: 'Réduire la barre latérale' }).click()
+  await expect(sidebar).toHaveClass(/is-collapsed/)
+
+  // Deux panneaux : la barre latérale devient un tiroir.
+  await page.setViewportSize({ width: 900, height: 800 })
+  await expect(sidebar).not.toHaveClass(/is-collapsed/)
+  await expect(sidebar).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Ouvrir le menu' })).toBeVisible()
+  await expect(list).toBeVisible()
+  await expect(detail).toBeVisible()
+
+  // Un panneau : le détail remplace la liste, avec retour explicite.
+  await page.setViewportSize({ width: 740, height: 800 })
+  await expect(list).toBeVisible()
+  await expect(detail).toBeHidden()
+  await page.locator('.item-row').first().click()
+  await expect(detail).toBeVisible()
+  await expect(detail).toHaveClass(/detail-pane--active/)
+  const back = page.getByRole('button', { name: /^Retour à / })
+  await expect(back).toBeVisible()
+  await back.click()
+  await expect(detail).toBeHidden()
+})
+
 test('les poignées sont masquées sur mobile et le menu reste lisible', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await createVault(page)
@@ -111,8 +168,7 @@ test('les poignées sont masquées sur mobile et le menu reste lisible', async (
   await closeDialog(page)
 
   const sidebarHandle = page.locator('.column-resizer--sidebar')
-  await expect(sidebarHandle).toHaveCount(1)
-  await expect(sidebarHandle).toBeHidden()
+  await expect(sidebarHandle).toHaveCount(0)
   const listHandle = page.locator('.column-resizer--list')
   await expect(listHandle).toHaveCount(1)
   await expect(listHandle).toBeHidden()

@@ -1352,15 +1352,17 @@ rapide serait impossible ; elle est supprimée quand l’option est désactivée
 le coffre réinitialisé. Voir
 [docs/SECURITY.md](docs/SECURITY.md#71-tauri).
 
-L’interface desktop utilise une disposition en deux colonnes : liste des
-éléments et détail persistant, dans une barre latérale de navigation. La
-création, la lecture et l’édition se font dans ce même panneau ; les modales
-sont réservées aux confirmations, au générateur, à l’historique et aux
-réglages. Sous 1100 px, le détail remplace la liste et un bouton retour ramène
-à la liste d’origine. Sous 640 px, une barre d’onglets basse regroupe Tout,
-Favoris, Récents, Sécurité et Réglages, et une barre d’actions basse expose les
-actions principales de l’élément. Les jetons, échelles et règles sont décrits
-dans [docs/DESIGN.md](docs/DESIGN.md).
+L’interface desktop utilise une disposition en trois colonnes : barre latérale,
+liste des éléments et détail persistant. La mise en page s’adapte par paliers
+quand la fenêtre rétrécit : au-delà de 1140 px la barre latérale est déployée ;
+entre 1024 et 1140 px elle se replie automatiquement en un rail d’icônes ; sous
+1024 px elle devient un tiroir ouvert par le menu et seuls la liste et le
+détail restent visibles ; sous 768 px le détail remplace la liste et un bouton
+retour ramène à la liste d’origine. La fenêtre peut descendre jusqu’à 720 px de
+large. Sous 640 px, une barre d’onglets basse regroupe Tout, Favoris, Récents,
+Sécurité et Réglages, et une barre d’actions basse expose les actions
+principales de l’élément. Les jetons, échelles et règles sont décrits dans
+[docs/DESIGN.md](docs/DESIGN.md).
 
 Sur macOS, la barre de titre native est remplacée par une **surcouche
 transparente** (`titleBarStyle: "Overlay"`, `hiddenTitle: true`) : les feux de

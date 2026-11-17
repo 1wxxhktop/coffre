@@ -25,7 +25,7 @@ test.describe('système de design', () => {
       await page.setViewportSize({ width, height })
       await page.waitForTimeout(150)
 
-      if (width <= 768) {
+      if (width <= 767) {
         await expect(page.locator('.search__hint')).toBeHidden()
       } else {
         await expect(page.locator('.search__hint')).toBeVisible()
