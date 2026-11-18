@@ -5,7 +5,12 @@ import {
   generatedEntropy,
   type PasswordOptions,
 } from '../src/lib/password'
-import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
+import {
+  detailsNotice,
+  loginLinks,
+  renderLoginDetails,
+  type LoginDetails,
+} from './details'
 import { localizeDocument, t } from './i18n'
 import { itemIconSvg, itemInitial, stateIconSvg } from './itemIcon'
 import { mountLogos } from './logo'
@@ -711,11 +716,21 @@ async function toggleDetails(
   row.dataset.expanded = 'true'
   toggle.setAttribute('aria-expanded', 'true')
   panel.hidden = false
-  panel.replaceChildren(detailsNotice(t('details_loading')))
+  panel.replaceChildren()
+
+  // Les liens restent disponibles même si le site courant ne correspond pas
+  // et que les identifiants ne peuvent pas être révélés.
+  const links = loginLinks(entry.urls)
+  if (links) panel.append(links)
+
+  const content = document.createElement('div')
+  content.className = 'details__content'
+  content.append(detailsNotice(t('details_loading')))
+  panel.append(content)
 
   const host = currentTab?.url ? hostFromUrl(currentTab.url) : ''
   if (!host) {
-    panel.replaceChildren(detailsNotice(t('details_error')))
+    content.replaceChildren(detailsNotice(t('details_error')))
     return
   }
 
@@ -728,14 +743,14 @@ async function toggleDetails(
     })
     if (panel.hidden) return
     if (response.error || !response.details) {
-      panel.replaceChildren(detailsNotice(t('details_error')))
+      content.replaceChildren(detailsNotice(t('details_error')))
       return
     }
-    renderLoginDetails(panel, response.details, () => {
+    renderLoginDetails(content, response.details, () => {
       void fillEntry(entry.id)
     })
   } catch {
-    if (!panel.hidden) panel.replaceChildren(detailsNotice(t('details_error')))
+    if (!panel.hidden) content.replaceChildren(detailsNotice(t('details_error')))
   }
 }
 

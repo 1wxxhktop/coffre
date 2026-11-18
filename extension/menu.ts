@@ -7,7 +7,12 @@ import {
   DEFAULT_PASSWORD_OPTIONS,
   generatePassword,
 } from '../src/lib/password'
-import { detailsNotice, renderLoginDetails, type LoginDetails } from './details'
+import {
+  detailsNotice,
+  loginLinks,
+  renderLoginDetails,
+  type LoginDetails,
+} from './details'
 import { localizeDocument, t } from './i18n'
 import { mountLogos } from './logo'
 import { loadTheme } from './theme'
@@ -354,10 +359,18 @@ async function toggleDetails(
   row.dataset.expanded = 'true'
   toggle.setAttribute('aria-expanded', 'true')
   panel.hidden = false
-  panel.replaceChildren(detailsNotice(t('details_loading')))
+  panel.replaceChildren()
+
+  const links = loginLinks('urls' in entry ? entry.urls : undefined)
+  if (links) panel.append(links)
+
+  const content = document.createElement('div')
+  content.className = 'details__content'
+  content.append(detailsNotice(t('details_loading')))
+  panel.append(content)
 
   if (!query.host) {
-    panel.replaceChildren(detailsNotice(t('details_error')))
+    content.replaceChildren(detailsNotice(t('details_error')))
     return
   }
 
@@ -370,14 +383,14 @@ async function toggleDetails(
     })
     if (panel.hidden) return
     if (response.error || !response.details) {
-      panel.replaceChildren(detailsNotice(t('details_error')))
+      content.replaceChildren(detailsNotice(t('details_error')))
       return
     }
-    renderLoginDetails(panel, response.details, () => {
+    renderLoginDetails(content, response.details, () => {
       void fill(entry.id)
     })
   } catch {
-    if (!panel.hidden) panel.replaceChildren(detailsNotice(t('details_error')))
+    if (!panel.hidden) content.replaceChildren(detailsNotice(t('details_error')))
   }
 }
 

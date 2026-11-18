@@ -22,6 +22,8 @@ export interface ExtensionLoginSummary {
   username: string
   host: string
   hasTotp: boolean
+  /** Liens enregistrés, pour les ouvrir même hors du site correspondant. */
+  urls?: string[]
   /** Renseigné par les ponts récents ; absent d’un ancien pont. */
   favorite?: boolean
   updatedAt?: string
@@ -402,6 +404,7 @@ export function searchLogins(
       username: item.username,
       host: hosts[0] ?? '',
       hasTotp: Boolean(item.totp),
+      urls: item.urls.map((url) => url.trim()).filter(Boolean).slice(0, 30),
       favorite: item.favorite,
       updatedAt: item.updatedAt,
     }))

@@ -396,6 +396,24 @@ body {
   gap: 3px;
 }
 
+.detail__links {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.detail__link {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.detail__link:hover {
+  text-decoration: underline;
+}
+
 .details__actions {
   display: flex;
   gap: 6px;

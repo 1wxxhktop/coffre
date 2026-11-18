@@ -1024,6 +1024,11 @@ verrouillé, une seule entrée « Déverrouiller Coffre » est affichée. Les no
 d’éléments sont filtrés sur le domaine de l’onglet actif ; le menu est
 reconstruit à l’activation d’un onglet et au changement de fenêtre.
 
+**Liens d’un élément.** Dans les résultats de la popup, développer une
+connexion affiche ses adresses enregistrées sous « Liens ». Elles s’ouvrent
+dans un nouvel onglet, même lorsque le site courant ne correspond pas et que
+les identifiants ne peuvent pas être révélés.
+
 **Accueil et réglages.** À l’installation, `welcome.html` guide le choix entre
 application desktop (recommandée) et application Web, l’appairage ou l’adresse
 Web, l’activation site par site (défaut) ou tous les sites, puis rappelle les

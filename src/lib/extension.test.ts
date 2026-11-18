@@ -85,7 +85,11 @@ describe('passerelle extension', () => {
   it('retrouve les connexions par domaine', () => {
     const results = searchLogins(items, 'github.com')
     expect(results.map((entry) => entry.id).sort()).toEqual(['1'])
-    expect(results[0]).toMatchObject({ title: expect.any(String), host: expect.any(String) })
+    expect(results[0]).toMatchObject({
+      title: expect.any(String),
+      host: expect.any(String),
+      urls: ['https://github.com'],
+    })
   })
 
   it('retrouve une connexion par texte', () => {

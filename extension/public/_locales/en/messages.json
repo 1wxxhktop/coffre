@@ -845,6 +845,9 @@
   "details_totp": {
     "message": "Verification code"
   },
+  "details_links": {
+    "message": "Links"
+  },
   "details_copy": {
     "message": "Copy"
   },

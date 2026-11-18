@@ -50,6 +50,62 @@ export function detailsNotice(text: string): HTMLParagraphElement {
   return notice
 }
 
+/** URL web absolue, ou `null` pour un schéma non HTTP(S). */
+function absoluteWebUrl(value: string): URL | null {
+  const raw = value.trim()
+  if (!raw) return null
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`
+  try {
+    const url = new URL(candidate)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Liens enregistrés d’une connexion. Ils restent visibles quand le site
+ * courant ne correspond pas et que les identifiants ne peuvent pas être
+ * révélés : l’utilisateur peut ouvrir la page dans un nouvel onglet.
+ */
+export function loginLinks(urls?: string[]): HTMLElement | null {
+  const entries = (urls ?? [])
+    .map((value) => absoluteWebUrl(value))
+    .filter((url): url is URL => url !== null)
+  if (entries.length === 0) return null
+
+  const row = document.createElement('div')
+  row.className = 'detail'
+
+  const label = document.createElement('span')
+  label.className = 'detail__label'
+  label.textContent = t('details_links')
+
+  const content = document.createElement('div')
+  content.className = 'detail__content detail__links'
+
+  for (const url of entries) {
+    const link = document.createElement('a')
+    link.className = 'detail__link'
+    link.href = url.toString()
+    link.target = '_blank'
+    link.rel = 'noreferrer noopener'
+    link.title = url.toString()
+    const labelText = `${url.hostname.replace(/^www\./i, '')}${
+      url.pathname === '/' ? '' : url.pathname
+    }`
+    link.textContent = labelText
+    const arrow = document.createElement('span')
+    arrow.setAttribute('aria-hidden', 'true')
+    arrow.textContent = ' ↗'
+    link.append(arrow)
+    content.append(link)
+  }
+
+  row.append(label, content)
+  return row
+}
+
 function copyButton(value: string): HTMLButtonElement {
   const button = document.createElement('button')
   button.type = 'button'
