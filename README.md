@@ -1369,14 +1369,13 @@ le coffre réinitialisé. Voir
 L’interface desktop utilise une disposition en trois colonnes : barre latérale,
 liste des éléments et détail persistant. La mise en page s’adapte par paliers
 quand la fenêtre rétrécit : au-delà de 1140 px la barre latérale est déployée ;
-entre 1024 et 1140 px elle se replie automatiquement en un rail d’icônes ; sous
-1024 px elle devient un tiroir ouvert par le menu et seuls la liste et le
-détail restent visibles ; sous 768 px le détail remplace la liste et un bouton
-retour ramène à la liste d’origine. La fenêtre peut descendre jusqu’à 720 px de
-large. Sous 640 px, une barre d’onglets basse regroupe Tout, Favoris, Récents,
-Sécurité et Réglages, et une barre d’actions basse expose les actions
-principales de l’élément. Les jetons, échelles et règles sont décrits dans
-[docs/DESIGN.md](docs/DESIGN.md).
+entre 768 et 1140 px elle se replie en un rail d’icônes qui reste visible à
+côté de la liste et du détail ; sous 768 px elle devient un tiroir ouvert par
+le menu et le détail remplace la liste, avec un bouton retour. Une barre
+d’onglets basse regroupe alors Accueil, Tout, Favoris, Récents, Sécurité et
+Réglages, tandis que le tiroir donne accès à tous les filtres. La fenêtre peut
+descendre jusqu’à **360 × 600 px**, taille d’un petit smartphone. Les jetons,
+échelles et règles sont décrits dans [docs/DESIGN.md](docs/DESIGN.md).
 
 Sur macOS, la barre de titre native est remplacée par une **surcouche
 transparente** (`titleBarStyle: "Overlay"`, `hiddenTitle: true`) : les feux de

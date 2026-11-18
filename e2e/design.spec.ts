@@ -18,7 +18,9 @@ test.describe('système de design', () => {
       [1280, 800],
       [1024, 768],
       [768, 900],
+      [700, 800],
       [375, 812],
+      [360, 600],
       [1280, 480],
       [375, 480],
     ] as const) {
@@ -369,4 +371,59 @@ test('le contenu des réglages revient en haut au changement de section', async 
   await expect
     .poll(() => content.evaluate((element) => element.scrollTop))
     .toBe(0)
+})
+
+test('le panneau de détail ne déborde pas à 768 px', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 800 })
+  await createVault(page)
+  await addLogin(page, 'GitHub', 'ada', 'abc123!')
+  await closeDialog(page)
+  await page.locator('.item-row').first().click()
+  const panel = page.locator('.item-panel')
+  await expect(panel.getByRole('heading', { name: 'GitHub' })).toBeVisible()
+  expect(
+    await panel.evaluate(
+      (element) => element.scrollWidth - element.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1)
+})
+
+test('les actions et les champs restent dans la largeur sur mobile', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 800 })
+  await createVault(page)
+
+  const settings = await openSettings(page, 'Sauvegarde et import')
+  for (const name of [
+    'Exporter le coffre',
+    'Exporter en KDBX',
+    'Exporter en CXF',
+  ]) {
+    const button = settings.getByRole('button', { name })
+    const box = await button.boundingBox()
+    expect(box, name).not.toBeNull()
+    expect(box!.x, name).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width, name).toBeLessThanOrEqual(375)
+    expect(
+      await button.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth + 1,
+      ),
+      name,
+    ).toBe(true)
+  }
+  await closeDialog(page)
+
+  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Titre', { exact: true }).fill('Site mobile')
+  await dialog.getByLabel('Ajouter un champ prédéfini').selectOption('IBAN')
+  const field = dialog.locator('.custom-field').first()
+  await expect(
+    field.getByRole('button', { name: /Supprimer le champ/ }),
+  ).toBeVisible()
+  const overflow = await page
+    .locator('.modal__body')
+    .evaluate((element) => element.scrollWidth - element.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(1)
 })

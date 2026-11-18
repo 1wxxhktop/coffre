@@ -84,16 +84,17 @@ du thème. La trame de fond est atténuée de moitié dans l’application.
   modales servent aux confirmations, au générateur, à l’historique et aux
   réglages.
 - **1024–1140 px** : la barre latérale se replie automatiquement en rail de
-  64 px, mais reste dépliable à la demande ; la liste et le détail restent
-  côte à côte.
-- **768–1023 px** : la barre latérale devient un tiroir ouvert par le menu ;
-  seuls la liste et le détail restent visibles. La liste occupe au plus 46 %
-  de la largeur.
-- **< 768 px** : la modale de création reste centrée, puis le détail remplace
-  la liste avec un bouton retour vers la liste d’origine.
-- **< 640 px** : barre d’onglets basse (Tout, Favoris, Récents, Sécurité,
-  Réglages), barre d’actions basse de 52 px de haut et menu latéral limité aux
-  coffres.
+  64 px, dépliable à la demande ; la liste et le détail restent côte à côte.
+- **768–1023 px** : le rail de 64 px reste visible et fixe ; la liste et le
+  détail restent côte à côte, la liste occupant au plus 46 % de la largeur.
+  Les poignées de redimensionnement sont masquées.
+- **< 768 px** : la barre latérale devient un tiroir complet (filtres et
+  coffres) ; le détail remplace la liste avec un bouton retour. Une barre
+  d’onglets basse (Accueil, Tout, Favoris, Récents, Sécurité, Réglages) et une
+  barre d’actions basse de 52 px restent visibles. La fenêtre peut descendre
+  jusqu’à 360 × 600 px.
+- **< 640 px** : onglets et marges compactés pour les très petits écrans ; la
+  navigation reste la même.
 
 L’en-tête du détail contient l’icône, le titre, l’étoile de favori et, à droite,
 « Modifier », « Copier le mot de passe » et le menu « … » (historique,
@@ -146,10 +147,11 @@ masquées.
 
 La barre latérale peut être repliée en un rail de 64 px qui ne conserve que les
 icônes, avec des infobulles et des noms accessibles. L’état replié est mémorisé.
-Entre 1024 et 1140 px, le rail s’active automatiquement ; un clic sur le bouton
-de déploiement rétablit la barre complète jusqu’au prochain changement de
-palier.
-Sur mobile, la barre reste un tiroir complet et les poignées sont masquées.
+Entre 768 et 1140 px, le rail s’active automatiquement. Entre 1024 et 1140 px,
+un clic sur le bouton de déploiement rétablit la barre complète jusqu’au
+prochain changement de palier ; entre 768 et 1023 px, le rail reste fixe pour
+préserver la largeur du détail. Sous 768 px, la barre devient un tiroir complet
+et les poignées sont masquées.
 
 ### Modèles et icônes de service
 
@@ -202,7 +204,7 @@ bun run build
 ```
 
 Les tests `e2e/design.spec.ts` vérifient l’absence de débordement à 1280, 1024,
-768 et 375 px, l’inertie du menu mobile, les actions de l’en-tête, le menu du
+768, 375 et 360 px, l’inertie du menu mobile, les actions de l’en-tête, le menu du
 détail, le thème clair, la navigation aux flèches, le parcours
 créer en modale → lire et modifier dans le panneau de détail, la génération d’un
 mot de passe depuis le bandeau de sécurité, les gestes de retour et la

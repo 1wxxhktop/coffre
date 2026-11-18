@@ -3,9 +3,13 @@
 ## Non publié
 
 - Interface : disposition **responsive par paliers** — barre latérale
-  complète, rail d’icônes automatique entre 1024 et 1140 px, tiroir avec deux
-  panneaux entre 768 et 1023 px, puis un seul panneau avec retour à la liste
-  sous 768 px. La largeur minimale de la fenêtre passe à 720 px.
+  complète au-delà de 1140 px, rail d’icônes visible entre 768 et 1140 px,
+  puis tiroir, panneau unique et barre d’onglets basse sous 768 px. La largeur
+  minimale de la fenêtre passe à **360 × 600 px**. La navigation mobile est
+  corrigée : filtres
+  complets dans le tiroir, pied de barre latérale accessible, actions de
+  réglages empilées, champs personnalisés sur plusieurs lignes et onglets
+  bas ajustés aux petits écrans.
 - Éléments : le type **Compte et carte** fusionne compte bancaire et carte
   bancaire (titulaire, banque, IBAN, BIC/SWIFT, numéro de compte,
   routing/sort code, agence, devise, puis carte associée : titulaire, numéro,

@@ -1089,6 +1089,32 @@ body:has(.app-shell) {
   }
 }
 
+/* Panneau étroit : les faits de sécurité et les actions passent à la ligne. */
+@container item-panel (max-width: 480px) {
+  .security-fact {
+    flex-wrap: wrap;
+  }
+
+  .security-fact__value {
+    flex: 1 1 100%;
+    margin-left: calc(7px + var(--space-2));
+    text-align: left;
+  }
+
+  .alert-banner--inline {
+    flex-wrap: wrap;
+  }
+
+  .alert-banner--inline .alert-banner__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .alert-banner--inline .button {
+    width: 100%;
+  }
+}
+
 /* Vraiment trop étroit pour du texte : icônes seules. */
 @container item-panel (max-width: 300px) {
   .item-panel__actions .button__label {
@@ -1903,13 +1929,9 @@ body:has(.app-shell) {
   display: none;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .sidebar {
     transition: width 0.18s ease;
-  }
-
-  .sidebar__collapse {
-    display: grid;
   }
 
   .column-resizer {
@@ -2052,6 +2074,14 @@ body:has(.app-shell) {
   }
 }
 
+@media (min-width: 1024px) {
+  /* Le rail reste fixe dans la disposition à deux panneaux ; il n’est
+     dépliable que lorsque la fenêtre laisse assez de place. */
+  .sidebar__collapse {
+    display: grid;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Responsive                                                          */
 /* ------------------------------------------------------------------ */
@@ -2061,6 +2091,25 @@ body:has(.app-shell) {
     width: 210px;
   }
 
+  /* Le rail d’icônes reste visible ; les poignées de redimensionnement sont
+     réservées aux fenêtres où la barre latérale peut être déployée. */
+  .column-resizer {
+    display: none;
+  }
+
+  /* Deux panneaux : la liste reste confortable et le détail prend le reste. */
+  .content--split {
+    position: relative;
+  }
+
+  .list-pane {
+    flex: 0 0 min(var(--list-width, 380px), 46%);
+    padding: var(--space-4);
+  }
+}
+
+/* Un seul panneau : le détail remplace la liste sur les fenêtres étroites. */
+@media (max-width: 767px) {
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -2111,20 +2160,12 @@ body:has(.app-shell) {
     display: grid;
   }
 
-  /* Deux panneaux : la liste reste confortable et le détail prend le reste.
-     La barre latérale s’ouvre par le menu. */
-  .content--split {
-    position: relative;
+  /* Le tiroir doit rester entièrement cliquable : une notification ne doit
+     pas recouvrir ses boutons. */
+  body:has(.sidebar.is-open) .toast-stack {
+    display: none;
   }
 
-  .list-pane {
-    flex: 0 0 min(var(--list-width, 380px), 46%);
-    padding: var(--space-4);
-  }
-}
-
-/* Un seul panneau : le détail remplace la liste sur les fenêtres étroites. */
-@media (max-width: 767px) {
   .topbar.topbar--detail {
     padding-top: var(--space-2);
     padding-bottom: var(--space-2);
@@ -2264,23 +2305,9 @@ body:has(.app-shell) {
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .app-main {
     padding-bottom: 62px;
-  }
-
-  /* Le menu latéral devient la liste des coffres ; les filtres vivent dans
-     la barre d’onglets basse. */
-  .sidebar__nav {
-    display: none;
-  }
-
-  .sidebar__action--settings {
-    display: none;
-  }
-
-  .sidebar__footer-actions {
-    grid-template-columns: 1fr;
   }
 
   .list-pane {
@@ -2626,5 +2653,15 @@ body:has(.app-shell) {
 
   .quick-access__title {
     display: none;
+  }
+}
+
+/* Très petits écrans : les six onglets doivent rester lisibles sans se
+   chevaucher. */
+@media (max-width: 359px) {
+  .mobile-tabs__item {
+    gap: 1px;
+    padding: var(--space-1) 0;
+    font-size: var(--text-overline);
   }
 }
