@@ -15,7 +15,8 @@ test('signale une échéance proche et la retrouve dans la vue dédiée', async 
   const dialog = await addLogin(page)
 
   await dialog.getByRole('button', { name: 'Modifier' }).click()
-  await dialog.getByLabel('Rappel d’échéance').fill(localIsoDate(15))
+  await dialog.getByRole('checkbox', { name: 'Rappel d’échéance' }).check()
+  await dialog.getByLabel('Date du rappel d’échéance').fill(localIsoDate(15))
   await dialog.getByRole('button', { name: 'Enregistrer' }).click()
 
   await expect(dialog.getByText('Mot de passe à changer')).toBeVisible()
@@ -35,7 +36,8 @@ test('signale une échéance proche et la retrouve dans la vue dédiée', async 
   // Une échéance passée reste visible avec un ton d’alerte.
   await row.click()
   await page.getByRole('button', { name: 'Modifier' }).click()
-  await page.getByLabel('Rappel d’échéance').fill(localIsoDate(-2))
+  await page.getByRole('checkbox', { name: 'Rappel d’échéance' }).check()
+  await page.getByLabel('Date du rappel d’échéance').fill(localIsoDate(-2))
   await page.getByRole('button', { name: 'Enregistrer' }).click()
   await expect(page.locator('.detail-pane .expiry-badge')).toContainText('Expiré')
   await closeDialog(page)

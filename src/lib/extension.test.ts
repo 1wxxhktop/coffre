@@ -11,7 +11,13 @@ import {
   searchIdentities,
   searchLogins,
 } from './extensionProtocol'
-import type { CardItem, IdentityItem, LoginItem, VaultItem } from './types'
+import type {
+  BankAccountItem,
+  CardItem,
+  IdentityItem,
+  LoginItem,
+  VaultItem,
+} from './types'
 
 function login(
   id: string,
@@ -197,6 +203,39 @@ describe('recherche de cartes et d’identités', () => {
     ])
     expect(JSON.stringify(cards)).not.toContain('4242 4242')
     expect(cardLast4(card)).toBe('4242')
+  })
+
+  it('traite la carte d’un compte fusionné comme une carte', () => {
+    const account: BankAccountItem = {
+      ...card,
+      id: 'a1',
+      type: 'bank-account',
+      title: 'Compte courant',
+      accountHolder: 'Ada Lovelace',
+      bankName: 'Banque de test',
+      iban: 'FR76 3000 6000 0112 3456 7890 189',
+      swift: 'AGRIFRPP',
+      accountNumber: '',
+      routingNumber: '',
+      branch: '',
+      currency: 'EUR',
+      cardholder: card.cardholder,
+      cardNumber: card.number,
+      cardExpiry: card.expiry,
+      cardCvc: card.cvc,
+      cardPin: card.pin,
+      cardBrand: card.brand,
+    }
+    expect(searchCards([account], 'visa')).toEqual([
+      {
+        id: 'a1',
+        kind: 'card',
+        title: 'Compte courant',
+        brand: 'Visa',
+        last4: '4242',
+        expiry: '12/28',
+      },
+    ])
   })
 
   it('retrouve une identité par nom ou e-mail', () => {

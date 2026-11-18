@@ -49,7 +49,7 @@ test.describe('coffre et éléments', () => {
     await closeDialog(page)
 
     const sidebar = page.locator('.sidebar')
-    await sidebar.getByRole('button', { name: /^Cartes/ }).click()
+    await sidebar.getByRole('button', { name: /^Comptes et cartes/ }).click()
     await expect(page.locator('.item-row')).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Aucun résultat' })).toBeVisible()
 
@@ -75,7 +75,10 @@ test.describe('coffre et éléments', () => {
 
   test('affiche « Aucun élément » pour une catégorie vide', async ({ page }) => {
     await createVault(page)
-    await page.locator('.sidebar').getByRole('button', { name: /^Cartes/ }).click()
+    await page
+      .locator('.sidebar')
+      .getByRole('button', { name: /^Comptes et cartes/ })
+      .click()
     await expect(page.locator('.topbar__sub')).toContainText('Aucun élément')
     await expect(page.locator('.topbar__sub')).not.toContainText('0 élément')
   })

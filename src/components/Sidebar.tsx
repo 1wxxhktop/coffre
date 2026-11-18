@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import {
   CalendarClock,
-  CreditCard,
   FileText,
   Fingerprint,
   ListChecks,
@@ -92,7 +91,6 @@ const FILTERS: Array<{ id: ItemFilter; icon: LucideIcon }> = [
   { id: 'expiring', icon: CalendarClock },
   { id: 'favorites', icon: Star },
   { id: 'login', icon: KeyRound },
-  { id: 'card', icon: CreditCard },
   { id: 'note', icon: FileText },
   { id: 'identity', icon: UserRound },
   { id: 'bank-account', icon: Landmark },
@@ -151,6 +149,11 @@ export function Sidebar({
     if (id === 'favorites') return active.filter((item) => item.favorite).length
     if (id === 'recent') return active.filter((item) => Boolean(usage[item.id])).length
     if (id === 'expiring') return expiringCount
+    if (id === 'bank-account') {
+      return active.filter(
+        (item) => item.type === 'bank-account' || item.type === 'card',
+      ).length
+    }
     return active.filter((item) => item.type === id).length
   }
 

@@ -54,6 +54,16 @@ describe('icônes de services', () => {
         item({ type: 'card', title: 'Carte', brand: '', number: '5555 5555 5555 4444' }),
       ),
     ).toMatchObject({ id: 'mastercard' })
+    expect(
+      serviceForItem(
+        item({
+          type: 'bank-account',
+          title: 'Compte courant',
+          cardBrand: 'Visa',
+          cardNumber: '4242 4242 4242 4242',
+        }),
+      ),
+    ).toMatchObject({ id: 'visa' })
   })
 
   it('utilise l’initiale du titre quand aucun site n’est renseigné', () => {

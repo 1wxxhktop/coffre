@@ -275,9 +275,21 @@ function monogramForTitle(title: string): ServiceVisual | null {
 }
 
 function cardVisual(item: VaultItem): ServiceVisual | null {
-  if (item.type !== 'card') return null
-  const brand = item.brand.toLowerCase()
-  const digits = item.number.replace(/\D/g, '')
+  const brandValue =
+    item.type === 'card'
+      ? item.brand
+      : item.type === 'bank-account'
+        ? item.cardBrand
+        : ''
+  const numberValue =
+    item.type === 'card'
+      ? item.number
+      : item.type === 'bank-account'
+        ? item.cardNumber
+        : ''
+  if (!brandValue && !numberValue) return null
+  const brand = brandValue.toLowerCase()
+  const digits = numberValue.replace(/\D/g, '')
   if (brand.includes('visa') || digits.startsWith('4')) {
     return { id: 'visa', label: 'Visa', path: siVisa.path }
   }

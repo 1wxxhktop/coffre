@@ -6,10 +6,21 @@
   complète, rail d’icônes automatique entre 1024 et 1140 px, tiroir avec deux
   panneaux entre 768 et 1023 px, puis un seul panneau avec retour à la liste
   sous 768 px. La largeur minimale de la fenêtre passe à 720 px.
-- Éléments : nouveau type **Compte bancaire** (titulaire, banque, IBAN,
-  BIC/SWIFT, numéro de compte, routing/sort code, agence, devise), avec modèle
-  intégré, recherche, filtre, icône et export/import génériques.
-- Raccourci : **⌘N / Ctrl+N** crée directement un nouvel élément.
+- Éléments : le type **Compte et carte** fusionne compte bancaire et carte
+  bancaire (titulaire, banque, IBAN, BIC/SWIFT, numéro de compte,
+  routing/sort code, agence, devise, puis carte associée : titulaire, numéro,
+  expiration, CVC, PIN et réseau). Les anciennes cartes restent lisibles et
+  modifiables ; les filtres, le tableau de bord, les modèles, la capture et le
+  remplissage par l’extension sont fusionnés.
+- Rappels : une **case à cocher « Rappel d’échéance »** précède le mot de passe
+  (et reste disponible pour les autres types), avec date proposée à un an.
+  Chaque **champ personnalisé** peut recevoir son propre rappel, repris dans le
+  tableau de bord et la liste.
+- Champs personnalisés : catalogue de **champs prédéfinis** (IBAN, BIC/SWIFT,
+  numéro de carte, devise, identité, SSH, Wi-Fi, API, licence, document…), avec
+  détection automatique du type et nouveaux types IBAN, BIC, carte et devise.
+- Raccourci : **⌘N / Ctrl+N** crée directement un nouvel élément ; le raccourci
+  est affiché sur le bouton (⌘N sur macOS, Ctrl+N ailleurs).
 - Interface : le sélecteur de type du nouvel élément tient sur **une seule
   ligne** ; les types qui ne rentrent pas sont accessibles par le bouton « … ».
 - Bibliothèque : option de tri **« Dernière utilisation »** (anciennement

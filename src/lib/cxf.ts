@@ -138,6 +138,7 @@ function customFieldType(type: CustomField['type']): string {
     case 'password':
     case 'pin':
     case 'totp':
+    case 'card':
       return 'concealed-string'
     case 'email':
       return 'email'

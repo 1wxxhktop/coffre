@@ -31,6 +31,7 @@ import { ColumnResizer } from './ColumnResizer'
 import { Menu } from './Menu'
 import {
   FILTER_MESSAGE_KEYS,
+  itemTypeMatchesFilter,
   SORT_MESSAGE_KEYS,
   type ItemFilter,
   type ItemSort,
@@ -52,6 +53,7 @@ import { useToast } from '../state/ToastProvider'
 import { pluralKey, type MessageKey } from '../lib/i18n'
 import { useAutoLock } from '../hooks/useAutoLock'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { isMacPlatform } from '../lib/platform'
 import { LAYOUT_LIMITS, useLayoutPreferences } from '../hooks/useLayoutPreferences'
 import {
   loadUsage,
@@ -107,7 +109,9 @@ function createTypeForFilter(filter: ItemFilter): ItemType {
     filter === 'expiring' ||
     filter === 'trash'
     ? 'login'
-    : filter
+    : filter === 'card'
+      ? 'bank-account'
+      : filter
 }
 
 function normalize(value: string): string {
@@ -169,6 +173,9 @@ function searchableText(item: ReturnType<typeof useVault>['items'][number]): str
         item.iban.replace(/\s+/g, '').slice(-4),
         item.swift,
         item.currency,
+        item.cardholder,
+        item.cardBrand,
+        item.cardNumber.replace(/\s+/g, '').slice(-4),
       )
       break
     case 'note':
@@ -234,6 +241,10 @@ export function VaultApp() {
   const { t, tt, intl } = useI18n()
   const { toast } = useToast()
   const layout = useLayoutPreferences()
+  const macPlatform = isMacPlatform()
+  const shortcutPrefix = macPlatform ? '⌘' : 'Ctrl+'
+  const searchShortcut = `${shortcutPrefix}K`
+  const newItemShortcut = `${shortcutPrefix}N`
   // Trois colonnes dès 1024 px ; entre 1024 et 1140 px, la barre latérale se
   // replie automatiquement en icônes pour laisser respirer la liste et le
   // détail. En dessous de 1024 px, elle devient un tiroir.
@@ -659,7 +670,7 @@ export function VaultApp() {
             filter !== 'favorites' &&
             filter !== 'recent' &&
             filter !== 'expiring' &&
-            item.type !== filter
+            !itemTypeMatchesFilter(item.type, filter)
           ) {
             return false
           }
@@ -1260,7 +1271,7 @@ export function VaultApp() {
                   aria-label={t('vault.searchLabel')}
                 />
                   <span className="search__hint" aria-hidden="true">
-                    ⌘K
+                    {searchShortcut}
                   </span>
                 </label>
               )}
@@ -1270,11 +1281,15 @@ export function VaultApp() {
                   className="button button--primary"
                   onClick={dashboardActive ? openCreateFromDashboard : openCreate}
                   aria-label={t('vault.newItem')}
+                  aria-keyshortcuts={macPlatform ? 'Meta+N' : 'Control+N'}
                   disabled={readOnly || !canCreateInDefault}
                   title={readOnly ? t('vault.readOnlyTooltip') : undefined}
                 >
                   <Plus size={18} />
                   <span className="button__label">{t('vault.newItem')}</span>
+                  <kbd className="button__shortcut" aria-hidden="true">
+                    {newItemShortcut}
+                  </kbd>
                 </button>
               )}
             </div>
@@ -1349,6 +1364,7 @@ export function VaultApp() {
               expiryEvents={expiryEvents}
               backupAlert={dashboardBackupAlert}
               readOnly={readOnly}
+              newItemShortcut={newItemShortcut}
               onNewItem={openCreateFromDashboard}
               onGeneratePassword={() => setGeneratorOpen(true)}
               onOpenSecurity={() => setSecurityOpen(true)}

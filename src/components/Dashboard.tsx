@@ -4,11 +4,11 @@ import {
   ChevronRight,
   CircleHelp,
   Copy,
-  CreditCard,
   Fingerprint,
   Folder,
   HardDrive,
   KeyRound,
+  Landmark,
   LayoutGrid,
   Link2,
   Plus,
@@ -55,6 +55,7 @@ interface DashboardProps {
   readOnly: boolean
   syncPending: boolean
   lastSavedAt: string | null
+  newItemShortcut?: string
   onNewItem: () => void
   onGeneratePassword: () => void
   onOpenSecurity: () => void
@@ -85,6 +86,7 @@ export function Dashboard({
   readOnly,
   syncPending,
   lastSavedAt,
+  newItemShortcut,
   onNewItem,
   onGeneratePassword,
   onOpenSecurity,
@@ -101,7 +103,9 @@ export function Dashboard({
   const trashed = items.length - activeItems.length
   const logins = activeItems.filter((item) => item.type === 'login')
   const passkeys = activeItems.filter((item) => item.type === 'passkey')
-  const cards = activeItems.filter((item) => item.type === 'card')
+  const accountsAndCards = activeItems.filter(
+    (item) => item.type === 'bank-account' || item.type === 'card',
+  )
   const favorites = activeItems.filter((item) => item.favorite)
   const reusedCount = securityReport.reused.reduce(
     (total, group) => total + group.items.length,
@@ -239,7 +243,13 @@ export function Dashboard({
     { id: 'all', label: 'Éléments', value: activeItems.length, icon: LayoutGrid, filter: 'all' },
     { id: 'logins', label: 'Connexions', value: logins.length, icon: KeyRound, filter: 'login' },
     { id: 'passkeys', label: 'Passkeys', value: passkeys.length, icon: Fingerprint, filter: 'passkey' },
-    { id: 'cards', label: 'Cartes', value: cards.length, icon: CreditCard, filter: 'card' },
+    {
+      id: 'accounts',
+      label: 'Comptes',
+      value: accountsAndCards.length,
+      icon: Landmark,
+      filter: 'bank-account',
+    },
     { id: 'favorites', label: 'Favoris', value: favorites.length, icon: Star, filter: 'favorites' },
     { id: 'trash', label: 'Corbeille', value: trashed, icon: Trash2, filter: 'trash' },
   ]
@@ -270,6 +280,11 @@ export function Dashboard({
             >
               <Plus size={17} />
               Nouvel élément
+              {newItemShortcut && (
+                <kbd className="button__shortcut" aria-hidden="true">
+                  {newItemShortcut}
+                </kbd>
+              )}
             </button>
             <button
               type="button"
@@ -622,7 +637,9 @@ export function Dashboard({
               <div className="dashboard-items">
                 {expiring.map((event) => (
                   <button
-                    key={`${event.item.id}-${event.kind}-${event.date}`}
+                    key={`${event.item.id}-${event.kind}-${
+                      event.kind === 'custom' ? event.label : ''
+                    }-${event.date}`}
                     type="button"
                     className="dashboard-item dashboard-item--compact"
                     onClick={() => onOpenItem(event.item.id)}

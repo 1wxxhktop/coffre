@@ -309,7 +309,10 @@ export function TemplateSettings() {
                     setDraft({ ...draft, type: event.target.value as ItemType })
                   }
                 >
-                  {ITEM_TYPES.map((type) => (
+                  {draft.type === 'card' && (
+                    <option value="card">{itemTypeLabel('card')}</option>
+                  )}
+                  {ITEM_TYPES.filter((type) => type !== 'card').map((type) => (
                     <option key={type} value={type}>
                       {itemTypeLabel(type)}
                     </option>

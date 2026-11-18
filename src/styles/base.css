@@ -304,6 +304,20 @@ button:disabled {
   transform: none;
 }
 
+/* Rappel du raccourci clavier dans un bouton d’action principal. */
+.button__shortcut {
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .button--primary {
   color: var(--primary-foreground);
   background: var(--primary);

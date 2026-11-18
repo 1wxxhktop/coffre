@@ -18,3 +18,12 @@ export function isMobileRuntime(): boolean {
 export function isDesktopRuntime(): boolean {
   return isTauriRuntime() && !isMobileRuntime()
 }
+
+/** Vrai sur macOS/iOS : les raccourcis s’écrivent avec ⌘ plutôt que Ctrl. */
+export function isMacPlatform(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return (
+    /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ||
+    /Mac OS X|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  )
+}

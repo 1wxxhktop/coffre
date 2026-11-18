@@ -414,6 +414,44 @@ export function identityFullName(
   return name || item.title
 }
 
+export interface CardDetails {
+  cardholder: string
+  number: string
+  expiry: string
+  cvc: string
+  pin: string
+  brand: string
+}
+
+/**
+ * Détails de carte d’un élément. Les cartes historiques et les comptes
+ * fusionnés « Compte et carte » sont traités de la même façon par
+ * l’extension, le remplissage et la capture.
+ */
+export function cardDetailsOf(item: VaultItem): CardDetails | null {
+  if (item.type === 'card') {
+    return {
+      cardholder: item.cardholder,
+      number: item.number,
+      expiry: item.expiry,
+      cvc: item.cvc,
+      pin: item.pin,
+      brand: item.brand,
+    }
+  }
+  if (item.type === 'bank-account' && item.cardNumber.trim()) {
+    return {
+      cardholder: item.cardholder,
+      number: item.cardNumber,
+      expiry: item.cardExpiry,
+      cvc: item.cardCvc,
+      pin: item.cardPin,
+      brand: item.cardBrand,
+    }
+  }
+  return null
+}
+
 export function cardLast4(item: Pick<CardItem, 'number'>): string {
   return item.number.replace(/\s+/g, '').slice(-4)
 }
@@ -425,25 +463,30 @@ export function searchCards(
 ): ExtensionCardSummary[] {
   const text = normalize(query)
   return items
-    .filter((item): item is CardItem => item.type === 'card' && !item.deletedAt)
+    .filter((item) => !item.deletedAt && cardDetailsOf(item) !== null)
     .filter((item) => {
       if (!text) return true
+      const card = cardDetailsOf(item)
+      if (!card) return false
       return (
         normalize(item.title).includes(text) ||
-        normalize(item.brand).includes(text) ||
-        cardLast4(item).includes(text)
+        normalize(card.brand).includes(text) ||
+        card.number.replace(/\s+/g, '').slice(-4).includes(text)
       )
     })
     .sort((a, b) => a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' }))
     .slice(0, EXTENSION_MAX_RESULTS)
-    .map((item) => ({
-      id: item.id,
-      kind: 'card',
-      title: item.title,
-      brand: item.brand,
-      last4: cardLast4(item),
-      expiry: item.expiry,
-    }))
+    .map((item) => {
+      const card = cardDetailsOf(item)!
+      return {
+        id: item.id,
+        kind: 'card' as const,
+        title: item.title,
+        brand: card.brand,
+        last4: card.number.replace(/\s+/g, '').slice(-4),
+        expiry: card.expiry,
+      }
+    })
 }
 
 /** Classe les identités correspondant à un texte libre. */

@@ -14,7 +14,13 @@ export const EXPIRY_HORIZON_DAYS = 60
 /** Seuil à partir duquel le badge passe en ton d’avertissement. */
 export const EXPIRY_WARNING_DAYS = 30
 
-export type ExpiryKind = 'card' | 'passport' | 'id-card' | 'license' | 'item'
+export type ExpiryKind =
+  | 'card'
+  | 'passport'
+  | 'id-card'
+  | 'license'
+  | 'item'
+  | 'custom'
 
 export interface ExpiryEvent {
   item: VaultItem
@@ -62,6 +68,13 @@ export function dateOnly(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+/** Date proposée quand on active un rappel : un an à partir d’aujourd’hui. */
+export function defaultExpiryDate(now: Date = new Date()): string {
+  return dateOnly(
+    new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()),
+  )
+}
+
 /** Normalise une date saisie ; renvoie une chaîne vide si elle est invalide. */
 export function normalizeDateOnly(value: string): string {
   const date = parseDateOnly(value)
@@ -105,13 +118,29 @@ export function itemExpiryCandidates(item: VaultItem): ExpiryCandidate[] {
     }
   }
 
-  if (item.type === 'card') {
-    const date = cardExpiryDate(item.expiry)
+  if (item.type === 'card' || item.type === 'bank-account') {
+    const value = item.type === 'card' ? item.expiry : item.cardExpiry
+    const date = cardExpiryDate(value)
     if (date) {
       candidates.push({
         date: dateOnly(date),
-        label: 'Carte bancaire',
+        label:
+          item.type === 'card'
+            ? 'Carte bancaire'
+            : item.cardBrand || 'Carte associée',
         kind: 'card',
+      })
+    }
+  }
+
+  for (const field of item.customFields) {
+    if (!field.expiresAt) continue
+    const date = parseDateOnly(field.expiresAt)
+    if (date) {
+      candidates.push({
+        date: dateOnly(date),
+        label: field.label || 'Champ personnalisé',
+        kind: 'custom',
       })
     }
   }

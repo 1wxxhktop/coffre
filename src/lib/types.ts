@@ -54,6 +54,10 @@ export const CUSTOM_FIELD_TYPES = [
   'number',
   'date',
   'month',
+  'iban',
+  'bic',
+  'card',
+  'currency',
   'checkbox',
 ] as const
 
@@ -65,6 +69,8 @@ export interface CustomField {
   label: string
   value: string
   type: CustomFieldType
+  /** Date de rappel propre au champ (AAAA-MM-JJ), vide si aucune. */
+  expiresAt?: string
 }
 
 /** Métadonnées d’une pièce jointe ; le contenu binaire est chiffré séparément. */
@@ -163,6 +169,10 @@ export interface IdentityItem extends ItemBase {
  * dans le contenu chiffré de l’élément ; l’extension ne les reçoit jamais.
  */
 /** Coordonnées d’un compte bancaire, sans données de carte de paiement. */
+/**
+ * Compte bancaire et carte associée. Les champs de carte sont vides quand le
+ * compte n’a pas de carte ; le type historique `card` reste lisible.
+ */
 export interface BankAccountItem extends ItemBase {
   type: 'bank-account'
   accountHolder: string
@@ -173,6 +183,12 @@ export interface BankAccountItem extends ItemBase {
   routingNumber: string
   branch: string
   currency: string
+  cardholder: string
+  cardNumber: string
+  cardExpiry: string
+  cardCvc: string
+  cardPin: string
+  cardBrand: string
 }
 
 export interface PasskeyItem extends ItemBase {
@@ -788,6 +804,12 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
         routingNumber: '',
         branch: '',
         currency: '',
+        cardholder: '',
+        cardNumber: '',
+        cardExpiry: '',
+        cardCvc: '',
+        cardPin: '',
+        cardBrand: '',
       }
     case 'passkey':
       return {
@@ -866,8 +888,17 @@ export function itemSubtitle(item: VaultItem): string {
     }
     case 'bank-account': {
       const iban = item.iban.replace(/\s+/g, '')
-      const masked = iban.length > 4 ? `•••• ${iban.slice(-4)}` : iban
-      return [item.bankName, masked].filter(Boolean).join(' · ') || 'Compte bancaire'
+      const card = item.cardNumber.replace(/\s+/g, '')
+      const masked =
+        iban.length > 4
+          ? `•••• ${iban.slice(-4)}`
+          : card.length > 4
+            ? `•••• ${card.slice(-4)}`
+            : ''
+      return (
+        [item.bankName || item.cardBrand, masked].filter(Boolean).join(' · ') ||
+        'Compte et carte'
+      )
     }
     case 'passkey':
       return item.userName || item.rpId || 'Passkey'
@@ -901,7 +932,7 @@ export function itemTypeLabel(type: ItemType): string {
     case 'identity':
       return 'Identité'
     case 'bank-account':
-      return 'Compte bancaire'
+      return 'Compte et carte'
     case 'passkey':
       return 'Passkey'
     case 'ssh-key':

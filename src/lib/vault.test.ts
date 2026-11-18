@@ -439,6 +439,20 @@ describe('champs personnalisés', () => {
         { id: 'f_otp', label: '2FA', value: 'jbsw y3dp ehpk 3pxp', type: 'totp' },
         { id: 'f_ok', label: 'Actif', value: 'oui', type: 'checkbox' },
         { id: 'f_date', label: 'Ouverture', value: '2027-02-28', type: 'date' },
+        {
+          id: 'f_iban',
+          label: 'IBAN',
+          value: ' fr76 3000 6000 0112 3456 7890 189 ',
+          type: 'iban',
+          expiresAt: '2027-03-01',
+        },
+        {
+          id: 'f_card',
+          label: 'Carte',
+          value: '4242-4242 4242 4242',
+          type: 'card',
+        },
+        { id: 'f_cur', label: 'Devise', value: ' eur ', type: 'currency' },
       ],
     } as ItemDraft)
 
@@ -453,6 +467,20 @@ describe('champs personnalisés', () => {
       },
       { id: 'f_ok', label: 'Actif', value: 'false', type: 'checkbox' },
       { id: 'f_date', label: 'Ouverture', value: '2027-02-28', type: 'date' },
+      {
+        id: 'f_iban',
+        label: 'IBAN',
+        value: 'FR76 3000 6000 0112 3456 7890 189',
+        type: 'iban',
+        expiresAt: '2027-03-01',
+      },
+      {
+        id: 'f_card',
+        label: 'Carte',
+        value: '4242 4242 4242 4242',
+        type: 'card',
+      },
+      { id: 'f_cur', label: 'Devise', value: 'EUR', type: 'currency' },
     ])
     unlocked.session.lock()
   })

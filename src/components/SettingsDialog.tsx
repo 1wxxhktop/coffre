@@ -636,7 +636,9 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
   const trashedItems = items.filter((item) => item.deletedAt)
   const counts = {
     login: activeItems.filter((item) => item.type === 'login').length,
-    card: activeItems.filter((item) => item.type === 'card').length,
+    'bank-account': activeItems.filter(
+      (item) => item.type === 'bank-account' || item.type === 'card',
+    ).length,
     note: activeItems.filter((item) => item.type === 'note').length,
     identity: activeItems.filter((item) => item.type === 'identity').length,
     passkey: activeItems.filter((item) => item.type === 'passkey').length,
@@ -2180,7 +2182,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                   </div>
 
                   <div className="stat-grid">
-                    {(['login', 'card', 'note', 'identity', 'passkey', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document'] as const).map(
+                    {(['login', 'bank-account', 'note', 'identity', 'passkey', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document'] as const).map(
                       (type) => (
                         <div key={type} className="stat">
                           <strong>{counts[type]}</strong>

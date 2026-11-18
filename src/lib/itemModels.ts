@@ -68,21 +68,6 @@ export const ITEM_MODELS: ItemModel[] = [
     fields: [{ label: 'Contenu de la note', kind: 'multiline' }],
   },
   {
-    type: 'card',
-    name: 'Carte bancaire',
-    icon: '💳',
-    description: 'Carte de paiement avec titulaire, numéro, CVC et PIN.',
-    creatable: true,
-    fields: [
-      { label: 'Titulaire', kind: 'text' },
-      { label: 'Numéro de carte', kind: 'secret' },
-      { label: 'Expiration', kind: 'text' },
-      { label: 'CVC', kind: 'secret' },
-      { label: 'Code PIN', kind: 'secret' },
-      { label: 'Réseau / type', kind: 'text' },
-    ],
-  },
-  {
     type: 'identity',
     name: 'Identité',
     icon: '🪪',
@@ -105,9 +90,10 @@ export const ITEM_MODELS: ItemModel[] = [
   },
   {
     type: 'bank-account',
-    name: 'Compte bancaire',
+    name: 'Compte et carte',
     icon: '🏦',
-    description: 'Titulaire, banque, IBAN, BIC/SWIFT et coordonnées du compte.',
+    description:
+      'Coordonnées bancaires et carte associée : IBAN, BIC/SWIFT, numéro de carte, CVC et PIN.',
     creatable: true,
     fields: [
       { label: 'Titulaire du compte', kind: 'text' },
@@ -118,6 +104,12 @@ export const ITEM_MODELS: ItemModel[] = [
       { label: 'Routing / sort code', kind: 'text' },
       { label: 'Agence', kind: 'text' },
       { label: 'Devise', kind: 'text' },
+      { label: 'Titulaire de la carte', kind: 'text' },
+      { label: 'Numéro de carte', kind: 'secret' },
+      { label: 'Expiration de la carte', kind: 'text' },
+      { label: 'CVC', kind: 'secret' },
+      { label: 'Code PIN', kind: 'secret' },
+      { label: 'Réseau / type', kind: 'text' },
     ],
   },
   {

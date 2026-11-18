@@ -112,6 +112,18 @@ describe('notifications d’échéance', () => {
     expect(dueExpiryNotifications(events, new Date(2026, 10, 9))).toHaveLength(1)
   })
 
+  it('distingue deux rappels de champs personnalisés à la même date', () => {
+    const events: ExpiryEvent[] = [
+      { ...event(), kind: 'custom', label: 'IBAN' },
+      { ...event(), kind: 'custom', label: 'Carte' },
+    ]
+    expect(dueExpiryNotifications(events, new Date(2026, 10, 8))).toHaveLength(2)
+    markExpiryNotified([events[0]], new Date(2026, 10, 8))
+    const due = dueExpiryNotifications(events, new Date(2026, 10, 8))
+    expect(due).toHaveLength(1)
+    expect(due[0].label).toBe('Carte')
+  })
+
   it('affiche une notification regroupée et la marque comme envoyée', () => {
     const events = [event('i1', 12), event('i2', 3, '2026-11-11')]
     const due = notifyExpiringItems(events, new Date(2026, 10, 8))

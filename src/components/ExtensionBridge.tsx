@@ -11,7 +11,7 @@ import {
 } from '../lib/passkeyBridge'
 import {
   EXTENSION_BRIDGE_VERSION,
-  cardLast4,
+  cardDetailsOf,
   hostFromUrl,
   loginUrlForService,
   identityFullName,
@@ -25,8 +25,8 @@ import {
 import { assessPhishingForItems, type PhishingQuery } from '../lib/phishing'
 import {
   emptyDraft,
-  type CardItem,
   type IdentityItem,
+  type ItemDraft,
   type LoginItem,
 } from '../lib/types'
 
@@ -138,7 +138,8 @@ export function ExtensionBridge() {
             totp,
           }
         }
-        if (item.type === 'card') {
+        const card = cardDetailsOf(item)
+        if (card) {
           if (!requestedHost) return null
           if (
             options?.includeSensitive &&
@@ -152,12 +153,12 @@ export function ExtensionBridge() {
             kind: 'card',
             id: item.id,
             title: item.title,
-            cardholder: item.cardholder,
-            number: item.number,
-            expiry: item.expiry,
-            cvc: options?.includeSensitive ? item.cvc : '',
-            pin: options?.includeSensitive ? item.pin : '',
-            brand: item.brand,
+            cardholder: card.cardholder,
+            number: card.number,
+            expiry: card.expiry,
+            cvc: options?.includeSensitive ? card.cvc : '',
+            pin: options?.includeSensitive ? card.pin : '',
+            brand: card.brand,
           }
         }
         if (item.type === 'note' && item.templateId) {
@@ -317,38 +318,55 @@ export function ExtensionBridge() {
         const number = input.number.replace(/\s+/g, '').trim()
         if (!number) return null
         const expiry = input.expiry.trim()
-        const existing = items.find(
-          (item): item is CardItem =>
-            item.type === 'card' &&
-            !item.deletedAt &&
-            cardLast4(item) === number.slice(-4) &&
-            item.expiry.trim() === expiry,
-        )
+        const existing = items.find((item) => {
+          if (item.deletedAt) return false
+          const card = cardDetailsOf(item)
+          return (
+            card !== null &&
+            card.number.replace(/\s+/g, '').slice(-4) === number.slice(-4) &&
+            card.expiry.trim() === expiry
+          )
+        })
         if (existing) {
-          await updateItem({
-            ...existing,
-            cardholder: input.cardholder || existing.cardholder,
-            number,
-            expiry: expiry || existing.expiry,
-            cvc: input.cvc || existing.cvc,
-            pin: input.pin || existing.pin,
-            brand: input.brand || existing.brand,
-          })
+          if (existing.type === 'card') {
+            await updateItem({
+              ...existing,
+              cardholder: input.cardholder || existing.cardholder,
+              number,
+              expiry: expiry || existing.expiry,
+              cvc: input.cvc || existing.cvc,
+              pin: input.pin || existing.pin,
+              brand: input.brand || existing.brand,
+            })
+          } else if (existing.type === 'bank-account') {
+            await updateItem({
+              ...existing,
+              cardholder: input.cardholder || existing.cardholder,
+              cardNumber: number,
+              cardExpiry: expiry || existing.cardExpiry,
+              cardCvc: input.cvc || existing.cardCvc,
+              cardPin: input.pin || existing.cardPin,
+              cardBrand: input.brand || existing.cardBrand,
+            })
+          }
           return { id: existing.id, updated: true }
         }
         const vaultId = vaults[0]?.id
         if (!vaultId) return null
         const item = await addItem({
-          ...emptyDraft('card', vaultId),
-          title: input.title?.trim() || input.brand?.trim() || 'Carte bancaire',
-          type: 'card',
+          ...emptyDraft('bank-account', vaultId),
+          title:
+            input.title?.trim() ||
+            input.brand?.trim() ||
+            'Compte et carte',
+          type: 'bank-account',
           cardholder: input.cardholder,
-          number,
-          expiry,
-          cvc: input.cvc ?? '',
-          pin: input.pin ?? '',
-          brand: input.brand ?? '',
-        })
+          cardNumber: number,
+          cardExpiry: expiry,
+          cardCvc: input.cvc ?? '',
+          cardPin: input.pin ?? '',
+          cardBrand: input.brand ?? '',
+        } as ItemDraft)
         return { id: item.id, updated: false }
       },
       async saveIdentity(input) {

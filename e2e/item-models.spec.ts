@@ -32,11 +32,10 @@ test('propose un modèle intégré pour chaque type', async ({ page }) => {
   await createVault(page)
   const settings = await openSettings(page, 'Modèles')
   const grid = settings.locator('.model-grid')
-  await expect(grid.locator('.model-card')).toHaveCount(12)
+  await expect(grid.locator('.model-card')).toHaveCount(11)
   for (const type of [
     'login',
     'note',
-    'card',
     'identity',
     'bank-account',
     'passkey',
@@ -58,37 +57,37 @@ test('crée un élément depuis un modèle intégré', async ({ page }) => {
   await createVault(page)
   const settings = await openSettings(page, 'Modèles')
   await settings
-    .locator('[data-model="card"]')
+    .locator('[data-model="bank-account"]')
     .getByRole('button', { name: 'Créer un élément' })
     .click()
   await expect(page.getByText('Élément créé depuis le modèle intégré.')).toBeVisible()
   await closeDialog(page)
   await showItems(page)
-  const row = page.locator('.item-row').filter({ hasText: 'Carte bancaire' })
+  const row = page.locator('.item-row').filter({ hasText: 'Compte et carte' })
   await expect(row).toBeVisible()
-  await expect(row.locator('.item-icon--card')).toBeVisible()
+  await expect(row.locator('.item-icon--bank-account')).toBeVisible()
 })
 
 test('crée un modèle personnalisé typé', async ({ page }) => {
   await createVault(page)
   const settings = await openSettings(page, 'Modèles')
   await settings.getByRole('button', { name: 'Créer un modèle' }).click()
-  await settings.getByLabel('Nom du modèle').fill('Modèle carte')
-  await settings.getByLabel('Type d’élément').selectOption('card')
+  await settings.getByLabel('Nom du modèle').fill('Modèle compte')
+  await settings.getByLabel('Type d’élément').selectOption('bank-account')
   await settings.getByLabel('Libellé du champ').fill('Code client')
   await settings.getByRole('button', { name: 'Enregistrer le modèle' }).click()
 
   const template = settings
     .locator('.template-list__item')
-    .filter({ hasText: 'Modèle carte' })
-  await expect(template).toContainText('Carte')
+    .filter({ hasText: 'Modèle compte' })
+  await expect(template).toContainText('Compte et carte')
   await template
-    .getByRole('button', { name: 'Créer un élément depuis Modèle carte' })
+    .getByRole('button', { name: 'Créer un élément depuis Modèle compte' })
     .click()
   await expect(page.getByText('Élément créé depuis le modèle.')).toBeVisible()
   await closeDialog(page)
   await showItems(page)
-  const row = page.locator('.item-row').filter({ hasText: 'Modèle carte' })
+  const row = page.locator('.item-row').filter({ hasText: 'Modèle compte' })
   await expect(row).toBeVisible()
-  await expect(row.locator('.item-icon--card')).toBeVisible()
+  await expect(row.locator('.item-icon--bank-account')).toBeVisible()
 })

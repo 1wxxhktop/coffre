@@ -572,6 +572,18 @@ export const EN_TEXT: Record<string, string> = {
   'Pièces jointes': 'Attachments',
   'Prénom': 'First name',
   'Rappel d’échéance': 'Expiry reminder',
+  'Date du rappel d’échéance': 'Reminder date',
+  'Carte bancaire associée': 'Linked bank card',
+  'Carte associée': 'Linked card',
+  'Titulaire de la carte': 'Cardholder',
+  'Ajouter un champ prédéfini': 'Add a preset field',
+  'Champ prédéfini…': 'Preset field…',
+  'Optionnel. Un rappel apparaît soixante jours avant cette date.':
+    'Optional. A reminder appears sixty days before this date.',
+  'Cochez pour être rappelé de changer ce mot de passe. Le rappel apparaît soixante jours avant la date choisie.':
+    'Tick to be reminded to change this password. The reminder appears sixty days before the chosen date.',
+  'Facultatif. Renseignez la carte qui accompagne ce compte.':
+    'Optional. Fill in the card linked to this account.',
   'Réseau': 'Network',
   'Réseau / type': 'Network / type',
   'Retirer': 'Remove',
