@@ -520,11 +520,12 @@ de 2FA et éléments affectés. Seuls des nombres et des dates sont stockés dan
 `localStorage` (`coffre:security-history:v1`) ; aucun mot de passe, aucune URL
 et aucun identifiant n’y figure. L’historique est plafonné à 365 jours.
 
-Pour une connexion signalée, la fiche propose **« Changer sur le site »** :
-Coffre ouvre l’URL standard `https://<hôte>/.well-known/change-password`
-(RFC proposée par le W3C) dans le navigateur système. Le bouton **« Générer »**
-ouvre le générateur ; après le changement sur le site, la modification de
-l’élément archive automatiquement l’ancien mot de passe dans l’historique.
+Pour une connexion signalée, ou depuis le menu **« Changer le mot de passe… »**,
+l’assistant guidé ouvre l’URL standard
+`https://<hôte>/.well-known/change-password` (RFC proposée par le W3C) ou la
+première adresse du site, propose un mot de passe généré localement et
+copiable, puis enregistre la valeur réellement choisie. L’ancien mot de passe
+reste dans l’historique de l’élément et un rappel d’échéance est fixé à un an.
 
 ### Rappels d’échéance
 

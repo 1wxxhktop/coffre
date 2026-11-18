@@ -46,5 +46,10 @@ test('affiche l’évolution du score et propose le changement sur le site', asy
 
   const panel = page.locator('.item-panel')
   await expect(panel.getByText('Mot de passe faible')).toBeVisible()
-  await expect(panel.getByRole('button', { name: 'Changer sur le site' })).toBeVisible()
+  await panel.getByRole('button', { name: 'Changer le mot de passe' }).click()
+  await expect(
+    page
+      .getByRole('dialog')
+      .getByRole('heading', { name: 'Changer le mot de passe' }),
+  ).toBeVisible()
 })
