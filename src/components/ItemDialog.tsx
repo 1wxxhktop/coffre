@@ -69,6 +69,7 @@ import { formatDateTime } from '../lib/settings'
 import {
   cardExpiryDate,
   daysUntil,
+  defaultExpiryDate,
   expiryBadgeLabel,
   expiryDescription,
   expiryTone,
@@ -99,8 +100,15 @@ import {
   formatCustomDate,
   formatCustomMonth,
   isCustomFieldValueValid,
+  isMonospaceFieldType,
   isSecretFieldType,
 } from '../lib/customFields'
+import {
+  CUSTOM_FIELD_PRESET_GROUPS,
+  customFieldPresetForLabel,
+  UNIQUE_CUSTOM_FIELD_PRESETS,
+  type CustomFieldPreset,
+} from '../lib/customFieldPresets'
 import { qrDataUrl } from '../lib/qr'
 import { wifiQrPayload } from '../lib/wifi'
 import {
@@ -145,7 +153,6 @@ const TWO_FACTOR_LABELS: Record<string, string> = {
 const TYPE_PICKER_TYPES: ItemType[] = [
   'login',
   'note',
-  'card',
   'identity',
   'bank-account',
   'ssh-key',
@@ -460,22 +467,43 @@ export function ItemDialog({
     })
   }
 
-  const addCustomField = () => {
+  const addCustomField = (preset?: CustomFieldPreset) => {
     const fields = draft.customFields ?? []
     if (fields.length >= MAX_CUSTOM_FIELDS) return
     patch({
       customFields: [
         ...fields,
-        { id: randomId('f'), label: '', value: '', type: 'text' },
+        {
+          id: randomId('f'),
+          label: preset?.label ?? '',
+          value: '',
+          type: preset?.type ?? 'text',
+          expiresAt: '',
+        },
       ],
     })
   }
 
   const updateCustomField = (id: string, partial: Partial<CustomField>) => {
+    const next = { ...partial }
+    if (partial.label !== undefined && partial.type === undefined) {
+      const preset = customFieldPresetForLabel(partial.label)
+      if (preset) next.type = preset.type
+    }
     patch({
       customFields: (draft.customFields ?? []).map((field) =>
-        field.id === id ? { ...field, ...partial } : field,
+        field.id === id ? { ...field, ...next } : field,
       ),
+    })
+  }
+
+  const toggleExpiryReminder = (enabled: boolean) => {
+    patch({ expiresAt: enabled ? defaultExpiryDate() : '' })
+  }
+
+  const toggleCustomFieldExpiry = (id: string, enabled: boolean) => {
+    updateCustomField(id, {
+      expiresAt: enabled ? defaultExpiryDate() : '',
     })
   }
 
@@ -1409,21 +1437,31 @@ export function ItemDialog({
                   <span className="field__hint">{tt("Séparées par des virgules.")}</span>
                 </label>
 
-                {draft.type !== 'card' && (
-                  <label className="field field--full">
-                    <span className="field__label">{tt("Rappel d’échéance")}</span>
-                    <input
-                      className="input"
-                      type="date"
-                      value={draft.expiresAt}
-                      onChange={(event) => patch({ expiresAt: event.target.value })}
-                    />
+                {draft.type !== 'login' && draft.type !== 'card' && (
+                  <div className="field field--full">
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(draft.expiresAt)}
+                        onChange={(event) => toggleExpiryReminder(event.target.checked)}
+                      />
+                      <span>{tt("Rappel d’échéance")}</span>
+                    </label>
+                    {draft.expiresAt && (
+                      <input
+                        className="input"
+                        type="date"
+                        value={draft.expiresAt}
+                        onChange={(event) => patch({ expiresAt: event.target.value })}
+                        aria-label={tt("Date du rappel d’échéance")}
+                      />
+                    )}
                     <span className="field__hint">
-                      {draft.type === 'login'
-                        ? 'Date à laquelle penser à changer ce mot de passe. Un rappel apparaît soixante jours avant.'
-                        : 'Optionnel. Un rappel apparaît soixante jours avant cette date.'}
+                      {tt(
+                        'Optionnel. Un rappel apparaît soixante jours avant cette date.',
+                      )}
                     </span>
-                  </label>
+                  </div>
                 )}
               </div>
 
@@ -1440,6 +1478,35 @@ export function ItemDialog({
                       maxLength={500}
                     />
                   </label>
+
+                  <div className="field field--full">
+                    <div className="expiry-reminder">
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(draft.expiresAt)}
+                          onChange={(event) =>
+                            toggleExpiryReminder(event.target.checked)
+                          }
+                        />
+                        <span>{tt("Rappel d’échéance")}</span>
+                      </label>
+                      {draft.expiresAt && (
+                        <input
+                          className="input expiry-reminder__date"
+                          type="date"
+                          value={draft.expiresAt}
+                          onChange={(event) => patch({ expiresAt: event.target.value })}
+                          aria-label={tt("Date du rappel d’échéance")}
+                        />
+                      )}
+                    </div>
+                    <span className="field__hint">
+                      {tt(
+                        'Cochez pour être rappelé de changer ce mot de passe. Le rappel apparaît soixante jours avant la date choisie.',
+                      )}
+                    </span>
+                  </div>
 
                   <label className="field field--full">
                     <span className="field__label">{tt("Mot de passe")}</span>
@@ -1831,6 +1898,102 @@ export function ItemDialog({
                       onChange={(event) => patch({ currency: event.target.value })}
                       placeholder={tt('EUR')}
                       maxLength={8}
+                    />
+                  </label>
+
+                  <div className="field field--full">
+                    <span className="field__label">
+                      {tt('Carte bancaire associée')}
+                    </span>
+                    <span className="field__hint">
+                      {tt(
+                        'Facultatif. Renseignez la carte qui accompagne ce compte.',
+                      )}
+                    </span>
+                  </div>
+                  <label className="field">
+                    <span className="field__label">{tt('Titulaire de la carte')}</span>
+                    <input
+                      className="input"
+                      value={draft.cardholder}
+                      onChange={(event) => patch({ cardholder: event.target.value })}
+                      placeholder={tt('Nom sur la carte')}
+                      maxLength={200}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Réseau / type')}</span>
+                    <input
+                      className="input"
+                      value={draft.cardBrand}
+                      onChange={(event) => patch({ cardBrand: event.target.value })}
+                      placeholder="Visa, Mastercard…"
+                      maxLength={40}
+                    />
+                  </label>
+                  <label className="field field--full">
+                    <span className="field__label">{tt('Numéro de carte')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.cardNumber}
+                      onChange={(event) =>
+                        patch({
+                          cardNumber: event.target.value.replace(/[^\d ]/g, ''),
+                        })
+                      }
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="4242 4242 4242 4242"
+                      maxLength={25}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Expiration')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.cardExpiry}
+                      onChange={(event) => {
+                        const digits = event.target.value.replace(/\D/g, '').slice(0, 4)
+                        patch({
+                          cardExpiry:
+                            digits.length > 2
+                              ? `${digits.slice(0, 2)}/${digits.slice(2)}`
+                              : digits,
+                        })
+                      }}
+                      placeholder="MM/AA"
+                      inputMode="numeric"
+                      maxLength={5}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('CVC')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.cardCvc}
+                      onChange={(event) =>
+                        patch({
+                          cardCvc: event.target.value.replace(/\D/g, '').slice(0, 4),
+                        })
+                      }
+                      placeholder="123"
+                      inputMode="numeric"
+                      maxLength={4}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">{tt('Code PIN')}</span>
+                    <input
+                      className="input input--mono"
+                      value={draft.cardPin}
+                      onChange={(event) =>
+                        patch({
+                          cardPin: event.target.value.replace(/\D/g, '').slice(0, 6),
+                        })
+                      }
+                      placeholder={tt('Optionnel')}
+                      inputMode="numeric"
+                      maxLength={6}
                     />
                   </label>
                 </div>
@@ -2230,15 +2393,45 @@ export function ItemDialog({
               <div className="custom-fields">
                 <div className="custom-fields__head">
                   <span className="field__label">{tt("Champs personnalisés")}</span>
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={addCustomField}
-                    disabled={(draft.customFields ?? []).length >= MAX_CUSTOM_FIELDS}
-                  >
-                    <Plus size={14} />
-                    Ajouter un champ
-                  </button>
+                  <div className="custom-fields__actions">
+                    <select
+                      className="input custom-fields__preset"
+                      value=""
+                      aria-label={tt('Ajouter un champ prédéfini')}
+                      disabled={
+                        (draft.customFields ?? []).length >= MAX_CUSTOM_FIELDS
+                      }
+                      onChange={(event) => {
+                        const preset = UNIQUE_CUSTOM_FIELD_PRESETS.find(
+                          (entry) => entry.label === event.target.value,
+                        )
+                        if (preset) addCustomField(preset)
+                        event.target.value = ''
+                      }}
+                    >
+                      <option value="">{tt('Champ prédéfini…')}</option>
+                      {CUSTOM_FIELD_PRESET_GROUPS.map((group) => (
+                        <optgroup key={group.group} label={group.group}>
+                          {group.presets.map((preset) => (
+                            <option key={preset.label} value={preset.label}>
+                              {preset.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => addCustomField()}
+                      disabled={
+                        (draft.customFields ?? []).length >= MAX_CUSTOM_FIELDS
+                      }
+                    >
+                      <Plus size={14} />
+                      Ajouter un champ
+                    </button>
+                  </div>
                 </div>
                 {(draft.customFields ?? []).length === 0 ? (
                   <p className="field__hint">
@@ -2274,6 +2467,7 @@ export function ItemDialog({
                         <input
                           className="input"
                           value={field.label}
+                          list={`custom-field-presets-${field.id}`}
                           onChange={(event) =>
                             updateCustomField(field.id, { label: event.target.value })
                           }
@@ -2281,6 +2475,11 @@ export function ItemDialog({
                           maxLength={80}
                           aria-label={tt('Nom du champ personnalisé')}
                         />
+                        <datalist id={`custom-field-presets-${field.id}`}>
+                          {UNIQUE_CUSTOM_FIELD_PRESETS.map((preset) => (
+                            <option key={preset.label} value={preset.label} />
+                          ))}
+                        </datalist>
                         <select
                           className="input"
                           value={field.type}
@@ -2341,6 +2540,35 @@ export function ItemDialog({
                           >
                             <X size={15} />
                           </button>
+                        </div>
+                        <div className="custom-field__reminder">
+                          <label className="checkbox">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(field.expiresAt)}
+                              onChange={(event) =>
+                                toggleCustomFieldExpiry(
+                                  field.id,
+                                  event.target.checked,
+                                )
+                              }
+                              aria-label={`${tt('Rappel d’échéance')} — ${field.label || tt('sans nom')}`}
+                            />
+                            <span>{tt("Rappel d’échéance")}</span>
+                          </label>
+                          {field.expiresAt && (
+                            <input
+                              className="input expiry-reminder__date"
+                              type="date"
+                              value={field.expiresAt}
+                              onChange={(event) =>
+                                updateCustomField(field.id, {
+                                  expiresAt: event.target.value,
+                                })
+                              }
+                              aria-label={`${tt("Date du rappel d’échéance")} — ${field.label || tt('sans nom')}`}
+                            />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2941,34 +3169,104 @@ function ItemDetails({
 
       {item.type === 'bank-account' && (
         <div className="detail-list">
-          <DetailRow label="Titulaire du compte" value={item.accountHolder} />
-          <DetailRow label="Banque" value={item.bankName} />
-          <SecretRow
-            label="IBAN"
-            value={item.iban}
-            revealed={revealed.has('bank-iban')}
-            onToggle={() => toggleReveal('bank-iban')}
-            onCopy={() => void copyValue(item.iban, 'IBAN')}
-            copied={copied === 'IBAN'}
-          />
-          <DetailRow
-            label="BIC / SWIFT"
-            value={item.swift}
-            onCopy={() => void copyValue(item.swift, 'BIC / SWIFT')}
-            copied={copied === 'BIC / SWIFT'}
-            mono
-          />
-          <SecretRow
-            label="Numéro de compte"
-            value={item.accountNumber}
-            revealed={revealed.has('bank-number')}
-            onToggle={() => toggleReveal('bank-number')}
-            onCopy={() => void copyValue(item.accountNumber, 'Numéro de compte')}
-            copied={copied === 'Numéro de compte'}
-          />
-          <DetailRow label="Routing / sort code" value={item.routingNumber} mono />
-          <DetailRow label="Agence" value={item.branch} />
-          <DetailRow label="Devise" value={item.currency} />
+          {(item.accountHolder ||
+            item.bankName ||
+            item.iban ||
+            item.swift ||
+            item.accountNumber ||
+            item.routingNumber ||
+            item.branch ||
+            item.currency) && (
+            <>
+              <DetailRow label="Titulaire du compte" value={item.accountHolder} />
+              <DetailRow label="Banque" value={item.bankName} />
+              <SecretRow
+                label="IBAN"
+                value={item.iban}
+                revealed={revealed.has('bank-iban')}
+                onToggle={() => toggleReveal('bank-iban')}
+                onCopy={() => void copyValue(item.iban, 'IBAN')}
+                copied={copied === 'IBAN'}
+              />
+              <DetailRow
+                label="BIC / SWIFT"
+                value={item.swift}
+                onCopy={() => void copyValue(item.swift, 'BIC / SWIFT')}
+                copied={copied === 'BIC / SWIFT'}
+                mono
+              />
+              <SecretRow
+                label="Numéro de compte"
+                value={item.accountNumber}
+                revealed={revealed.has('bank-number')}
+                onToggle={() => toggleReveal('bank-number')}
+                onCopy={() => void copyValue(item.accountNumber, 'Numéro de compte')}
+                copied={copied === 'Numéro de compte'}
+              />
+              <DetailRow
+                label="Routing / sort code"
+                value={item.routingNumber}
+                mono
+              />
+              <DetailRow label="Agence" value={item.branch} />
+              <DetailRow label="Devise" value={item.currency} />
+            </>
+          )}
+          {(item.cardNumber ||
+            item.cardholder ||
+            item.cardExpiry ||
+            item.cardCvc ||
+            item.cardPin ||
+            item.cardBrand) && (
+            <>
+              <DetailRow
+                label="Carte associée"
+                value={item.cardBrand || (item.cardNumber ? 'Carte bancaire' : '')}
+              />
+              {item.cardholder && (
+                <DetailRow label="Titulaire de la carte" value={item.cardholder} />
+              )}
+              {item.cardNumber && (
+                <SecretRow
+                  label="Numéro de carte"
+                  value={formatCardNumber(item.cardNumber)}
+                  revealed={revealed.has('bank-card-number')}
+                  onToggle={() => toggleReveal('bank-card-number')}
+                  onCopy={() =>
+                    void copyValue(
+                      item.cardNumber.replace(/\s/g, ''),
+                      'Numéro de carte',
+                    )
+                  }
+                  copied={copied === 'Numéro de carte'}
+                  mono
+                />
+              )}
+              {item.cardExpiry && <CardExpiryRow value={item.cardExpiry} />}
+              {item.cardCvc && (
+                <SecretRow
+                  label="CVC"
+                  value={item.cardCvc}
+                  revealed={revealed.has('bank-card-cvc')}
+                  onToggle={() => toggleReveal('bank-card-cvc')}
+                  onCopy={() => void copyValue(item.cardCvc, 'CVC')}
+                  copied={copied === 'CVC'}
+                  mono
+                />
+              )}
+              {item.cardPin && (
+                <SecretRow
+                  label="Code PIN"
+                  value={item.cardPin}
+                  revealed={revealed.has('bank-card-pin')}
+                  onToggle={() => toggleReveal('bank-card-pin')}
+                  onCopy={() => void copyValue(item.cardPin, 'Code PIN')}
+                  copied={copied === 'Code PIN'}
+                  mono
+                />
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -3244,6 +3542,7 @@ function ItemDetails({
                   onToggle={() => toggleReveal(`custom:${field.id}`)}
                   onCopy={() => void copyValue(field.value, field.label)}
                   copied={copied === field.label}
+                  mono={isMonospaceFieldType(field.type)}
                 />
               )
             }
@@ -3307,10 +3606,19 @@ function ItemDetails({
                 value={field.value}
                 onCopy={() => void copyValue(field.value, field.label)}
                 copied={copied === field.label}
-                mono={field.type === 'number' || field.type === 'phone'}
+                mono={isMonospaceFieldType(field.type)}
               />
             )
           })}
+          {item.customFields
+            .filter((field) => field.expiresAt)
+            .map((field) => (
+              <ExpiryDetail
+                key={`expiry-${field.id}`}
+                label={`${field.label} · ${tt('Rappel d’échéance')}`}
+                value={field.expiresAt ?? ''}
+              />
+            ))}
         </div>
       )}
 
@@ -3810,9 +4118,19 @@ function CustomFieldInput({
           className="input input--mono custom-field__value"
           type={visible ? 'text' : 'password'}
           value={field.value}
-          onChange={(event) => onChange(event.target.value)}
-          maxLength={field.type === 'pin' ? 12 : 10_000}
-          inputMode={field.type === 'pin' ? 'numeric' : undefined}
+          onChange={(event) =>
+            onChange(
+              field.type === 'card'
+                ? event.target.value.replace(/[^\d ]/g, '')
+                : event.target.value,
+            )
+          }
+          maxLength={
+            field.type === 'pin' ? 12 : field.type === 'card' ? 25 : 10_000
+          }
+          inputMode={
+            field.type === 'pin' || field.type === 'card' ? 'numeric' : undefined
+          }
           placeholder={tt('Valeur')}
           autoComplete="off"
           aria-label={label}
@@ -3843,19 +4161,43 @@ function CustomFieldInput({
     control = (
       <input
         className={`input custom-field__value ${
-          field.type === 'totp' || field.type === 'number' ? 'input--mono' : ''
+          isMonospaceFieldType(field.type) || field.type === 'totp'
+            ? 'input--mono'
+            : ''
         }`}
         type={inputType}
         value={field.type === 'totp' ? totpInputValue(field.value) : field.value}
-        onChange={(event) => onChange(event.target.value)}
-        maxLength={10_000}
+        onChange={(event) =>
+          onChange(
+            field.type === 'iban' ||
+              field.type === 'bic' ||
+              field.type === 'currency'
+              ? event.target.value.toUpperCase()
+              : event.target.value,
+          )
+        }
+        maxLength={
+          field.type === 'iban'
+            ? 64
+            : field.type === 'bic'
+              ? 32
+              : field.type === 'currency'
+                ? 8
+                : 10_000
+        }
         inputMode={field.type === 'number' ? 'decimal' : undefined}
         placeholder={
           field.type === 'totp'
             ? 'JBSW Y3DP EHPK 3PXP'
             : field.type === 'email'
               ? 'nom@exemple.fr'
-              : tt('Valeur')
+              : field.type === 'iban'
+                ? 'FR76 3000 6000 0112 3456 7890 189'
+                : field.type === 'bic'
+                  ? 'AGRIFRPP'
+                  : field.type === 'currency'
+                    ? 'EUR'
+                    : tt('Valeur')
         }
         autoComplete="off"
         spellCheck={false}

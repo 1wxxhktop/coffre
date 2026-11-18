@@ -345,10 +345,28 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .custom-fields__head .field__label {
   margin: 0;
+}
+
+.custom-fields__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.custom-fields__preset {
+  width: auto;
+  min-width: 180px;
+  max-width: 250px;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
 }
 
 .custom-fields .link-button:disabled {
@@ -367,6 +385,35 @@
   grid-template-columns: minmax(0, 0.9fr) 168px minmax(0, 1.4fr) auto;
   gap: var(--space-2);
   align-items: start;
+}
+
+.custom-field__reminder {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+
+.custom-field__reminder .checkbox {
+  margin: 0;
+}
+
+.expiry-reminder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.expiry-reminder .checkbox {
+  margin: 0;
+}
+
+.expiry-reminder__date {
+  width: auto;
+  max-width: 200px;
 }
 
 .custom-field__value {

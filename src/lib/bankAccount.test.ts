@@ -39,6 +39,12 @@ describe('élément compte bancaire', () => {
       routingNumber: '12-34-56',
       branch: 'Paris',
       currency: 'EUR',
+      cardholder: 'Ada Lovelace',
+      cardNumber: '4242 4242 4242 4242',
+      cardExpiry: '12/29',
+      cardCvc: '123',
+      cardPin: '1234',
+      cardBrand: 'Visa',
     })
     expect(content.type).toBe('bank-account')
     if (content.type !== 'bank-account') throw new Error('type compte bancaire attendu')
@@ -46,7 +52,18 @@ describe('élément compte bancaire', () => {
     expect(itemSubtitle({ ...content, id: 'i', vaultId: 'v', createdAt: '', updatedAt: '' })).toBe(
       'Banque de test · •••• 0189',
     )
-    expect(itemTypeLabel('bank-account')).toBe('Compte bancaire')
+    expect(itemTypeLabel('bank-account')).toBe('Compte et carte')
+    expect(
+      itemSubtitle({
+        ...content,
+        id: 'i',
+        vaultId: 'v',
+        createdAt: '',
+        updatedAt: '',
+        iban: '',
+        bankName: '',
+      }),
+    ).toBe('Visa · •••• 4242')
   })
 
   it('nettoie et normalise les coordonnées bancaires', async () => {
@@ -63,6 +80,12 @@ describe('élément compte bancaire', () => {
       routingNumber: ' 12-34-56 ',
       branch: ' Paris ',
       currency: ' eur ',
+      cardholder: '  Ada Lovelace ',
+      cardNumber: '4242 4242 4242 4242',
+      cardExpiry: '12/29',
+      cardCvc: '123',
+      cardPin: '1234',
+      cardBrand: ' Visa ',
     } as ItemDraft)
 
     const unlocked = await unlockVaultFile(created.file, PASSWORD)
@@ -77,5 +100,11 @@ describe('élément compte bancaire', () => {
     expect(item.routingNumber).toBe('12-34-56')
     expect(item.branch).toBe('Paris')
     expect(item.currency).toBe('EUR')
+    expect(item.cardholder).toBe('Ada Lovelace')
+    expect(item.cardNumber).toBe('4242 4242 4242 4242')
+    expect(item.cardExpiry).toBe('12/29')
+    expect(item.cardCvc).toBe('123')
+    expect(item.cardPin).toBe('1234')
+    expect(item.cardBrand).toBe('Visa')
   })
 })

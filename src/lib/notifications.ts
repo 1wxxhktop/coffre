@@ -33,7 +33,10 @@ function dateStamp(date: Date): string {
 }
 
 function notificationKey(event: ExpiryEvent): string {
-  return `${event.item.id}:${event.kind}:${event.date}`
+  // Deux champs personnalisés peuvent partager la même date : le libellé les
+  // distingue pour ne pas supprimer une notification au profit de l’autre.
+  const detail = event.kind === 'custom' ? event.label : ''
+  return `${event.item.id}:${event.kind}:${detail}:${event.date}`
 }
 
 function loadRecord(): NotifiedRecord {
@@ -164,7 +167,10 @@ export function notifyExpiringItems(
   if (!notificationsSupported() || Notification.permission !== 'granted') return []
 
   const preview = due.slice(0, 3).map(
-    (event) => `${event.item.title} — ${expiryDescription(event.daysLeft)}`,
+    (event) =>
+      `${event.item.title}${
+        event.kind === 'custom' ? ` (${event.label})` : ''
+      } — ${expiryDescription(event.daysLeft)}`,
   )
   if (due.length > preview.length) {
     preview.push(`et ${due.length - preview.length} autre${due.length - preview.length > 1 ? 's' : ''}`)

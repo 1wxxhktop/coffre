@@ -17,12 +17,13 @@ describe('types de champs personnalisés', () => {
     }
   })
 
-  it('traite comme secrets le masqué, le mot de passe, le PIN et le TOTP', () => {
+  it('traite comme secrets le masqué, le mot de passe, le PIN, le TOTP et la carte', () => {
     expect(CUSTOM_FIELD_TYPES.filter(isSecretFieldType)).toEqual([
       'hidden',
       'password',
       'pin',
       'totp',
+      'card',
     ])
   })
 
@@ -40,6 +41,16 @@ describe('types de champs personnalisés', () => {
     expect(isCustomFieldValueValid('totp', 'jbsw y3dp ehpk 3pxp')).toBe(true)
     expect(isCustomFieldValueValid('totp', 'pas une clé')).toBe(false)
     expect(isCustomFieldValueValid('url', 'example.com/login')).toBe(true)
+    expect(isCustomFieldValueValid('iban', 'FR76 3000 6000 0112 3456 7890 189')).toBe(
+      true,
+    )
+    expect(isCustomFieldValueValid('iban', 'FR76')).toBe(false)
+    expect(isCustomFieldValueValid('bic', 'agrifrpp')).toBe(true)
+    expect(isCustomFieldValueValid('bic', 'AGRIFRPPXXX')).toBe(true)
+    expect(isCustomFieldValueValid('card', '4242 4242 4242 4242')).toBe(true)
+    expect(isCustomFieldValueValid('card', '4242')).toBe(false)
+    expect(isCustomFieldValueValid('currency', 'eur')).toBe(true)
+    expect(isCustomFieldValueValid('currency', 'EURO')).toBe(false)
     // Une valeur vide est toujours acceptée.
     expect(isCustomFieldValueValid('email', '  ')).toBe(true)
   })
@@ -52,6 +63,23 @@ describe('types de champs personnalisés', () => {
     expect(isTotpUri(uri)).toBe(true)
     expect(normalizeCustomFieldValue('text', ' garde les espaces ', 'Site', 'Note')).toBe(
       ' garde les espaces ',
+    )
+    expect(
+      normalizeCustomFieldValue(
+        'iban',
+        ' fr76 3000 6000 0112 3456 7890 189 ',
+        'Banque',
+        'IBAN',
+      ),
+    ).toBe('FR76 3000 6000 0112 3456 7890 189')
+    expect(
+      normalizeCustomFieldValue('bic', ' agri frpp ', 'Banque', 'BIC'),
+    ).toBe('AGRIFRPP')
+    expect(
+      normalizeCustomFieldValue('card', '4242-4242 4242 4242', 'Banque', 'Carte'),
+    ).toBe('4242 4242 4242 4242')
+    expect(normalizeCustomFieldValue('currency', ' eur ', 'Banque', 'Devise')).toBe(
+      'EUR',
     )
   })
 

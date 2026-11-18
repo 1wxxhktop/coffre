@@ -629,6 +629,7 @@ const customFieldSchema = z.object({
     .string()
     .max(40)
     .transform((type): CustomFieldType => (isCustomFieldType(type) ? type : 'text')),
+  expiresAt: z.string().max(40).optional(),
 })
 
 const attachmentMetaSchema = z.object({
@@ -710,6 +711,12 @@ const bankAccountContentSchema = z.object({
   routingNumber: z.string().max(64),
   branch: z.string().max(200),
   currency: z.string().max(8),
+  cardholder: z.string().max(200).default(''),
+  cardNumber: z.string().max(40).default(''),
+  cardExpiry: z.string().max(10).default(''),
+  cardCvc: z.string().max(8).default(''),
+  cardPin: z.string().max(12).default(''),
+  cardBrand: z.string().max(40).default(''),
 })
 
 const passkeyContentSchema = z.object({
@@ -2413,6 +2420,9 @@ function cleanDraft(draft: ItemDraft): ItemContent {
           cleanText(field.label, 80),
         ),
         type: isCustomFieldType(field.type) ? field.type : 'text',
+        ...(cleanText(field.expiresAt ?? '', 40)
+          ? { expiresAt: cleanText(field.expiresAt ?? '', 40) }
+          : {}),
       }))
       .filter((field) => field.label)
       .slice(0, MAX_CUSTOM_FIELDS),
@@ -2496,6 +2506,14 @@ function cleanDraft(draft: ItemDraft): ItemContent {
         routingNumber: cleanText(draft.routingNumber, 64),
         branch: cleanText(draft.branch, 200),
         currency: cleanText(draft.currency, 8).toUpperCase(),
+        cardholder: cleanText(draft.cardholder, 200),
+        cardNumber: cleanText(draft.cardNumber, 40)
+          .replace(/[^\d ]/g, '')
+          .slice(0, 25),
+        cardExpiry: cleanText(draft.cardExpiry, 10),
+        cardCvc: cleanText(draft.cardCvc, 8).replace(/\D/g, '').slice(0, 4),
+        cardPin: cleanText(draft.cardPin, 12).replace(/\D/g, '').slice(0, 6),
+        cardBrand: cleanText(draft.cardBrand, 40),
       }
     case 'passkey':
       return {

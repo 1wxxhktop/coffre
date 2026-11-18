@@ -20,7 +20,7 @@ export const FILTER_LABELS: Record<ItemFilter, string> = {
   card: 'Cartes',
   note: 'Notes',
   identity: 'Identités',
-  'bank-account': 'Comptes bancaires',
+  'bank-account': 'Comptes et cartes',
   passkey: 'Passkeys',
   'ssh-key': 'Clés SSH',
   wifi: 'Wi-Fi',
@@ -52,6 +52,20 @@ export const FILTER_MESSAGE_KEYS: Record<ItemFilter, MessageKey> = {
 
 export function isItemFilter(value: string): value is ItemFilter {
   return Object.hasOwn(FILTER_LABELS, value)
+}
+
+/**
+ * Le filtre « Comptes et cartes » regroupe le type fusionné et les anciennes
+ * cartes créées avant la fusion. Les autres filtres restent stricts.
+ */
+export function itemTypeMatchesFilter(
+  type: ItemType,
+  filter: ItemFilter,
+): boolean {
+  if (filter === 'bank-account') {
+    return type === 'bank-account' || type === 'card'
+  }
+  return type === filter
 }
 
 export type ItemSort =

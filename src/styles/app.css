@@ -2219,7 +2219,8 @@ body:has(.app-shell) {
     display: none;
   }
 
-  .button__label {
+  .button__label,
+  .button__shortcut {
     display: none;
   }
 

@@ -21,12 +21,34 @@ export const CUSTOM_FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {
   number: 'Nombre',
   date: 'Date',
   month: 'Mois et année',
+  iban: 'IBAN',
+  bic: 'BIC / SWIFT',
+  card: 'Numéro de carte',
+  currency: 'Devise',
   checkbox: 'Oui / non',
 }
 
 /** Valeurs masquées à l’affichage, protégées à l’export et hors recherche. */
 export function isSecretFieldType(type: CustomFieldType): boolean {
-  return type === 'hidden' || type === 'password' || type === 'pin' || type === 'totp'
+  return (
+    type === 'hidden' ||
+    type === 'password' ||
+    type === 'pin' ||
+    type === 'totp' ||
+    type === 'card'
+  )
+}
+
+/** Vrai pour les champs qui s’affichent en chasse fixe. */
+export function isMonospaceFieldType(type: CustomFieldType): boolean {
+  return (
+    type === 'iban' ||
+    type === 'bic' ||
+    type === 'card' ||
+    type === 'currency' ||
+    type === 'number' ||
+    type === 'phone'
+  )
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -35,6 +57,10 @@ const NUMBER = /^-?\d+(?:[.,]\d+)?$/
 const DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
 const PIN = /^\d{2,12}$/
+const IBAN = /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/
+const BIC = /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/
+const CARD = /^\d{12,19}$/
+const CURRENCY = /^[A-Z]{3}$/
 
 /**
  * Vrai si la valeur convient au type. La validation reste indicative : une
@@ -56,6 +82,14 @@ export function isCustomFieldValueValid(type: CustomFieldType, value: string): b
       return MONTH.test(trimmed)
     case 'pin':
       return PIN.test(trimmed)
+    case 'iban':
+      return IBAN.test(trimmed.replace(/\s+/g, '').toUpperCase())
+    case 'bic':
+      return BIC.test(trimmed.replace(/\s+/g, '').toUpperCase())
+    case 'card':
+      return CARD.test(trimmed.replace(/[\s-]+/g, ''))
+    case 'currency':
+      return CURRENCY.test(trimmed.toUpperCase())
     case 'checkbox':
       return trimmed === 'true' || trimmed === 'false'
     case 'totp':
@@ -83,6 +117,16 @@ export function normalizeCustomFieldValue(
   if (type === 'totp' && raw.trim()) {
     return normalizeTotpUri(raw, itemTitle, fieldLabel).slice(0, 10_000)
   }
+  if (type === 'iban') return raw.replace(/\s+/g, ' ').trim().toUpperCase().slice(0, 64)
+  if (type === 'bic') return raw.replace(/\s+/g, '').toUpperCase().slice(0, 32)
+  if (type === 'card') {
+    return raw
+      .replace(/\D/g, '')
+      .slice(0, 19)
+      .replace(/(.{4})/g, '$1 ')
+      .trim()
+  }
+  if (type === 'currency') return raw.trim().toUpperCase().slice(0, 8)
   return raw
 }
 

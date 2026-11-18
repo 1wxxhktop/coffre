@@ -59,10 +59,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   règle de lint qui refuse les nouvelles chaînes d’interface en dur. Les
   messages Rust restent à traduire.
 - **Coffres multiples** : création, renommage, suppression, filtre par coffre.
-- **Douze types d’éléments** : connexion, note sécurisée, carte bancaire,
-  identité, compte bancaire (IBAN, BIC/SWIFT, titulaire), passkey WebAuthn,
+- **Onze types d’éléments** : connexion, note sécurisée, identité, **compte et
+  carte** (IBAN, BIC/SWIFT, titulaire et carte associée), passkey WebAuthn,
   clé SSH, réseau Wi-Fi, identifiant d’API, licence logicielle, document avec
-  pièce jointe principale et codes de secours.
+  pièce jointe principale et codes de secours. Les anciennes cartes bancaires
+  restent lisibles et modifiables.
 - **Adresses web multiples** : une connexion peut contenir plusieurs URL. Chaque
   adresse peut être ouverte dans le navigateur, ou copiée directement via son
   icône, sans l’ouvrir.
@@ -197,11 +198,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   mêmes règles que la synchronisation par dossier. Aucun serveur, aucune
   connexion Internet ; le port d’écoute n’est ouvert que pendant une réception.
 - **Modèles intégrés et personnalisés** : un modèle complet pour chacun des
-  douze types d’éléments (connexion, note, carte, identité, compte bancaire,
-  passkey, clé SSH, Wi-Fi, identifiant d’API, licence logicielle, document,
-  codes de secours), avec tous leurs champs ; les modèles personnalisés
-  choisissent leur type et restent chiffrés dans le coffre avec une clé et une
-  AAD dédiées.
+  onze types d’éléments (connexion, note, identité, compte et carte, passkey,
+  clé SSH, Wi-Fi, identifiant d’API, licence logicielle, document, codes de
+  secours), avec tous leurs champs ; les modèles personnalisés choisissent
+  leur type et restent chiffrés dans le coffre avec une clé et une AAD
+  dédiées.
 - **Icônes de service locales** : les éléments affichent le glyphe du service
   détecté depuis leur URL, leur RP ID, leur endpoint ou leur site (GitHub,
   Google, Apple, Amazon, cartes bancaires, etc.), ou un monogramme pour les
@@ -248,9 +249,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   connexion signalée, ouverture de l’URL standard
   `/.well-known/change-password` du site et génération d’un nouveau mot de
   passe. L’ancien reste dans l’historique de l’élément.
-- **Rappels d’échéance** : date de révision d’un mot de passe, expiration des
-  cartes et des documents d’identité, vue « Bientôt expirés », badges J-xx et
-  notifications locales optionnelles, sans serveur de notification.
+- **Rappels d’échéance** : case à cocher devant le mot de passe, rappel propre
+  à chaque champ personnalisé, expiration des cartes et des documents
+  d’identité, vue « Bientôt expirés », badges J-xx et notifications locales
+  optionnelles, sans serveur de notification.
 - **Changement de mot de passe maître** sans réchiffrer tous les éléments.
 - **Phrase de récupération optionnelle** : dix mots générés localement,
   enveloppe séparée des clés de coffre, déverrouillage d’urgence avec choix
@@ -473,6 +475,14 @@ Les champs personnalisés sont stockés dans le contenu chiffré de l’élémen
 champ peut être affiché en clair, masqué comme un secret, rendu comme un lien
 ou présenté comme un texte long. Ils sont inclus dans la recherche.
 
+Le bouton **« Champ prédéfini… »** propose les champs de tous les types
+d’éléments (IBAN, BIC/SWIFT, numéro de carte, devise, identité, SSH, Wi-Fi,
+API, licence, document…). Choisir une entrée renseigne automatiquement le
+libellé et le type ; les types **IBAN**, **BIC/SWIFT**, **numéro de carte** et
+**devise** sont aussi disponibles directement. Chaque champ peut porter son
+propre **rappel d’échéance**, affiché dans la fiche et dans la vue « Bientôt
+expirés ».
+
 Les pièces jointes sont chiffrées séparément avec la clé de leur élément et une
 AAD dédiée. Leurs métadonnées (nom, type MIME, taille, date) sont conservées
 dans le contenu chiffré de l’élément. Limites actuelles :
@@ -507,9 +517,13 @@ l’élément archive automatiquement l’ancien mot de passe dans l’historiqu
 ### Rappels d’échéance
 
 Chaque élément peut porter une date de révision ou d’échéance, stockée dans son
-contenu chiffré. Les cartes utilisent leur date d’expiration `MM/AA`, valable
-jusqu’au dernier jour du mois, et les identités peuvent enregistrer séparément
-l’expiration du passeport, de la carte d’identité et du permis de conduire.
+contenu chiffré. Le formulaire affiche une **case à cocher « Rappel
+d’échéance »** devant le mot de passe ; elle est déjà cochée quand l’élément
+possède une date. Les comptes fusionnés utilisent la date d’expiration
+`MM/AA` de leur carte, valable jusqu’au dernier jour du mois, et les identités
+peuvent enregistrer séparément l’expiration du passeport, de la carte
+d’identité et du permis de conduire. Chaque champ personnalisé peut aussi
+recevoir sa propre date de rappel.
 
 La vue **Bientôt expirés** rassemble les échéances passées ou situées dans les
 soixante jours. Un badge `J-xx` apparaît dans la liste et dans la fiche. Le

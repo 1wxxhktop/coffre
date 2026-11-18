@@ -179,6 +179,21 @@ test('les poignées sont masquées sur mobile et le menu reste lisible', async (
 })
 
 
+test('affiche le raccourci de création sur le bouton Nouvel élément', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await createVault(page)
+  const button = page
+    .locator('.topbar')
+    .getByRole('button', { name: 'Nouvel élément' })
+  await expect(button.locator('.button__shortcut')).toHaveText(/^(⌘N|Ctrl\+N)$/)
+  await expect(button).toHaveAttribute(
+    'aria-keyshortcuts',
+    /^(Meta\+N|Control\+N)$/,
+  )
+})
+
 test('le titre de la ligne reste lisible à la largeur par défaut', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await createVault(page)

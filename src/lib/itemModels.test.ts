@@ -3,8 +3,10 @@ import { ITEM_MODELS, itemModel } from './itemModels'
 import { ITEM_TYPES } from './types'
 
 describe('modèles intégrés', () => {
-  it('couvre tous les types d’éléments du coffre', () => {
-    expect(ITEM_MODELS.map((model) => model.type).sort()).toEqual([...ITEM_TYPES].sort())
+  it('couvre tous les types créables, hors carte historique fusionnée', () => {
+    expect(ITEM_MODELS.map((model) => model.type).sort()).toEqual(
+      ITEM_TYPES.filter((type) => type !== 'card').sort(),
+    )
   })
 
   it('décrit au moins un champ pour chaque modèle', () => {

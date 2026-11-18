@@ -19,7 +19,7 @@ import {
   toExtensionGetResult,
 } from '../lib/passkeyBridge'
 import {
-  cardLast4,
+  cardDetailsOf,
   hostFromUrl,
   loginUrlForService,
   pageServiceFromUrl,
@@ -32,8 +32,8 @@ import {
 import { assessPhishingForItems } from '../lib/phishing'
 import {
   emptyDraft,
-  type CardItem,
   type IdentityItem,
+  type ItemDraft,
   type LoginItem,
 } from '../lib/types'
 import {
@@ -536,10 +536,15 @@ export function NativeBridge() {
               (candidate) =>
                 candidate.id === payload.itemId && !candidate.deletedAt,
             )
-            if (!item || item.type !== kind) {
-              return { type: 'credentials', credentials: null, error: 'not-found' }
-            }
-            if (item.type === 'card') {
+            if (kind === 'card') {
+              const card = item ? cardDetailsOf(item) : null
+              if (!item || !card) {
+                return {
+                  type: 'credentials',
+                  credentials: null,
+                  error: 'not-found',
+                }
+              }
               const includeSensitive = payload.includeSensitive === true
               if (
                 includeSensitive &&
@@ -555,14 +560,17 @@ export function NativeBridge() {
                   kind: 'card',
                   id: item.id,
                   title: item.title,
-                  cardholder: item.cardholder,
-                  number: item.number,
-                  expiry: item.expiry,
-                  cvc: includeSensitive ? item.cvc : '',
-                  pin: includeSensitive ? item.pin : '',
-                  brand: item.brand,
+                  cardholder: card.cardholder,
+                  number: card.number,
+                  expiry: card.expiry,
+                  cvc: includeSensitive ? card.cvc : '',
+                  pin: includeSensitive ? card.pin : '',
+                  brand: card.brand,
                 },
               }
+            }
+            if (!item || item.type !== 'identity') {
+              return { type: 'credentials', credentials: null, error: 'not-found' }
             }
             return {
               type: 'credentials',
@@ -648,24 +656,38 @@ export function NativeBridge() {
           const text = (value: unknown, max: number): string =>
             typeof value === 'string' ? value.trim().slice(0, max) : ''
           const expiry = text(payload.expiry, 20)
-          const existing = itemsRef.current.find(
-            (candidate): candidate is CardItem =>
-              candidate.type === 'card' &&
-              !candidate.deletedAt &&
-              cardLast4(candidate) === number.slice(-4) &&
-              candidate.expiry.trim() === expiry,
-          )
+          const existing = itemsRef.current.find((candidate) => {
+            if (candidate.deletedAt) return false
+            const card = cardDetailsOf(candidate)
+            return (
+              card !== null &&
+              card.number.replace(/\s+/g, '').slice(-4) === number.slice(-4) &&
+              card.expiry.trim() === expiry
+            )
+          })
           try {
             if (existing) {
-              await updateItem({
-                ...existing,
-                cardholder: text(payload.cardholder, 200) || existing.cardholder,
-                number,
-                expiry: expiry || existing.expiry,
-                cvc: text(payload.cvc, 8) || existing.cvc,
-                pin: text(payload.pin, 12) || existing.pin,
-                brand: text(payload.brand, 40) || existing.brand,
-              })
+              if (existing.type === 'card') {
+                await updateItem({
+                  ...existing,
+                  cardholder: text(payload.cardholder, 200) || existing.cardholder,
+                  number,
+                  expiry: expiry || existing.expiry,
+                  cvc: text(payload.cvc, 8) || existing.cvc,
+                  pin: text(payload.pin, 12) || existing.pin,
+                  brand: text(payload.brand, 40) || existing.brand,
+                })
+              } else if (existing.type === 'bank-account') {
+                await updateItem({
+                  ...existing,
+                  cardholder: text(payload.cardholder, 200) || existing.cardholder,
+                  cardNumber: number,
+                  cardExpiry: expiry || existing.cardExpiry,
+                  cardCvc: text(payload.cvc, 8) || existing.cardCvc,
+                  cardPin: text(payload.pin, 12) || existing.cardPin,
+                  cardBrand: text(payload.brand, 40) || existing.cardBrand,
+                })
+              }
               return {
                 type: 'save-result',
                 ok: true,
@@ -678,16 +700,19 @@ export function NativeBridge() {
               return { type: 'save-result', ok: false, error: 'no-vault' }
             }
             const item = await addItem({
-              ...emptyDraft('card', vaultId),
-              title: text(payload.title, 200) || text(payload.brand, 40) || 'Carte bancaire',
-              type: 'card',
+              ...emptyDraft('bank-account', vaultId),
+              title:
+                text(payload.title, 200) ||
+                text(payload.brand, 40) ||
+                'Compte et carte',
+              type: 'bank-account',
               cardholder: text(payload.cardholder, 200),
-              number,
-              expiry,
-              cvc: text(payload.cvc, 8),
-              pin: text(payload.pin, 12),
-              brand: text(payload.brand, 40),
-            })
+              cardNumber: number,
+              cardExpiry: expiry,
+              cardCvc: text(payload.cvc, 8),
+              cardPin: text(payload.pin, 12),
+              cardBrand: text(payload.brand, 40),
+            } as ItemDraft)
             return {
               type: 'save-result',
               ok: true,

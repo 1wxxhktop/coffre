@@ -144,6 +144,30 @@ describe('collecte des échéances', () => {
       { date: '2026-11-30', label: 'Carte bancaire', kind: 'card' },
     ])
 
+    const bank = {
+      ...base(),
+      id: 'i_bank',
+      type: 'bank-account',
+      title: 'Compte',
+      accountHolder: '',
+      bankName: '',
+      iban: '',
+      swift: '',
+      accountNumber: '',
+      routingNumber: '',
+      branch: '',
+      currency: '',
+      cardholder: '',
+      cardNumber: '',
+      cardExpiry: '12/29',
+      cardCvc: '',
+      cardPin: '',
+      cardBrand: 'Visa',
+    } as VaultItem
+    expect(itemExpiryCandidates(bank)).toEqual([
+      { date: '2029-12-31', label: 'Visa', kind: 'card' },
+    ])
+
     expect(
       itemExpiryCandidates(
         identity({
@@ -190,6 +214,30 @@ describe('collecte des échéances', () => {
     expect(events[0].daysLeft).toBe(-38)
     expect(events[1].daysLeft).toBe(12)
     expect(events.every((event) => event.daysLeft <= EXPIRY_HORIZON_DAYS)).toBe(true)
+  })
+
+  it('inclut les rappels propres aux champs personnalisés', () => {
+    const item = note({
+      customFields: [
+        {
+          id: 'f_iban',
+          label: 'IBAN',
+          value: 'FR76 3000 6000 0112 3456 7890 189',
+          type: 'iban',
+          expiresAt: '2026-12-01',
+        },
+      ],
+    })
+    expect(itemExpiryCandidates(item)).toContainEqual({
+      date: '2026-12-01',
+      label: 'IBAN',
+      kind: 'custom',
+    })
+    expect(nextExpiry(item, NOW)).toMatchObject({
+      kind: 'custom',
+      label: 'IBAN',
+      daysLeft: 23,
+    })
   })
 
   it('renvoie l’échéance la plus proche d’un élément', () => {
