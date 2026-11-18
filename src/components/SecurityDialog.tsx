@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  ChevronRight,
   CircleHelp,
   Clock3,
   Copy,
+  Download,
   Fingerprint,
   KeyRound,
   Link2,
@@ -13,7 +15,7 @@ import {
 import { Modal } from './Modal'
 import { SecurityHistoryChart } from './SecurityHistoryChart'
 import { useI18n } from '../state/I18nProvider'
-import { pluralKey } from '../lib/i18n'
+import { pluralKey, type MessageKey } from '../lib/i18n'
 import {
   loadSecurityHistory,
   mergeSecuritySnapshot,
@@ -25,6 +27,9 @@ import {
   type SecurityCategory,
   type SecurityReport,
 } from '../lib/security'
+import { securityActions } from '../lib/securityPlan'
+import { buildSecurityReportExport } from '../lib/securityReport'
+import { downloadFile } from '../lib/settings'
 
 interface SecurityDialogProps {
   report: SecurityReport
@@ -36,77 +41,33 @@ interface SecurityDialogProps {
   onOpenCategory: (category: SecurityCategory) => void
 }
 
-function CategoryButton({
-  count,
-  label,
-  hint,
-  category,
-  onOpen,
-}: {
-  count: number
-  label: string
-  hint: string
-  category: SecurityCategory
-  onOpen: (category: SecurityCategory) => void
-}) {
-  return (
-    <button
-      type="button"
-      className={`security-category ${count === 0 ? 'security-category--empty' : ''}`}
-      onClick={() => onOpen(category)}
-    >
-      <strong>{count}</strong>
-      <span>{label}</span>
-      <small>{hint}</small>
-    </button>
-  )
+const ACTION_TEXT: Record<
+  SecurityCategory,
+  { label: MessageKey; hint: MessageKey }
+> = {
+  breached: { label: 'security.breached', hint: 'security.breached.hint' },
+  reused: { label: 'security.reused', hint: 'security.reused.hint' },
+  weak: { label: 'security.weak', hint: 'security.weak.hint' },
+  no2fa: { label: 'security.no2fa', hint: 'security.no2fa.hint' },
+  noHttps: { label: 'security.noHttps', hint: 'security.noHttps.hint' },
+  old: { label: 'security.old', hint: 'security.old.hint' },
+  similar: { label: 'security.similar', hint: 'security.similar.hint' },
+  duplicates: { label: 'security.duplicates', hint: 'security.duplicates.hint' },
+  incomplete: { label: 'security.incomplete', hint: 'security.incomplete.hint' },
+  passkey: { label: 'security.passkey', hint: 'security.passkey.hint' },
 }
 
-function PointButton({
-  count,
-  label,
-  hint,
-  category,
-  icon,
-  onOpen,
-}: {
-  count: number
-  label: string
-  hint: string
-  category: SecurityCategory
-  icon: 'copy' | 'key' | 'clock' | 'help' | 'link' | 'breach' | 'fingerprint'
-  onOpen: (category: SecurityCategory) => void
-}) {
-  const Icon =
-    icon === 'copy'
-      ? Copy
-      : icon === 'clock'
-        ? Clock3
-        : icon === 'help'
-          ? CircleHelp
-          : icon === 'link'
-            ? Link2
-            : icon === 'breach'
-              ? ShieldAlert
-              : icon === 'fingerprint'
-                ? Fingerprint
-                : KeyRound
-
-  return (
-    <button
-      type="button"
-      className="security-point"
-      onClick={() => onOpen(category)}
-      disabled={count === 0}
-    >
-      <Icon size={15} aria-hidden="true" />
-      <span className="security-point__body">
-        <span>{label}</span>
-        <small>{hint}</small>
-      </span>
-      <strong>{count}</strong>
-    </button>
-  )
+const ACTION_ICON: Record<SecurityCategory, typeof KeyRound> = {
+  breached: ShieldAlert,
+  reused: Copy,
+  weak: KeyRound,
+  no2fa: ShieldQuestion,
+  noHttps: ShieldAlert,
+  old: Clock3,
+  similar: Copy,
+  duplicates: Link2,
+  incomplete: CircleHelp,
+  passkey: Fingerprint,
 }
 
 export function SecurityDialog({
@@ -125,7 +86,18 @@ export function SecurityDialog({
     () => mergeSecuritySnapshot(initialHistory, report),
     [initialHistory, report],
   )
+  const actions = useMemo(() => securityActions(report), [report])
   const tone = securityTone(report.score)
+
+  const exportReport = () => {
+    const payload = buildSecurityReportExport(report, history)
+    const stamp = payload.generatedAt.slice(0, 10)
+    downloadFile(
+      JSON.stringify(payload, null, 2),
+      `coffre-securite-${stamp}.json`,
+      'application/json',
+    )
+  }
   const scoreLabel =
     report.score >= 90
       ? t('security.score.excellent')
@@ -170,12 +142,6 @@ export function SecurityDialog({
     if (report.total === 0) return
     recordSecuritySnapshot(report)
   }, [report])
-  const reusedCount = report.reused.reduce((total, group) => total + group.items.length, 0)
-  const similarCount = report.similar.reduce((total, group) => total + group.items.length, 0)
-  const duplicateCount = report.duplicates.reduce(
-    (total, group) => total + group.items.length,
-    0,
-  )
   const capped = report.total > 0 && report.weakOrReusedCount > report.total / 2
 
   return (
@@ -185,9 +151,19 @@ export function SecurityDialog({
       size="lg"
       onClose={onClose}
       footer={
-        <button type="button" className="button button--secondary" onClick={onClose}>
-          {t('common.close')}
-        </button>
+        <div className="modal__footer-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={exportReport}
+          >
+            <Download size={16} />
+            {t('security.export')}
+          </button>
+          <button type="button" className="button button--secondary" onClick={onClose}>
+            {t('common.close')}
+          </button>
+        </div>
       }
     >
       <div className={`security-score security-score--${tone}`}>
@@ -255,6 +231,55 @@ export function SecurityDialog({
         </div>
       </div>
 
+      {actions.length > 0 && (
+        <section className="security-plan" aria-labelledby="security-plan-title">
+          <div className="security-plan__head">
+            <div>
+              <p className="security-plan__title" id="security-plan-title">
+                {t('security.plan.title')}
+              </p>
+              <p className="security-plan__copy">{t('security.plan.copy')}</p>
+            </div>
+            <span className="security-plan__total">
+              {t(
+                pluralKey(
+                  actions.length,
+                  'security.plan.action.one',
+                  'security.plan.action.other',
+                ),
+                { count: actions.length },
+              )}
+            </span>
+          </div>
+          <ol className="security-plan__list">
+            {actions.map((action, index) => {
+              const Icon = ACTION_ICON[action.category]
+              const text = ACTION_TEXT[action.category]
+              return (
+                <li key={action.category}>
+                  <button
+                    type="button"
+                    className={`security-plan__item security-plan__item--${action.tone}`}
+                    onClick={() => onOpenCategory(action.category)}
+                  >
+                    <span className="security-plan__rank" aria-hidden="true">
+                      {index + 1}
+                    </span>
+                    <Icon size={17} aria-hidden="true" />
+                    <span className="security-plan__body">
+                      <strong>{t(text.label)}</strong>
+                      <small>{t(text.hint)}</small>
+                    </span>
+                    <span className="security-plan__badge">{action.count}</span>
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                </li>
+              )
+            })}
+          </ol>
+        </section>
+      )}
+
       <SecurityHistoryChart history={history} />
 
       <div
@@ -321,110 +346,6 @@ export function SecurityDialog({
           <ShieldCheck size={22} />
           <p>{t('security.empty')}</p>
         </div>
-      )}
-
-      {report.passkeyAvailable.length > 0 && (
-        <p className="security-section__hint">
-          <Fingerprint size={13} />{' '}
-          {t(
-            pluralKey(
-              report.passkeyAvailable.length,
-              'security.passkey.available.one',
-              'security.passkey.available.other',
-            ),
-            { count: report.passkeyAvailable.length },
-          )}
-        </p>
-      )}
-
-      {report.total > 0 && (
-        <>
-          <div className="security-primary" aria-label={t('security.primary')}>
-            <CategoryButton
-              count={report.weak.length}
-              label={t('security.weak')}
-              hint={t('security.weak.hint')}
-              category="weak"
-              onOpen={onOpenCategory}
-            />
-            <CategoryButton
-              count={reusedCount}
-              label={t('security.reused')}
-              hint={t('security.reused.hint')}
-              category="reused"
-              onOpen={onOpenCategory}
-            />
-            <CategoryButton
-              count={report.no2fa.length}
-              label={t('security.no2fa')}
-              hint={t('security.no2fa.hint')}
-              category="no2fa"
-              onOpen={onOpenCategory}
-            />
-          </div>
-
-          <div className="security-points">
-            <p className="security-points__title">{t('security.points')}</p>
-            {report.breached.length > 0 && (
-              <PointButton
-                count={report.breached.length}
-                label={t('security.breached')}
-                hint={t('security.breached.hint')}
-                category="breached"
-                icon="breach"
-                onOpen={onOpenCategory}
-              />
-            )}
-            <PointButton
-              count={report.passkeyAvailable.length}
-              label={t('security.passkey')}
-              hint={t('security.passkey.hint')}
-              category="passkey"
-              icon="fingerprint"
-              onOpen={onOpenCategory}
-            />
-            <PointButton
-              count={report.noHttps.length}
-              label={t('security.noHttps')}
-              hint={t('security.noHttps.hint')}
-              category="noHttps"
-              icon="breach"
-              onOpen={onOpenCategory}
-            />
-            <PointButton
-              count={similarCount}
-              label={t('security.similar')}
-              hint={t('security.similar.hint')}
-              category="similar"
-              icon="copy"
-              onOpen={onOpenCategory}
-            />
-            <PointButton
-              count={report.old.length}
-              label={t('security.old')}
-              hint={t('security.old.hint')}
-              category="old"
-              icon="clock"
-              onOpen={onOpenCategory}
-            />
-            <PointButton
-              count={report.incomplete.length}
-              label={t('security.incomplete')}
-              hint={t('security.incomplete.hint')}
-              category="incomplete"
-              icon="help"
-              onOpen={onOpenCategory}
-            />
-            <PointButton
-              count={duplicateCount}
-              label={t('security.duplicates')}
-              hint={t('security.duplicates.hint')}
-              category="duplicates"
-              icon="link"
-              onOpen={onOpenCategory}
-            />
-          </div>
-        </>
       )}
 
       {report.total > 0 && report.affected > 0 && (

@@ -361,6 +361,8 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
   JWE ; voir les risques documentés.
 - Passkey unlock (PRF) et revue du déverrouillage biométrique.
 - Tableau de bord sécurité v2 : évolution, remédiation guidée, export.
+  **Livré** : plan d’action ordonné et export JSON agrégé sans donnée
+  nominative ; reste la validation manuelle des parcours.
 - Assistant de changement de mot de passe v2 : détection de formulaire, mise à jour assistée.
 - Alias email en ligne (SimpleLogin/Addy/Fastmail/Proton), opt-in.
 - Surveillance de fuites : HIBP mots de passe + email optionnel, cache local.

@@ -238,8 +238,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   restent lisibles.
 - **Tableau de bord Sécurité** : score et répartition des mots de passe,
   faiblesses, réutilisations, variantes proches, ancienneté, absence de 2FA,
-  connexions incomplètes et sites en doublon, avec accès direct aux éléments à
-  corriger. L’évolution du score est conservée localement, un point par jour.
+  connexions incomplètes et sites en doublon. Un **plan d’action ordonné par
+  urgence** ouvre directement les éléments à corriger ; l’évolution du score
+  est conservée localement, un point par jour, et un **export JSON agrégé sans
+  donnée nominative** permet d’archiver le bilan.
 - **Surveillance des fuites (optionnelle)** : désactivée par défaut, elle
   calcule le SHA-1 localement et n’envoie que ses 5 premiers caractères à
   Have I Been Pwned avec `Add-Padding`. Le mot de passe et le hash complet ne
@@ -505,12 +507,18 @@ desktop, et permet de télécharger le document depuis la visionneuse.
 
 ### Santé et changement de mot de passe
 
-Le tableau de bord Sécurité conserve un **historique local du score** : une
-mesure par jour, avec le score et les compteurs de faiblesses, réutilisations,
-absence de 2FA et éléments affectés. Seuls des nombres et des dates sont
-stockés dans `localStorage` (`coffre:security-history:v1`) ; aucun mot de
-passe, aucune URL et aucun identifiant n’y figure. L’historique est plafonné à
-365 jours.
+Le tableau de bord Sécurité présente un **plan d’action ordonné par urgence** :
+fuites connues, mots de passe réutilisés ou faibles, absence de 2FA, sites sans
+HTTPS, ancienneté, variantes, doublons et connexions incomplètes. Chaque action
+ouvre la liste filtrée correspondante. L’**export du rapport** produit un JSON
+agrégé (score, compteurs, historique) sans titre d’élément, identifiant, URL ni
+secret.
+
+Le tableau de bord conserve aussi un **historique local du score** : une mesure
+par jour, avec le score et les compteurs de faiblesses, réutilisations, absence
+de 2FA et éléments affectés. Seuls des nombres et des dates sont stockés dans
+`localStorage` (`coffre:security-history:v1`) ; aucun mot de passe, aucune URL
+et aucun identifiant n’y figure. L’historique est plafonné à 365 jours.
 
 Pour une connexion signalée, la fiche propose **« Changer sur le site »** :
 Coffre ouvre l’URL standard `https://<hôte>/.well-known/change-password`

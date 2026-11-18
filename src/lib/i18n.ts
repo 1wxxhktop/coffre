@@ -271,7 +271,10 @@ const fr = {
   'security.legend.weak': 'Faibles',
   'security.empty':
     'Mots de passe solides, aucun doublon, aucune réutilisation et pas de connexion incomplète. Continuez à utiliser des mots de passe uniques et la double authentification.',
-  'security.primary': 'Problèmes principaux',
+  'security.plan.title': 'Plan d’action',
+  'security.plan.copy': 'Corrigez d’abord les problèmes les plus urgents.',
+  'security.plan.action.one': '{count} action prioritaire',
+  'security.plan.action.other': '{count} actions prioritaires',
   'security.weak': 'Faibles',
   'security.weak.hint': 'Mots de passe faciles à deviner',
   'security.reused': 'Réutilisés',
@@ -282,11 +285,6 @@ const fr = {
   'security.passkey.hint': 'Connexion sans mot de passe possible',
   'security.noHttps': 'Sites sans HTTPS',
   'security.noHttps.hint': 'URL servie en clair sur le réseau',
-  'security.passkey.available.one':
-    '{count} connexion peut utiliser une passkey à la place du mot de passe.',
-  'security.passkey.available.other':
-    '{count} connexions peuvent utiliser une passkey à la place du mot de passe.',
-  'security.points': 'Autres points',
   'security.similar': 'Variantes proches',
   'security.similar.hint': 'Des mots de passe qui se ressemblent se devinent ensemble.',
   'security.old': 'Non modifiés depuis un an',
@@ -312,7 +310,8 @@ const fr = {
   'security.breach.check': 'Vérifier maintenant',
   'security.breach.settings': 'Ouvrir les réglages',
   'security.categoryHint':
-    'Chaque catégorie ouvre la liste filtrée dans la vue principale.',
+    'Chaque action ouvre la liste filtrée dans la vue principale.',
+  'security.export': 'Exporter le rapport',
   'security.noLoginsHint': 'Ajoutez une connexion pour lancer l’analyse locale.',
   'security.footnote':
     'Analyse locale sur les connexions actives. La vérification de fuites, optionnelle, n’envoie qu’un préfixe SHA-1 de 5 caractères ; les notes, cartes, identités, pièces jointes et éléments en corbeille ne sont pas inclus.',
@@ -772,7 +771,10 @@ const en: Record<MessageKey, string> = {
   'security.legend.weak': 'Weak',
   'security.empty':
     'Strong passwords, no duplicates, no reuse and no incomplete login. Keep using unique passwords and two-factor authentication.',
-  'security.primary': 'Main issues',
+  'security.plan.title': 'Action plan',
+  'security.plan.copy': 'Fix the most urgent issues first.',
+  'security.plan.action.one': '{count} priority action',
+  'security.plan.action.other': '{count} priority actions',
   'security.weak': 'Weak',
   'security.weak.hint': 'Passwords that are easy to guess',
   'security.reused': 'Reused',
@@ -783,11 +785,6 @@ const en: Record<MessageKey, string> = {
   'security.passkey.hint': 'Passwordless sign-in is possible',
   'security.noHttps': 'Sites without HTTPS',
   'security.noHttps.hint': 'URL sent in clear text over the network',
-  'security.passkey.available.one':
-    '{count} login can use a passkey instead of its password.',
-  'security.passkey.available.other':
-    '{count} logins can use a passkey instead of their password.',
-  'security.points': 'Other points',
   'security.similar': 'Similar variants',
   'security.similar.hint': 'Passwords that look alike are guessed together.',
   'security.old': 'Unchanged for a year',
@@ -811,7 +808,8 @@ const en: Record<MessageKey, string> = {
   'security.breach.check': 'Check now',
   'security.breach.settings': 'Open settings',
   'security.categoryHint':
-    'Each category opens the filtered list in the main view.',
+    'Each action opens the filtered list in the main view.',
+  'security.export': 'Export report',
   'security.noLoginsHint': 'Add a login to run the local analysis.',
   'security.footnote':
     'Local analysis of active logins. The optional breach check only sends a 5-character SHA-1 prefix; notes, cards, identities, attachments and trashed items are not included.',

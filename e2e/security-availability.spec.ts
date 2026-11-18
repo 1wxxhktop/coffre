@@ -36,15 +36,15 @@ test('distingue les sites avec 2FA, sans 2FA connue et sans HTTPS', async ({ pag
 
   // GitHub propose une 2FA : une seule alerte, pas deux.
   await expect(
-    dialog.locator('.security-category').filter({ hasText: 'Sans 2FA' }),
+    dialog.locator('.security-plan__item').filter({ hasText: 'Sans 2FA' }),
   ).toContainText('1')
   // GitHub accepte les passkeys.
   await expect(
-    dialog.locator('.security-point').filter({ hasText: 'Passkeys disponibles' }),
+    dialog.locator('.security-plan__item').filter({ hasText: 'Passkeys disponibles' }),
   ).toContainText('1')
   // Une seule URL HTTP, example.com n’étant pas connu comme proposant une 2FA.
   await expect(
-    dialog.locator('.security-point').filter({ hasText: 'Sites sans HTTPS' }),
+    dialog.locator('.security-plan__item').filter({ hasText: 'Sites sans HTTPS' }),
   ).toContainText('1')
   await page.keyboard.press('Escape')
 

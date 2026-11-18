@@ -15,6 +15,10 @@
 - Extension : le panneau de détails d’une connexion affiche ses **liens
   enregistrés**, même lorsque le site courant ne correspond pas, pour les
   ouvrir dans un nouvel onglet sans révéler les identifiants.
+- Sécurité : **plan d’action ordonné par urgence** (fuites, réutilisations,
+  faiblesses, 2FA, HTTPS, ancienneté, doublons, connexions incomplètes), avec
+  accès direct aux listes filtrées et **export JSON agrégé sans donnée
+  nominative**.
 - Saisie : option **Formatage automatique** (Réglages → Général) pour grouper
   les IBAN, numéros de carte, téléphones français et codes de routage pendant
   la frappe, y compris dans les champs personnalisés. Les valeurs enregistrées
