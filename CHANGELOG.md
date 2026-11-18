@@ -10,6 +10,9 @@
   complets dans le tiroir, pied de barre latérale accessible, actions de
   réglages empilées, champs personnalisés sur plusieurs lignes et onglets
   bas ajustés aux petits écrans.
+- Extension : le panneau de détails d’une connexion affiche ses **liens
+  enregistrés**, même lorsque le site courant ne correspond pas, pour les
+  ouvrir dans un nouvel onglet sans révéler les identifiants.
 - Éléments : le type **Compte et carte** fusionne compte bancaire et carte
   bancaire (titulaire, banque, IBAN, BIC/SWIFT, numéro de compte,
   routing/sort code, agence, devise, puis carte associée : titulaire, numéro,
