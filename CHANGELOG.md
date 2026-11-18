@@ -9,7 +9,9 @@
   corrigée : filtres
   complets dans le tiroir, pied de barre latérale accessible, actions de
   réglages empilées, champs personnalisés sur plusieurs lignes et onglets
-  bas ajustés aux petits écrans.
+  bas ajustés aux petits écrans. Le bouton de repli/déploiement de la barre
+  latérale est retiré : le rail est automatique et la zone des commandes de
+  fenêtre reste libre.
 - Extension : le panneau de détails d’une connexion affiche ses **liens
   enregistrés**, même lorsque le site courant ne correspond pas, pour les
   ouvrir dans un nouvel onglet sans révéler les identifiants.

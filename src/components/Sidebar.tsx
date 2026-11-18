@@ -14,8 +14,6 @@ import {
   Landmark,
   LayoutDashboard,
   LockKeyhole,
-  PanelLeftClose,
-  PanelLeftOpen,
   Pencil,
   Plus,
   RefreshCw,
@@ -51,7 +49,6 @@ interface SidebarProps {
   collapsed: boolean
   dashboardActive: boolean
   onOpenDashboard: () => void
-  onToggleCollapsed: () => void
   onFilterChange: (filter: ItemFilter) => void
   onVaultChange: (vaultId: 'all' | string) => void
   onAddVault: () => void
@@ -114,7 +111,6 @@ export function Sidebar({
   collapsed,
   dashboardActive,
   onOpenDashboard,
-  onToggleCollapsed,
   onFilterChange,
   onVaultChange,
   onAddVault,
@@ -233,15 +229,6 @@ export function Sidebar({
         <div className="sidebar__head" data-tauri-drag-region>
           <Brand compact={collapsed && !compact} subtitle={t('sidebar.localFirst')} />
           <div className="sidebar__head-actions">
-            <button
-              type="button"
-              className="icon-button sidebar__collapse"
-              onClick={onToggleCollapsed}
-              aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-              title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-            >
-              {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-            </button>
             <button
               type="button"
               className="icon-button sidebar__close"

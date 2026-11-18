@@ -67,7 +67,7 @@ test('redimensionne les colonnes et mémorise les largeurs', async ({ page }) =>
   expect(restoredList).toBeCloseTo(stored.list, 0)
 })
 
-test('replie la barre latérale en icônes puis la déploie', async ({ page }) => {
+test('replie automatiquement la barre latérale en icônes', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await createVault(page)
 
@@ -76,8 +76,11 @@ test('replie la barre latérale en icônes puis la déploie', async ({ page }) =
   const allItems = page.getByRole('button', { name: 'Tous les éléments' })
   await expect(brandText).toBeVisible()
   await expect(allItems).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Réduire la barre latérale' }),
+  ).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Réduire la barre latérale' }).click()
+  await page.setViewportSize({ width: 1100, height: 800 })
   await expect(sidebar).toHaveClass(/is-collapsed/)
   await expect
     .poll(() =>
@@ -88,21 +91,16 @@ test('replie la barre latérale en icônes puis la déploie', async ({ page }) =
   await expect(page.locator('.sidebar__section-label').first()).toBeHidden()
   await expect(allItems.locator('span').first()).toBeHidden()
   await expect(allItems).toHaveAttribute('aria-label', 'Tous les éléments')
-  await expect(page.getByRole('button', { name: 'Déployer la barre latérale' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Déployer la barre latérale' }),
+  ).toHaveCount(0)
 
   await page.reload()
   await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Déverrouiller' }).click()
   await expect(page.locator('.sidebar')).toHaveClass(/is-collapsed/)
-  await expect
-    .poll(() =>
-      page
-        .locator('.sidebar')
-        .evaluate((element) => Number.parseFloat(getComputedStyle(element).width)),
-    )
-    .toBe(64)
 
-  await page.getByRole('button', { name: 'Déployer la barre latérale' }).click()
+  await page.setViewportSize({ width: 1280, height: 800 })
   await expect(sidebar).not.toHaveClass(/is-collapsed/)
   await expect(brandText).toBeVisible()
   await expect(allItems).toBeVisible()
@@ -137,12 +135,9 @@ test('adapte la disposition par paliers quand la fenêtre rétrécit', async ({ 
   await expect(list).toBeVisible()
   await expect(detail).toBeVisible()
 
-  // Le rail reste dépliable à la demande, puis se replie.
-  await page.getByRole('button', { name: 'Déployer la barre latérale' }).click()
-  await expect(sidebar).not.toHaveClass(/is-collapsed/)
-  await expect(brandText).toBeVisible()
-  await page.getByRole('button', { name: 'Réduire la barre latérale' }).click()
-  await expect(sidebar).toHaveClass(/is-collapsed/)
+  await expect(
+    page.getByRole('button', { name: 'Déployer la barre latérale' }),
+  ).toHaveCount(0)
 
   // Deux panneaux : le rail d’icônes reste visible, sans menu hamburger.
   await page.setViewportSize({ width: 900, height: 800 })

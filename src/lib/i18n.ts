@@ -180,8 +180,6 @@ const fr = {
 
   'sidebar.navigation': 'Navigation du coffre',
   'sidebar.close': 'Fermer le menu',
-  'sidebar.collapse': 'Réduire la barre latérale',
-  'sidebar.expand': 'Déployer la barre latérale',
   'sidebar.security.label': 'Sécurité du coffre',
   'layout.resizeSidebar': 'Redimensionner la barre latérale',
   'layout.resizeList': 'Redimensionner la liste des éléments',
@@ -685,8 +683,6 @@ const en: Record<MessageKey, string> = {
 
   'sidebar.navigation': 'Vault navigation',
   'sidebar.close': 'Close menu',
-  'sidebar.collapse': 'Collapse sidebar',
-  'sidebar.expand': 'Expand sidebar',
   'sidebar.security.label': 'Vault security',
   'layout.resizeSidebar': 'Resize sidebar',
   'layout.resizeList': 'Resize item list',

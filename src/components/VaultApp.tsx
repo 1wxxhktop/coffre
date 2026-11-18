@@ -250,27 +250,10 @@ export function VaultApp() {
   // 768 px, elle devient un tiroir et un seul panneau reste affiché.
   const desktopLayout = useMediaQuery('(min-width: 1024px)')
   const compactSidebar = useMediaQuery('(max-width: 1140px)')
-  const railOnlySidebar = useMediaQuery('(max-width: 1023px)')
   const drawerSidebar = useMediaQuery('(max-width: 767px)')
-  const [compactSidebarExpanded, setCompactSidebarExpanded] = useState(false)
-  useEffect(() => {
-    if (!compactSidebar || railOnlySidebar) setCompactSidebarExpanded(false)
-  }, [compactSidebar, railOnlySidebar])
-
-  const sidebarCollapsed =
-    !drawerSidebar &&
-    (compactSidebar
-      ? railOnlySidebar || !compactSidebarExpanded
-      : layout.sidebarCollapsed)
-
-  const toggleSidebar = useCallback(() => {
-    if (drawerSidebar || railOnlySidebar) return
-    if (compactSidebar) {
-      setCompactSidebarExpanded((value) => !value)
-      return
-    }
-    layout.toggleSidebar()
-  }, [compactSidebar, drawerSidebar, layout, railOnlySidebar])
+  // La barre se replie automatiquement en rail : aucun bouton dans l’en-tête
+  // ne doit empiéter sur les commandes de fenêtre.
+  const sidebarCollapsed = !drawerSidebar && compactSidebar
 
   const splitRef = useRef<HTMLElement>(null)
   const [splitWidth, setSplitWidth] = useState(0)
@@ -1196,7 +1179,6 @@ export function VaultApp() {
           setSecurityCategory(null)
           setSidebarOpen(false)
         }}
-        onToggleCollapsed={toggleSidebar}
         onFilterChange={(next) => {
           setView('vault')
           setSecurityCategory(null)
