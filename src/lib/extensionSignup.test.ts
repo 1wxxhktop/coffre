@@ -197,6 +197,22 @@ describe('détection de l’inscription', () => {
     expect(fields?.change).toBe(true)
   })
 
+  it('écarte un ancien champ simplement libellé « Mot de passe »', () => {
+    const document = mount(`
+      <form>
+        <label>Mot de passe <input id="old" type="password" /></label>
+        <label>Nouveau mot de passe <input id="new" type="password" /></label>
+        <button>Enregistrer</button>
+      </form>
+    `)
+    const fields = detectSignupFields(document)
+    expect(fields?.password.id).toBe('new')
+    expect(fields?.confirm).toBeNull()
+    expect(fields?.change).toBe(true)
+    expect(fillSignupPasswords(fields!, 'mot-de-passe-fort')).toBe(1)
+    expect(document.querySelector<HTMLInputElement>('#old')?.value).toBe('')
+  })
+
   it('reconnaît un changement réduit à un seul nouveau champ', () => {
     const document = mount(`
       <form>

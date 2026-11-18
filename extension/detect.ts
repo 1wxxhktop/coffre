@@ -245,11 +245,12 @@ export function detectSignupFields(
   const isCurrent = (input: HTMLInputElement): boolean =>
     autocomplete(input) === 'current-password' ||
     CURRENT_PASSWORD_PATTERN.test(descriptors(input))
-  const explicitNew = scoped.find(
-    (input) =>
-      autocomplete(input) === 'new-password' ||
-      NEW_PASSWORD_PATTERN.test(descriptors(input)),
-  )
+  const isNew = (input: HTMLInputElement): boolean =>
+    autocomplete(input) === 'new-password' ||
+    NEW_PASSWORD_PATTERN.test(descriptors(input))
+  const isConfirm = (input: HTMLInputElement): boolean =>
+    CONFIRM_PASSWORD_PATTERN.test(descriptors(input))
+  const explicitNew = scoped.find(isNew)
   const current = scoped.filter(isCurrent)
   const context = signupContext(form)
   const changeContext = CHANGE_PASSWORD_PATTERN.test(context.text)
@@ -267,9 +268,23 @@ export function detectSignupFields(
   if (pool.length === 0) return null
 
   const primary = explicitNew ?? pool[0]
+  const primaryIndex = scoped.indexOf(primary)
+  // Un champ de mot de passe qui précède le nouveau sans être marqué comme
+  // confirmation est l’ancien secret, même si son libellé se limite à
+  // « Mot de passe ».
+  const implicitCurrent = new Set(
+    scoped.filter(
+      (input, index) =>
+        index < primaryIndex &&
+        !isCurrent(input) &&
+        !isNew(input) &&
+        !isConfirm(input),
+    ),
+  )
   const hasUsername = chooseUsername(document, primary) !== null
   const change =
     current.length > 0 ||
+    implicitCurrent.size > 0 ||
     changeContext ||
     (!explicitNew && current.length === 0 && scoped.length >= 3)
 
@@ -285,15 +300,10 @@ export function detectSignupFields(
   ) {
     return null
   }
-  const others = pool.filter((input) => input !== primary)
-  const confirm =
-    others.find(
-      (input) =>
-        autocomplete(input) === 'new-password' ||
-        CONFIRM_PASSWORD_PATTERN.test(descriptors(input)),
-    ) ??
-    others[0] ??
-    null
+  const others = pool.filter(
+    (input) => input !== primary && !implicitCurrent.has(input),
+  )
+  const confirm = others.find((input) => isNew(input) || isConfirm(input)) ?? others[0] ?? null
 
   return {
     form,
