@@ -643,6 +643,8 @@ export interface AppSettings {
   /** Langue de l’interface et des dates. */
   language: 'fr' | 'en'
   theme: ThemePreference
+  /** Ajouter les séparateurs des IBAN, cartes, téléphones et codes de routage. */
+  autoFormat: boolean
   autoLockMinutes: number
   clipboardClearSeconds: number
   lockOnHide: boolean
@@ -703,6 +705,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   language: 'fr',
   theme: 'dark',
+  autoFormat: true,
   autoLockMinutes: 5,
   clipboardClearSeconds: 30,
   lockOnHide: true,

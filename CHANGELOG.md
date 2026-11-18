@@ -13,6 +13,10 @@
 - Extension : le panneau de détails d’une connexion affiche ses **liens
   enregistrés**, même lorsque le site courant ne correspond pas, pour les
   ouvrir dans un nouvel onglet sans révéler les identifiants.
+- Saisie : option **Formatage automatique** (Réglages → Général) pour grouper
+  les IBAN, numéros de carte, téléphones français et codes de routage pendant
+  la frappe, y compris dans les champs personnalisés. Les valeurs enregistrées
+  restent normalisées et l’option peut être désactivée.
 - Éléments : le type **Compte et carte** fusionne compte bancaire et carte
   bancaire (titulaire, banque, IBAN, BIC/SWIFT, numéro de compte,
   routing/sort code, agence, devise, puis carte associée : titulaire, numéro,

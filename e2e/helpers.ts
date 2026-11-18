@@ -100,6 +100,12 @@ export async function closeDialog(page: Page): Promise<void> {
  */
 export async function selectItemType(page: Page, label: string): Promise<void> {
   const dialog = page.getByRole('dialog')
+  await dialog
+    .getByRole('radiogroup', { name: 'Type d’élément' })
+    .waitFor({ state: 'visible' })
+  // Laisser le calcul de largeur du sélecteur se stabiliser avant de choisir
+  // entre une pastille visible et le menu « … ».
+  await page.waitForTimeout(250)
   const radio = dialog.getByRole('radio', { name: label })
   if ((await radio.count()) > 0) {
     await radio.click()

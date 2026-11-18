@@ -253,6 +253,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   à chaque champ personnalisé, expiration des cartes et des documents
   d’identité, vue « Bientôt expirés », badges J-xx et notifications locales
   optionnelles, sans serveur de notification.
+- **Formatage automatique des numéros** : IBAN par groupes de quatre, cartes
+  bancaires, téléphones français et codes de routage sont formatés pendant la
+  saisie. L’option se désactive dans Réglages → Général et s’applique aussi aux
+  champs personnalisés.
 - **Changement de mot de passe maître** sans réchiffrer tous les éléments.
 - **Phrase de récupération optionnelle** : dix mots générés localement,
   enveloppe séparée des clés de coffre, déverrouillage d’urgence avec choix
