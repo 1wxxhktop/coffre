@@ -84,7 +84,8 @@ du thème. La trame de fond est atténuée de moitié dans l’application.
   modales servent aux confirmations, au générateur, à l’historique et aux
   réglages.
 - **1024–1140 px** : la barre latérale se replie automatiquement en rail de
-  64 px, dépliable à la demande ; la liste et le détail restent côte à côte.
+  64 px ; la liste et le détail restent côte à côte. Aucun bouton de repli ne
+  figure dans l’en-tête, pour laisser la zone des commandes de fenêtre libre.
 - **768–1023 px** : le rail de 64 px reste visible et fixe ; la liste et le
   détail restent côte à côte, la liste occupant au plus 46 % de la largeur.
   Les poignées de redimensionnement sont masquées.
@@ -145,13 +146,11 @@ peuvent être ajustées au clavier (flèches, `Home`, `End`) ou réinitialisées
 double-clic. Sous 1024 px, la liste se dimensionne seule et les poignées sont
 masquées.
 
-La barre latérale peut être repliée en un rail de 64 px qui ne conserve que les
-icônes, avec des infobulles et des noms accessibles. L’état replié est mémorisé.
-Entre 768 et 1140 px, le rail s’active automatiquement. Entre 1024 et 1140 px,
-un clic sur le bouton de déploiement rétablit la barre complète jusqu’au
-prochain changement de palier ; entre 768 et 1023 px, le rail reste fixe pour
-préserver la largeur du détail. Sous 768 px, la barre devient un tiroir complet
-et les poignées sont masquées.
+La barre latérale se replie automatiquement en un rail de 64 px entre 768 et
+1140 px, avec des infobulles et des noms accessibles. Le rail reste fixe : il
+n’y a pas de bouton de repli ou de déploiement dans l’en-tête, afin de ne pas
+empiéter sur les commandes de fenêtre (fermer, réduire, agrandir). Sous 768 px,
+la barre devient un tiroir complet et les poignées sont masquées.
 
 ### Modèles et icônes de service
 

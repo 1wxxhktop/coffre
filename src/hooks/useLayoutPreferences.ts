@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 
 const SIDEBAR_WIDTH_KEY = 'coffre:ui:sidebar-width'
 const LIST_WIDTH_KEY = 'coffre:ui:list-width'
-const SIDEBAR_COLLAPSED_KEY = 'coffre:ui:sidebar-collapsed'
 
 export const LAYOUT_LIMITS = {
   sidebarDefault: 272,
@@ -28,15 +27,6 @@ function readNumber(key: string, fallback: number, min: number, max: number): nu
   }
 }
 
-function readBoolean(key: string, fallback: boolean): boolean {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw === null ? fallback : raw === '1'
-  } catch {
-    return fallback
-  }
-}
-
 function write(key: string, value: string): void {
   try {
     localStorage.setItem(key, value)
@@ -45,7 +35,7 @@ function write(key: string, value: string): void {
   }
 }
 
-/** Largeurs de colonnes et état replié de la barre latérale, persistés localement. */
+/** Largeurs de colonnes persistées localement. */
 export function useLayoutPreferences() {
   const [sidebarWidth, setSidebarWidthState] = useState(() =>
     readNumber(
@@ -63,10 +53,6 @@ export function useLayoutPreferences() {
       LAYOUT_LIMITS.listMax,
     ),
   )
-  const [sidebarCollapsed, setSidebarCollapsedState] = useState(() =>
-    readBoolean(SIDEBAR_COLLAPSED_KEY, false),
-  )
-
   const setSidebarWidth = useCallback((value: number) => {
     setSidebarWidthState(
       clamp(value, LAYOUT_LIMITS.sidebarMin, LAYOUT_LIMITS.sidebarMax),
@@ -85,10 +71,6 @@ export function useLayoutPreferences() {
     setListWidthState(LAYOUT_LIMITS.listDefault)
   }, [])
 
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsedState((value) => !value)
-  }, [])
-
   useEffect(() => {
     write(SIDEBAR_WIDTH_KEY, String(sidebarWidth))
   }, [sidebarWidth])
@@ -97,18 +79,12 @@ export function useLayoutPreferences() {
     write(LIST_WIDTH_KEY, String(listWidth))
   }, [listWidth])
 
-  useEffect(() => {
-    write(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0')
-  }, [sidebarCollapsed])
-
   return {
     sidebarWidth,
     listWidth,
-    sidebarCollapsed,
     setSidebarWidth,
     setListWidth,
     resetSidebarWidth,
     resetListWidth,
-    toggleSidebar,
   }
 }

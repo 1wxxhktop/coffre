@@ -134,8 +134,7 @@ body:has(.app-shell) {
   overscroll-behavior: contain;
 }
 
-.sidebar__close,
-.sidebar__collapse {
+.sidebar__close {
   display: none;
 }
 
@@ -2071,14 +2070,6 @@ body:has(.app-shell) {
 
   .sidebar.is-collapsed .sidebar__security {
     width: 100%;
-  }
-}
-
-@media (min-width: 1024px) {
-  /* Le rail reste fixe dans la disposition à deux panneaux ; il n’est
-     dépliable que lorsque la fenêtre laisse assez de place. */
-  .sidebar__collapse {
-    display: grid;
   }
 }
 
