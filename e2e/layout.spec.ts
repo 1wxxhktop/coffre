@@ -7,6 +7,7 @@ async function drag(page: Page, handleName: string, deltaX: number) {
   if (!box) throw new Error(`Poignée introuvable : ${handleName}`)
   await page.mouse.move(box.x + box.width / 2, box.y + 160)
   await page.mouse.down()
+  await page.waitForTimeout(30)
   await page.mouse.move(box.x + box.width / 2 + deltaX, box.y + 160, { steps: 8 })
   await page.mouse.up()
 }
@@ -32,6 +33,9 @@ test('redimensionne les colonnes et mémorise les largeurs', async ({ page }) =>
         .evaluate((element) => Number.parseFloat(getComputedStyle(element).width)),
     )
     .toBeGreaterThan(defaultSidebar + 40)
+  // La barre latérale a une transition de largeur : attendre sa fin évite de
+  // saisir la poignée de la liste pendant qu’elle se déplace encore.
+  await page.waitForTimeout(250)
 
   await drag(page, 'Redimensionner la liste des éléments', 90)
   await expect
