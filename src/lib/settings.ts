@@ -39,6 +39,10 @@ export function loadSettings(): AppSettings {
         parsed.theme === 'light' || parsed.theme === 'system' || parsed.theme === 'dark'
           ? parsed.theme
           : DEFAULT_SETTINGS.theme,
+      autoFormat:
+        typeof parsed.autoFormat === 'boolean'
+          ? parsed.autoFormat
+          : DEFAULT_SETTINGS.autoFormat,
       autoLockMinutes: AUTO_LOCK_VALUES.includes(autoLockMinutes)
         ? autoLockMinutes
         : DEFAULT_SETTINGS.autoLockMinutes,

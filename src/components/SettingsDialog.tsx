@@ -21,6 +21,7 @@ import {
   SlidersHorizontal,
   Trash2,
   Upload,
+  Wand2,
 } from 'lucide-react'
 import { Modal } from './Modal'
 import { SyncSettings } from './SyncSettings'
@@ -944,6 +945,37 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                       ))}
                     </select>
                   </label>
+                </section>
+
+                <section className="settings-section">
+                  <div className="settings-section__head">
+                    <span className="settings-section__icon">
+                      <Wand2 size={18} />
+                    </span>
+                    <div>
+                      <h3>{tt("Formatage automatique")}</h3>
+                      <p>
+                        {tt(
+                          "Ajoute les séparateurs pendant la saisie des numéros.",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={settings.autoFormat}
+                      onChange={(event) =>
+                        updateSettings({ autoFormat: event.target.checked })
+                      }
+                    />
+                    <span>{tt("Formater automatiquement les numéros")}</span>
+                  </label>
+                  <p className="field__hint">
+                    {tt(
+                      "IBAN par groupes de quatre, cartes bancaires, téléphones français et codes de routage. Les valeurs enregistrées restent nettoyées de la même façon.",
+                    )}
+                  </p>
                 </section>
 
                 <section className="settings-section">

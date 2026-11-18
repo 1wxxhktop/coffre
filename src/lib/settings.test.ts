@@ -12,6 +12,18 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('préférences de saisie', () => {
+  it('active le formatage automatique par défaut', () => {
+    stubSettings({})
+    expect(loadSettings().autoFormat).toBe(true)
+  })
+
+  it('respecte la désactivation du formatage automatique', () => {
+    stubSettings({ autoFormat: false })
+    expect(loadSettings().autoFormat).toBe(false)
+  })
+})
+
 describe('préférences de sauvegarde', () => {
   it('reprend une configuration valide', () => {
     stubSettings({

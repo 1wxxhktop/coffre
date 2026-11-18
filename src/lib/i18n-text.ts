@@ -576,6 +576,12 @@ export const EN_TEXT: Record<string, string> = {
   'Carte bancaire associée': 'Linked bank card',
   'Carte associée': 'Linked card',
   'Titulaire de la carte': 'Cardholder',
+  'Formatage automatique': 'Automatic formatting',
+  'Ajoute les séparateurs pendant la saisie des numéros.':
+    'Adds separators while typing numbers.',
+  'Formater automatiquement les numéros': 'Automatically format numbers',
+  'IBAN par groupes de quatre, cartes bancaires, téléphones français et codes de routage. Les valeurs enregistrées restent nettoyées de la même façon.':
+    'IBAN in groups of four, bank cards, French phone numbers and routing codes. Stored values are still cleaned the same way.',
   'Ajouter un champ prédéfini': 'Add a preset field',
   'Champ prédéfini…': 'Preset field…',
   'Optionnel. Un rappel apparaît soixante jours avant cette date.':

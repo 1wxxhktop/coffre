@@ -67,6 +67,13 @@ import {
 } from '../lib/attachments'
 import { formatDateTime } from '../lib/settings'
 import {
+  formatCardNumberInput,
+  formatIbanInput,
+  formatPhoneInput,
+  formatSortCodeInput,
+  sanitizeCardNumber,
+} from '../lib/formatting'
+import {
   cardExpiryDate,
   daysUntil,
   defaultExpiryDate,
@@ -1639,7 +1646,11 @@ export function ItemDialog({
                       className="input input--mono"
                       value={draft.number}
                       onChange={(event) =>
-                        patch({ number: event.target.value.replace(/[^\d ]/g, '') })
+                        patch({
+                          number: settings.autoFormat
+                            ? formatCardNumberInput(event.target.value)
+                            : sanitizeCardNumber(event.target.value),
+                        })
                       }
                       inputMode="numeric"
                       autoComplete="off"
@@ -1740,7 +1751,13 @@ export function ItemDialog({
                     <input
                       className="input"
                       value={draft.phone}
-                      onChange={(event) => patch({ phone: event.target.value })}
+                      onChange={(event) =>
+                        patch({
+                          phone: settings.autoFormat
+                            ? formatPhoneInput(event.target.value)
+                            : event.target.value,
+                        })
+                      }
                       maxLength={100}
                     />
                   </label>
@@ -1844,7 +1861,13 @@ export function ItemDialog({
                     <input
                       className="input input--mono"
                       value={draft.iban}
-                      onChange={(event) => patch({ iban: event.target.value })}
+                      onChange={(event) =>
+                        patch({
+                          iban: settings.autoFormat
+                            ? formatIbanInput(event.target.value)
+                            : event.target.value,
+                        })
+                      }
                       placeholder={tt('FR76 3000 6000 0112 3456 7890 189')}
                       maxLength={64}
                       spellCheck={false}
@@ -1876,7 +1899,13 @@ export function ItemDialog({
                     <input
                       className="input input--mono"
                       value={draft.routingNumber}
-                      onChange={(event) => patch({ routingNumber: event.target.value })}
+                      onChange={(event) =>
+                        patch({
+                          routingNumber: settings.autoFormat
+                            ? formatSortCodeInput(event.target.value)
+                            : event.target.value,
+                        })
+                      }
                       maxLength={64}
                       spellCheck={false}
                     />
@@ -1938,7 +1967,9 @@ export function ItemDialog({
                       value={draft.cardNumber}
                       onChange={(event) =>
                         patch({
-                          cardNumber: event.target.value.replace(/[^\d ]/g, ''),
+                          cardNumber: settings.autoFormat
+                            ? formatCardNumberInput(event.target.value)
+                            : sanitizeCardNumber(event.target.value),
                         })
                       }
                       inputMode="numeric"
@@ -4082,9 +4113,28 @@ function CustomFieldInput({
   onChange: (value: string) => void
 }) {
   const { tt } = useI18n()
+  const { settings } = useSettings()
   const [visible, setVisible] = useState(false)
   const label = `${tt('Valeur de')} ${field.label || tt('champ')}`
   const invalid = !isCustomFieldValueValid(field.type, field.value)
+
+  const formatValue = (value: string): string => {
+    if (field.type === 'iban') {
+      return settings.autoFormat ? formatIbanInput(value) : value
+    }
+    if (field.type === 'card') {
+      return settings.autoFormat
+        ? formatCardNumberInput(value)
+        : sanitizeCardNumber(value)
+    }
+    if (field.type === 'phone') {
+      return settings.autoFormat ? formatPhoneInput(value) : value
+    }
+    if (field.type === 'bic' || field.type === 'currency') {
+      return settings.autoFormat ? value.toUpperCase() : value
+    }
+    return value
+  }
 
   let control: ReactNode
   if (field.type === 'multiline') {
@@ -4118,13 +4168,7 @@ function CustomFieldInput({
           className="input input--mono custom-field__value"
           type={visible ? 'text' : 'password'}
           value={field.value}
-          onChange={(event) =>
-            onChange(
-              field.type === 'card'
-                ? event.target.value.replace(/[^\d ]/g, '')
-                : event.target.value,
-            )
-          }
+          onChange={(event) => onChange(formatValue(event.target.value))}
           maxLength={
             field.type === 'pin' ? 12 : field.type === 'card' ? 25 : 10_000
           }
@@ -4167,15 +4211,7 @@ function CustomFieldInput({
         }`}
         type={inputType}
         value={field.type === 'totp' ? totpInputValue(field.value) : field.value}
-        onChange={(event) =>
-          onChange(
-            field.type === 'iban' ||
-              field.type === 'bic' ||
-              field.type === 'currency'
-              ? event.target.value.toUpperCase()
-              : event.target.value,
-          )
-        }
+        onChange={(event) => onChange(formatValue(event.target.value))}
         maxLength={
           field.type === 'iban'
             ? 64
