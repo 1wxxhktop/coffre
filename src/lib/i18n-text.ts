@@ -837,6 +837,22 @@ export const EN_TEXT: Record<string, string> = {
   'Marquer ce code comme utilisé ?': 'Mark this code as used?',
   'Marquer utilisé': 'Mark used',
   'Mise à jour impossible': 'Update failed',
+  'Changer le mot de passe': 'Change password',
+  'Ouvrez la page de changement de mot de passe du site, puis utilisez le mot de passe proposé ci-dessous.':
+    "Open the site's password change page, then use the suggested password below.",
+  'Ouvrir la page': 'Open page',
+  'Aucune adresse n’est enregistrée pour cet élément.':
+    'No address is saved for this item.',
+  'Mot de passe proposé': 'Suggested password',
+  'Généré localement selon vos préférences. Copiez-le avant de changer le mot de passe sur le site.':
+    'Generated locally with your preferences. Copy it before changing the password on the site.',
+  'Une fois le changement confirmé sur le site, enregistrez le nouveau mot de passe ici. L’ancien reste dans l’historique et un rappel d’échéance est fixé à un an.':
+    'Once the change is confirmed on the site, save the new password here. The old one stays in history and a one-year expiry reminder is set.',
+  'Enregistrer dans Coffre': 'Save to Coffre',
+  'Le mot de passe ne peut pas être vide.': 'The password cannot be empty.',
+  'Le nouveau mot de passe doit être différent de l’actuel.':
+    'The new password must differ from the current one.',
+  'Mot de passe mis à jour.': 'Password updated.',
   'Rétablir': 'Restore',
   'Supprimer ce code': 'Remove this code',
   'Un code par ligne ou séparés par des espaces':

@@ -416,6 +416,79 @@
   max-width: 200px;
 }
 
+/* Assistant de changement de mot de passe */
+.password-change {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.password-change__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.password-change__steps > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.password-change__step {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.password-change__steps > li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.password-change__steps strong {
+  display: block;
+  color: var(--text-1);
+  font-size: var(--text-sm);
+}
+
+.password-change__steps p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-2);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.password-change__generated {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.password-change__generated .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.password-change__generated .icon-button {
+  flex: none;
+}
+
+.password-change .strength {
+  margin-top: var(--space-2);
+}
+
 .custom-field__value {
   min-height: 38px;
 }

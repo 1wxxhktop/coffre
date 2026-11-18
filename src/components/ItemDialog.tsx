@@ -26,6 +26,7 @@ import {
   Globe,
   History,
   Keyboard,
+  KeyRound,
   Link2,
   LoaderCircle,
   MoreHorizontal,
@@ -48,6 +49,7 @@ import { GeneratorDialog } from './GeneratorDialog'
 import { HistoryDialog } from './HistoryDialog'
 import { ShareItemDialog } from './ShareItemDialog'
 import { AutoTypeDialog } from './AutoTypeDialog'
+import { PasswordChangeDialog } from './PasswordChangeDialog'
 import { EmailAliasDialog } from './EmailAliasDialog'
 import { TotpCode } from './TotpCode'
 import { ItemIcon } from './ItemIcon'
@@ -96,7 +98,7 @@ import { estimateEntropy, passwordStrength } from '../lib/strength'
 import { cx } from '../lib/cx'
 import { moveEntry } from '../lib/palette'
 import { nextTabIndex } from '../lib/rovingTabs'
-import { changePasswordUrl, safeExternalUrl as safeUrl } from '../lib/url'
+import { safeExternalUrl as safeUrl } from '../lib/url'
 import { handleExternalClick, isTauriRuntime, openExternal } from '../lib/external'
 import { hostFromUrl } from '../lib/extensionProtocol'
 import { normalizeHostname, registrableDomain } from '../lib/domains'
@@ -373,6 +375,7 @@ export function ItemDialog({
     null,
   )
   const [showGenerator, setShowGenerator] = useState(false)
+  const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [showPermanentDelete, setShowPermanentDelete] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -1127,6 +1130,10 @@ export function ItemDialog({
       </>
     ) : undefined
 
+  const currentVaultReadOnly = current
+    ? vaults.find((vault) => vault.id === current.vaultId)?.role === 'read'
+    : false
+
   const overflowItems = current ? (
     trashed ? (
       <button
@@ -1149,6 +1156,17 @@ export function ItemDialog({
           <History size={16} />
           Historique
         </button>
+        {current.type === 'login' && !currentVaultReadOnly && (
+          <button
+            type="button"
+            role="menuitem"
+            className="menu__item"
+            onClick={() => setShowPasswordChange(true)}
+          >
+            <KeyRound size={16} />
+            {tt('Changer le mot de passe')}…
+          </button>
+        )}
         {vaults.length > 1 && (
           <>
             <div className="menu__label">{tt("Déplacer vers")}</div>
@@ -2673,6 +2691,7 @@ export function ItemDialog({
                 issue={issue}
                 hasPasskeyForItem={hasPasskeyForItem}
                 onGeneratePassword={() => setShowGenerator(true)}
+                onChangePassword={() => setShowPasswordChange(true)}
                 onEditItem={startEditing}
                 onOpenItem={onOpenItem}
                 attachmentBusy={attachmentBusy}
@@ -2697,6 +2716,19 @@ export function ItemDialog({
           onUse={(value) => void applyGeneratedPassword(value)}
           url={draft.type === 'login' ? draft.urls[0] : undefined}
           onRecord={recordGeneratedPassword}
+        />
+      )}
+
+      {showPasswordChange && current?.type === 'login' && (
+        <PasswordChangeDialog
+          item={current}
+          onClose={() => setShowPasswordChange(false)}
+          onSaved={(updated) => {
+            setCurrent(updated)
+            setDraft({ ...updated })
+            setShowPasswordChange(false)
+            onSaved?.(updated)
+          }}
         />
       )}
 
@@ -2860,6 +2892,7 @@ interface ItemDetailsProps {
   issue: ItemSecurityIssue | null
   hasPasskeyForItem: boolean
   onGeneratePassword: () => void
+  onChangePassword?: () => void
   onEditItem: () => void
   onOpenItem?: (itemId: string) => void
   attachmentBusy: boolean
@@ -2890,6 +2923,7 @@ function ItemDetails({
   issue,
   hasPasskeyForItem,
   onGeneratePassword,
+  onChangePassword,
   onEditItem,
   onOpenItem,
   attachmentBusy,
@@ -2907,7 +2941,6 @@ function ItemDetails({
   // Dans la fiche, la copie se confirme dans la ligne, sans notification.
   const copyValue = (value: string, label: string) =>
     copyWithToast(value, label, { quiet: true })
-  const changeUrl = item.type === 'login' ? changePasswordUrl(item.urls) : null
   const siteInfo =
     item.type === 'login'
       ? item.urls
@@ -2968,14 +3001,14 @@ function ItemDetails({
             Compléter
           </button>
         ) : null}
-        {changeUrl && (
+        {item.type === 'login' && onChangePassword && !readOnly && (
           <button
             type="button"
             className="button button--secondary button--sm"
-            onClick={() => void openExternal(changeUrl)}
+            onClick={onChangePassword}
           >
-            <ExternalLink size={15} />
-            Changer sur le site
+            <KeyRound size={15} />
+            {tt('Changer le mot de passe')}
           </button>
         )}
       </div>
