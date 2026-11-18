@@ -267,6 +267,28 @@ export function ExtensionBridge() {
         if (assessment.signals.length > 0 && !input.overridePhishing) {
           return null
         }
+        // Changement de mot de passe : le service worker a identifié la
+        // connexion à mettre à jour, y compris lorsque le formulaire ne
+        // rappelle pas l’identifiant.
+        if (input.itemId) {
+          const target = items.find(
+            (item): item is LoginItem =>
+              item.id === input.itemId &&
+              item.type === 'login' &&
+              !item.deletedAt &&
+              loginAllowsHost(item, service),
+          )
+          if (!target) return null
+          await updateItem({
+            ...target,
+            password: input.password,
+            urls:
+              target.urls.filter(Boolean).length > 0
+                ? target.urls
+                : [loginUrlForService(service)],
+          })
+          return { id: target.id, updated: true }
+        }
         const existing = items.find(
           (item): item is LoginItem =>
             item.type === 'login' &&

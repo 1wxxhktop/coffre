@@ -363,11 +363,12 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Tableau de bord sécurité v2 : évolution, remédiation guidée, export.
   **Livré** : plan d’action ordonné et export JSON agrégé sans donnée
   nominative ; reste la validation manuelle des parcours.
-- Assistant de changement de mot de passe v2 : détection de formulaire, mise à jour assistée.
-  **Livré côté application** : assistant guidé (page du site, mot de passe
-  généré, enregistrement, historique et rappel à un an). L’extension détecte
-  déjà les formulaires `new-password` et propose un mot de passe fort ; reste
-  la mise à jour automatique après soumission.
+- ~~Assistant de changement de mot de passe v2 : détection de formulaire, mise
+  à jour assistée.~~ **Livré** : assistant guidé dans l’application (page du
+  site, mot de passe généré, enregistrement, historique et rappel à un an) ;
+  l’extension reconnaît les formulaires de changement (`current-password`,
+  trois champs ou libellé explicite) et propose, après soumission, de mettre à
+  jour la connexion existante plutôt que d’en créer une seconde.
 - Alias email en ligne (SimpleLogin/Addy/Fastmail/Proton), opt-in.
 - Surveillance de fuites : HIBP mots de passe + email optionnel, cache local.
 - Accessibilité : axe-core A/AA/WCAG 2.2 en CI sur Chromium et WebKit,

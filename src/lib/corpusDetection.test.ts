@@ -108,7 +108,7 @@ function fieldRefs(
   ) as unknown as Record<string, HTMLInputElement | HTMLFormElement | null>
   return Object.fromEntries(
     Object.entries(fields)
-      .filter(([key]) => key !== 'form')
+      .filter(([key]) => key !== 'form' && key !== 'change')
       .map(([key, value]) => [
         key,
         (value as HTMLInputElement | null)?.getAttribute('data-corpus-ref') ?? null,

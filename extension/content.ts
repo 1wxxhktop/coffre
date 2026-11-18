@@ -558,6 +558,7 @@ function handleSubmit() {
     if (!fields.password.value) return
     void send<{ prompt?: boolean; offerId?: string }>({
       type: 'FORM_SUBMITTED',
+      formKind: fields.change ? 'change-password' : undefined,
       host,
       username: fields.username?.value ?? '',
       password: fields.password.value,

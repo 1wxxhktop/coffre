@@ -1006,18 +1006,25 @@ jamais le mot de passe ni les métadonnées. Le bandeau propose d’enregistrer 
 de mettre à jour la connexion, la carte ou l’identité, avec un identifiant
 modifiable pour les connexions. « Plus tard » ferme le bandeau et conserve la
 proposition dans le popup ; sans interaction, il se ferme après 30 secondes.
+Sur un **formulaire de changement de mot de passe** (champ
+`current-password`, trois champs mot de passe ou libellé explicite), la
+soumission est reconnue : Coffre retrouve la connexion par l’identifiant
+saisi, la dernière connexion remplie dans l’onglet ou l’unique connexion de
+l’hôte, puis propose de **mettre à jour ce mot de passe** au lieu de créer un
+doublon. En cas d’ambiguïté, aucune proposition n’est faite.
 Si le coffre est verrouillé avant l’enregistrement, la proposition a été purgée
 par la règle E0 et le bandeau indique qu’elle a expiré plutôt que de rejouer un
 secret disparu.
 
-**Mot de passe fort à l’inscription.** Sur un champ
+**Mot de passe fort à l’inscription ou au changement.** Sur un champ
 `autocomplete="new-password"`, un formulaire d’inscription ou de changement de
 mot de passe, le menu affiche en premier « Utiliser un mot de passe fort » avec
 un aperçu partiel. Un clic génère localement un mot de passe conforme aux
 règles embarquées du site, remplit le champ et sa confirmation, sans soumettre
-le formulaire. Un simple formulaire de connexion `current-password` n’affiche
-pas cette proposition. L’historique du générateur (Q3) est prévu comme point
-d’extension.
+le formulaire. Un champ `current-password` n’est jamais rempli. Les
+formulaires de changement sans indices `autocomplete` sont reconnus par leurs
+libellés et leurs champs ; après soumission, l’élément existant est proposé à
+la mise à jour.
 
 **Raccourcis.** La popup s’ouvre avec `⌘⇧Y` / `Ctrl+Shift+Y` ; `Option+Shift+L`
 (`Alt+Shift+L` sur Windows/Linux) remplit la

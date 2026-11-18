@@ -30,6 +30,7 @@ import {
 } from '../src/lib/password'
 import { isValidRpId } from '../src/lib/passkeys'
 import { badgeText } from './badge'
+import { chooseChangePasswordTarget } from './changePassword'
 import {
   matchingLoginSummaries,
   totpLoginSummary,
@@ -1623,6 +1624,31 @@ async function loginSaveState(
   return compareExistingLogin(status, host, username, password)
 }
 
+/**
+ * Retrouve la connexion visée par un changement de mot de passe. Le
+ * formulaire ne contient pas toujours l’identifiant : on s’appuie alors sur la
+ * dernière connexion remplie dans l’onglet, ou sur l’unique connexion de
+ * l’hôte. Un doute laisse la main à l’assistant de l’application.
+ */
+async function changePasswordTarget(
+  tabId: number,
+  host: string,
+  username: string,
+): Promise<ExtensionLoginSummary | null> {
+  const result = await search(host, 'login', false)
+  if (result.error) return null
+  const candidates = (result.items ?? []).filter(
+    (item): item is ExtensionLoginSummary =>
+      'username' in item && hostMatches(item.host, host),
+  )
+  const recent = await recentSelectionStore.get(tabId)
+  return chooseChangePasswordTarget(candidates, {
+    username,
+    recentItemId:
+      recent && hostMatches(recent.host, host) ? recent.itemId : undefined,
+  })
+}
+
 async function formSubmitted(
   sender: chrome.runtime.MessageSender,
   message: ExtensionMessage,
@@ -1720,6 +1746,18 @@ async function formSubmitted(
   if (!canSave) return { prompt: false }
 
   if (kind === 'login') {
+    if (message.formKind === 'change-password') {
+      const target = await changePasswordTarget(
+        tabId as number,
+        host,
+        pending.username,
+      )
+      if (!target) return { prompt: false }
+      pending.username = target.username
+      pending.label = target.username || target.title || host
+      pending.itemId = target.id
+      pending.update = true
+    }
     const state = await loginSaveState(
       status,
       serviceFor(host, url),
@@ -1759,6 +1797,8 @@ async function saveCredentials(
     host: string
     username: string
     password: string
+    /** Connexion existante ciblée par un changement de mot de passe. */
+    itemId?: string
     overridePhishing?: boolean
   },
 ): Promise<{ ok?: boolean; updated?: boolean; itemId?: string; error?: string }> {
@@ -1780,6 +1820,7 @@ async function saveCredentials(
         username: string
         password: string
         title: string
+        itemId?: string
       }) => {
         const bridge = (
           window as unknown as {
@@ -1789,6 +1830,7 @@ async function saveCredentials(
                 username: string
                 password: string
                 title?: string
+                itemId?: string
                 overridePhishing?: boolean
               }) => Promise<{ id: string; updated: boolean } | null>
             }
@@ -1961,6 +2003,7 @@ async function savePendingEntry(
             host: serviceFor(pending.host, pending.url),
             username,
             password: pending.password,
+            itemId: pending.itemId,
             overridePhishing,
           })
   if (result.ok) {

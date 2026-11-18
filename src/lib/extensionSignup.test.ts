@@ -40,6 +40,7 @@ describe('détection de l’inscription', () => {
     expect(fields?.password.id).toBe('new-password')
     expect(fields?.confirm?.id).toBe('confirm')
     expect(fields?.username?.id).toBe('email')
+    expect(fields?.change).toBe(false)
     expect(detectAutofillFields(document)?.kind).toBe('signup')
 
     expect(fillSignupPasswords(fields!, 'mot-de-passe-fort')).toBe(2)
@@ -137,6 +138,7 @@ describe('détection de l’inscription', () => {
     const fields = detectSignupFields(document)
     expect(fields?.password.id).toBe('new')
     expect(fields?.confirm?.id).toBe('again')
+    expect(fields?.change).toBe(true)
   })
 
   it('ne remplit jamais un champ marqué current-password', () => {
@@ -150,5 +152,61 @@ describe('détection de l’inscription', () => {
     const fields = detectSignupFields(document)
     expect(fields?.password.id).toBe('new')
     expect(fields?.confirm?.id).toBe('again')
+    expect(fields?.change).toBe(true)
+  })
+
+  it('reconnaît un changement à deux champs sans autocomplete ni identifiant', () => {
+    const document = mount(`
+      <form>
+        <h2>Changer le mot de passe</h2>
+        <input id="old" type="password" />
+        <input id="new" type="password" />
+        <button>Enregistrer</button>
+      </form>
+    `)
+    const fields = detectSignupFields(document)
+    expect(fields?.password.id).toBe('new')
+    expect(fields?.username).toBeNull()
+    expect(fields?.change).toBe(true)
+  })
+
+  it('écarte l’ancien mot de passe désigné par son libellé', () => {
+    const document = mount(`
+      <form>
+        <label>Ancien mot de passe <input id="old" type="password" /></label>
+        <label>Nouveau mot de passe <input id="new" type="password" /></label>
+        <label>Confirmer <input id="again" type="password" /></label>
+      </form>
+    `)
+    const fields = detectSignupFields(document)
+    expect(fields?.password.id).toBe('new')
+    expect(fields?.confirm?.id).toBe('again')
+    expect(fields?.change).toBe(true)
+  })
+
+  it('ne prend pas l’ancien champ pour une confirmation', () => {
+    const document = mount(`
+      <form>
+        <label>Mot de passe actuel <input id="old" type="password" /></label>
+        <label>Nouveau mot de passe <input id="new" type="password" /></label>
+      </form>
+    `)
+    const fields = detectSignupFields(document)
+    expect(fields?.password.id).toBe('new')
+    expect(fields?.confirm).toBeNull()
+    expect(fields?.change).toBe(true)
+  })
+
+  it('reconnaît un changement réduit à un seul nouveau champ', () => {
+    const document = mount(`
+      <form>
+        <h2>Modifier mon mot de passe</h2>
+        <input id="password" type="password" />
+        <button>Mettre à jour</button>
+      </form>
+    `)
+    const fields = detectSignupFields(document)
+    expect(fields?.password.id).toBe('password')
+    expect(fields?.change).toBe(true)
   })
 })

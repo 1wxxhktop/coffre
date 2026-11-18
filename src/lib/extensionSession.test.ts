@@ -59,7 +59,7 @@ describe('propositions d’enregistrement en session', () => {
     const session = new FakeStorage()
     let now = 1_000_000
     const first = new PendingSaveStore(session, () => now)
-    await first.upsert(pending('1:0'))
+    await first.upsert(pending('1:0', { itemId: 'login-1', update: true }))
 
     const restarted = new PendingSaveStore(session, () => now + 60_000)
     const restored = await restarted.latestForTab(1)
@@ -67,6 +67,8 @@ describe('propositions d’enregistrement en session', () => {
       key: '1:0',
       username: 'ada',
       password: 'secret-en-transit',
+      itemId: 'login-1',
+      update: true,
     })
 
     now += PENDING_SAVE_TTL_MS + 1

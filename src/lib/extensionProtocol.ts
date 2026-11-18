@@ -127,6 +127,12 @@ export interface ExtensionSaveInput {
   username: string
   password: string
   title?: string
+  /**
+   * Connexion existante ciblée par un changement de mot de passe. Fourni par
+   * le service worker après recherche de l’élément correspondant à l’hôte ;
+   * jamais par la page.
+   */
+  itemId?: string
   /** Vrai uniquement après confirmation explicite d’un avertissement. */
   overridePhishing?: boolean
 }
