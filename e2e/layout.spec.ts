@@ -144,16 +144,22 @@ test('adapte la disposition par paliers quand la fenêtre rétrécit', async ({ 
   await page.getByRole('button', { name: 'Réduire la barre latérale' }).click()
   await expect(sidebar).toHaveClass(/is-collapsed/)
 
-  // Deux panneaux : la barre latérale devient un tiroir.
+  // Deux panneaux : le rail d’icônes reste visible, sans menu hamburger.
   await page.setViewportSize({ width: 900, height: 800 })
-  await expect(sidebar).not.toHaveClass(/is-collapsed/)
-  await expect(sidebar).toBeHidden()
-  await expect(page.getByRole('button', { name: 'Ouvrir le menu' })).toBeVisible()
+  await expect(sidebar).toHaveClass(/is-collapsed/)
+  await expect(sidebar).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ouvrir le menu' })).toBeHidden()
+  await expect(page.locator('.mobile-tabs')).toBeHidden()
   await expect(list).toBeVisible()
   await expect(detail).toBeVisible()
 
-  // Un panneau : le détail remplace la liste, avec retour explicite.
+  // Un panneau : la barre latérale devient un tiroir, le menu et la barre
+  // d’onglets basse apparaissent.
   await page.setViewportSize({ width: 740, height: 800 })
+  await expect(sidebar).not.toHaveClass(/is-collapsed/)
+  await expect(sidebar).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Ouvrir le menu' })).toBeVisible()
+  await expect(page.locator('.mobile-tabs')).toBeVisible()
   await expect(list).toBeVisible()
   await expect(detail).toBeHidden()
   await page.locator('.item-row').first().click()
@@ -178,8 +184,20 @@ test('les poignées sont masquées sur mobile et le menu reste lisible', async (
   await expect(listHandle).toBeHidden()
 
   await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
-  await expect(page.locator('.sidebar').getByText('Tous les coffres')).toBeVisible()
-  await expect(page.locator('.sidebar .brand__text')).toBeVisible()
+  const drawer = page.locator('.sidebar')
+  await expect(drawer.getByText('Tous les coffres')).toBeVisible()
+  await expect(drawer.locator('.brand__text')).toBeVisible()
+  // Le tiroir mobile donne accès aux filtres et aux réglages, pas seulement
+  // aux coffres.
+  await expect(drawer.getByRole('button', { name: 'Connexions' })).toBeVisible()
+  await expect(
+    drawer.getByRole('button', { name: 'Réglages', exact: true }),
+  ).toBeVisible()
+
+  // Un filtre du tiroir reste utilisable et referme le menu.
+  await drawer.getByRole('button', { name: 'Connexions' }).click()
+  await expect(drawer).toBeHidden()
+  await expect(page.locator('.topbar__heading h1')).toContainText('Connexions')
 })
 
 

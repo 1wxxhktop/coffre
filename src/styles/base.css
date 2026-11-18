@@ -1438,7 +1438,11 @@ body:has(.app-shell)::before {
   .modal__footer-actions {
     margin-left: 0;
   }
+}
 
+/* Barre d’onglets basse présente dans toute la disposition à un seul
+   panneau : les notifications restent au-dessus. */
+@media (max-width: 767px) {
   .toast-stack {
     right: var(--space-4);
     bottom: 76px;

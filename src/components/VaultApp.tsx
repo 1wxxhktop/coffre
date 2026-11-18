@@ -245,29 +245,32 @@ export function VaultApp() {
   const shortcutPrefix = macPlatform ? '⌘' : 'Ctrl+'
   const searchShortcut = `${shortcutPrefix}K`
   const newItemShortcut = `${shortcutPrefix}N`
-  // Trois colonnes dès 1024 px ; entre 1024 et 1140 px, la barre latérale se
-  // replie automatiquement en icônes pour laisser respirer la liste et le
-  // détail. En dessous de 1024 px, elle devient un tiroir.
+  // Les poignées de colonnes et le suivi de largeur commencent à 1024 px.
+  // Entre 768 et 1140 px, la barre latérale reste un rail d’icônes ; sous
+  // 768 px, elle devient un tiroir et un seul panneau reste affiché.
   const desktopLayout = useMediaQuery('(min-width: 1024px)')
   const compactSidebar = useMediaQuery('(max-width: 1140px)')
-  const drawerSidebar = useMediaQuery('(max-width: 1023px)')
+  const railOnlySidebar = useMediaQuery('(max-width: 1023px)')
+  const drawerSidebar = useMediaQuery('(max-width: 767px)')
   const [compactSidebarExpanded, setCompactSidebarExpanded] = useState(false)
   useEffect(() => {
-    if (!compactSidebar) setCompactSidebarExpanded(false)
-  }, [compactSidebar])
+    if (!compactSidebar || railOnlySidebar) setCompactSidebarExpanded(false)
+  }, [compactSidebar, railOnlySidebar])
 
   const sidebarCollapsed =
     !drawerSidebar &&
-    (compactSidebar ? !compactSidebarExpanded : layout.sidebarCollapsed)
+    (compactSidebar
+      ? railOnlySidebar || !compactSidebarExpanded
+      : layout.sidebarCollapsed)
 
   const toggleSidebar = useCallback(() => {
-    if (drawerSidebar) return
+    if (drawerSidebar || railOnlySidebar) return
     if (compactSidebar) {
       setCompactSidebarExpanded((value) => !value)
       return
     }
     layout.toggleSidebar()
-  }, [compactSidebar, drawerSidebar, layout])
+  }, [compactSidebar, drawerSidebar, layout, railOnlySidebar])
 
   const splitRef = useRef<HTMLElement>(null)
   const [splitWidth, setSplitWidth] = useState(0)

@@ -129,7 +129,7 @@ export function Sidebar({
 }: SidebarProps) {
   const { settings } = useSettings()
   const { t } = useI18n()
-  const compact = useMediaQuery('(max-width: 1023px)')
+  const compact = useMediaQuery('(max-width: 767px)')
   const asideRef = useRef<HTMLElement>(null)
   const tone = securityTone(securityReport.score)
   const SecurityIcon = securityReport.affected > 0 ? ShieldAlert : ShieldCheck
@@ -457,7 +457,10 @@ export function Sidebar({
             <button
               type="button"
               className="sidebar__action sidebar__action--settings"
-              onClick={onOpenSettings}
+              onClick={() => {
+                onOpenSettings()
+                onClose()
+              }}
               aria-label={t('sidebar.settings')}
               title={t('sidebar.settings')}
             >
@@ -467,7 +470,10 @@ export function Sidebar({
             <button
               type="button"
               className="sidebar__action sidebar__action--lock"
-              onClick={onLock}
+              onClick={() => {
+                onLock()
+                onClose()
+              }}
               aria-label={t('sidebar.lock')}
               title={t('sidebar.lock')}
             >

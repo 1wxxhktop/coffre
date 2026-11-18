@@ -819,14 +819,47 @@
     font-size: var(--text-md);
   }
 
+  .custom-fields__head {
+    align-items: stretch;
+  }
+
+  .custom-fields__actions {
+    width: 100%;
+  }
+
+  .custom-fields__preset {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* Un champ par ligne : le libellé, puis le type et les actions, puis la
+     valeur et le rappel sur toute la largeur. */
   .custom-field {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .custom-field__value {
+  .custom-field > .input:first-child {
     grid-column: 1 / -1;
   }
 
+  .custom-field > select {
+    grid-column: 1;
+  }
+
+  .custom-field__input {
+    grid-column: 1 / -1;
+  }
+
+  .custom-field__tools {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .custom-field__reminder {
+    grid-column: 1 / -1;
+  }
 }
 
 .blob-preview {

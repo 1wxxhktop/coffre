@@ -355,7 +355,7 @@
 }
 
 
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .settings {
     display: block;
     height: auto;
@@ -403,10 +403,11 @@
 
   .settings-actions {
     justify-content: stretch;
+    flex-wrap: wrap;
   }
 
   .settings-actions .button {
-    flex: 1;
+    flex: 1 1 100%;
   }
 }
 
