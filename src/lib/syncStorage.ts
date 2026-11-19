@@ -7,7 +7,7 @@
  * sont déjà chiffrés et signés.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { isTauriRuntime } from './external'
 

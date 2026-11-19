@@ -7,7 +7,7 @@
  * navigateur.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 
 /** Vrai dans l’application desktop Tauri, où le trousseau est disponible. */
 export function keychainAvailable(): boolean {

@@ -2,6 +2,9 @@
 
 ## Non publié
 
+- i18n : les **erreurs des commandes natives** sont traduites en anglais à la
+  frontière Tauri (coffre, sauvegardes, synchronisation, pont, saisie
+  automatique, biométrie), sans modifier les messages techniques inconnus.
 - Interface : disposition **responsive par paliers** — barre latérale
   complète au-delà de 1140 px, rail d’icônes visible entre 768 et 1140 px,
   puis tiroir, panneau unique et barre d’onglets basse sous 768 px. La largeur

@@ -9,7 +9,7 @@
  * recherche continue).
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import type { AppSettings } from './types'
 
 export type UpdateChannel = AppSettings['updateChannel']

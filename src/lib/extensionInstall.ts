@@ -7,7 +7,7 @@
  * pont natif qu’une version plus récente est sur le disque et se recharge.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { keychainAvailable } from './keychain'
 import type { AppSettings } from './types'
 

@@ -6,7 +6,7 @@
  * applique la même fusion que la synchronisation par dossier.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { isTauriRuntime } from './external'
 
 export interface LanPeer {

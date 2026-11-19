@@ -10,7 +10,7 @@
  */
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { isTauriRuntime } from './external'
 import type { VaultFile, VaultRevisionState } from './types'
 import { parseVaultFile, parseVaultFileText, serializeVault } from './vault'

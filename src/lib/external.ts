@@ -6,7 +6,7 @@
  * une commande Rust qui n’accepte que http(s).
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 
 export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window

@@ -3,7 +3,7 @@
  * La clé API n’est pas persistée par ce module.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { isTauriRuntime } from './external'
 
 export type AliasService = 'simplelogin' | 'addy'

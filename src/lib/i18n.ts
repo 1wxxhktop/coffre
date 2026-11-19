@@ -11,6 +11,20 @@ export type Locale = 'fr' | 'en'
 
 export const DEFAULT_LOCALE: Locale = 'fr'
 
+/**
+ * Langue active, lue par les couches non React (erreurs natives, pont).
+ * `I18nProvider` la maintient à jour ; le français reste le repli.
+ */
+let activeLocale: Locale = DEFAULT_LOCALE
+
+export function setActiveLocale(locale: Locale): void {
+  activeLocale = locale
+}
+
+export function getActiveLocale(): Locale {
+  return activeLocale
+}
+
 export const LOCALES: Array<{ id: Locale; label: string }> = [
   { id: 'fr', label: 'Français' },
   { id: 'en', label: 'English' },

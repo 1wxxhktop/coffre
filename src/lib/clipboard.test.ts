@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invoke = vi.fn()
-vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args: unknown[]) => invoke(...args) }))
+vi.mock('./invoke', () => ({ invoke: (...args: unknown[]) => invoke(...args) }))
 
 interface FakeClipboard {
   value: string

@@ -3,10 +3,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   type ReactNode,
 } from 'react'
 import {
   intlLocale,
+  setActiveLocale,
   translate,
   type Locale,
   type MessageKey,
@@ -29,6 +31,10 @@ const I18nContext = createContext<I18nContextValue | null>(null)
 export function I18nProvider({ children }: { children: ReactNode }) {
   const { settings } = useSettings()
   const locale = settings.language
+
+  useLayoutEffect(() => {
+    setActiveLocale(locale)
+  }, [locale])
 
   useEffect(() => {
     document.documentElement.lang = locale

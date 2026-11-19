@@ -6,7 +6,7 @@
  * et le rattachement à l’interface restent à raccorder.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { isTauriRuntime } from './external'
 import type { VaultItem } from './types'
 
