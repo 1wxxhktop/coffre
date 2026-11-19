@@ -15,6 +15,14 @@ import type { LoginItem, PasskeyItem, VaultItem } from './types'
 /** Recherche des disponibilités 2FA/passkeys pour un hôte. */
 export type SiteSecurityLookup = (host: string) => SiteSecurityInfo | null
 
+/**
+ * Cache d’entropie par élément. Les éléments du coffre sont immuables : une
+ * modification crée un nouvel objet, qui sera réévalué. Les objets non touchés
+ * gardent leur résultat d’une analyse à l’autre, et le cache disparaît avec
+ * eux au verrouillage (WeakMap, sans retenir les mots de passe).
+ */
+const entropyByItem = new WeakMap<LoginItem, number>()
+
 const WEAK_ENTROPY = 50
 const STRONG_ENTROPY = 70
 const STRONG_LENGTH = 16
@@ -156,20 +164,28 @@ function passwordWords(item: LoginItem): string[] {
     .filter((word) => word.length >= 4)
 }
 
+function weakPasswordReasonWithEntropy(
+  item: LoginItem,
+  entropy: number,
+): string | null {
+  if (!item.password) return null
+  const reasons: string[] = []
+  if (item.password.length < 12) reasons.push('moins de 12 caractères')
+  if (entropy < WEAK_ENTROPY) reasons.push('facile à deviner')
+  const lower = item.password.toLowerCase()
+  if (passwordWords(item).some((word) => lower.includes(word))) {
+    reasons.push('contient le titre ou l’identifiant')
+  }
+  return reasons.length > 0 ? reasons.join(' · ') : null
+}
+
 /**
  * Explique pourquoi un mot de passe est faible. `null` pour un mot de passe
  * absent : le problème est alors classé dans « connexion incomplète ».
  */
 export function weakPasswordReason(item: LoginItem): string | null {
   if (!item.password) return null
-  const reasons: string[] = []
-  if (item.password.length < 12) reasons.push('moins de 12 caractères')
-  if (estimateEntropy(item.password) < WEAK_ENTROPY) reasons.push('facile à deviner')
-  const lower = item.password.toLowerCase()
-  if (passwordWords(item).some((word) => lower.includes(word))) {
-    reasons.push('contient le titre ou l’identifiant')
-  }
-  return reasons.length > 0 ? reasons.join(' · ') : null
+  return weakPasswordReasonWithEntropy(item, estimateEntropy(item.password))
 }
 
 /** Explique les champs manquants d’une connexion. */
@@ -206,7 +222,30 @@ export function analyzeSecurity(
   const total = logins.length
 
   const breached = logins.filter((item) => breachedIds.has(item.id))
-  const weak = logins.filter((item) => weakPasswordReason(item) !== null)
+
+  // L’estimation d’entropie est coûteuse et ne dépend que du mot de passe :
+  // on la calcule une fois par valeur unique, puis on réutilise le verdict de
+  // faiblesse pour les compteurs « forts » et « moyens ».
+  const entropyByPassword = new Map<string, number>()
+  const entropyOf = (item: LoginItem): number => {
+    const cached = entropyByItem.get(item)
+    if (cached !== undefined) return cached
+    let entropy = entropyByPassword.get(item.password)
+    if (entropy === undefined) {
+      entropy = estimateEntropy(item.password)
+      entropyByPassword.set(item.password, entropy)
+    }
+    entropyByItem.set(item, entropy)
+    return entropy
+  }
+  const weakReasonById = new Map<string, string | null>()
+  for (const item of logins) {
+    weakReasonById.set(
+      item.id,
+      weakPasswordReasonWithEntropy(item, entropyOf(item)),
+    )
+  }
+  const weak = logins.filter((item) => weakReasonById.get(item.id) !== null)
 
   const byPassword = new Map<string, VaultItem[]>()
   for (const item of logins) {
@@ -299,14 +338,14 @@ export function analyzeSecurity(
   const strong = logins.filter(
     (item) =>
       item.password.length >= STRONG_LENGTH &&
-      estimateEntropy(item.password) >= STRONG_ENTROPY &&
-      weakPasswordReason(item) === null,
+      entropyOf(item) >= STRONG_ENTROPY &&
+      weakReasonById.get(item.id) === null,
   )
   const strongIds = new Set(strong.map((item) => item.id))
   const medium = logins.filter(
     (item) =>
       item.password.length > 0 &&
-      weakPasswordReason(item) === null &&
+      weakReasonById.get(item.id) === null &&
       !strongIds.has(item.id),
   )
 

@@ -95,6 +95,9 @@ function charBits(char: string): number {
 
 /** Coût d’un mot de dictionnaire, majuscules et substitutions comprises. */
 function wordBits(original: string, normalized: string): number | null {
+  // Aucun mot des dictionnaires ne dépasse 16 lettres : inutile de normaliser
+  // les segments plus longs.
+  if (original.length > 16) return null
   let base: number | null = null
   if (COMMON_SET.has(normalized)) base = Math.log2(COMMON.length)
   else if (normalized.length >= 4 && EFF_SET.has(normalized)) base = Math.log2(EFF_WORDS.length)
@@ -172,15 +175,99 @@ function dateBits(value: string): number | null {
   return null
 }
 
-function segmentBits(original: string): number | null {
-  const candidates = [
-    wordBits(original, deleet(original)),
-    sequenceBits(original),
-    keyboardBits(original),
-    repeatBits(original),
-    dateBits(original),
-  ].filter((value): value is number => value !== null)
+/** Un segment ne peut être un mot que s’il ne contient que des lettres,
+ * des substitutions leet ou des lettres accentuées normalisables. */
+function canBeDictionaryWord(value: string): boolean {
+  for (const char of value) {
+    if (char.length === 1 && char >= 'a' && char <= 'z') continue
+    if (char.length === 1 && char >= 'A' && char <= 'Z') continue
+    if (LEET[char.toLowerCase()]) continue
+    if ((char.codePointAt(0) ?? 0) > 0x7f) continue
+    return false
+  }
+  return true
+}
+
+function segmentBits(
+  original: string,
+  allowSequence = true,
+  allowKeyboard = true,
+): number | null {
+  const length = original.length
+  const candidates: number[] = []
+  if (length <= 16 && canBeDictionaryWord(original)) {
+    const word = wordBits(original, deleet(original))
+    if (word !== null) candidates.push(word)
+  }
+  if (length >= 3) {
+    if (allowSequence) {
+      const sequence = sequenceBits(original)
+      if (sequence !== null) candidates.push(sequence)
+    }
+    if (allowKeyboard) {
+      const keyboard = keyboardBits(original)
+      if (keyboard !== null) candidates.push(keyboard)
+    }
+    const repeat = repeatBits(original)
+    if (repeat !== null) candidates.push(repeat)
+  }
+  if (length === 2 || length === 4 || length === 6 || length === 8) {
+    const date = dateBits(original)
+    if (date !== null) candidates.push(date)
+  }
   return candidates.length > 0 ? Math.min(...candidates) : null
+}
+
+/** Longueur maximale d’une suite arithmétique (pas ±1 ou ±2) par position. */
+function sequenceRunEnds(chars: readonly string[]): number[] {
+  const ends = new Array<number>(chars.length).fill(0)
+  const code = (index: number): number =>
+    chars[index].toLowerCase().codePointAt(0) ?? 0
+  for (let start = 0; start < chars.length - 1; start++) {
+    const step = code(start + 1) - code(start)
+    if (step === 0 || Math.abs(step) > 2) {
+      ends[start] = start + 1
+      continue
+    }
+    let end = start + 2
+    while (end < chars.length && code(end) - code(end - 1) === step) end += 1
+    ends[start] = end
+  }
+  return ends
+}
+
+/** Longueur maximale d’un fragment de rangée de clavier par position. */
+function keyboardRunEnds(chars: readonly string[]): number[] {
+  const lower = chars.map((char) => char.toLowerCase())
+  const ends = new Array<number>(chars.length).fill(0)
+  for (let start = 0; start < lower.length; start++) {
+    let best = start + 1
+    for (const row of KEYBOARD_ROWS) {
+      for (let index = 0; index < row.length; index++) {
+        if (row[index] !== lower[start]) continue
+        let end = start + 1
+        while (
+          end < lower.length &&
+          index + (end - start) < row.length &&
+          row[index + (end - start)] === lower[end]
+        ) {
+          end += 1
+        }
+        if (end > best) best = end
+        end = start + 1
+        while (
+          end < lower.length &&
+          index - (end - start) >= 0 &&
+          row[index - (end - start)] === lower[end]
+        ) {
+          end += 1
+        }
+        if (end > best) best = end
+      }
+    }
+    ends[start] = best
+  }
+  return ends
 }
 
 /**
@@ -195,18 +282,25 @@ export function estimatePasswordBits(password: string): number {
   // best[i] : coût minimal du préfixe de longueur i ; count[i] : segments.
   const best = new Array<number>(length + 1).fill(Number.POSITIVE_INFINITY)
   const count = new Array<number>(length + 1).fill(0)
+  const bitsPerChar = chars.map(charBits)
+  const sequenceEnds = sequenceRunEnds(chars)
+  const keyboardEnds = keyboardRunEnds(chars)
   best[0] = 0
 
   for (let end = 1; end <= length; end++) {
     // Caractère isolé, deviné « au hasard ».
-    const single = best[end - 1] + charBits(chars[end - 1])
+    const single = best[end - 1] + bitsPerChar[end - 1]
     if (single < best[end]) {
       best[end] = single
       count[end] = count[end - 1] + 1
     }
     for (let start = Math.max(0, end - MAX_WORD); start <= end - 2; start++) {
       if (!Number.isFinite(best[start])) continue
-      const bits = segmentBits(chars.slice(start, end).join(''))
+      const bits = segmentBits(
+        chars.slice(start, end).join(''),
+        end <= sequenceEnds[start],
+        end <= keyboardEnds[start],
+      )
       if (bits === null) continue
       const total = best[start] + bits
       if (total < best[end]) {
