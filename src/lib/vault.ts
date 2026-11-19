@@ -654,6 +654,7 @@ const itemBaseSchema = {
   customFields: z.array(customFieldSchema).max(MAX_CUSTOM_FIELDS).default([]),
   templateId: z.string().min(1).max(80).optional(),
   attachments: z.array(attachmentMetaSchema).max(MAX_ATTACHMENTS_PER_ITEM).default([]),
+  relatedIds: z.array(z.string().max(128)).max(50).optional(),
   deletedAt: z.string().max(40).nullable().optional(),
   expiresAt: z.string().max(40).default(''),
 }
@@ -2433,6 +2434,13 @@ function cleanDraft(draft: ItemDraft): ItemContent {
       ),
     ).slice(0, 30),
     templateId: cleanText(draft.templateId ?? '', 80) || undefined,
+    relatedIds: Array.from(
+      new Set(
+        (draft.relatedIds ?? [])
+          .map((id) => cleanText(id, 128))
+          .filter((id) => id && id !== draft.id),
+      ),
+    ).slice(0, 50),
     customFields: (draft.customFields ?? [])
       .map((field) => ({
         id: cleanText(field.id, 80) || randomId('f'),

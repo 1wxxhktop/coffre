@@ -570,6 +570,18 @@ export const EN_TEXT: Record<string, string> = {
   'Agence': 'Branch',
   'Devise': 'Currency',
   'Titulaire du compte': 'Account holder',
+  'Éléments associés': 'Related items',
+  'Associer un élément': 'Link an item',
+  'Retirer l’association': 'Remove link',
+  'Reliez un compte mail, une identité ou un autre compte utilisé avec cet élément. Les associations apparaissent sur les deux fiches.':
+    'Link an email account, an identity or another account used with this item. Links appear on both item pages.',
+  'Les associations apparaissent sur les deux fiches. Les liens créés depuis un autre élément sont visibles ici en lecture seule.':
+    'Links appear on both item pages. Links created from another item are shown here read-only.',
+  'Rechercher un élément à associer': 'Search for an item to link',
+  'Titre, identifiant, adresse…': 'Title, username, address…',
+  'Aucun élément à associer.': 'No item to link.',
+  'Éléments disponibles': 'Available items',
+  Terminer: 'Done',
   'Identifiants de connexion (facultatif)': 'Login credentials (optional)',
   'Renseignez l’identifiant et le mot de passe du site bancaire ou du portail de la carte, ainsi que ses adresses.':
     'Enter the username and password for the bank website or card portal, along with its addresses.',

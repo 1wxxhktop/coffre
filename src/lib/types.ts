@@ -110,6 +110,11 @@ export interface ItemBase {
   /** Modèle d’élément personnalisé utilisé, si applicable. */
   templateId?: string
   attachments: AttachmentMeta[]
+  /**
+   * Éléments liés (compte mail utilisé pour une confirmation, identité
+   * rattachée à plusieurs comptes…). Les liens sont visibles des deux côtés.
+   */
+  relatedIds?: string[]
   /** Date de mise à la corbeille ; `null` pour un élément actif. */
   deletedAt: string | null
   /**
@@ -764,6 +769,7 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
     tags: [],
     customFields: [],
     attachments: [],
+    relatedIds: [],
     deletedAt: null,
     expiresAt: '',
   }

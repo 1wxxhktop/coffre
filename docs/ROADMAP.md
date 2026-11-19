@@ -421,6 +421,8 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Résolution visuelle des conflits.
 - Partage de lien chiffré, avec expiration, via stockage utilisateur.
 - Journal d’audit partagé et export.
+- **Hubs d’entreprise ou de personne** : regrouper les éléments associés d’une
+  société, d’un projet ou d’une famille dans une vue unique.
 
 **Sortie :** 0.19.0 stable, famille utilisable, sync distante sans serveur Coffre.
 

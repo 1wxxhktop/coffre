@@ -631,6 +631,176 @@
   overflow-wrap: anywhere;
 }
 
+/* Éléments associés */
+.related-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.related-items__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.related-items__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.related-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 2px var(--space-1) 2px 2px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+}
+
+.related-chip .item-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.related-chip__title {
+  overflow: hidden;
+  max-width: 220px;
+  color: var(--text-1);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-chip__remove {
+  width: 20px;
+  height: 20px;
+}
+
+.related-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.related-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  text-align: left;
+}
+
+.related-list__item:hover:not(:disabled) {
+  background: var(--hover-1);
+}
+
+.related-list__item:disabled {
+  cursor: default;
+}
+
+.related-list__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.related-list__title {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-list__subtitle {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-list__chevron {
+  flex: none;
+  color: var(--text-3);
+}
+
+.related-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.related-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.related-picker__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.related-picker__row:hover {
+  background: var(--hover-1);
+}
+
+.related-picker__row.is-selected {
+  border-color: var(--border-2);
+  background: var(--accent-soft);
+}
+
+.related-picker__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.related-picker__title {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-picker__subtitle {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-picker__check {
+  flex: none;
+  color: var(--accent-strong);
+}
+
 /* Notes Markdown : sous-ensemble sûr, sans HTML brut. */
 .markdown-notes {
   white-space: normal;
