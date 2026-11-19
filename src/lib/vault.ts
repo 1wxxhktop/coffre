@@ -26,6 +26,7 @@ import {
   equalBytes,
   fromBase64,
   hmacSha256,
+  importAesKey,
   integrityKeyAad,
   itemAttachmentAad,
   itemContentAad,
@@ -41,6 +42,7 @@ import {
   KDF_LIMITS,
   newKdfParams,
   openBytes,
+  openBytesWithKey,
   openJson,
   randomBytes,
   randomId,
@@ -1766,6 +1768,8 @@ export async function openVaultFileWithMasterKey(
   const vaults: VaultSummary[] = []
   const items: VaultItem[] = []
   const openVaultIds = new Set<string>()
+  /** Clé de coffre importée une fois pour déchiffrer toutes ses clés d’élément. */
+  const vaultCryptoKeys = new Map<string, CryptoKey>()
 
   for (const record of file.vaults) {
     let vaultKey: Uint8Array | null = null
@@ -1781,6 +1785,11 @@ export async function openVaultFileWithMasterKey(
     if (!vaultKey) continue
     session.setVaultKey(record.id, vaultKey)
     openVaultIds.add(record.id)
+    try {
+      vaultCryptoKeys.set(record.id, await importAesKey(vaultKey))
+    } catch {
+      // Repli sur `openBytes` : l’erreur sera signalée élément par élément.
+    }
 
     let name = 'Coffre sans nom'
     let role: ShareRole = 'write'
@@ -1976,6 +1985,13 @@ export async function openVaultFileWithMasterKey(
     }
   }
 
+  const attachmentIdsByItem = new Map<string, string[]>()
+  for (const attachment of file.attachments) {
+    const ids = attachmentIdsByItem.get(attachment.itemId)
+    if (ids) ids.push(attachment.id)
+    else attachmentIdsByItem.set(attachment.itemId, [attachment.id])
+  }
+
   for (const record of file.items) {
     if (!openVaultIds.has(record.vaultId)) {
       warnings.push('Un élément appartient à un coffre inaccessible.')
@@ -1985,11 +2001,18 @@ export async function openVaultFileWithMasterKey(
     let itemKey: Uint8Array | null = null
     try {
       const vaultKey = session.vaultKey(record.vaultId)
-      itemKey = await openBytes(
-        record.key,
-        vaultKey,
-        itemKeyAad(record.vaultId, record.id),
-      )
+      const vaultCryptoKey = vaultCryptoKeys.get(record.vaultId)
+      itemKey = vaultCryptoKey
+        ? await openBytesWithKey(
+            record.key,
+            vaultCryptoKey,
+            itemKeyAad(record.vaultId, record.id),
+          )
+        : await openBytes(
+            record.key,
+            vaultKey,
+            itemKeyAad(record.vaultId, record.id),
+          )
       const content = await openJson<ItemContent>(
         record.content,
         itemKey,
@@ -2000,9 +2023,7 @@ export async function openVaultFileWithMasterKey(
       if (!isItemType(parsed.type)) throw new Error('Type inconnu')
 
       const knownAttachmentIds = new Set(
-        file.attachments
-          .filter((attachment) => attachment.itemId === record.id)
-          .map((attachment) => attachment.id),
+        attachmentIdsByItem.get(record.id) ?? [],
       )
       const attachments = retainKnownAttachments(
         parsed.attachments,

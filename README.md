@@ -884,6 +884,7 @@ documentée dans [docs/SECURITY.md](docs/SECURITY.md).
 | `bun run test:watch` | Tests en mode surveillance |
 | `bun run test:corpus` | Corpus de détection de formulaires (E12) |
 | `bun run bench:vault` | Index, recherche et analyse de sécurité sur 100 000 éléments (nombre paramétrable) |
+| `bun run bench:unlock` | Ouverture d’un coffre synthétique (10 000 éléments par défaut) |
 | `bun run test:e2e` | Parcours Playwright sur Chromium et WebKit (168 exécutions) |
 | `bun run test:e2e:chromium` | Parcours Playwright sur Chromium uniquement |
 | `bun run test:e2e:webkit` | Parcours Playwright sur WebKit uniquement |

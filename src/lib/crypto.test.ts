@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   deriveMasterKey,
   fromBase64,
+  importAesKey,
   newKdfParams,
   openBytes,
+  openBytesWithKey,
   randomBytes,
   sealBytes,
   toBase64,
@@ -36,6 +38,17 @@ describe('AES-256-GCM', () => {
     expect(sealed.c).not.toBe('')
     const opened = await openBytes(sealed, key, 'coffre:test')
     expect(new TextDecoder().decode(opened)).toBe('secret très sensible')
+  })
+
+  it('déchiffre avec une clé déjà importée', async () => {
+    const key = randomBytes(32)
+    const sealed = await sealBytes(utf8('secret réutilisé'), key, 'coffre:test')
+    const cryptoKey = await importAesKey(key)
+    const opened = await openBytesWithKey(sealed, cryptoKey, 'coffre:test')
+    expect(new TextDecoder().decode(opened)).toBe('secret réutilisé')
+    await expect(
+      openBytesWithKey(sealed, cryptoKey, 'coffre:autre'),
+    ).rejects.toThrow()
   })
 
   it('refuse une AAD différente', async () => {
