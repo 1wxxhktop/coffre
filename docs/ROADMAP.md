@@ -379,8 +379,11 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Performance : démarrage, déverrouillage, recherche sur gros coffres.
   **Premier jalon livré** : index normalisé en une passe, recherche différée
   pendant la frappe, analyse de sécurité optimisée (~20 s → ~1,4 s sur
-  100 000 connexions, puis ~0,24 s grâce au cache par élément) et banc
-  `bun run bench:vault`. Reste le rendu virtualisé et le déverrouillage.
+  100 000 connexions, puis ~0,24 s grâce au cache par élément) et bancs
+  `bench:vault` / `bench:unlock`. Côté ouverture, la clé de coffre n’est plus
+  réimportée pour chaque élément et les pièces jointes sont pré-indexées
+  (10 000 éléments : ~1,3 s). Reste le rendu virtualisé et un déverrouillage
+  réellement massif.
 - Audit externe : périmètre, appel d’offres, correctifs préparatoires.
   **Préparé** : `docs/AUDIT-SCOPE.md` couvre la crypto, le format, la sync, les
   clients, Android alpha et la supply chain ; reste à budgéter et consulter.

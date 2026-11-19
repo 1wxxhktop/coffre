@@ -224,7 +224,7 @@ export async function deriveMasterKey(
   }
 }
 
-async function importAesKey(key: Uint8Array): Promise<CryptoKey> {
+export async function importAesKey(key: Uint8Array): Promise<CryptoKey> {
   if (key.length !== KEY_BYTES) {
     throw new CryptoError(`La clé AES doit faire ${KEY_BYTES} octets (reçu ${key.length})`)
   }
@@ -258,12 +258,16 @@ export async function sealBytes(
   }
 }
 
-export async function openBytes(
+/**
+ * Déchiffre avec une clé WebCrypto déjà importée. Utile pour ouvrir une série
+ * d’enregistrements partageant la même clé sans réimporter celle-ci à chaque
+ * appel.
+ */
+export async function openBytesWithKey(
   sealed: Sealed,
-  key: Uint8Array,
+  cryptoKey: CryptoKey,
   aad: string,
 ): Promise<Uint8Array> {
-  const cryptoKey = await importAesKey(key)
   const nonce = fromBase64(sealed.n)
   if (nonce.length !== NONCE_BYTES) {
     throw new CryptoError('Nonce invalide')
@@ -288,6 +292,15 @@ export async function openBytes(
   } finally {
     wipe(nonce)
   }
+}
+
+export async function openBytes(
+  sealed: Sealed,
+  key: Uint8Array,
+  aad: string,
+): Promise<Uint8Array> {
+  const cryptoKey = await importAesKey(key)
+  return openBytesWithKey(sealed, cryptoKey, aad)
 }
 
 export async function sealJson<T>(

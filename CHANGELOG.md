@@ -19,6 +19,10 @@
   deux analyses sans retenir les mots de passe.
 - Banc `bun run bench:vault` : 100 000 éléments — index ~0,2 s, 120 recherches
   ~0,3 s, analyse sécurité ~1,4 s puis ~0,24 s avec le cache.
+- Performance : ouverture d’un gros coffre — la clé de coffre est importée une
+  fois par coffre pour déchiffrer les clés d’élément, et les pièces jointes
+  sont pré-indexées par élément. Nouveau banc `bun run bench:unlock`
+  (10 000 éléments : ~1,3 s sur le poste de développement).
 - Interface : disposition **responsive par paliers** — barre latérale
   complète au-delà de 1140 px, rail d’icônes visible entre 768 et 1140 px,
   puis tiroir, panneau unique et barre d’onglets basse sous 768 px. La largeur
