@@ -181,6 +181,42 @@ test.describe('confort de la fiche et accès rapides', () => {
     await expect(panel.getByText('mot-de-passe-du-site')).toBeVisible()
   })
 
+  test('associe un compte mail à un compte bancaire', async ({ page }) => {
+    await createVault(page)
+    await addLogin(page, 'Gmail', 'ada@gmail.com', 'mot-de-passe-gmail')
+
+    await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
+    await selectItemType(page, 'Compte et carte')
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel('Titre', { exact: true }).fill('Compte bancaire')
+    await dialog.getByLabel('Banque').fill('Banque de test')
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+
+    const panel = page.locator('.item-panel')
+    await panel.getByRole('button', { name: 'Modifier' }).click()
+    await panel.getByRole('button', { name: 'Associer un élément' }).click()
+    const picker = page
+      .getByRole('dialog')
+      .filter({ has: page.getByRole('heading', { name: 'Associer un élément' }) })
+    await picker.getByRole('searchbox').fill('Gmail')
+    await picker.getByRole('button', { name: /Gmail/ }).click()
+    await picker.getByRole('button', { name: 'Terminer' }).click()
+    await panel.getByRole('button', { name: 'Enregistrer' }).click()
+
+    const related = panel.locator('.related-list__item').filter({ hasText: 'Gmail' })
+    await expect(related).toBeVisible()
+    await related.click()
+    await expect(
+      page.locator('.item-panel').getByRole('heading', { name: 'Gmail' }),
+    ).toBeVisible()
+    await expect(
+      page
+        .locator('.item-panel')
+        .locator('.related-list__item')
+        .filter({ hasText: 'Compte bancaire' }),
+    ).toBeVisible()
+  })
+
   test('génère un mot de passe pour un champ personnalisé', async ({ page }) => {
     await createVault(page)
     const panel = await addLogin(page, 'GitHub')

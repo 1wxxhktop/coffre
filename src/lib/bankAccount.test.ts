@@ -95,6 +95,7 @@ describe('élément compte bancaire', () => {
       username: '  ada@example.com ',
       password: '  mot-de-passe-du-site  ',
       urls: [' https://banque.example.com ', '', 'https://cartes.example.com'],
+      relatedIds: ['i_mail', 'i_mail'],
       accountHolder: '  Ada Lovelace ',
       bankName: '  Banque de test ',
       iban: ' fr76  3000 6000 0112 3456 7890 189 ',
@@ -121,6 +122,7 @@ describe('élément compte bancaire', () => {
       'https://banque.example.com',
       'https://cartes.example.com',
     ])
+    expect(item.relatedIds).toEqual(['i_mail'])
     expect(item.accountHolder).toBe('Ada Lovelace')
     expect(item.bankName).toBe('Banque de test')
     expect(item.iban).toBe('FR76 3000 6000 0112 3456 7890 189')

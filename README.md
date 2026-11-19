@@ -69,6 +69,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Notes Markdown sûres** : titres, gras/italique, code, listes, cases à
   cocher, citations et liens http(s) ouverts dans le navigateur système.
   Aucun HTML brut n’est interprété ; le texte reste échappé par React.
+- **Éléments associés** : reliez un compte mail, une identité, un compte
+  bancaire ou tout autre élément utilisé ensemble. Les associations
+  apparaissent sur les deux fiches et ouvrent l’élément lié en un clic.
 - **Adresses web multiples** : une connexion peut contenir plusieurs URL. Chaque
   adresse peut être ouverte dans le navigateur, ou copiée directement via son
   icône, sans l’ouvrir.
@@ -482,6 +485,16 @@ imposée hors ligne : un tiers qui modifie le fichier peut la contourner. Les
 pièces jointes ne sont pas incluses. Le destinataire importe le partage depuis
 Réglages → « Sauvegarde et import » → « Importer un partage hors ligne », avec
 la clé séparée. Aucun serveur n’est contacté.
+
+### Éléments associés
+
+La section **Éléments associés** de la fiche permet de relier plusieurs
+éléments entre eux : un compte bancaire au compte mail qui reçoit ses
+confirmations, une identité aux comptes qu’elle couvre, etc. Le sélecteur
+cherche dans le titre, l’identifiant et les adresses des éléments. Les liens
+sont stockés sur l’élément qui les crée mais apparaissent sur les deux fiches ;
+cliquer sur un élément associé l’ouvre directement. Les liens pointant vers un
+élément supprimé sont ignorés.
 
 ### Champs personnalisés et pièces jointes
 

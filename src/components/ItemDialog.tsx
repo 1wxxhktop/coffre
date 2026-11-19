@@ -51,6 +51,7 @@ import { AutoTypeDialog } from './AutoTypeDialog'
 import { PasswordChangeDialog } from './PasswordChangeDialog'
 import { EmailAliasDialog } from './EmailAliasDialog'
 import { MarkdownNotes } from './MarkdownNotes'
+import { RelatedItemPicker } from './RelatedItemPicker'
 import { SiteUrlsField } from './SiteUrlsField'
 import {
   validateAutotypeSequence,
@@ -151,6 +152,7 @@ import {
   type RecoveryCode,
   type WifiSecurity,
   type DocumentKind,
+  itemSubtitle,
   type VaultItem,
   type VaultSummary,
 } from '../lib/types'
@@ -406,6 +408,7 @@ export function ItemDialog({
     'item' | { fieldId: string } | null
   >(null)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
+  const [showRelatedPicker, setShowRelatedPicker] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [showPermanentDelete, setShowPermanentDelete] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -493,9 +496,34 @@ export function ItemDialog({
     )
   }, [current, items])
 
+  /**
+   * Liens directs et inverses. Un élément associé depuis l’autre fiche reste
+   * donc visible ici ; l’édition ne gère que les liens stockés sur cet élément.
+   */
+  const relatedItems = useMemo(() => {
+    if (!current) return []
+    const ids = new Set(current.relatedIds ?? [])
+    for (const candidate of items) {
+      if (candidate.relatedIds?.includes(current.id)) ids.add(candidate.id)
+    }
+    const byId = new Map(items.map((entry) => [entry.id, entry]))
+    return [...ids]
+      .map((id) => byId.get(id))
+      .filter((entry): entry is VaultItem => Boolean(entry && !entry.deletedAt))
+  }, [current, items])
+
   const patch = (partial: Record<string, unknown>) => {
     setDraft((previous) => ({ ...previous, ...partial }) as ItemDraft)
     setError(null)
+  }
+
+  const toggleRelated = (itemId: string) => {
+    const ids = draft.relatedIds ?? []
+    patch({
+      relatedIds: ids.includes(itemId)
+        ? ids.filter((id) => id !== itemId)
+        : [...ids, itemId],
+    })
   }
 
   const toggleReveal = (key: string) => {
@@ -903,6 +931,11 @@ export function ItemDialog({
         nextDraft.username,
       )
     }
+    nextDraft.relatedIds = (nextDraft.relatedIds ?? []).filter(
+      (id) =>
+        id !== nextDraft.id &&
+        items.some((candidate) => candidate.id === id && !candidate.deletedAt),
+    )
     if (nextDraft.type === 'login') {
       const issue = validateAutotypeSequence(nextDraft.autotypeSequence ?? '')
       if (issue) {
@@ -2718,6 +2751,52 @@ export function ItemDialog({
                 )}
               </div>
 
+              <div className="related-items">
+                <div className="related-items__head">
+                  <span className="field__label">{tt('Éléments associés')}</span>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setShowRelatedPicker(true)}
+                  >
+                    <Link2 size={14} />
+                    {tt('Associer un élément')}
+                  </button>
+                </div>
+                <span className="field__hint">
+                  {tt(
+                    'Reliez un compte mail, une identité ou un autre compte utilisé avec cet élément. Les associations apparaissent sur les deux fiches.',
+                  )}
+                </span>
+                {(draft.relatedIds ?? []).length > 0 && (
+                  <div className="related-items__list">
+                    {(draft.relatedIds ?? []).map((id) => {
+                      const linked = items.find(
+                        (candidate) => candidate.id === id && !candidate.deletedAt,
+                      )
+                      if (!linked) return null
+                      return (
+                        <span className="related-chip" key={id}>
+                          <span className={`item-icon item-icon--${linked.type}`}>
+                            <ItemIcon type={linked.type} item={linked} size={14} />
+                          </span>
+                          <span className="related-chip__title">{linked.title}</span>
+                          <button
+                            type="button"
+                            className="icon-button icon-button--sm related-chip__remove"
+                            onClick={() => toggleRelated(id)}
+                            aria-label={`${tt('Retirer l’association')} — ${linked.title}`}
+                            title={tt('Retirer l’association')}
+                          >
+                            <X size={14} />
+                          </button>
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
               <AttachmentsSection
                 attachments={draft.attachments}
                 busy={attachmentBusy}
@@ -2783,6 +2862,7 @@ export function ItemDialog({
                 vaultReadOnly={vault?.role === 'read'}
                 issue={issue}
                 hasPasskeyForItem={hasPasskeyForItem}
+                relatedItems={relatedItems}
                 onGeneratePassword={() => setGeneratorTarget('item')}
                 onChangePassword={() => setShowPasswordChange(true)}
                 onEditItem={startEditing}
@@ -2819,6 +2899,16 @@ export function ItemDialog({
               : undefined
           }
           onRecord={recordGeneratedPassword}
+        />
+      )}
+
+      {showRelatedPicker && (
+        <RelatedItemPicker
+          items={items}
+          selectedIds={draft.relatedIds ?? []}
+          excludeId={current?.id ?? draft.id}
+          onToggle={toggleRelated}
+          onClose={() => setShowRelatedPicker(false)}
         />
       )}
 
@@ -2994,6 +3084,7 @@ interface ItemDetailsProps {
   vaultReadOnly?: boolean
   issue: ItemSecurityIssue | null
   hasPasskeyForItem: boolean
+  relatedItems: VaultItem[]
   onGeneratePassword: () => void
   onChangePassword?: () => void
   onEditItem: () => void
@@ -3025,6 +3116,7 @@ function ItemDetails({
   vaultReadOnly = false,
   issue,
   hasPasskeyForItem,
+  relatedItems,
   onGeneratePassword,
   onChangePassword,
   onEditItem,
@@ -3861,6 +3953,34 @@ function ItemDetails({
               {tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {relatedItems.length > 0 && (
+        <div className="detail-section">
+          <span className="detail-row__label">{tt('Éléments associés')}</span>
+          <div className="related-list">
+            {relatedItems.map((related) => (
+              <button
+                key={related.id}
+                type="button"
+                className="related-list__item"
+                onClick={() => onOpenItem?.(related.id)}
+                disabled={!onOpenItem}
+              >
+                <span className={`item-icon item-icon--${related.type}`}>
+                  <ItemIcon type={related.type} item={related} size={16} />
+                </span>
+                <span className="related-list__content">
+                  <span className="related-list__title">{related.title}</span>
+                  <span className="related-list__subtitle">
+                    {itemSubtitle(related)}
+                  </span>
+                </span>
+                <ChevronRight size={15} className="related-list__chevron" />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
