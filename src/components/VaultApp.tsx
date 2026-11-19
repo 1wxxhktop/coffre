@@ -365,6 +365,7 @@ export function VaultApp() {
   const [showBulkTrash, setShowBulkTrash] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
@@ -664,6 +665,27 @@ export function VaultApp() {
     () => (groupingActive ? groupItemsByDate(visibleItems, groupDateOf) : null),
     [groupingActive, visibleItems, groupDateOf],
   )
+
+  // Le bouton « Charger plus » reste disponible, mais le défilement approchant
+  // de la fin charge la suite automatiquement.
+  useEffect(() => {
+    if (filteredItems.length <= visibleItems.length) return
+    const sentinel = loadMoreRef.current
+    if (!sentinel || typeof IntersectionObserver === 'undefined') return
+    const scrollRoot = listRef.current?.closest('.list-pane')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return
+        setLimitState({ scope: listScope, value: visibleLimit + 200 })
+      },
+      {
+        root: scrollRoot instanceof HTMLElement ? scrollRoot : null,
+        rootMargin: '400px 0px',
+      },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [filteredItems.length, visibleItems.length, listScope, visibleLimit])
 
   const deletedCount = items.filter((item) => item.deletedAt).length
   const selectedItems = items.filter(
@@ -1481,15 +1503,25 @@ export function VaultApp() {
                       ))
                     : visibleItems.map(renderItemRow)}
                   {filteredItems.length > visibleItems.length && (
-                    <button
-                      type="button"
-                      className="button button--secondary list-more"
-                      onClick={() =>
-                        setLimitState({ scope: listScope, value: visibleLimit + 200 })
-                      }
-                    >
-                      {t('vault.loadMore')}
-                    </button>
+                    <>
+                      <div
+                        ref={loadMoreRef}
+                        className="list-sentinel"
+                        aria-hidden="true"
+                      />
+                      <button
+                        type="button"
+                        className="button button--secondary list-more"
+                        onClick={() =>
+                          setLimitState({
+                            scope: listScope,
+                            value: visibleLimit + 200,
+                          })
+                        }
+                      >
+                        {t('vault.loadMore')}
+                      </button>
+                    </>
                   )}
                 </div>
               ) : securityCategory ? (

@@ -28,6 +28,9 @@
   (10 000 éléments : ~1,3 s sur le poste de développement).
 - Performance : hors vues **Récents** et **Dernière utilisation**, ouvrir un
   élément ne recalcule plus le filtrage et le tri de toute la liste.
+- Performance : la liste charge automatiquement la suite à l’approche du bas
+  (le bouton « Charger plus » reste disponible) et les lignes hors écran sont
+  exclues de la mise en page et du rendu via `content-visibility`.
 - Interface : disposition **responsive par paliers** — barre latérale
   complète au-delà de 1140 px, rail d’icônes visible entre 768 et 1140 px,
   puis tiroir, panneau unique et barre d’onglets basse sous 768 px. La largeur
