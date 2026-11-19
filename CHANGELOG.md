@@ -2,6 +2,9 @@
 
 ## Non publié
 
+- Notes : rendu **Markdown sûr** dans la fiche — titres, gras/italique, code,
+  listes et cases à cocher, citations et liens http(s). Aucun HTML brut n’est
+  interprété ; les liens s’ouvrent dans le navigateur système sur desktop.
 - i18n : les **erreurs des commandes natives** sont traduites en anglais à la
   frontière Tauri (coffre, sauvegardes, synchronisation, pont, saisie
   automatique, biométrie), sans modifier les messages techniques inconnus.
