@@ -19,6 +19,11 @@
   site, mot de passe fort généré localement et copiable, enregistrement du
   nouveau mot de passe, archivage de l’ancien et rappel à un an). Disponible
   depuis le bandeau d’alerte et le menu de l’élément.
+- Extension : la soumission d’un **formulaire de changement de mot de passe**
+  est reconnue (champ actuel, trois champs ou libellé explicite). Le bandeau
+  propose de mettre à jour la connexion visée au lieu d’en créer une
+  seconde ; la cible est choisie par identifiant, dernière connexion remplie
+  dans l’onglet ou unique connexion de l’hôte, sans deviner en cas de doute.
 - Sécurité : **plan d’action ordonné par urgence** (fuites, réutilisations,
   faiblesses, 2FA, HTTPS, ancienneté, doublons, connexions incomplètes), avec
   accès direct aux listes filtrées et **export JSON agrégé sans donnée

@@ -19,6 +19,12 @@ export interface DetectedSignupFields {
   username: HTMLInputElement | null
   password: HTMLInputElement
   confirm: HTMLInputElement | null
+  /**
+   * Vrai lorsque le formulaire est présenté comme un changement de mot de
+   * passe : le champ préexistant n’est alors pas un nouvel identifiant mais
+   * l’ancien secret à remplacer.
+   */
+  change: boolean
 }
 
 const USERNAME_PATTERN =
@@ -35,6 +41,13 @@ const NEW_PASSWORD_PATTERN =
   /(new.?password|nouveau mot de passe|choose.?password|choisir.{0,12}mot de passe|cr[ée]er.{0,12}mot de passe)/i
 const CONFIRM_PASSWORD_PATTERN =
   /(confirm|repeat|again|verification|v[ée]rification|confirmer|r[ée]p[ée]ter)/i
+const CURRENT_PASSWORD_PATTERN =
+  /(current.?password|old.?password|previous.?password|existing.?password|mot de passe actuel|ancien mot de passe)/i
+// Formulation explicite d’un changement : « Changer le mot de passe »,
+// « Modifier mon mot de passe », « Update password ». Une page de connexion
+// n’emploie pas ces tournures pour son formulaire principal.
+const CHANGE_PASSWORD_PATTERN =
+  /(change.{0,24}password|changer.{0,24}mot de passe|modifier.{0,24}mot de passe|update.{0,24}password|mettre [àa] jour.{0,24}mot de passe)/i
 
 function parseOpacity(value: string): number {
   const parsed = Number.parseFloat(value)
@@ -230,53 +243,74 @@ export function detectSignupFields(
   const autocomplete = (input: HTMLInputElement): string =>
     (input.getAttribute('autocomplete') ?? '').toLowerCase()
   const isCurrent = (input: HTMLInputElement): boolean =>
-    autocomplete(input) === 'current-password'
-  const explicitNew = scoped.find(
-    (input) =>
-      autocomplete(input) === 'new-password' ||
-      NEW_PASSWORD_PATTERN.test(descriptors(input)),
-  )
+    autocomplete(input) === 'current-password' ||
+    CURRENT_PASSWORD_PATTERN.test(descriptors(input))
+  const isNew = (input: HTMLInputElement): boolean =>
+    autocomplete(input) === 'new-password' ||
+    NEW_PASSWORD_PATTERN.test(descriptors(input))
+  const isConfirm = (input: HTMLInputElement): boolean =>
+    CONFIRM_PASSWORD_PATTERN.test(descriptors(input))
+  const explicitNew = scoped.find(isNew)
   const current = scoped.filter(isCurrent)
+  const context = signupContext(form)
+  const changeContext = CHANGE_PASSWORD_PATTERN.test(context.text)
   // Le champ du mot de passe actuel n’est jamais rempli avec un mot de passe
   // généré. Sans aucun indice, un formulaire à trois champs ou plus est un
   // changement de mot de passe : le premier champ est l’actuel.
   let pool = scoped.filter((input) => !isCurrent(input))
-  if (!explicitNew && current.length === 0 && scoped.length >= 3) {
+  if (
+    !explicitNew &&
+    current.length === 0 &&
+    (scoped.length >= 3 || (changeContext && scoped.length >= 2))
+  ) {
     pool = scoped.slice(1)
   }
   if (pool.length === 0) return null
 
   const primary = explicitNew ?? pool[0]
+  const primaryIndex = scoped.indexOf(primary)
+  // Un champ de mot de passe qui précède le nouveau sans être marqué comme
+  // confirmation est l’ancien secret, même si son libellé se limite à
+  // « Mot de passe ».
+  const implicitCurrent = new Set(
+    scoped.filter(
+      (input, index) =>
+        index < primaryIndex &&
+        !isCurrent(input) &&
+        !isNew(input) &&
+        !isConfirm(input),
+    ),
+  )
   const hasUsername = chooseUsername(document, primary) !== null
-  const context = signupContext(form)
+  const change =
+    current.length > 0 ||
+    implicitCurrent.size > 0 ||
+    changeContext ||
+    (!explicitNew && current.length === 0 && scoped.length >= 3)
 
   if (
     !explicitNew &&
+    current.length === 0 &&
     pool.length < 2 &&
     !(
-      SIGNUP_CONTEXT_PATTERN.test(context.text) &&
+      (SIGNUP_CONTEXT_PATTERN.test(context.text) || changeContext) &&
       !LOGIN_ACTION_PATTERN.test(context.actions) &&
-      hasUsername &&
-      current.length === 0
+      (hasUsername || changeContext)
     )
   ) {
     return null
   }
-  const others = pool.filter((input) => input !== primary)
-  const confirm =
-    others.find(
-      (input) =>
-        autocomplete(input) === 'new-password' ||
-        CONFIRM_PASSWORD_PATTERN.test(descriptors(input)),
-    ) ??
-    others[0] ??
-    null
+  const others = pool.filter(
+    (input) => input !== primary && !implicitCurrent.has(input),
+  )
+  const confirm = others.find((input) => isNew(input) || isConfirm(input)) ?? others[0] ?? null
 
   return {
     form,
     username: chooseUsername(document, primary),
     password: primary,
     confirm,
+    change,
   }
 }
 

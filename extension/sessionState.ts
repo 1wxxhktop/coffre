@@ -49,6 +49,8 @@ export interface StoredPendingSave {
   username: string
   password: string
   update?: boolean
+  /** Connexion existante visée par un changement de mot de passe. */
+  itemId?: string
   card?: ExtensionCardSaveInput
   identity?: ExtensionIdentitySaveInput
   /** Signaux anti-hameçonnage (Q1) à confirmer avant l’enregistrement. */
@@ -157,6 +159,10 @@ function readPendingSave(value: unknown): StoredPendingSave | null {
     username: text(value.username, 500),
     password: text(value.password, 2048),
     update: value.update === true ? true : undefined,
+    itemId:
+      typeof value.itemId === 'string'
+        ? value.itemId.slice(0, 128)
+        : undefined,
     card: isRecord(value.card)
       ? (value.card as unknown as ExtensionCardSaveInput)
       : undefined,
