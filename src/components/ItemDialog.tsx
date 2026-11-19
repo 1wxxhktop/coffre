@@ -51,6 +51,11 @@ import { ShareItemDialog } from './ShareItemDialog'
 import { AutoTypeDialog } from './AutoTypeDialog'
 import { PasswordChangeDialog } from './PasswordChangeDialog'
 import { EmailAliasDialog } from './EmailAliasDialog'
+import {
+  validateAutotypeSequence,
+  type AutotypeSequenceIssue,
+} from '../lib/autotypeSequence'
+import { DEFAULT_AUTOTYPE_SEQUENCE } from '../lib/autotype'
 import { TotpCode } from './TotpCode'
 import { ItemIcon } from './ItemIcon'
 import { PasswordStrength } from './PasswordStrength'
@@ -174,6 +179,24 @@ const TYPE_PICKER_TYPES: ItemType[] = [
 
 /** Largeur approximative d’une pastille, utilisée pour calculer l’ellipse. */
 const TYPE_PICKER_ITEM_WIDTH = 150
+
+function autotypeIssueText(
+  issue: AutotypeSequenceIssue,
+  tt: (text: string) => string,
+): string {
+  switch (issue.code) {
+    case 'too-long':
+      return tt('Séquence de saisie trop longue.')
+    case 'unclosed-token':
+      return tt('Jeton de saisie non terminé.')
+    case 'delay-too-long':
+      return tt('Délai supérieur à 60 secondes.')
+    case 'invalid-delay':
+      return tt('Délai invalide : {token}').replace('{token}', issue.token)
+    case 'unknown-token':
+      return tt('Jeton de saisie inconnu : {token}').replace('{token}', issue.token)
+  }
+}
 
 interface ItemDialogProps {
   item?: VaultItem
@@ -364,6 +387,10 @@ export function ItemDialog({
   const [draft, setDraft] = useState<ItemDraft>(() =>
     item ? { ...item } : emptyDraft(initialType, defaultVaultId),
   )
+  const autotypeIssue =
+    draft.type === 'login'
+      ? validateAutotypeSequence(draft.autotypeSequence ?? '')
+      : null
   const [tagsInput, setTagsInput] = useState(item?.tags.join(', ') ?? '')
   const [showPassword, setShowPassword] = useState(false)
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
@@ -872,6 +899,14 @@ export function ItemDialog({
         nextDraft.title,
         nextDraft.username,
       )
+    }
+    if (nextDraft.type === 'login') {
+      const issue = validateAutotypeSequence(nextDraft.autotypeSequence ?? '')
+      if (issue) {
+        setError(autotypeIssueText(issue, tt))
+        return
+      }
+      nextDraft.autotypeSequence = nextDraft.autotypeSequence?.trim() || undefined
     }
     if (nextDraft.type === 'recovery-codes') {
       nextDraft.codes = nextDraft.codes
@@ -1642,6 +1677,34 @@ export function ItemDialog({
                       </span>
                     )}
                     {isTotpUri(draft.totp) && <TotpCode uri={draft.totp} compact />}
+                  </label>
+
+                  <label className="field field--full">
+                    <span className="field__label">
+                      {tt('Séquence de saisie automatique')}
+                    </span>
+                    <input
+                      className="input input--mono"
+                      value={draft.autotypeSequence ?? ''}
+                      onChange={(event) =>
+                        patch({ autotypeSequence: event.target.value })
+                      }
+                      placeholder={DEFAULT_AUTOTYPE_SEQUENCE}
+                      autoComplete="off"
+                      spellCheck={false}
+                      maxLength={4000}
+                    />
+                    {autotypeIssue ? (
+                      <span className="field__hint field__hint--error">
+                        {autotypeIssueText(autotypeIssue, tt)}
+                      </span>
+                    ) : (
+                      <span className="field__hint">
+                        {tt(
+                          'Laissez vide pour utiliser la séquence par défaut. Jetons : {USERNAME}, {PASSWORD}, {TOTP}, {TAB}, {ENTER}, {SPACE}, {BACKSPACE}, {ESC}, {DELAY 500} et {{ / }} pour des accolades littérales.',
+                        )}
+                      </span>
+                    )}
                   </label>
                 </div>
               )}

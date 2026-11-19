@@ -123,4 +123,32 @@ test.describe('confort de la fiche et accès rapides', () => {
     const labels = panel.locator('.detail-list--custom .detail-row__label')
     await expect(labels).toHaveText(['Second', 'Premier'])
   })
+
+  test('édite et valide la séquence de saisie automatique', async ({ page }) => {
+    await createVault(page)
+    const panel = await addLogin(page, 'GitHub')
+    await panel.getByRole('button', { name: 'Modifier' }).click()
+
+    const sequence = panel.getByLabel('Séquence de saisie automatique')
+    await sequence.fill('{USERNAME}{TAB}{PASSWORD}{ENTER}{DELAY 250}')
+    await panel.getByRole('button', { name: 'Enregistrer' }).click()
+
+    await panel.getByRole('button', { name: 'Modifier' }).click()
+    await expect(panel.getByLabel('Séquence de saisie automatique')).toHaveValue(
+      '{USERNAME}{TAB}{PASSWORD}{ENTER}{DELAY 250}',
+    )
+
+    await panel.getByLabel('Séquence de saisie automatique').fill('{SECRET}')
+    await expect(
+      panel.locator('.field__hint--error').filter({
+        hasText: 'Jeton de saisie inconnu : SECRET',
+      }),
+    ).toBeVisible()
+    await panel.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(
+      panel.getByRole('alert').filter({
+        hasText: 'Jeton de saisie inconnu : SECRET',
+      }),
+    ).toBeVisible()
+  })
 })

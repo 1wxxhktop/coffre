@@ -300,6 +300,14 @@ export const EN_TEXT: Record<string, string> = {
   Séquence: 'Sequence',
   'Après le démarrage, activez la fenêtre cible. La saisie est annulée si le focus change en cours de route.':
     'After starting, focus the target window. Typing is cancelled if focus changes.',
+  'Séquence de saisie automatique': 'Auto-type sequence',
+  'Laissez vide pour utiliser la séquence par défaut. Jetons : {USERNAME}, {PASSWORD}, {TOTP}, {TAB}, {ENTER}, {SPACE}, {BACKSPACE}, {ESC}, {DELAY 500} et {{ / }} pour des accolades littérales.':
+    'Leave empty to use the default sequence. Tokens: {USERNAME}, {PASSWORD}, {TOTP}, {TAB}, {ENTER}, {SPACE}, {BACKSPACE}, {ESC}, {DELAY 500}, and {{ / }} for literal braces.',
+  'Séquence de saisie trop longue.': 'Input sequence too long.',
+  'Jeton de saisie non terminé.': 'Unfinished input token.',
+  'Délai supérieur à 60 secondes.': 'Delay exceeds 60 seconds.',
+  'Délai invalide : {token}': 'Invalid delay: {token}',
+  'Jeton de saisie inconnu : {token}': 'Unknown input token: {token}',
   Démarrer: 'Start',
   'Journal d’activité': 'Activity log',
   'Événements sensibles conservés chiffrés dans le coffre. Utile pour repérer un usage inattendu.':

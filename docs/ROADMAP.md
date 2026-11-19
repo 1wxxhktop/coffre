@@ -141,7 +141,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Alias email en ligne | Alias hors ligne seulement | Moyen |
 | `coffre scan` (secrets dans les fichiers) | Absent (Q11) | Moyen |
 | Notes Markdown | Absent (Q10) | Faible |
-| Éditeur de séquence auto-type | Absent | Faible |
+| Éditeur de séquence auto-type | Livré (validation + aide) | Faible |
 | i18n complète (Rust, langues) | Erreurs natives FR/EN ; autres langues à faire | Moyen |
 | Accessibilité certifiée WCAG 2.2 AA | Automatisée A/AA/WCAG 2.2 ; validation lecteur d’écran à faire | Moyen |
 | SSO / SCIM / administration | Absent | Haut pour l’entreprise |
@@ -354,7 +354,8 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Linux : validation GNOME/KDE, Secret Service.
 - i18n : messages Rust en anglais. **Livré pour les erreurs de commandes** :
   traduction à la frontière Tauri, messages inconnus conservés.
-- Éditeur de séquence auto-type.
+- Éditeur de séquence auto-type. **Livré** : champ validé dans la fiche,
+  grammaire identique à Rust et blocage des séquences invalides.
 - CXP/CXF : import/export de passkeys et d’identifiants entre gestionnaires.
   **CXF 1.0 livré pour tous les types Coffre** (Wi-Fi, SSH, API, licences,
   documents, identités) ; mapping dans `docs/CXF-CXP.md`. **CXP reporté** :
