@@ -43,6 +43,24 @@ test.describe('coffre et éléments', () => {
     await closeDialog(page)
   })
 
+  test('recherche sans tenir compte des accents et de la casse', async ({ page }) => {
+    await createVault(page)
+    await addLogin(
+      page,
+      'Café Élan',
+      'ada',
+      'Très-long-mot-de-passe-aléatoire-42!',
+      'https://example.com',
+    )
+    await closeDialog(page)
+
+    await page.getByRole('searchbox').fill('CAFE elan')
+    await expect(
+      page.locator('.item-row').filter({ hasText: 'Café Élan' }),
+    ).toBeVisible()
+    await expect(page.locator('.item-row')).toHaveCount(1)
+  })
+
   test('filtre depuis la bibliothèque et trie la liste', async ({ page }) => {
     await createVault(page)
     await addLogin(page)
