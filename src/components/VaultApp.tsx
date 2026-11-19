@@ -116,6 +116,8 @@ function createTypeForFilter(filter: ItemFilter): ItemType {
 const GROUP_BY_DATE_KEY = 'coffre:ui:group-by-date'
 const EMPTY_BREACHES: ReadonlySet<string> = new Set()
 const EMPTY_SELECTION: Set<string> = new Set()
+/** Table stable : les vues qui n’utilisent pas l’historique ne le lisent pas. */
+const EMPTY_USAGE: UsageMap = {}
 
 function loadGroupByDate(): boolean {
   try {
@@ -543,16 +545,21 @@ export function VaultApp() {
 
   const groupingActive =
     groupByDate && !securityCategory && filter !== 'expiring'
+  // Seules les vues « Récents » et « Dernière utilisation » dépendent de
+  // l’historique. Ailleurs, garder une table stable évite de recalculer tout
+  // le filtrage et le tri à chaque ouverture d’élément.
+  const listUsesUsage = filter === 'recent' || sort === 'last-used'
+  const listUsage = listUsesUsage ? usage : EMPTY_USAGE
   const groupDateOf = useCallback(
     (item: VaultItem): string | number | null => {
       if (filter === 'trash') return item.deletedAt
       if (filter === 'recent' || sort === 'last-used') {
-        return usage[item.id]?.lastUsedAt ?? null
+        return listUsage[item.id]?.lastUsedAt ?? null
       }
       if (sort === 'created') return item.createdAt
       return item.updatedAt
     },
-    [filter, sort, usage],
+    [filter, sort, listUsage],
   )
 
   const filteredItems = useMemo(() => {
@@ -569,7 +576,7 @@ export function VaultApp() {
         } else {
           if (item.deletedAt) return false
           if (filter === 'favorites' && !item.favorite) return false
-          if (filter === 'recent' && !usage[item.id]) return false
+          if (filter === 'recent' && !listUsage[item.id]) return false
           if (filter === 'expiring' && !expiryByItem.has(item.id)) return false
           if (
             filter !== 'all' &&
@@ -605,8 +612,8 @@ export function VaultApp() {
       }
       // Les vues « Récents » et le tri « Dernière utilisation » suivent
       // l’horodatage de la dernière utilisation.
-      if ((filter === 'recent' || sort === 'last-used') && !securityCategory) {
-        const delta = usageTimestamp(usage, b.id) - usageTimestamp(usage, a.id)
+      if (listUsesUsage && !securityCategory) {
+        const delta = usageTimestamp(listUsage, b.id) - usageTimestamp(listUsage, a.id)
         if (delta !== 0) return delta
         return b.updatedAt.localeCompare(a.updatedAt)
       }
@@ -635,7 +642,8 @@ export function VaultApp() {
     filter,
     deferredSearch,
     sort,
-    usage,
+    listUsesUsage,
+    listUsage,
     searchIndex,
     expiryByItem,
     securityCategory,
