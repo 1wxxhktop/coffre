@@ -23,6 +23,8 @@
   fois par coffre pour déchiffrer les clés d’élément, et les pièces jointes
   sont pré-indexées par élément. Nouveau banc `bun run bench:unlock`
   (10 000 éléments : ~1,3 s sur le poste de développement).
+- Performance : hors vues **Récents** et **Dernière utilisation**, ouvrir un
+  élément ne recalcule plus le filtrage et le tri de toute la liste.
 - Interface : disposition **responsive par paliers** — barre latérale
   complète au-delà de 1140 px, rail d’icônes visible entre 768 et 1140 px,
   puis tiroir, panneau unique et barre d’onglets basse sous 768 px. La largeur
