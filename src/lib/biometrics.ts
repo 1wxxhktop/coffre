@@ -9,7 +9,7 @@
  * libérer.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 
 interface BiometricLoad {
   authenticated: boolean

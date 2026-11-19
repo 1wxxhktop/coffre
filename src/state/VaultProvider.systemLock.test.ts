@@ -25,7 +25,7 @@ vi.mock('@tauri-apps/api/event', () => ({
   ),
 }))
 
-vi.mock('@tauri-apps/api/core', () => ({
+vi.mock('../lib/invoke', () => ({
   invoke: vi.fn(async (command: string) => {
     if (command === 'startup_is_hidden') return false
     return undefined

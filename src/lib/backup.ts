@@ -6,7 +6,7 @@
  * coffre : elles copient le fichier `.coffre` déjà chiffré, de façon atomique.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { isBackupErrorCode } from './backupErrors'
 import { isTauriRuntime } from './external'
 import type { AppSettings } from './types'

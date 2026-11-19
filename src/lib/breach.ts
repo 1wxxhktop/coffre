@@ -6,7 +6,7 @@
  * `Add-Padding` de Have I Been Pwned. Aucun hash ni résultat n’est persisté.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { sha1Hex } from './crypto'
 import { isTauriRuntime } from './external'
 import type { LoginItem, VaultItem } from './types'

@@ -10,7 +10,7 @@ vi.mock('./external', () => ({
   isTauriRuntime: () => native.enabled,
 }))
 
-vi.mock('@tauri-apps/api/core', () => ({
+vi.mock('./invoke', () => ({
   invoke: async (command: string, args: Record<string, unknown> = {}) => {
     native.calls.push({ command, args })
     switch (command) {

@@ -57,7 +57,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Interface français / anglais** : réglage de langue, dates localisées,
   composants de l’application et interface de l’extension traduits, avec une
   règle de lint qui refuse les nouvelles chaînes d’interface en dur. Les
-  messages Rust restent à traduire.
+  erreurs des commandes natives sont traduites à la frontière Tauri ; les
+  messages techniques inconnus restent affichés tels quels.
 - **Coffres multiples** : création, renommage, suppression, filtre par coffre.
 - **Onze types d’éléments** : connexion, note sécurisée, identité, **compte et
   carte** (IBAN, BIC/SWIFT, titulaire et carte associée), passkey WebAuthn,

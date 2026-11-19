@@ -6,7 +6,7 @@
  * `sleep`), jamais un nom d’élément ni un secret.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import type { AppSettings } from './types'
 
 export const SYSTEM_LOCK_EVENT = 'coffre://system-lock'

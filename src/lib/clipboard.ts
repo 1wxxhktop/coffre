@@ -12,7 +12,7 @@
  * aussi l’écriture et l’effacement n’est pas possible.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './invoke'
 import { isTauriRuntime } from './external'
 
 let clearTimer: ReturnType<typeof setTimeout> | null = null
