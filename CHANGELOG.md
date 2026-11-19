@@ -11,9 +11,14 @@
   sauvegarde.
 - Performance : **recherche différée** sur les gros coffres — la saisie reste
   immédiate pendant que le filtrage et le tri s’exécutent — et index de
-  recherche normalisé en une seule passe. Nouveau banc `bun run bench:vault`
-  (100 000 éléments : index ~0,2 s, 120 recherches ~0,3 s sur le poste de
-  développement).
+  recherche normalisé en une seule passe.
+- Performance : **analyse de sécurité accélérée** (~20 s → ~1,4 s sur
+  100 000 connexions). L’estimation d’entropie n’est plus recalculée pour les
+  compteurs faible/fort/moyen, les vérifications de motifs sont pré-calculées
+  par position et un cache `WeakMap` par élément réutilise le résultat entre
+  deux analyses sans retenir les mots de passe.
+- Banc `bun run bench:vault` : 100 000 éléments — index ~0,2 s, 120 recherches
+  ~0,3 s, analyse sécurité ~1,4 s puis ~0,24 s avec le cache.
 - Interface : disposition **responsive par paliers** — barre latérale
   complète au-delà de 1140 px, rail d’icônes visible entre 768 et 1140 px,
   puis tiroir, panneau unique et barre d’onglets basse sous 768 px. La largeur

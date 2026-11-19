@@ -159,6 +159,19 @@ describe('analyse de sécurité', () => {
     ).toMatchObject({ total: 1, score: 100, affected: 0 })
   })
 
+  it('réévalue un élément lorsque son objet change', () => {
+    const weak = login({ id: 'cache', password: 'abc123', totp: '' })
+    expect(analyzeSecurity([weak], NOW_MS).weak.map((item) => item.id)).toEqual([
+      'cache',
+    ])
+
+    const strong = {
+      ...weak,
+      password: 'Très-long-mot-de-passe-aléatoire-42!',
+    }
+    expect(analyzeSecurity([strong], NOW_MS).weak).toHaveLength(0)
+  })
+
   it('ne signale pas une connexion sans mot de passe comme absence de 2FA', () => {
     const report = analyzeSecurity([login({ id: 'vide', password: '', totp: '' })], NOW_MS)
     expect(report.no2fa).toHaveLength(0)
