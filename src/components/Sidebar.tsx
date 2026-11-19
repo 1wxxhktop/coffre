@@ -23,6 +23,7 @@ import {
   Star,
   Trash2,
   UserRound,
+  Wand2,
   X,
   ChevronDown,
   type LucideIcon,
@@ -56,6 +57,7 @@ interface SidebarProps {
   onDeleteVault: (vault: VaultSummary) => void
   onOpenSettings: () => void
   onOpenSecurity: () => void
+  onOpenGenerator: () => void
   securityReport: SecurityReport
   syncPending: boolean
   onLock: () => void
@@ -118,6 +120,7 @@ export function Sidebar({
   onDeleteVault,
   onOpenSettings,
   onOpenSecurity,
+  onOpenGenerator,
   securityReport,
   syncPending,
   onLock,
@@ -441,6 +444,19 @@ export function Sidebar({
             </span>
           </button>
           <div className="sidebar__footer-actions">
+            <button
+              type="button"
+              className="sidebar__action sidebar__action--generator"
+              onClick={() => {
+                onOpenGenerator()
+                onClose()
+              }}
+              aria-label={t('sidebar.generator')}
+              title={t('sidebar.generator')}
+            >
+              <Wand2 size={17} />
+              <span>{t('sidebar.generator')}</span>
+            </button>
             <button
               type="button"
               className="sidebar__action sidebar__action--settings"

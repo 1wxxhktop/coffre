@@ -61,10 +61,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   messages techniques inconnus restent affichés tels quels.
 - **Coffres multiples** : création, renommage, suppression, filtre par coffre.
 - **Onze types d’éléments** : connexion, note sécurisée, identité, **compte et
-  carte** (IBAN, BIC/SWIFT, titulaire et carte associée), passkey WebAuthn,
-  clé SSH, réseau Wi-Fi, identifiant d’API, licence logicielle, document avec
-  pièce jointe principale et codes de secours. Les anciennes cartes bancaires
-  restent lisibles et modifiables.
+  carte** (IBAN, BIC/SWIFT, titulaire et carte associée, plus facultativement
+  l’identifiant, le mot de passe et les adresses du site bancaire), passkey
+  WebAuthn, clé SSH, réseau Wi-Fi, identifiant d’API, licence logicielle,
+  document avec pièce jointe principale et codes de secours. Les anciennes
+  cartes bancaires restent lisibles et modifiables.
 - **Notes Markdown sûres** : titres, gras/italique, code, listes, cases à
   cocher, citations et liens http(s) ouverts dans le navigateur système.
   Aucun HTML brut n’est interprété ; le texte reste échappé par React.
@@ -153,7 +154,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Actions groupées** : sélection multiple, ajout/retrait des favoris et mise
   à la corbeille en une seule opération.
 - **Générateur** de mots de passe et de phrases de passe (liste EFF de
-  7 776 mots), avec réglages mémorisés et estimation d’entropie.
+  7 776 mots), avec réglages mémorisés et estimation d’entropie. Un bouton
+  **Générateur** dans la barre latérale l’ouvre depuis tous les écrans du
+  coffre, à côté des réglages et du verrouillage.
 - **Historique chiffré du générateur** : les 50 derniers secrets générés
   (application, extension, assistant de changement) restent dans le contenu
   chiffré du coffre, avec leur date et leur domaine. Rétention de 1, 7 ou
@@ -490,9 +493,10 @@ Le bouton **« Champ prédéfini… »** propose les champs de tous les types
 d’éléments (IBAN, BIC/SWIFT, numéro de carte, devise, identité, SSH, Wi-Fi,
 API, licence, document…). Choisir une entrée renseigne automatiquement le
 libellé et le type ; les types **IBAN**, **BIC/SWIFT**, **numéro de carte** et
-**devise** sont aussi disponibles directement. Chaque champ peut porter son
-propre **rappel d’échéance**, affiché dans la fiche et dans la vue « Bientôt
-expirés ».
+**devise** sont aussi disponibles directement. Un champ de type **mot de
+passe** affiche un bouton **Générer** qui ouvre le générateur et applique la
+valeur choisie. Chaque champ peut porter son propre **rappel d’échéance**,
+affiché dans la fiche et dans la vue « Bientôt expirés ».
 
 Les pièces jointes sont chiffrées séparément avec la clé de leur élément et une
 AAD dédiée. Leurs métadonnées (nom, type MIME, taille, date) sont conservées

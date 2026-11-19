@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLogin, createVault } from './helpers'
+import { addLogin, createVault, selectItemType } from './helpers'
 
 test.describe('confort de la fiche et accès rapides', () => {
   test('la palette ouvre un élément ou lance une action', async ({ page }) => {
@@ -151,6 +151,68 @@ test.describe('confort de la fiche et accès rapides', () => {
     )
     await expect(markdown.locator('input[type="checkbox"]')).toHaveCount(2)
     await expect(markdown).toContainText('<script>alert(1)</script>')
+  })
+
+  test('un compte bancaire peut stocker ses identifiants de connexion', async ({
+    page,
+  }) => {
+    await createVault(page)
+    await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
+    await selectItemType(page, 'Compte et carte')
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel('Titre', { exact: true }).fill('Compte bancaire')
+    await dialog.getByLabel('Identifiant', { exact: true }).fill('ada@example.com')
+    await dialog
+      .getByLabel('Mot de passe', { exact: true })
+      .fill('mot-de-passe-du-site')
+    await dialog
+      .getByPlaceholder('https://exemple.com')
+      .fill('https://banque.example.com')
+    await dialog.getByLabel('Banque').fill('Banque de test')
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+
+    const panel = page.locator('.item-panel')
+    await expect(panel.getByRole('heading', { name: 'Compte bancaire' })).toBeVisible()
+    await expect(panel.getByText('ada@example.com')).toBeVisible()
+    await expect(
+      panel.getByRole('link', { name: /banque\.example\.com/ }),
+    ).toBeVisible()
+    await panel.getByRole('button', { name: 'Afficher Mot de passe' }).click()
+    await expect(panel.getByText('mot-de-passe-du-site')).toBeVisible()
+  })
+
+  test('génère un mot de passe pour un champ personnalisé', async ({ page }) => {
+    await createVault(page)
+    const panel = await addLogin(page, 'GitHub')
+    await panel.getByRole('button', { name: 'Modifier' }).click()
+    await panel.getByRole('button', { name: 'Ajouter un champ' }).click()
+    await panel
+      .getByLabel('Nom du champ personnalisé')
+      .last()
+      .fill('Clé secondaire')
+    await panel
+      .getByLabel('Type du champ personnalisé')
+      .last()
+      .selectOption('password')
+
+    const row = panel.locator('.custom-field').last()
+    await row.getByRole('button', { name: 'Générer un mot de passe' }).click()
+    await expect(
+      page.getByRole('dialog').getByRole('heading', { name: 'Générateur' }),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Utiliser' }).click()
+    await expect(row.locator('.custom-field__value')).not.toHaveValue('')
+  })
+
+  test('le générateur est accessible depuis la barre latérale', async ({ page }) => {
+    await createVault(page)
+    await page
+      .locator('.sidebar')
+      .getByRole('button', { name: 'Générateur', exact: true })
+      .click()
+    await expect(
+      page.getByRole('dialog').getByRole('heading', { name: 'Générateur' }),
+    ).toBeVisible()
   })
 
   test('édite et valide la séquence de saisie automatique', async ({ page }) => {

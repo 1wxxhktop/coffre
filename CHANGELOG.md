@@ -2,6 +2,14 @@
 
 ## Non publié
 
+- Comptes et cartes : un **compte bancaire** peut désormais stocker les
+  identifiants du site (identifiant, mot de passe, adresses) en plus des
+  coordonnées bancaires et de la carte, pour tout regrouper au même endroit.
+- Champs personnalisés : un bouton **Générer** apparaît pour les champs de
+  type mot de passe et ouvre le générateur avec application directe de la
+  valeur.
+- Générateur : bouton **Générateur** dans la barre latérale, à côté des
+  réglages et du verrouillage, accessible depuis tous les écrans du coffre.
 - Notes : rendu **Markdown sûr** dans la fiche — titres, gras/italique, code,
   listes et cases à cocher, citations et liens http(s). Aucun HTML brut n’est
   interprété ; les liens s’ouvrent dans le navigateur système sur desktop.
