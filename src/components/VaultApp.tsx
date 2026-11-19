@@ -1,6 +1,5 @@
 import { UpdateStatus } from './UpdateStatus'
-import { isSecretFieldType } from '../lib/customFields'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import {
   AlertTriangle,
@@ -75,12 +74,12 @@ import { loadSiteSecurity, siteSecurityForHost } from '../lib/siteSecurity'
 import { scanBreaches } from '../lib/breach'
 import { notifyExpiringItems } from '../lib/notifications'
 import {
-  itemSubtitle,
   itemTypeLabel,
   type ItemType,
   type VaultItem,
   type VaultSummary,
 } from '../lib/types'
+import { buildSearchIndex, normalizeSearchText } from '../lib/vaultSearch'
 import { isTauriRuntime } from '../lib/external'
 import { backupAlert } from '../lib/backup'
 import { getTravelMode } from '../lib/travelMode'
@@ -114,13 +113,6 @@ function createTypeForFilter(filter: ItemFilter): ItemType {
       : filter
 }
 
-function normalize(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-}
-
 const GROUP_BY_DATE_KEY = 'coffre:ui:group-by-date'
 const EMPTY_BREACHES: ReadonlySet<string> = new Set()
 const EMPTY_SELECTION: Set<string> = new Set()
@@ -131,79 +123,6 @@ function loadGroupByDate(): boolean {
   } catch {
     return true
   }
-}
-
-function searchableText(item: ReturnType<typeof useVault>['items'][number]): string {
-  const common = [
-    item.title,
-    itemSubtitle(item),
-    item.tags.join(' '),
-    item.notes,
-    // Les valeurs secrètes (masqué, mot de passe, PIN, TOTP) ne sont pas
-    // indexées : seul leur nom est cherchable.
-    item.customFields
-      .map((field) =>
-        isSecretFieldType(field.type) ? field.label : `${field.label} ${field.value}`,
-      )
-      .join(' '),
-    item.attachments.map((attachment) => attachment.name).join(' '),
-  ]
-
-  switch (item.type) {
-    case 'login':
-      common.push(item.username, item.urls.join(' '))
-      break
-    case 'card':
-      common.push(item.cardholder, item.number.slice(-4), item.brand)
-      break
-    case 'identity':
-      common.push(
-        item.firstName,
-        item.lastName,
-        item.email,
-        item.phone,
-        item.city,
-        item.country,
-      )
-      break
-    case 'bank-account':
-      common.push(
-        item.accountHolder,
-        item.bankName,
-        item.iban.replace(/\s+/g, '').slice(-4),
-        item.swift,
-        item.currency,
-        item.cardholder,
-        item.cardBrand,
-        item.cardNumber.replace(/\s+/g, '').slice(-4),
-      )
-      break
-    case 'note':
-      break
-    case 'passkey':
-      common.push(item.rpId, item.userName)
-      break
-    case 'ssh-key':
-      common.push(item.comment, item.fingerprint, item.publicKey)
-      break
-    case 'wifi':
-      common.push(item.ssid, item.security)
-      break
-    case 'api-credential':
-      common.push(item.keyId, item.environment, item.endpoint)
-      break
-    case 'software-license':
-      common.push(item.licensedTo, item.version, item.website)
-      break
-    case 'document':
-      common.push(item.issuer, item.documentNumber, item.documentKind)
-      break
-    case 'recovery-codes':
-      common.push('codes de secours', 'recovery codes')
-      break
-  }
-
-  return normalize(common.join(' '))
 }
 
 const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'bank-account', 'passkey', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document', 'recovery-codes']
@@ -272,6 +191,10 @@ export function VaultApp() {
   const [filter, setFilter] = useState<ItemFilter>('all')
   const [vaultFilter, setVaultFilter] = useState<'all' | string>('all')
   const [search, setSearch] = useState('')
+  // La saisie reste immédiate ; le filtrage et le tri d’un très gros coffre
+  // sont différés et peuvent être interrompus par la frappe suivante.
+  const deferredSearch = useDeferredValue(search)
+  const searching = search !== deferredSearch
   const [sort, setSort] = useState<ItemSort>('name-asc')
   const [groupByDate, setGroupByDate] = useState(loadGroupByDate)
   const [usage, setUsage] = useState<UsageMap>(() => loadUsage())
@@ -294,7 +217,7 @@ export function VaultApp() {
     vaultFilter === 'all' || vaults.some((vault) => vault.id === vaultFilter)
       ? vaultFilter
       : 'all'
-  const selectionScope = `${filter}\u0000${activeVaultFilter}\u0000${search}\u0000${securityCategory ?? ''}`
+  const selectionScope = `${filter}\u0000${activeVaultFilter}\u0000${deferredSearch}\u0000${securityCategory ?? ''}`
   const listScope = `${selectionScope}\u0000${sort}`
   const activeSelection =
     selectionState.scope === selectionScope ? selectionState : null
@@ -614,12 +537,9 @@ export function VaultApp() {
       : base.filter((item) => item.vaultId === activeVaultFilter)
   }, [items, securityCategory, securityReport, activeVaultFilter])
 
-  /** Index de recherche pré-calculé : évite de reconstruire toutes les chaînes
-   * à chaque frappe sur les gros coffres. */
-  const searchIndex = useMemo(
-    () => new Map(items.map((item) => [item.id, searchableText(item)])),
-    [items],
-  )
+  /** Index de recherche pré-calculé : les chaînes ne sont normalisées qu’une
+   * fois par élément, jamais à chaque frappe. */
+  const searchIndex = useMemo(() => buildSearchIndex(items), [items])
 
   const groupingActive =
     groupByDate && !securityCategory && filter !== 'expiring'
@@ -636,7 +556,7 @@ export function VaultApp() {
   )
 
   const filteredItems = useMemo(() => {
-    const query = normalize(search.trim())
+    const query = normalizeSearchText(deferredSearch.trim())
     const entries = scopedItems
       .filter((item) => {
         if (securityCategory) {
@@ -713,7 +633,7 @@ export function VaultApp() {
   }, [
     scopedItems,
     filter,
-    search,
+    deferredSearch,
     sort,
     usage,
     searchIndex,
@@ -1536,7 +1456,12 @@ export function VaultApp() {
               )}
 
               {filteredItems.length > 0 ? (
-                <div className="item-list" ref={listRef} onKeyDown={onListKeyDown}>
+                <div
+                  className="item-list"
+                  ref={listRef}
+                  onKeyDown={onListKeyDown}
+                  aria-busy={searching || undefined}
+                >
                   {dateGroups
                     ? dateGroups.map((group) => (
                         <div key={group.key} className="item-group">

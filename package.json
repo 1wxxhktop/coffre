@@ -23,6 +23,7 @@
     "test:watch": "vitest",
     "test:changed": "vitest run --changed --passWithNoTests",
     "test:corpus": "vitest run src/lib/corpusDetection.test.ts",
+    "bench:vault": "bun scripts/bench-vault.ts",
     "test:e2e": "playwright test",
     "test:e2e:one": "playwright test --project=chromium --reporter=line",
     "test:e2e:smoke": "playwright test --project=chromium --reporter=line e2e/auth-layout.spec.ts e2e/vault.spec.ts e2e/item-models.spec.ts e2e/trash-history.spec.ts",
