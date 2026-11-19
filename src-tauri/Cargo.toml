@@ -56,8 +56,9 @@ keyring = { version = "3.6", default-features = false, features = ["windows-nati
 windows = { version = "0.62", features = ["Security_Credentials_UI", "Win32_Foundation", "Win32_System_RemoteDesktop", "Win32_System_WinRT", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 keyring = { version = "3.6", default-features = false, features = ["sync-secret-service"] }
-zbus = "5.19"
+zbus = "6.2"
 
 [workspace]
 members = [
