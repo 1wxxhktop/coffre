@@ -124,6 +124,35 @@ test.describe('confort de la fiche et accès rapides', () => {
     await expect(labels).toHaveText(['Second', 'Premier'])
   })
 
+  test('affiche les notes en Markdown sans interpréter de HTML', async ({ page }) => {
+    await createVault(page)
+    const panel = await addLogin(page, 'GitHub')
+    await panel.getByRole('button', { name: 'Modifier' }).click()
+    await panel.getByLabel('Notes', { exact: true }).fill(
+      [
+        '# Serveur',
+        '',
+        '- [x] **Clé** changée',
+        '- [ ] Vérifier',
+        '',
+        '[Documentation](https://example.com/docs)',
+        '',
+        '<script>alert(1)</script>',
+      ].join('\n'),
+    )
+    await panel.getByRole('button', { name: 'Enregistrer' }).click()
+
+    const markdown = panel.locator('.markdown-notes')
+    await expect(markdown.getByRole('heading', { name: 'Serveur' })).toBeVisible()
+    await expect(markdown.locator('strong').filter({ hasText: 'Clé' })).toBeVisible()
+    await expect(markdown.getByRole('link', { name: 'Documentation' })).toHaveAttribute(
+      'href',
+      'https://example.com/docs',
+    )
+    await expect(markdown.locator('input[type="checkbox"]')).toHaveCount(2)
+    await expect(markdown).toContainText('<script>alert(1)</script>')
+  })
+
   test('édite et valide la séquence de saisie automatique', async ({ page }) => {
     await createVault(page)
     const panel = await addLogin(page, 'GitHub')

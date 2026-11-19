@@ -51,6 +51,7 @@ import { ShareItemDialog } from './ShareItemDialog'
 import { AutoTypeDialog } from './AutoTypeDialog'
 import { PasswordChangeDialog } from './PasswordChangeDialog'
 import { EmailAliasDialog } from './EmailAliasDialog'
+import { MarkdownNotes } from './MarkdownNotes'
 import {
   validateAutotypeSequence,
   type AutotypeSequenceIssue,
@@ -3763,7 +3764,9 @@ function ItemDetails({
       {item.notes.trim() && (
         <div className="detail-section">
           <span className="detail-row__label">{tt("Notes")}</span>
-          <p className="detail-notes">{item.notes}</p>
+          <div className="detail-notes">
+            <MarkdownNotes text={item.notes} />
+          </div>
         </div>
       )}
 

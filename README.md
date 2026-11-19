@@ -65,6 +65,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   clé SSH, réseau Wi-Fi, identifiant d’API, licence logicielle, document avec
   pièce jointe principale et codes de secours. Les anciennes cartes bancaires
   restent lisibles et modifiables.
+- **Notes Markdown sûres** : titres, gras/italique, code, listes, cases à
+  cocher, citations et liens http(s) ouverts dans le navigateur système.
+  Aucun HTML brut n’est interprété ; le texte reste échappé par React.
 - **Adresses web multiples** : une connexion peut contenir plusieurs URL. Chaque
   adresse peut être ouverte dans le navigateur, ou copiée directement via son
   icône, sans l’ouvrir.

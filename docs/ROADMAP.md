@@ -140,7 +140,7 @@ Les estimations sont en **personne-semaines** pour une personne à temps plein, 
 | Alertes de fuite email / dark web | HIBP mots de passe seulement | Moyen |
 | Alias email en ligne | Alias hors ligne seulement | Moyen |
 | `coffre scan` (secrets dans les fichiers) | Absent (Q11) | Moyen |
-| Notes Markdown | Absent (Q10) | Faible |
+| Notes Markdown | Livré (sous-ensemble sûr, sans HTML) | Faible |
 | Éditeur de séquence auto-type | Livré (validation + aide) | Faible |
 | i18n complète (Rust, langues) | Erreurs natives FR/EN ; autres langues à faire | Moyen |
 | Accessibilité certifiée WCAG 2.2 AA | Automatisée A/AA/WCAG 2.2 ; validation lecteur d’écran à faire | Moyen |
@@ -689,7 +689,7 @@ Orion dans `install_native_hosts` et une reconnexion réellement testée.
 
 1. **Onboarding** : choix local/sync, récupération, installation extension.
 2. **Migration** : assistant 1Password/Bitwarden/Dashlane/Proton/Nord/KeePass, aperçu, déduplication, rapport.
-3. **Notes Markdown** (Q10) : sous-ensemble sûr, cases à cocher, liens http(s), pas de HTML.
+3. **Notes Markdown** (Q10) : sous-ensemble sûr, cases à cocher, liens http(s), pas de HTML. **Livré** dans la fiche.
 4. **Palette de commandes** : actions, recherche, navigation clavier.
 5. **Accessibilité** : axe-core CI (fait : A/AA/WCAG 2.2, générateur, palette,
    sélecteur de type, assistant extension), VoiceOver/NVDA, contrastes, taille
