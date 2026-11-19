@@ -570,6 +570,9 @@ export const EN_TEXT: Record<string, string> = {
   'Agence': 'Branch',
   'Devise': 'Currency',
   'Titulaire du compte': 'Account holder',
+  'Identifiants de connexion (facultatif)': 'Login credentials (optional)',
+  'Renseignez l’identifiant et le mot de passe du site bancaire ou du portail de la carte, ainsi que ses adresses.':
+    'Enter the username and password for the bank website or card portal, along with its addresses.',
   'FR76 3000 6000 0112 3456 7890 189': 'FR76 3000 6000 0112 3456 7890 189',
   'AGRIFRPP': 'AGRIFRPP',
   'EUR': 'EUR',

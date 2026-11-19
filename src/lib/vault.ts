@@ -705,6 +705,9 @@ const identityContentSchema = z.object({
 const bankAccountContentSchema = z.object({
   ...itemBaseSchema,
   type: z.literal('bank-account'),
+  username: z.string().max(500).optional(),
+  password: z.string().max(10_000).optional(),
+  urls: z.array(z.string().max(2_048)).max(10).optional(),
   accountHolder: z.string().max(500),
   bankName: z.string().max(500),
   iban: z.string().max(64),
@@ -2519,6 +2522,12 @@ function cleanDraft(draft: ItemDraft): ItemContent {
       return {
         ...common,
         type: 'bank-account',
+        username: cleanText(draft.username ?? '', 500),
+        password: (draft.password ?? '').slice(0, 2_000),
+        urls: (draft.urls ?? [''])
+          .map((url) => cleanText(url, 2_048))
+          .filter(Boolean)
+          .slice(0, 10),
         accountHolder: cleanText(draft.accountHolder, 500),
         bankName: cleanText(draft.bankName, 500),
         iban: cleanText(draft.iban, 64).replace(/\s+/g, ' ').trim().toUpperCase(),

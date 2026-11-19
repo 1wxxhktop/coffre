@@ -1145,6 +1145,7 @@ export function VaultApp() {
         onDeleteVault={setVaultToDelete}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSecurity={() => setSecurityOpen(true)}
+        onOpenGenerator={() => setGeneratorOpen(true)}
         securityReport={securityReport}
         syncPending={syncPending}
         onLock={lock}

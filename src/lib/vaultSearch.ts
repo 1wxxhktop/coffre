@@ -53,6 +53,8 @@ export function searchableText(item: VaultItem): string {
       break
     case 'bank-account':
       common.push(
+        item.username ?? '',
+        (item.urls ?? []).join(' '),
         item.accountHolder,
         item.bankName,
         item.iban.replace(/\s+/g, '').slice(-4),

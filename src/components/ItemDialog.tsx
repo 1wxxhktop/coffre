@@ -23,7 +23,6 @@ import {
   GripVertical,
   FileUp,
   FolderInput,
-  Globe,
   History,
   Keyboard,
   KeyRound,
@@ -52,6 +51,7 @@ import { AutoTypeDialog } from './AutoTypeDialog'
 import { PasswordChangeDialog } from './PasswordChangeDialog'
 import { EmailAliasDialog } from './EmailAliasDialog'
 import { MarkdownNotes } from './MarkdownNotes'
+import { SiteUrlsField } from './SiteUrlsField'
 import {
   validateAutotypeSequence,
   type AutotypeSequenceIssue,
@@ -402,7 +402,9 @@ export function ItemDialog({
   const [totpTyped, setTotpTyped] = useState<{ text: string; uri: string } | null>(
     null,
   )
-  const [showGenerator, setShowGenerator] = useState(false)
+  const [generatorTarget, setGeneratorTarget] = useState<
+    'item' | { fieldId: string } | null
+  >(null)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [showPermanentDelete, setShowPermanentDelete] = useState(false)
@@ -1008,7 +1010,7 @@ export function ItemDialog({
       patch({ password: value })
       return
     }
-    if (current.type !== 'login') return
+    if (current.type !== 'login' && current.type !== 'bank-account') return
     try {
       const updated = await updateItem({ ...current, password: value })
       setCurrent(updated)
@@ -1593,7 +1595,7 @@ export function ItemDialog({
                       <button
                         type="button"
                         className="input-group__action"
-                        onClick={() => setShowGenerator(true)}
+                        onClick={() => setGeneratorTarget('item')}
                         aria-label={tt('Générer un mot de passe')}
                         title={tt('Générer un mot de passe')}
                       >
@@ -1602,48 +1604,10 @@ export function ItemDialog({
                     </span>
                   </label>
 
-                  <div className="field field--full">
-                    <span className="field__label">{tt("Adresses du site")}</span>
-                    <div className="url-list">
-                      {draft.urls.map((url, index) => (
-                        <div key={index} className="url-row">
-                          <Globe size={16} className="url-row__icon" />
-                          <input
-                            className="input"
-                            value={url}
-                            onChange={(event) => {
-                              const urls = [...draft.urls]
-                              urls[index] = event.target.value
-                              patch({ urls })
-                            }}
-                            placeholder="https://exemple.com"
-                            autoComplete="off"
-                          />
-                          <button
-                            type="button"
-                            className="icon-button"
-                            onClick={() =>
-                              patch({ urls: draft.urls.filter((_, i) => i !== index) })
-                            }
-                            aria-label={tt('Retirer l’adresse')}
-                            disabled={draft.urls.length <= 1}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ))}
-                      {draft.urls.length < 10 && (
-                        <button
-                          type="button"
-                          className="link-button"
-                          onClick={() => patch({ urls: [...draft.urls, ''] })}
-                        >
-                          <Plus size={15} />
-                          Ajouter une adresse
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <SiteUrlsField
+                    urls={draft.urls ?? ['']}
+                    onChange={(urls) => patch({ urls })}
+                  />
 
                   <label className="field field--full">
                     <span className="field__label">{tt('Clé TOTP (2FA)')}</span>
@@ -1920,6 +1884,65 @@ export function ItemDialog({
 
               {draft.type === 'bank-account' && (
                 <div className="form-grid">
+                  <div className="field field--full">
+                    <span className="field__label">
+                      {tt('Identifiants de connexion (facultatif)')}
+                    </span>
+                    <span className="field__hint">
+                      {tt(
+                        'Renseignez l’identifiant et le mot de passe du site bancaire ou du portail de la carte, ainsi que ses adresses.',
+                      )}
+                    </span>
+                  </div>
+                  <label className="field field--full">
+                    <span className="field__label">{tt('Identifiant')}</span>
+                    <input
+                      className="input"
+                      value={draft.username ?? ''}
+                      onChange={(event) => patch({ username: event.target.value })}
+                      autoComplete="off"
+                      placeholder={tt('email ou nom d’utilisateur')}
+                      maxLength={500}
+                    />
+                  </label>
+                  <label className="field field--full">
+                    <span className="field__label">{tt('Mot de passe')}</span>
+                    <span className="input-group">
+                      <input
+                        className="input input--mono"
+                        type={showPassword ? 'text' : 'password'}
+                        value={draft.password ?? ''}
+                        onChange={(event) => patch({ password: event.target.value })}
+                        autoComplete="new-password"
+                        placeholder={tt('Saisissez votre mot de passe')}
+                      />
+                      <button
+                        type="button"
+                        className="input-group__action"
+                        onClick={() => setShowPassword((value) => !value)}
+                        aria-label={
+                          showPassword
+                            ? 'Masquer le mot de passe'
+                            : 'Afficher le mot de passe'
+                        }
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                      <button
+                        type="button"
+                        className="input-group__action"
+                        onClick={() => setGeneratorTarget('item')}
+                        aria-label={tt('Générer un mot de passe')}
+                        title={tt('Générer un mot de passe')}
+                      >
+                        <Wand2 size={18} />
+                      </button>
+                    </span>
+                  </label>
+                  <SiteUrlsField
+                    urls={draft.urls ?? ['']}
+                    onChange={(urls) => patch({ urls })}
+                  />
                   <label className="field">
                     <span className="field__label">{tt('Titulaire du compte')}</span>
                     <input
@@ -2612,6 +2635,12 @@ export function ItemDialog({
                         <CustomFieldInput
                           field={field}
                           onChange={(value) => updateCustomField(field.id, { value })}
+                          onGeneratePassword={
+                            field.type === 'password'
+                              ? () =>
+                                  setGeneratorTarget({ fieldId: field.id })
+                              : undefined
+                          }
                         />
                         <div className="custom-field__tools">
                           {(draft.customFields ?? []).length > 1 && (
@@ -2754,7 +2783,7 @@ export function ItemDialog({
                 vaultReadOnly={vault?.role === 'read'}
                 issue={issue}
                 hasPasskeyForItem={hasPasskeyForItem}
-                onGeneratePassword={() => setShowGenerator(true)}
+                onGeneratePassword={() => setGeneratorTarget('item')}
                 onChangePassword={() => setShowPasswordChange(true)}
                 onEditItem={startEditing}
                 onOpenItem={onOpenItem}
@@ -2774,11 +2803,21 @@ export function ItemDialog({
       </DialogSurface>
 
 
-      {showGenerator && (
+      {generatorTarget && (
         <GeneratorDialog
-          onClose={() => setShowGenerator(false)}
-          onUse={(value) => void applyGeneratedPassword(value)}
-          url={draft.type === 'login' ? draft.urls[0] : undefined}
+          onClose={() => setGeneratorTarget(null)}
+          onUse={(value) => {
+            if (generatorTarget === 'item') {
+              void applyGeneratedPassword(value)
+              return
+            }
+            updateCustomField(generatorTarget.fieldId, { value })
+          }}
+          url={
+            draft.type === 'login' || draft.type === 'bank-account'
+              ? draft.urls?.[0]
+              : undefined
+          }
           onRecord={recordGeneratedPassword}
         />
       )}
@@ -3297,6 +3336,70 @@ function ItemDetails({
 
       {item.type === 'bank-account' && (
         <div className="detail-list">
+          {(item.username ||
+            item.password ||
+            (item.urls ?? []).some(Boolean)) && (
+            <>
+              {(item.username || item.password) && (
+                <>
+                  <DetailRow
+                    label="Identifiant"
+                    value={item.username ?? ''}
+                    onCopy={() => void copyValue(item.username ?? '', 'Identifiant')}
+                    copied={copied === 'Identifiant'}
+                  />
+                  {item.password && (
+                    <SecretRow
+                      label="Mot de passe"
+                      value={item.password}
+                      revealed={revealed.has('bank-password')}
+                      onToggle={() => toggleReveal('bank-password')}
+                      onCopy={() => void copyValue(item.password ?? '', 'Mot de passe')}
+                      copied={copied === 'Mot de passe'}
+                    />
+                  )}
+                </>
+              )}
+              {(item.urls ?? []).filter(Boolean).length > 0 && (
+                <div className="detail-row">
+                  <span className="detail-row__label">{tt('Adresses')}</span>
+                  <div className="detail-row__value detail-row__links">
+                    {(item.urls ?? []).filter(Boolean).map((url) => {
+                      const target = safeUrl(url)
+                      return (
+                        <span key={url} className="detail-link">
+                          <Link2 size={14} />
+                          {target ? (
+                            <a
+                              href={target}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              onClick={(event) => handleExternalClick(event, target)}
+                            >
+                              {url}
+                              <ExternalLink size={12} />
+                            </a>
+                          ) : (
+                            <span>{url}</span>
+                          )}
+                          <button
+                            type="button"
+                            className="icon-button icon-button--sm detail-link__copy"
+                            onClick={() => void copyValue(url, url)}
+                            aria-label={tt('Copier l’adresse web')}
+                            title={tt('Copier l’adresse web')}
+                            data-copied={copied === url ? 'true' : undefined}
+                          >
+                            {copied === url ? <Check size={13} /> : <Copy size={13} />}
+                          </button>
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
           {(item.accountHolder ||
             item.bankName ||
             item.iban ||
@@ -4207,9 +4310,11 @@ function AttachmentsSection({
 function CustomFieldInput({
   field,
   onChange,
+  onGeneratePassword,
 }: {
   field: CustomField
   onChange: (value: string) => void
+  onGeneratePassword?: () => void
 }) {
   const { tt } = useI18n()
   const { settings } = useSettings()
@@ -4278,6 +4383,17 @@ function CustomFieldInput({
           autoComplete="off"
           aria-label={label}
         />
+        {field.type === 'password' && onGeneratePassword && (
+          <button
+            type="button"
+            className="icon-button icon-button--sm"
+            onClick={onGeneratePassword}
+            aria-label={tt('Générer un mot de passe')}
+            title={tt('Générer un mot de passe')}
+          >
+            <Wand2 size={15} />
+          </button>
+        )}
         <button
           type="button"
           className="icon-button icon-button--sm"

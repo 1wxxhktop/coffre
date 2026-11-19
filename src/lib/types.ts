@@ -175,6 +175,12 @@ export interface IdentityItem extends ItemBase {
  */
 export interface BankAccountItem extends ItemBase {
   type: 'bank-account'
+  /** Identifiant du site bancaire, si le compte peut se connecter. */
+  username?: string
+  /** Mot de passe du site bancaire. */
+  password?: string
+  /** Adresses du site bancaire ou du portail de la carte. */
+  urls?: string[]
   accountHolder: string
   bankName: string
   iban: string
@@ -799,6 +805,9 @@ export function emptyDraft(type: ItemType, vaultId: string): ItemDraft {
       return {
         ...base,
         type: 'bank-account',
+        username: '',
+        password: '',
+        urls: [''],
         accountHolder: '',
         bankName: '',
         iban: '',
@@ -898,10 +907,10 @@ export function itemSubtitle(item: VaultItem): string {
           : card.length > 4
             ? `•••• ${card.slice(-4)}`
             : ''
-      return (
+      const label =
         [item.bankName || item.cardBrand, masked].filter(Boolean).join(' · ') ||
         'Compte et carte'
-      )
+      return item.username ? `${label} · ${item.username}` : label
     }
     case 'passkey':
       return item.userName || item.rpId || 'Passkey'
