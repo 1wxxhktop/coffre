@@ -5,6 +5,10 @@
 - i18n : les **erreurs des commandes natives** sont traduites en anglais à la
   frontière Tauri (coffre, sauvegardes, synchronisation, pont, saisie
   automatique, biométrie), sans modifier les messages techniques inconnus.
+- Saisie automatique : **éditeur de séquence** dans la fiche d’une connexion,
+  avec la même grammaire que le backend Rust et validation avant
+  enregistrement. Une séquence invalide affiche le jeton fautif et bloque la
+  sauvegarde.
 - Performance : **recherche différée** sur les gros coffres — la saisie reste
   immédiate pendant que le filtrage et le tri s’exécutent — et index de
   recherche normalisé en une seule passe. Nouveau banc `bun run bench:vault`

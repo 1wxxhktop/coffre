@@ -219,7 +219,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Saisie automatique desktop** : depuis une connexion, masque Coffre, attend
   que la fenêtre cible soit active puis tape une séquence compatible KeePass
   (`{USERNAME}`, `{PASSWORD}`, `{TOTP}`, `{TAB}`, `{ENTER}`, `{DELAY n}`). Le
-  focus est vérifié avant chaque jeton et la saisie s’arrête s’il change.
+  focus est vérifié avant chaque jeton et la saisie s’arrête s’il change. La
+  séquence est **éditable par connexion** et validée avant l’enregistrement.
 - **Journal d’activité chiffré** : déverrouillages, exports, changements de mot
   de passe, appairages, partages et remplissages par l’extension, stockés
   événement par événement dans le coffre et exportables en JSON.
@@ -703,9 +704,11 @@ Rust vérifie la fenêtre active avant chaque jeton et annule la saisie si le
 focus change. Sur macOS, l’autorisation **Accessibilité** est requise et
 expliquée par le message d’erreur. Le raccourci global **Cmd+Shift+A** (Ctrl+Shift+A sur Windows/Linux) capture la
 fenêtre active avant d’ouvrir Coffre, propose les connexions dont le titre ou
-l’URL correspond, puis lance la saisie après masquage. La séquence est stockée
-dans le champ optionnel `autotypeSequence` de l’élément, mais l’éditeur de champ
-dédié n’est pas encore exposé. Les validations Windows/Linux restent à faire.
+l’URL correspond, puis lance la saisie après masquage. Le champ **Séquence de
+saisie automatique** de la fiche permet de personnaliser la séquence ; il est
+validé avec la même grammaire que Rust (jetons connus, accolades échappées,
+délai borné à 60 secondes) et une séquence invalide bloque l’enregistrement.
+Les validations Windows/Linux restent à faire.
 
 ### Journal d’activité
 
