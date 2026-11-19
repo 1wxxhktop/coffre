@@ -8,7 +8,7 @@ description = "Cœur partagé du format et de la cryptographie Coffre"
 
 [dependencies]
 aes-gcm = "0.11"
-argon2 = "0.5"
+argon2 = "0.6"
 base64 = "0.23"
 getrandom = "0.4"
 hmac = "0.13"

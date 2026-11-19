@@ -247,27 +247,32 @@ mod windows_impl {
 
 #[cfg(target_os = "linux")]
 mod linux {
+    use std::num::NonZeroUsize;
+
+    use futures_util::TryStreamExt;
     use tauri::AppHandle;
-    use zbus::MatchRule;
-    use zbus::blocking::{Connection, MessageIterator, Proxy};
     use zbus::message::Type;
-    use zbus::zvariant::OwnedObjectPath;
+    use zbus::{Connection, MatchRule, MessageStream, OwnedObjectPath, Proxy};
 
     use super::{emit, logind_signal_kind};
+
+    /// Capacité de la file de messages D-Bus : les signaux de veille et de
+    /// verrouillage sont rares, une petite file suffit.
+    const MESSAGE_QUEUE: usize = 16;
 
     pub fn start(app: AppHandle) -> Result<(), String> {
         let sleep_app = app.clone();
         std::thread::Builder::new()
             .name("coffre-session-sleep".into())
             .spawn(move || {
-                let connection = match Connection::system() {
+                let connection = match zbus::block_on(Connection::system()) {
                     Ok(connection) => connection,
                     Err(error) => {
                         eprintln!("Surveillance de la veille indisponible : {error}");
                         return;
                     }
                 };
-                if let Err(error) = watch_sleep(&connection, sleep_app) {
+                if let Err(error) = zbus::block_on(watch_sleep(&connection, sleep_app)) {
                     eprintln!("Surveillance de la veille indisponible : {error}");
                 }
             })
@@ -276,7 +281,7 @@ mod linux {
         std::thread::Builder::new()
             .name("coffre-session-lock".into())
             .spawn(move || {
-                let connection = match Connection::system() {
+                let connection = match zbus::block_on(Connection::system()) {
                     Ok(connection) => connection,
                     Err(error) => {
                         eprintln!("Surveillance du verrouillage de session indisponible : {error}");
@@ -284,7 +289,9 @@ mod linux {
                     }
                 };
                 let session_path = current_session_path(&connection);
-                if let Err(error) = watch_lock(&connection, app, session_path.as_ref()) {
+                if let Err(error) =
+                    zbus::block_on(watch_lock(&connection, app, session_path.as_ref()))
+                {
                     eprintln!("Surveillance du verrouillage de session indisponible : {error}");
                 }
             })
@@ -293,28 +300,37 @@ mod linux {
     }
 
     fn current_session_path(connection: &Connection) -> Option<OwnedObjectPath> {
-        let proxy = Proxy::new(
-            connection,
-            "org.freedesktop.login1",
-            "/org/freedesktop/login1",
-            "org.freedesktop.login1.Manager",
-        )
-        .ok()?;
-        proxy.call("GetSessionByPID", &(std::process::id())).ok()
+        zbus::block_on(async {
+            let proxy = Proxy::new(
+                connection,
+                "org.freedesktop.login1",
+                "/org/freedesktop/login1",
+                "org.freedesktop.login1.Manager",
+            )
+            .await
+            .ok()?;
+            proxy
+                .call("GetSessionByPID", &(std::process::id()))
+                .await
+                .ok()
+        })
     }
 
-    fn watch_sleep(connection: &Connection, app: AppHandle) -> Result<(), String> {
+    fn message_queue() -> NonZeroUsize {
+        NonZeroUsize::new(MESSAGE_QUEUE).expect("capacité de file non nulle")
+    }
+
+    async fn watch_sleep(connection: &Connection, app: AppHandle) -> Result<(), String> {
         let rule = MatchRule::builder()
             .msg_type(Type::Signal)
             .interface("org.freedesktop.login1.Manager")
-            .map_err(|error| error.to_string())?
             .member("PrepareForSleep")
-            .map_err(|error| error.to_string())?
-            .build();
-        let iterator = MessageIterator::for_match_rule(rule, connection, Some(16))
-            .map_err(|e| e.to_string())?;
-        for message in iterator {
-            let message = message.map_err(|error| error.to_string())?;
+            .build()
+            .map_err(|error| error.to_string())?;
+        let mut stream = MessageStream::for_match_rule(rule, connection, Some(message_queue()))
+            .await
+            .map_err(|error| error.to_string())?;
+        while let Some(message) = stream.try_next().await.map_err(|error| error.to_string())? {
             let sleeping: Option<bool> = message
                 .body()
                 .deserialize::<(bool,)>()
@@ -331,7 +347,7 @@ mod linux {
         Ok(())
     }
 
-    fn watch_lock(
+    async fn watch_lock(
         connection: &Connection,
         app: AppHandle,
         session_path: Option<&OwnedObjectPath>,
@@ -339,18 +355,19 @@ mod linux {
         let mut builder = MatchRule::builder()
             .msg_type(Type::Signal)
             .interface("org.freedesktop.login1.Session")
-            .map_err(|error| error.to_string())?
-            .member("Lock")
-            .map_err(|error| error.to_string())?;
+            .member("Lock");
         if let Some(path) = session_path {
-            builder = builder
-                .path(path.as_str())
-                .map_err(|error| error.to_string())?;
+            builder = builder.path(path.as_str());
         }
-        let iterator = MessageIterator::for_match_rule(builder.build(), connection, Some(16))
-            .map_err(|error| error.to_string())?;
-        for message in iterator {
-            message.map_err(|error| error.to_string())?;
+        let mut stream = MessageStream::for_match_rule(
+            builder.build().map_err(|e| e.to_string())?,
+            connection,
+            Some(message_queue()),
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+        while let Some(message) = stream.try_next().await.map_err(|error| error.to_string())? {
+            let _ = message;
             if let Some(kind) = logind_signal_kind("org.freedesktop.login1.Session", "Lock", None) {
                 emit(&app, kind);
             }
