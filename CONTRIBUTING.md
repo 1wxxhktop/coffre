@@ -3,6 +3,10 @@
 Coffre est un projet local-first, sans backend ni télémétrie. Les contributions
 doivent préserver ces contraintes et la compatibilité du format `.coffre`.
 
+> **Agents (Claude Code, OpenCode, Codex…)** : lisez d’abord
+> [AGENTS.md](AGENTS.md). Il résume comment démarrer, les règles permanentes du
+> mainteneur, la définition de « terminé », les releases et la passation.
+
 ## Installation
 
 ```bash
