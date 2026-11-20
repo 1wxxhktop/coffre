@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Rassemble dans un dossier local tous les exécutables de Coffre produits par
 # la CI GitHub sur main : applications desktop macOS, Windows et Linux, outils
-# en ligne de commande, extension navigateur, application Web et SBOM.
+# en ligne de commande, extension navigateur, application Web, APK Android et
+# SBOM.
+#
+# L’APK Android provient du workflow « Android APK » pour le même commit : il
+# est ajouté automatiquement au dossier versionné s’il existe.
 #
 # Usage :
 #   ./scripts/collect-release.sh                 # dernière CI réussie sur main
@@ -97,8 +101,27 @@ while IFS=$'\t' read -r artifact_id artifact_name; do
 done < <(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" \
   --jq '.artifacts[] | select(.expired == false) | "\(.id)\t\(.name)"')
 
+# Android est produit par un workflow séparé : rechercher un build réussi pour
+# le même commit et l’ajouter au même dossier de version que les autres OS.
+if [[ ! -d "$TMP/coffre-android-apk" ]]; then
+  ANDROID_RUN_ID="$(gh run list --repo "$REPO" --workflow android-build.yml \
+    --status success --limit 50 --json databaseId,headSha \
+    --jq ".[] | select(.headSha == \"$SHA\") | .databaseId" | head -1)"
+  if [[ -n "$ANDROID_RUN_ID" ]]; then
+    echo "APK Android : exécution $ANDROID_RUN_ID"
+    mkdir -p "$TMP/coffre-android-apk"
+    if ! gh run download "$ANDROID_RUN_ID" --repo "$REPO" \
+      --name coffre-android-apk --dir "$TMP/coffre-android-apk"; then
+      rm -rf "$TMP/coffre-android-apk"
+      echo "APK Android : artefact indisponible, dossier android ignoré."
+    fi
+  else
+    echo "APK Android : aucun build réussi pour $SHORT, dossier android ignoré."
+  fi
+fi
+
 rm -rf "$BUILD"
-mkdir -p "$BUILD"/{macos,windows,linux,extension,web,sbom}
+mkdir -p "$BUILD"/{macos,windows,linux,extension,web,sbom,android}
 
 copy_matching() {
   # copy_matching <dossier source> <dossier cible> <motif>…
@@ -135,6 +158,10 @@ copy_tools "$TMP/coffre-desktop-ubuntu-22.04" "$BUILD/linux"
 (cd "$TMP/coffre-dist/dist-extension" && zip -qr "$BUILD/extension/coffre-extension-$VERSION.zip" .)
 (cd "$TMP/coffre-dist/dist" && zip -qr "$BUILD/web/coffre-web-$VERSION.zip" .)
 
+if [[ -d "$TMP/coffre-android-apk" ]]; then
+  cp "$TMP/coffre-android-apk/"* "$BUILD/android/"
+fi
+
 if [[ -d "$TMP/coffre-sbom" ]]; then
   cp "$TMP/coffre-sbom/"* "$BUILD/sbom/" 2>/dev/null || true
 fi
@@ -155,6 +182,7 @@ linux/     Paquets .deb, .rpm et AppImage, outils en ligne de commande.
 extension/ Extension navigateur (Chromium) à charger en mode développeur
            (chrome://extensions → « Charger l’extension non empaquetée »).
 web/       Application Web (PWA) à servir en HTTPS.
+android/   APK Android arm64 de test, signé en debug.
 sbom/      Nomenclatures logicielles CycloneDX.
 
 outils/    coffre-cli (lecture, TOTP, coffre run --env), coffre-git-sign
