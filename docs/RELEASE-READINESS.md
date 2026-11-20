@@ -1,6 +1,6 @@
-# Niveau de préparation grand public — Coffre 0.16.0
+# Niveau de préparation grand public — Coffre 0.17.0
 
-**Date :** 13 novembre 2026
+**Date :** 21 novembre 2026
 **Conclusion :** le socle de sécurité est solide et l’audit complet de la 0.12.0
 a été remédié. La **0.14.0 est publiée** comme release de sécurité (manifeste 3,
 protocoles 2) et les mises à jour signées sont opérationnelles sur macOS. Coffre
@@ -26,6 +26,13 @@ audit externe. Le stockage natif desktop, lui, est désormais implémenté.
 > l’appairage durable de l’extension et l’autorisation des commandes du pont
 > natif. Elles ne changent ni le format `.coffre`, ni le manifeste, ni les
 > protocoles ; l’évaluation ci-dessous reste valable.
+
+> **0.17.0 (21 novembre 2026) :** comptes bancaires, éléments associés,
+> notes Markdown, tableau de bord Sécurité v2, assistant de changement de mot
+> de passe, panneau latéral de l’extension, CXF 1.0, accessibilité WCAG 2.2 et
+> performance des gros coffres. Aucun changement de format, de manifeste ou de
+> protocole ; un appareil resté en 0.16.0 n’affiche pas les nouveaux types
+> d’éléments. L’évaluation ci-dessous reste valable.
 
 > **0.16.0 (13 novembre 2026) :** version de finition de l’extension
 > (remplissage au chargement, fiabilité des réglages et du pont natif,
