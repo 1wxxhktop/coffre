@@ -82,7 +82,7 @@ Pièges déjà rencontrés, à vérifier systématiquement :
 
 | Piège | Garde-fou |
 | --- | --- |
-| Nouvelle commande Tauri appelée par l’interface mais refusée à l’exécution | La déclarer dans `src-tauri/build.rs`, l’autoriser dans `src-tauri/capabilities/default.json` et l’enregistrer dans `generate_handler!`. `bun run lint` le vérifie (`scripts/check-tauri-commands.mjs`). |
+| Nouvelle commande Tauri appelée par l’interface mais refusée à l’exécution | La déclarer dans `src-tauri/build.rs`, l’autoriser dans `src-tauri/capabilities/default.json` et l’enregistrer dans `generate_handler!`. `bun run lint` le vérifie (`scripts/check-tauri-commands.mjs`), y compris via une fonction intermédiaire dont le premier paramètre s’appelle `command`. |
 | Données liées à la signature de l’app (trousseau macOS) perdues à chaque mise à jour | La signature ad hoc change à chaque version : ne rien stocker dans le trousseau qui doive survivre à une mise à jour, sauf la clé maîtresse (redemandée au déverrouillage). |
 | Lignes du CHANGELOG déplacées sous une version déjà publiée après un rebase | Relire `CHANGELOG.md` après chaque rebase : tout ce qui n’est pas publié reste sous **Non publié**. |
 | Version incohérente entre `package.json`, `Cargo.toml`, `tauri.conf.json`, manifeste de l’extension | `bun run version:check`. |
