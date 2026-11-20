@@ -7,7 +7,9 @@
   coordonnées bancaires et de la carte, pour tout regrouper au même endroit.
 - Éléments : **associations entre fiches** (compte mail utilisé pour une
   confirmation, identité rattachée à plusieurs comptes…). Les associations
-  apparaissent sur les deux fiches et permettent d’ouvrir l’élément lié.
+  apparaissent sur les deux fiches et permettent d’ouvrir l’élément lié. Le
+  bouton **Associer** est aussi disponible directement dans la fiche, sans
+  passer par le mode modification.
 - Champs personnalisés : un bouton **Générer** apparaît pour les champs de
   type mot de passe et ouvre le générateur avec application directe de la
   valeur.

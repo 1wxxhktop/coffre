@@ -193,15 +193,13 @@ test.describe('confort de la fiche et accès rapides', () => {
     await dialog.getByRole('button', { name: 'Enregistrer' }).click()
 
     const panel = page.locator('.item-panel')
-    await panel.getByRole('button', { name: 'Modifier' }).click()
-    await panel.getByRole('button', { name: 'Associer un élément' }).click()
+    await panel.getByRole('button', { name: 'Associer', exact: true }).click()
     const picker = page
       .getByRole('dialog')
       .filter({ has: page.getByRole('heading', { name: 'Associer un élément' }) })
     await picker.getByRole('searchbox').fill('Gmail')
     await picker.getByRole('button', { name: /Gmail/ }).click()
     await picker.getByRole('button', { name: 'Terminer' }).click()
-    await panel.getByRole('button', { name: 'Enregistrer' }).click()
 
     const related = panel.locator('.related-list__item').filter({ hasText: 'Gmail' })
     await expect(related).toBeVisible()

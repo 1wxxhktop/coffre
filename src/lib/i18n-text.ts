@@ -572,6 +572,9 @@ export const EN_TEXT: Record<string, string> = {
   'Titulaire du compte': 'Account holder',
   'Éléments associés': 'Related items',
   'Associer un élément': 'Link an item',
+  Associer: 'Link',
+  'Aucun élément associé.': 'No related item.',
+  'Associations mises à jour': 'Links updated',
   'Retirer l’association': 'Remove link',
   'Reliez un compte mail, une identité ou un autre compte utilisé avec cet élément. Les associations apparaissent sur les deux fiches.':
     'Link an email account, an identity or another account used with this item. Links appear on both item pages.',
