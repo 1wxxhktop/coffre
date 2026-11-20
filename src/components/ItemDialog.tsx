@@ -408,7 +408,10 @@ export function ItemDialog({
     'item' | { fieldId: string } | null
   >(null)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
-  const [showRelatedPicker, setShowRelatedPicker] = useState(false)
+  const [relatedPickerMode, setRelatedPickerMode] = useState<
+    'draft' | 'detail' | null
+  >(null)
+  const [relatedDetailIds, setRelatedDetailIds] = useState<string[]>([])
   const [showDelete, setShowDelete] = useState(false)
   const [showPermanentDelete, setShowPermanentDelete] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -517,13 +520,61 @@ export function ItemDialog({
     setError(null)
   }
 
+  const openRelatedPicker = (mode: 'draft' | 'detail') => {
+    if (mode === 'detail') {
+      if (!current) return
+      setRelatedDetailIds(current.relatedIds ?? [])
+    }
+    setRelatedPickerMode(mode)
+  }
+
   const toggleRelated = (itemId: string) => {
+    if (relatedPickerMode === 'detail') {
+      setRelatedDetailIds((previous) =>
+        previous.includes(itemId)
+          ? previous.filter((id) => id !== itemId)
+          : [...previous, itemId],
+      )
+      return
+    }
     const ids = draft.relatedIds ?? []
     patch({
       relatedIds: ids.includes(itemId)
         ? ids.filter((id) => id !== itemId)
         : [...ids, itemId],
     })
+  }
+
+  const closeRelatedPicker = async () => {
+    const mode = relatedPickerMode
+    setRelatedPickerMode(null)
+    if (mode !== 'detail' || !current) return
+    const previous = current.relatedIds ?? []
+    const next = relatedDetailIds.filter(
+      (id) =>
+        id !== current.id &&
+        items.some((candidate) => candidate.id === id && !candidate.deletedAt),
+    )
+    if (
+      next.length === previous.length &&
+      next.every((id) => previous.includes(id))
+    ) {
+      return
+    }
+    try {
+      const updated = await updateItem({ ...current, relatedIds: next })
+      setCurrent(updated)
+      setDraft({ ...updated })
+      onSaved?.(updated)
+      toast(tt('Associations mises à jour'), 'success')
+    } catch (caught) {
+      toast(
+        caught instanceof Error
+          ? caught.message
+          : tt('Mise à jour impossible.'),
+        'error',
+      )
+    }
   }
 
   const toggleReveal = (key: string) => {
@@ -2757,7 +2808,7 @@ export function ItemDialog({
                   <button
                     type="button"
                     className="link-button"
-                    onClick={() => setShowRelatedPicker(true)}
+                    onClick={() => openRelatedPicker('draft')}
                   >
                     <Link2 size={14} />
                     {tt('Associer un élément')}
@@ -2863,6 +2914,8 @@ export function ItemDialog({
                 issue={issue}
                 hasPasskeyForItem={hasPasskeyForItem}
                 relatedItems={relatedItems}
+                onAssociate={() => openRelatedPicker('detail')}
+                canAssociate={!trashed && vault?.role !== 'read'}
                 onGeneratePassword={() => setGeneratorTarget('item')}
                 onChangePassword={() => setShowPasswordChange(true)}
                 onEditItem={startEditing}
@@ -2902,13 +2955,17 @@ export function ItemDialog({
         />
       )}
 
-      {showRelatedPicker && (
+      {relatedPickerMode && (
         <RelatedItemPicker
           items={items}
-          selectedIds={draft.relatedIds ?? []}
+          selectedIds={
+            relatedPickerMode === 'detail'
+              ? relatedDetailIds
+              : draft.relatedIds ?? []
+          }
           excludeId={current?.id ?? draft.id}
           onToggle={toggleRelated}
-          onClose={() => setShowRelatedPicker(false)}
+          onClose={() => void closeRelatedPicker()}
         />
       )}
 
@@ -3085,6 +3142,8 @@ interface ItemDetailsProps {
   issue: ItemSecurityIssue | null
   hasPasskeyForItem: boolean
   relatedItems: VaultItem[]
+  onAssociate?: () => void
+  canAssociate?: boolean
   onGeneratePassword: () => void
   onChangePassword?: () => void
   onEditItem: () => void
@@ -3117,6 +3176,8 @@ function ItemDetails({
   issue,
   hasPasskeyForItem,
   relatedItems,
+  onAssociate,
+  canAssociate = false,
   onGeneratePassword,
   onChangePassword,
   onEditItem,
@@ -3956,31 +4017,47 @@ function ItemDetails({
         </div>
       )}
 
-      {relatedItems.length > 0 && (
+      {(relatedItems.length > 0 || canAssociate) && (
         <div className="detail-section">
-          <span className="detail-row__label">{tt('Éléments associés')}</span>
-          <div className="related-list">
-            {relatedItems.map((related) => (
+          <div className="related-items__head">
+            <span className="detail-row__label">{tt('Éléments associés')}</span>
+            {canAssociate && (
               <button
-                key={related.id}
                 type="button"
-                className="related-list__item"
-                onClick={() => onOpenItem?.(related.id)}
-                disabled={!onOpenItem}
+                className="link-button"
+                onClick={onAssociate}
               >
-                <span className={`item-icon item-icon--${related.type}`}>
-                  <ItemIcon type={related.type} item={related} size={16} />
-                </span>
-                <span className="related-list__content">
-                  <span className="related-list__title">{related.title}</span>
-                  <span className="related-list__subtitle">
-                    {itemSubtitle(related)}
-                  </span>
-                </span>
-                <ChevronRight size={15} className="related-list__chevron" />
+                <Plus size={14} />
+                {tt('Associer')}
               </button>
-            ))}
+            )}
           </div>
+          {relatedItems.length === 0 ? (
+            <p className="field__hint">{tt('Aucun élément associé.')}</p>
+          ) : (
+            <div className="related-list">
+              {relatedItems.map((related) => (
+                <button
+                  key={related.id}
+                  type="button"
+                  className="related-list__item"
+                  onClick={() => onOpenItem?.(related.id)}
+                  disabled={!onOpenItem}
+                >
+                  <span className={`item-icon item-icon--${related.type}`}>
+                    <ItemIcon type={related.type} item={related} size={16} />
+                  </span>
+                  <span className="related-list__content">
+                    <span className="related-list__title">{related.title}</span>
+                    <span className="related-list__subtitle">
+                      {itemSubtitle(related)}
+                    </span>
+                  </span>
+                  <ChevronRight size={15} className="related-list__chevron" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

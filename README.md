@@ -490,11 +490,12 @@ la clé séparée. Aucun serveur n’est contacté.
 
 La section **Éléments associés** de la fiche permet de relier plusieurs
 éléments entre eux : un compte bancaire au compte mail qui reçoit ses
-confirmations, une identité aux comptes qu’elle couvre, etc. Le sélecteur
-cherche dans le titre, l’identifiant et les adresses des éléments. Les liens
-sont stockés sur l’élément qui les crée mais apparaissent sur les deux fiches ;
-cliquer sur un élément associé l’ouvre directement. Les liens pointant vers un
-élément supprimé sont ignorés.
+confirmations, une identité aux comptes qu’elle couvre, etc. Le bouton
+**Associer** est disponible directement dans la fiche (et dans le formulaire
+d’édition) ; le sélecteur cherche dans le titre, l’identifiant et les adresses
+des éléments. Les liens sont stockés sur l’élément qui les crée mais
+apparaissent sur les deux fiches ; cliquer sur un élément associé l’ouvre
+directement. Les liens pointant vers un élément supprimé sont ignorés.
 
 ### Champs personnalisés et pièces jointes
 
