@@ -2,6 +2,14 @@
 
 ## Non publié
 
+## 0.17.0 — 21 novembre 2026
+
+Version mineure : nouveau type d’élément et nouveaux champs, sans
+changement du format `.coffre` (`4`), du manifeste (`3`) ni des protocoles
+(`2`). **Mettez à jour tous les appareils** : une application restée en 0.16.0
+conserve les comptes bancaires dans le fichier mais ne les affiche pas, et
+perd le lien « éléments associés » d’une fiche si elle la modifie.
+
 - Comptes et cartes : un **compte bancaire** peut désormais stocker les
   identifiants du site (identifiant, mot de passe, adresses) en plus des
   coordonnées bancaires et de la carte, pour tout regrouper au même endroit.
