@@ -1532,6 +1532,12 @@ body:has(.app-shell)::before {
     left: auto;
     width: min(340px, calc(100vw - 24px));
   }
+
+  .toast {
+    background: var(--surface-toolbar);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
 }
 
 /* ------------------------------------------------------------------ */

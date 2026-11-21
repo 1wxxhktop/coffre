@@ -2880,6 +2880,8 @@ body:has(.app-shell) {
     border-radius: var(--radius-full);
     background: var(--surface-floating-nav);
     box-shadow: var(--shadow-2);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     transition:
       opacity 0.18s ease,
       transform 0.18s ease;

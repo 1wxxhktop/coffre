@@ -178,6 +178,9 @@ export function VaultApp() {
   const sidebarCollapsed = !drawerSidebar && compactSidebar
 
   const splitRef = useRef<HTMLElement>(null)
+  const contentRef = useRef<HTMLElement>(null)
+  const listPaneRef = useRef<HTMLElement>(null)
+  const detailPaneRef = useRef<HTMLElement>(null)
   const [splitWidth, setSplitWidth] = useState(0)
   const listMax = desktopLayout
     ? Math.max(
@@ -241,6 +244,20 @@ export function VaultApp() {
   useEffect(() => {
     if (!drawerSidebar) setSidebarOpen(false)
   }, [drawerSidebar])
+
+  // Changer de vue, de filtre ou de recherche repart du haut de la liste :
+  // sans cela, on peut atterrir sur une zone vide d’une liste plus courte.
+  useEffect(() => {
+    if (listPaneRef.current) listPaneRef.current.scrollTop = 0
+  }, [activeVaultFilter, deferredSearch, filter, securityCategory, view])
+
+  useEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0
+  }, [view])
+
+  useEffect(() => {
+    if (detailPaneRef.current) detailPaneRef.current.scrollTop = 0
+  }, [selectedId])
   const [vaultForm, setVaultForm] = useState<
     { mode: 'create' } | { mode: 'rename'; vault: VaultSummary } | null
   >(null)
@@ -1473,7 +1490,12 @@ export function VaultApp() {
         )}
 
         {dashboardActive ? (
-          <main id="main-content" tabIndex={-1} className="content content--dashboard">
+          <main
+            ref={contentRef}
+            id="main-content"
+            tabIndex={-1}
+            className="content content--dashboard"
+          >
             <Dashboard
               vaults={vaults}
               items={items}
@@ -1504,7 +1526,11 @@ export function VaultApp() {
           className={`content content--split ${singleEmpty ? 'is-empty' : ''}`}
         >
           {!singleEmpty && (
-            <section className="list-pane" aria-label={t('vault.listLabel')}>
+            <section
+              ref={listPaneRef}
+              className="list-pane"
+              aria-label={t('vault.listLabel')}
+            >
               <div className="mobile-list-tools">
                 <div className="content__bar">
                   <span
@@ -1776,6 +1802,7 @@ export function VaultApp() {
           )}
 
           <aside
+            ref={detailPaneRef}
             className={`detail-pane ${detailActive ? 'detail-pane--active' : ''}`}
             aria-label={detailActive ? t('vault.detailTitle') : undefined}
             onTouchStart={onListTouchStart}
