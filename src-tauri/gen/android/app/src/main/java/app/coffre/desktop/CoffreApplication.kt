@@ -7,7 +7,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import android.view.autofill.AutofillManager
 import androidx.core.content.FileProvider
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -21,6 +20,23 @@ import java.util.concurrent.TimeUnit
  * avec `FLAG_ACTIVITY_NEW_TASK` ; le fichier est partagé par le FileProvider
  * déclaré dans le manifeste.
  */
+/**
+ * Accès à `AutofillManager` par réflexion : la classe n’existe pas sur
+ * Android 7 et `CoffreApplication` doit rester chargeable sur ces appareils.
+ */
+private object AutofillSupport {
+  fun enabled(context: Application): Boolean {
+    return try {
+      val manager = context.getSystemService("autofill") ?: return false
+      manager.javaClass
+        .getMethod("hasEnabledAutofillServices")
+        .invoke(manager) as? Boolean ?: false
+    } catch (_: Exception) {
+      false
+    }
+  }
+}
+
 class CoffreApplication : Application() {
   fun installApk(path: String): Boolean {
     return try {
@@ -52,14 +68,12 @@ class CoffreApplication : Application() {
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
   /** Vrai si Coffre est le service de remplissage sélectionné dans Android. */
-  @Suppress("DEPRECATION")
   fun isAutofillServiceEnabled(): Boolean {
     // `AutofillService` n’existe qu’à partir d’Android 8 : ne pas charger la
     // classe du service sur les anciens appareils.
     if (!isAutofillSupported()) return false
     return try {
-      val manager = getSystemService(AutofillManager::class.java) ?: return false
-      manager.hasEnabledAutofillServices()
+      AutofillSupport.enabled(this)
     } catch (_: Exception) {
       false
     }
