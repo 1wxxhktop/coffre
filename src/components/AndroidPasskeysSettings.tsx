@@ -132,6 +132,11 @@ export function AndroidPasskeysSettings() {
             'La création d’une passkey depuis Android n’est pas encore disponible : créez-la depuis le site avec l’extension Coffre, puis elle apparaîtra ici.',
           )}
         </p>
+        <p>
+          {tt(
+            'Le cache expire après le délai de verrouillage automatique, même si Android met Coffre en veille.',
+          )}
+        </p>
       </details>
     </section>
   )
