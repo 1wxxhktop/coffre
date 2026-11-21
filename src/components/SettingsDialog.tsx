@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  Archive,
   ArrowLeft,
   Check,
+  ChevronRight,
   Cloud,
   Download,
   FileKey2,
@@ -12,6 +14,7 @@ import {
   History,
   KeyRound,
   Languages,
+  LayoutTemplate,
   LoaderCircle,
   Monitor,
   RefreshCw,
@@ -99,9 +102,9 @@ const SETTINGS_PAGES: Array<{
   { id: 'general', label: 'Général', icon: SlidersHorizontal },
   { id: 'sync', label: 'Synchronisation', icon: Cloud },
   { id: 'security', label: 'Sécurité', icon: ShieldCheck },
-  { id: 'templates', label: 'Modèles', icon: FileKey2 },
-  { id: 'activity', label: 'Journal d’activité', icon: FileKey2 },
-  { id: 'backup', label: 'Sauvegarde et import', icon: FileKey2 },
+  { id: 'templates', label: 'Modèles', icon: LayoutTemplate },
+  { id: 'activity', label: 'Journal d’activité', icon: History },
+  { id: 'backup', label: 'Sauvegarde et import', icon: Archive },
   { id: 'storage', label: 'Stockage', icon: HardDrive },
   { id: 'updates', label: 'Mises à jour', icon: RefreshCw },
   { id: 'danger', label: 'Zone dangereuse', icon: Trash2 },
@@ -677,6 +680,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
         title={tt('Réglages')}
         description={tt('Préférences locales, sécurité, sauvegardes et stockage.')}
         size="xl"
+        fullscreen
         onClose={onClose}
       >
         <div className={`settings ${mobilePageOpen ? 'settings--page-open' : ''}`}>
@@ -694,7 +698,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                   onClick={() => goToPage(entry.id)}
                 >
                   <Icon size={16} />
-                  {entry.label}
+                  <span className="settings__nav-label">{entry.label}</span>
+                  <ChevronRight size={16} className="settings__nav-chevron" />
                 </button>
               )
             })}

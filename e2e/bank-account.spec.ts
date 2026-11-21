@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createVault, selectItemType } from './helpers'
+import { createVault, newItemButton, selectItemType } from './helpers'
 
 test.describe('compte et carte', () => {
   test('se crée avec ⌘N/Ctrl-N et conserve compte, IBAN, carte et BIC', async ({
@@ -44,7 +44,8 @@ test.describe('compte et carte', () => {
   }) => {
     await page.setViewportSize({ width: 760, height: 800 })
     await createVault(page)
-    await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
+    const trigger = await newItemButton(page)
+    await trigger.click()
 
     const dialog = page.getByRole('dialog')
     await expect(

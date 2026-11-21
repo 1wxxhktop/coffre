@@ -41,8 +41,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const toast = useCallback(
     (message: string, tone: ToastTone = 'info') => {
       const id = ++counter.current
-      setToasts((previous) => [...previous.slice(-3), { id, message, tone }])
-      const timer = setTimeout(() => dismiss(id), tone === 'error' ? 6000 : 4000)
+      // Une seule notification à la fois : sur mobile, les empiler créait
+      // une pile de bandeaux sombres qui masquait le bas de l’écran.
+      for (const timer of timers.current.values()) clearTimeout(timer)
+      timers.current.clear()
+      setToasts([{ id, message, tone }])
+      const timer = setTimeout(() => dismiss(id), tone === 'error' ? 6000 : 3000)
       timers.current.set(id, timer)
     },
     [dismiss],

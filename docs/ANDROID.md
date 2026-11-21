@@ -31,6 +31,43 @@ appareil. Ce n’est pas encore une application Android complète.
 L’APK reste une **alpha** : ne pas l’utiliser seul pour un coffre contenant de
 vrais secrets, sans sauvegarde sur un autre appareil.
 
+## Interface mobile
+
+Sous 768 px, la coque desktop laisse place à une interface tactile :
+
+- barre supérieure compacte avec menu, titre, recherche/tri et trois actions
+  à droite : **générateur**, **réglages** et **badge de sécurité** ;
+- navigation basse **flottante et persistante** : **Accueil**, **Coffre**,
+  **Favoris**, **Récents**, avec un bouton central « Nouvel élément » ; la
+  barre elle-même est translucide et les barres système Android sont
+  transparentes ;
+- la navigation reste visible sur le détail, les réglages, la sécurité et les
+  formulaires ; les actions du haut restent visibles sur le détail ;
+- groupes de dates avec en-tête dans le flux, sans masquer la première ligne
+  ni créer de vide au défilement ;
+- réglages, sécurité et formulaires d’élément en pages plein écran, avec
+  pied d’action fixe et libellés visibles ;
+- notifications au-dessus de la barre d’onglets et du bouton flottant ;
+- zones sûres (`env(safe-area-inset-*)`) pour la barre d’état et la navigation
+  gestuelle Android.
+
+La grille desktop, les colonnes redimensionnables et les raccourcis clavier
+restent inchangés au-dessus de 768 px. Les tests `design.spec.ts`,
+`dashboard.spec.ts`, `layout.spec.ts` et `accessibility.spec.ts` couvrent les
+largeurs 360, 375, 390 et 760 px, l’absence de débordement et l’accessibilité
+des nouveaux onglets. Le rendu des zones sûres et de la navigation gestuelle
+reste à confirmer sur un appareil physique.
+
+### Bouton retour Android
+
+`MainActivity` intercepte le retour système et appelle
+`window.__coffreHandleBack`. L’interface ferme alors la couche la plus haute :
+menu, modale, détail, tiroir, recherche, filtre ou catégorie de sécurité.
+Quand il ne reste plus rien à fermer, elle renvoie `false` et l’activité
+termine. Le test `mobile-back.spec.ts` couvre l’ordre de fermeture côté
+WebView ; le geste et le bouton matériels restent à vérifier sur un appareil
+physique.
+
 ## Signature et bêtas
 
 Android n’installe une mise à jour par-dessus l’application existante que si
