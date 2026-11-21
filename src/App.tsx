@@ -8,6 +8,7 @@ import { NativeBridge } from './components/NativeBridge'
 import { BackupScheduler } from './components/BackupScheduler'
 import { UpdateNotice } from './components/UpdateNotice'
 import { AndroidUpdateOptIn } from './components/AndroidUpdateOptIn'
+import { AndroidAutofillBridge } from './components/AndroidAutofillBridge'
 import { ExtensionOnboarding } from './components/ExtensionOnboarding'
 import { WindowTitlebar } from './components/WindowTitlebar'
 import { UpdateProvider } from './state/UpdateProvider'
@@ -35,6 +36,7 @@ export default function App() {
               <ExtensionOnboarding />
               <NativeBridge />
               <BackupScheduler />
+              <AndroidAutofillBridge />
               <Root />
               <UpdateNotice />
             </UpdateProvider>

@@ -18,10 +18,16 @@ appareil. Ce n’est pas encore une application Android complète.
 - Interface tactile et thème clair/sombre.
 - **Mises à jour intégrées** : lecture du manifeste bêta, téléchargement de
   l’APK, contrôle SHA-256 et ouverture de l’installateur Android.
+- **Remplissage Android (Autofill Framework, Android 8+)** : les connexions du
+  coffre sont proposées dans les formulaires web du navigateur et des
+  applications. Désactivé par défaut ; le cache reste en mémoire et expire avec
+  le verrouillage automatique.
 
 ## Ce qui n’est pas encore là
 
-- Autofill Android (remplissage dans les applications et le navigateur).
+- Remplissage des applications natives sans domaine web (nécessite une
+  correspondance par package ou des associations de domaines).
+- Enregistrement d’un mot de passe saisi dans une autre application.
 - Passkeys via Credential Manager.
 - Tray, auto-type et extension navigateur.
 - Publication Play Store.
@@ -149,6 +155,61 @@ un APK qui serait refusé par Android. La première installation de la version
 avec ce mécanisme reste manuelle : les bêtas antérieures ne contiennent pas le
 code de mise à jour.
 
+### Remplissage automatique
+
+Coffre peut remplir les identifiants dans les formulaires web des autres
+applications et du navigateur avec l’**Autofill Framework** d’Android 8 ou
+plus récent.
+
+1. Ouvrir **Réglages → Remplissage Android**.
+2. **Désactiver « Verrouiller quand Coffre passe en arrière-plan »** : sans
+   cela, le cache est vidé dès que l’on quitte Coffre, avant que le navigateur
+   puisse l’utiliser. Le verrouillage automatique par inactivité reste actif
+   s’il est configuré.
+3. Appuyer sur **Choisir Coffre dans Android** et sélectionner **Coffre**.
+4. Activer **Proposer les connexions de Coffre dans les formulaires**.
+5. Laisser le coffre déverrouillé, puis ouvrir un formulaire de connexion dans
+   Chrome ou une application.
+
+Le service ne reçoit que les connexions dont une adresse correspond au domaine
+du formulaire, avec la même règle que l’extension (`loginAllowsHost`) : hôte
+exact, tolérance `www.` uniquement, pas de sous-domaine tiers. Un formulaire
+sans domaine web (application native) ne reçoit aucune proposition. Les
+formulaires à deux étapes qui ne demandent que l’identifiant reçoivent une
+proposition d’identifiant seule lorsque le champ est explicitement marqué
+comme identifiant (un champ e-mail générique seul peut être une newsletter).
+
+**Garanties :**
+
+- le cache vit **uniquement en mémoire** ; aucun mot de passe n’est écrit sur
+  le disque ;
+- il est publié seulement lorsque le réglage est actif et le coffre
+  déverrouillé, puis vidé au verrouillage, à la désactivation ou à la fin du
+  processus ;
+- sa durée de validité suit le **verrouillage automatique** (plafonnée à un
+  jour ; aucune expiration si le verrouillage est désactivé) et est vérifiée
+  côté Rust : Android peut endormir la WebView sans prolonger le cache ;
+- Coffre **ne capture pas** les mots de passe saisis dans les autres
+  applications (`onSaveRequest` ne fait rien) ;
+- les secrets sont plafonnés et effacés de la mémoire Rust (`zeroize`) quand
+  le cache est remplacé ou vidé.
+
+**Limites connues :**
+
+- si Android tue le processus Coffre, le cache disparaît : rouvrir et
+  déverrouiller Coffre avant de remplir ;
+- le service ne propose rien pour les applications natives sans domaine web ;
+- le remplissage des codes TOTP n’est pas encore pris en charge ;
+- Android ne fournit jamais le port : une connexion enregistrée avec un port
+  explicite (`http://localhost:3000`) ne correspond pas. Le schéma n’est
+  fourni qu’à partir d’Android 9 ; sur Android 8, Coffre suppose HTTPS ;
+- une application malveillante peut déclarer un domaine web qui n’est pas le
+  sien dans une WebView. Android ne fournit pas de preuve cryptographique du
+  domaine (Digital Asset Links) : vérifier l’application avant de choisir une
+  proposition, comme avec tout gestionnaire de mots de passe ;
+- deux services de remplissage peuvent coexister (build debug `…debug` et
+  build signé) : sélectionner celui de l’APK installé.
+
 ## Construire localement
 
 Prérequis : Java 21, SDK Android (plateforme 37.0, build-tools 36) et NDK
@@ -213,12 +274,14 @@ Restent à valider sur appareil réel : les performances Argon2, le clavier
 physique, l’import/export de fichiers, les gros coffres, la rotation d’écran,
 le mode sombre système et la restauration après mise à jour. Le premier import
 par réseau local, le filtre de fichier élargi, le déverrouillage par empreinte
-digitale et le parcours complet de mise à jour (téléchargement, SHA-256,
-installateur Android, conservation du coffre) doivent être confirmés sur un
-appareil Android physique.
+digitale, le parcours complet de mise à jour (téléchargement, SHA-256,
+installateur Android, conservation du coffre) et le **remplissage automatique**
+(sélection du service, proposition sur un formulaire, expiration après le
+délai, absence de proposition sur un domaine voisin) doivent être confirmés
+sur un appareil Android physique.
 
 ## Prochaines étapes
 
-La version Android complète reste planifiée en 0.18 : Autofill Framework,
-Credential Manager/passkeys, validation multi-appareils et publication Play
-Store.
+La version Android complète reste planifiée en 0.18 : validation du
+remplissage sur appareils réels, Credential Manager/passkeys, validation
+multi-appareils et publication Play Store.

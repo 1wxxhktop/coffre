@@ -401,7 +401,11 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 
 - Application Android native (Kotlin/Compose) + cœur Rust via UniFFI.
 - Coffre local, déverrouillage biométrique, générateur, TOTP.
-- Autofill Framework Android.
+- Autofill Framework Android. **Livré pour les mots de passe web** : service
+  système, cache mémoire expirant avec le verrouillage automatique,
+  correspondance de domaine et écran de réglages. Restent la validation sur
+  appareils réels, l’authentification par proposition, les applications
+  natives sans domaine et les codes TOTP.
 - Passkeys via Credential Manager / provider Android 14+.
 - Sync dossier, LAN, QR d’appairage.
 - CXP Android (Play Services 26.21+).
@@ -578,7 +582,10 @@ Orion dans `install_native_hosts` et une reconnexion réellement testée.
 1. **Socle** : générer les bindings UniFFI Android ; ouvrir, lire, écrire, fusionner un `.coffre` ; tests croisés avec les vecteurs Rust.
 2. **UI** : liste, recherche, fiche, générateur, TOTP, réglages, thème, verrouillage.
 3. **Biométrie** : `BiometricPrompt` + Android Keystore ; clé enveloppée ; repli maître.
-4. **Autofill** : `AutofillService`, parsing des champs, datasets, authentification, suggestions inline ; tests sur apps réelles.
+4. **Autofill** : `AutofillService`, parsing des champs, datasets et
+   correspondance de domaine **livrés** pour les formulaires web, avec un cache
+   mémoire. Restent l’authentification par proposition, les suggestions inline,
+   les applications natives et les tests sur apps réelles.
 5. **Passkeys** : `CredentialManager` / provider Android 14+ ; création, assertion, confirmation.
 6. **Sync** : SAF pour dossier, LAN, QR d’appairage ; file d’attente hors ligne.
 7. **CXP** : `ProviderEventsManager` import/export (Play Services 26.21+), CXF.

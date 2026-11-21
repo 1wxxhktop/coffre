@@ -89,6 +89,10 @@ export function loadSettings(): AppSettings {
         typeof parsed.biometricUnlock === 'boolean'
           ? parsed.biometricUnlock
           : DEFAULT_SETTINGS.biometricUnlock,
+      androidAutofill:
+        typeof parsed.androidAutofill === 'boolean'
+          ? parsed.androidAutofill
+          : DEFAULT_SETTINGS.androidAutofill,
       expiryNotifications:
         typeof parsed.expiryNotifications === 'boolean'
           ? parsed.expiryNotifications

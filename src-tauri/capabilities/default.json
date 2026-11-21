@@ -7,6 +7,11 @@
   ],
   "permissions": [
     "allow-alias-create",
+    "allow-android-autofill-clear",
+    "allow-android-autofill-open-settings",
+    "allow-android-autofill-publish",
+    "allow-android-autofill-status",
+    "allow-android-autofill-touch",
     "allow-android-updater-check",
     "allow-android-updater-discard",
     "allow-android-updater-download",

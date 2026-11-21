@@ -2,12 +2,32 @@ package app.coffre.desktop
 
 import android.app.Application
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import androidx.core.content.FileProvider
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+
+/**
+ * Accès à `AutofillManager` par réflexion : la classe n’existe pas sur
+ * Android 7 et `CoffreApplication` doit rester chargeable sur ces appareils.
+ */
+private object AutofillSupport {
+  fun enabled(context: Application): Boolean {
+    return try {
+      val manager = context.getSystemService("autofill") ?: return false
+      manager.javaClass
+        .getMethod("hasEnabledAutofillServices")
+        .invoke(manager) as? Boolean ?: false
+    } catch (_: Exception) {
+      false
+    }
+  }
+}
 
 /**
  * Contexte d’application exposé à Rust par `ndk_context`.
@@ -41,6 +61,44 @@ class CoffreApplication : Application() {
     } catch (_: Exception) {
       false
     }
+  }
+
+  /** Vrai si Android expose l’Autofill Framework (Android 8+). */
+  fun isAutofillSupported(): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+
+  /** Vrai si Coffre est le service de remplissage sélectionné dans Android. */
+  fun isAutofillServiceEnabled(): Boolean {
+    // `AutofillService` n’existe qu’à partir d’Android 8 : ne pas charger la
+    // classe du service sur les anciens appareils.
+    if (!isAutofillSupported()) return false
+    return try {
+      AutofillSupport.enabled(this)
+    } catch (_: Exception) {
+      false
+    }
+  }
+
+  /** Ouvre l’écran système de choix du service de remplissage. */
+  fun openAutofillSettings(): Boolean {
+    val candidates = listOf(
+      Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
+        data = Uri.parse("package:$packageName")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      },
+      Intent(Settings.ACTION_SETTINGS).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      },
+    )
+    for (intent in candidates) {
+      try {
+        startActivity(intent)
+        return true
+      } catch (_: Exception) {
+        // Essayer le repli suivant.
+      }
+    }
+    return false
   }
 
   private fun launchInstaller(file: File): Boolean {

@@ -381,6 +381,12 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   biométrique. Sur macOS, la clé est rangée dans un trousseau biométrique
   séparé ; sur Android, elle est chiffrée par Android Keystore et déchiffrée
   après le dialogue système. `keychain_load` ne peut pas la lire.
+- **Remplissage automatique Android (Android 8+)** : Réglages → Remplissage
+  Android. Coffre propose les connexions correspondant au domaine du
+  formulaire dans le navigateur et les applications. Le cache reste en mémoire,
+  n’est jamais écrit sur le disque et expire avec le verrouillage automatique ;
+  désactivé par défaut. Les applications natives sans domaine web et les codes
+  TOTP ne sont pas encore couverts.
 - **Dérivation Argon2id dans un Web Worker** et index de recherche pré-calculé ;
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks
@@ -1504,17 +1510,18 @@ TOTP et les mises à jour intégrées.
 bun run mobile:android:build
 ```
 
-L’APK de la bêta est un build release signé par la clé fixe, sans autofill
-Android ni passkeys pour l’instant. La première installation de cette version
-se fait à la main (l’ancienne bêta ne contient pas encore le mécanisme de mise
-à jour) ; les suivantes sont proposées dans Coffre, téléchargées puis confiées
-à l’installateur Android. Il a été validé sur un émulateur Android 15 :
-création, redémarrage et déverrouillage du coffre. La coque mobile utilise une
-barre supérieure compacte avec les actions générateur, réglages et sécurité,
-une navigation basse flottante persistante (Accueil, Coffre, Favoris,
-Récents) avec bouton central de création, et des pages plein écran pour les
-réglages, la sécurité et les formulaires. La
-version Android complète reste planifiée en 0.18. Voir
+L’APK de la bêta est un build release signé par la clé fixe, avec
+**remplissage Android** pour les formulaires web (mots de passe seulement) mais
+sans passkeys pour l’instant. La première installation de cette version se fait
+à la main (l’ancienne bêta ne contient pas encore le mécanisme de mise à jour) ;
+les suivantes sont proposées dans Coffre, téléchargées puis confiées à
+l’installateur Android. Il a été validé sur un émulateur Android 15 : création,
+redémarrage et déverrouillage du coffre. La coque mobile utilise une barre
+supérieure compacte avec les actions générateur, réglages et sécurité, une
+navigation basse flottante persistante (Accueil, Coffre, Favoris, Récents) avec
+bouton central de création, et des pages plein écran pour les réglages, la
+sécurité et les formulaires. Le remplissage doit encore être validé sur un
+appareil physique. La version Android complète reste planifiée en 0.18. Voir
 [`docs/ANDROID.md`](docs/ANDROID.md).
 
 iOS n’est pas encore initialisé : Xcode, CocoaPods et un compte de signature

@@ -1,10 +1,10 @@
 # Politique de confidentialité de Coffre
 
-**Dernière mise à jour :** 13 novembre 2026 — version 0.16.0
+**Dernière mise à jour :** 21 novembre 2026 — version 0.18.0 (bêta)
 
 Coffre est un gestionnaire de mots de passe local-first, publié sous licence
-GPL-3.0. Cette politique couvre l’application desktop, l’application web
-installable et l’extension de navigateur.
+GPL-3.0. Cette politique couvre l’application desktop, l’application Android,
+l’application web installable et l’extension de navigateur.
 
 ## Résumé
 
@@ -48,6 +48,13 @@ réseau local. Dans ce cas, seuls les fichiers chiffrés sont transmis.
   l’URL des pages visitées, ni les formulaires, ni les secrets à un serveur
   distant. Le remplissage et l’enregistrement sont déclenchés par l’utilisateur
   ou par l’option explicite de remplissage au chargement.
+
+**Remplissage Android.** Lorsque l’utilisateur l’active, Coffre publie les
+connexions dans un cache **en mémoire** lu par le service Autofill d’Android.
+Aucune donnée n’est écrite sur le disque ni envoyée sur le réseau. Le système
+Android voit les propositions et transmet uniquement l’élément choisi à
+l’application dans laquelle l’utilisateur remplit le formulaire ; Coffre ne
+capture pas les mots de passe saisis ailleurs.
 
 Coffre ne vend, ne loue et ne partage aucune donnée personnelle. Aucun outil
 d’analyse, de suivi ou de publicité n’est intégré.

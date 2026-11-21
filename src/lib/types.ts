@@ -677,6 +677,12 @@ export interface AppSettings {
   keychainUnlock: boolean
   /** Desktop macOS/Windows : déverrouiller par biométrie (Touch ID ou Windows Hello). */
   biometricUnlock: boolean
+  /**
+   * Android : publier les connexions au service de remplissage système.
+   * Désactivé par défaut, comme toute fonction qui expose des secrets hors de
+   * la fenêtre du coffre.
+   */
+  androidAutofill: boolean
   /** Afficher des notifications locales pour les échéances proches. */
   expiryNotifications: boolean
   /** Vérifier les mots de passe dans les fuites connues, en k-anonymat. */
@@ -729,6 +735,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   generatorHistoryRetentionDays: 7,
   keychainUnlock: false,
   biometricUnlock: false,
+  androidAutofill: false,
   expiryNotifications: false,
   breachCheck: false,
   backupFrequency: 'off',
