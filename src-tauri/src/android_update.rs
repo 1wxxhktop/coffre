@@ -300,7 +300,13 @@ mod imp {
         }
         file.flush().map_err(|_| "download-failed".to_string())?;
         drop(file);
-        let digest = format!("{:x}", hasher.finalize());
+        // `sha2` 0.11 renvoie un `hybrid_array::Array`, qui n’implémente pas
+        // `LowerHex` : convertir les octets un par un.
+        let digest: String = hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
         if digest != pending.sha256 {
             return Err("checksum-failed".into());
         }
