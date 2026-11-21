@@ -391,6 +391,11 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   les captures, les enregistrements et l’aperçu des applications récentes. Le
   blocage est actif par défaut, mémorisé côté natif et désactivable dans
   Réglages → Sécurité.
+- **Passkeys Android (Android 14+)** : Coffre peut être choisi comme
+  fournisseur de passkeys dans Credential Manager et signer les passkeys du
+  coffre dans les navigateurs compatibles, après authentification système. Le
+  cache reste en mémoire et la clé privée ne quitte jamais Rust. La création
+  depuis Android reste à faire ; elle se fait depuis le site avec l’extension.
 - **Dérivation Argon2id dans un Web Worker** et index de recherche pré-calculé ;
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks

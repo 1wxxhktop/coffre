@@ -27,6 +27,10 @@ l’application web installable et l’extension de navigateur.
 - Sur Android, le choix de bloquer les captures d’écran est mémorisé sous forme
   d’un simple booléen dans les préférences natives ; aucune image ni contenu du
   coffre n’est enregistré.
+- Les passkeys Android sont publiées dans un cache mémoire uniquement lorsque
+  l’utilisateur active l’option et que le coffre est déverrouillé. Les clés
+  privées restent dans le processus Rust et ne sont ni écrites sur le disque
+  ni envoyées sur le réseau.
 
 Ces données restent sur l’appareil, sauf si l’utilisateur choisit un dossier
 synchronisé (iCloud, Dropbox, Nextcloud, etc.) ou la synchronisation sur le

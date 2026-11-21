@@ -113,6 +113,39 @@ class CoffreApplication : Application() {
     return false
   }
 
+  /** Ouvre l’écran Android des fournisseurs de passkeys. */
+  fun openPasskeySettings(): Boolean {
+    val candidates = buildList {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        add(
+          Intent(Settings.ACTION_CREDENTIAL_PROVIDER).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          },
+        )
+      }
+      add(
+        Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
+          data = Uri.parse("package:$packageName")
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        },
+      )
+      add(
+        Intent(Settings.ACTION_SETTINGS).apply {
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        },
+      )
+    }
+    for (intent in candidates) {
+      try {
+        startActivity(intent)
+        return true
+      } catch (_: Exception) {
+        // Essayer le repli suivant.
+      }
+    }
+    return false
+  }
+
   fun attachActivity(activity: MainActivity) {
     currentActivity = WeakReference(activity)
   }

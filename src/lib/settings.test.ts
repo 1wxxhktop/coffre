@@ -36,6 +36,18 @@ describe('remplissage Android', () => {
   })
 })
 
+describe('passkeys Android', () => {
+  it('sont désactivées par défaut', () => {
+    stubSettings({})
+    expect(loadSettings().androidPasskeys).toBe(false)
+  })
+
+  it('reprennent une activation explicite', () => {
+    stubSettings({ androidPasskeys: true })
+    expect(loadSettings().androidPasskeys).toBe(true)
+  })
+})
+
 describe('captures d’écran Android', () => {
   it('sont bloquées par défaut', () => {
     stubSettings({})

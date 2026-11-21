@@ -406,7 +406,9 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
   correspondance de domaine et écran de réglages. Restent la validation sur
   appareils réels, l’authentification par proposition, les applications
   natives sans domaine et les codes TOTP.
-- Passkeys via Credential Manager / provider Android 14+.
+- Passkeys via Credential Manager / provider Android 14+. **Assertion livrée**
+  (fournisseur, cache mémoire, authentification, navigateurs de confiance) ;
+  création depuis Android et validation appareil restent à faire.
 - Sync dossier, LAN, QR d’appairage.
 - CXP Android (Play Services 26.21+).
 - Mode voyage, verrouillage, **capture d’écran bloquée (livrée)**,
@@ -587,7 +589,9 @@ Orion dans `install_native_hosts` et une reconnexion réellement testée.
    correspondance de domaine **livrés** pour les formulaires web, avec un cache
    mémoire. Restent l’authentification par proposition, les suggestions inline,
    les applications natives et les tests sur apps réelles.
-5. **Passkeys** : `CredentialManager` / provider Android 14+ ; création, assertion, confirmation.
+5. **Passkeys** : `CredentialManager` / provider Android 14+ ; **assertion
+   livrée** (fournisseur, cache mémoire, authentification, liste de navigateurs
+   de confiance), création et validation sur appareil à faire.
 6. **Sync** : SAF pour dossier, LAN, QR d’appairage ; file d’attente hors ligne.
 7. **CXP** : `ProviderEventsManager` import/export (Play Services 26.21+), CXF.
 8. **Sécurité** : `FLAG_SECURE` **livré** (blocage des captures, désactivable),

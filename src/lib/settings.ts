@@ -93,6 +93,10 @@ export function loadSettings(): AppSettings {
         typeof parsed.androidAutofill === 'boolean'
           ? parsed.androidAutofill
           : DEFAULT_SETTINGS.androidAutofill,
+      androidPasskeys:
+        typeof parsed.androidPasskeys === 'boolean'
+          ? parsed.androidPasskeys
+          : DEFAULT_SETTINGS.androidPasskeys,
       androidSecureScreen:
         typeof parsed.androidSecureScreen === 'boolean'
           ? parsed.androidSecureScreen

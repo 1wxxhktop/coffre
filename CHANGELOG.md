@@ -16,6 +16,12 @@
   expirant avec le verrouillage automatique ; rien n’est écrit sur le disque et
   Coffre ne capture pas les mots de passe saisis ailleurs. Désactivé par
   défaut ; nécessite de laisser le coffre déverrouillé en arrière-plan.
+- Android : **passkeys via Credential Manager** (Android 14+). Coffre peut
+  signer les passkeys déjà présentes dans le coffre dans les navigateurs
+  compatibles, après authentification système. Le cache reste en mémoire,
+  seules les métadonnées sont exposées à Kotlin et la clé privée reste dans
+  Rust. La création depuis Android n’est pas encore proposée ; elle reste
+  disponible depuis le site avec l’extension. Désactivé par défaut.
 - Android : **captures d’écran bloquées par défaut** avec `FLAG_SECURE`. Les
   captures, les enregistrements et l’aperçu dans les applications récentes sont
   masqués ; le choix est mémorisé côté natif et appliqué dès le démarrage. Il
