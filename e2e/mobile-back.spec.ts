@@ -26,7 +26,7 @@ test('le retour ferme les couches avant de quitter', async ({ page }) => {
 
   // Réglages en plein écran.
   await page
-    .locator('.mobile-tabs')
+    .locator('.mobile-top-actions')
     .getByRole('button', { name: 'Réglages', exact: true })
     .click()
   await expect(page.getByRole('dialog')).toBeVisible()

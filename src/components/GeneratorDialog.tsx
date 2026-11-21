@@ -167,6 +167,7 @@ export function GeneratorDialog({
           <Modal
             title={tt('Historique du générateur')}
             size="md"
+            fullscreen
             onClose={() => setShowHistory(false)}
           >
             <p>{tt('Chargement…')}</p>
@@ -191,6 +192,7 @@ export function GeneratorDialog({
         'Généré localement avec le générateur cryptographique du navigateur.',
       )}
       size="md"
+      fullscreen
       onClose={onClose}
       footer={
         <>

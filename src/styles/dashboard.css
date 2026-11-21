@@ -792,6 +792,12 @@
     white-space: normal;
   }
 
+  /* Générateur et sécurité sont dans la barre haute sur mobile. */
+  .dashboard__quick-actions .button--secondary,
+  .dashboard__quick-actions .button--ghost {
+    display: none;
+  }
+
   .dashboard__quick-actions .button--primary {
     grid-column: 1 / -1;
   }

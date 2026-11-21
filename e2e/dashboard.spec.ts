@@ -79,8 +79,10 @@ test('le tableau de bord est accessible sur mobile et sans débordement', async 
     page.locator('.mobile-tabs').getByRole('button', { name: 'Coffre', exact: true }),
   ).not.toHaveAttribute('aria-current', 'page')
   await expect(
-    page.locator('.mobile-tabs').getByRole('button', { name: 'Sécurité', exact: true }),
-  ).not.toHaveAttribute('aria-current', 'page')
+    page.locator('.mobile-top-actions').getByRole('button', {
+      name: 'Sécurité du coffre',
+    }),
+  ).toBeVisible()
 
   const metrics = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -96,8 +98,8 @@ test('le tableau de bord est accessible sur mobile et sans débordement', async 
     .getByRole('button', { name: 'Coffre', exact: true })
     .click()
   await expect(
-    page.locator('.mobile-filters').getByRole('button', { name: 'Tout', exact: true }),
-  ).toHaveAttribute('aria-pressed', 'true')
+    page.locator('.mobile-tabs').getByRole('button', { name: 'Coffre', exact: true }),
+  ).toHaveAttribute('aria-current', 'page')
   await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible()
   await expect(page.locator('.dashboard')).toHaveCount(0)
 })

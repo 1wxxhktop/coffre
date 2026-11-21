@@ -1510,8 +1510,10 @@ se fait à la main (l’ancienne bêta ne contient pas encore le mécanisme de m
 à jour) ; les suivantes sont proposées dans Coffre, téléchargées puis confiées
 à l’installateur Android. Il a été validé sur un émulateur Android 15 :
 création, redémarrage et déverrouillage du coffre. La coque mobile utilise une
-barre supérieure compacte, quatre onglets, un bouton flottant de création et
-des pages plein écran pour les réglages, la sécurité et les formulaires. La
+barre supérieure compacte avec les actions générateur, réglages et sécurité,
+une navigation basse flottante persistante (Accueil, Coffre, Favoris,
+Récents) avec bouton central de création, et des pages plein écran pour les
+réglages, la sécurité et les formulaires. La
 version Android complète reste planifiée en 0.18. Voir
 [`docs/ANDROID.md`](docs/ANDROID.md).
 

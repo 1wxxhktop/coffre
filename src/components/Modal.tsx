@@ -149,7 +149,10 @@ export function Modal({
 
   return createPortal(
     <div
-      className={cx('modal-overlay', fullscreen && 'modal-overlay--fullscreen')}
+      className={cx(
+        'modal-overlay',
+        fullscreen ? 'modal-overlay--fullscreen' : 'modal-overlay--sheet',
+      )}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) closeRef.current()
       }}

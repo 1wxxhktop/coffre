@@ -1,5 +1,6 @@
 import { UpdateStatus } from './UpdateStatus'
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { listen } from '@tauri-apps/api/event'
 import {
   AlertTriangle,
@@ -128,12 +129,6 @@ function loadGroupByDate(): boolean {
 }
 
 const TYPE_ORDER: ItemType[] = ['login', 'card', 'note', 'identity', 'bank-account', 'passkey', 'ssh-key', 'wifi', 'api-credential', 'software-license', 'document', 'recovery-codes']
-
-const MOBILE_FILTERS: Array<{ value: ItemFilter; key: MessageKey }> = [
-  { value: 'all', key: 'vault.all' },
-  { value: 'favorites', key: 'filter.favorites' },
-  { value: 'recent', key: 'filter.recent' },
-]
 
 const SECURITY_CATEGORY_KEYS: Record<SecurityCategory, MessageKey> = {
   breached: 'security.category.breached',
@@ -797,24 +792,30 @@ export function VaultApp() {
   const canCreateInDefault =
     Boolean(defaultVaultId) &&
     vaults.find((vault) => vault.id === defaultVaultId)?.role !== 'read'
-  const mobileTab = securityOpen || securityCategory
-    ? 'security'
-    : settingsOpen
-      ? 'settings'
-      : dashboardActive
-        ? 'home'
+  const mobileTab = dashboardActive
+    ? 'home'
+    : filter === 'favorites'
+      ? 'favorites'
+      : filter === 'recent'
+        ? 'recent'
         : 'vault'
-  const showMobileFab =
-    drawerSidebar &&
-    !dashboardActive &&
-    !detailActive &&
-    !singleEmpty &&
-    filter !== 'trash' &&
-    filter !== 'passkey' &&
-    !securityOpen &&
-    !settingsOpen &&
-    !readOnly &&
-    canCreateInDefault
+  const canCreateFromNav = !readOnly && canCreateInDefault
+  const mobileSecurityTone =
+    securityReport.total === 0
+      ? 'neutral'
+      : securityReport.score < 50
+        ? 'danger'
+        : securityReport.score < 80
+          ? 'warning'
+          : 'good'
+  const closeMobileOverlays = () => {
+    setSecurityOpen(false)
+    setSettingsOpen(false)
+    setCreateType(null)
+    setGeneratorOpen(false)
+    setPaletteItemId(null)
+    setPaletteOpen(false)
+  }
 
   // Bouton retour Android : fermer la couche la plus haute avant de quitter.
   // Le pont natif (MainActivity) appelle cette fonction et ne termine
@@ -931,6 +932,14 @@ export function VaultApp() {
     if (readOnly) return
     setSecurityCategory(null)
     setCreateType('login')
+  }
+
+  const openCreateFromNav = () => {
+    if (!canCreateFromNav) return
+    closeMobileOverlays()
+    setSelectedId(null)
+    if (dashboardActive) openCreateFromDashboard()
+    else openCreate()
   }
 
   const openDashboardItem = (itemId: string) => {
@@ -1297,6 +1306,56 @@ export function VaultApp() {
                   </span>
                 </label>
               )}
+              {!dashboardActive && (
+                <Menu
+                  label={t('vault.listOptions')}
+                  title={t('vault.listOptions')}
+                  trigger={<ArrowUpDown size={17} />}
+                  triggerClassName="icon-button topbar__sort"
+                >
+                  {filter !== 'trash' && filteredItems.length > 0 && (
+                    <button
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={selectionMode}
+                      className="menu__item"
+                      onClick={() => {
+                        if (selectionMode) setSelectedIds(new Set())
+                        setSelectionMode((value) => !value)
+                      }}
+                    >
+                      {t('vault.selectionMode')}
+                      {selectionMode && <Check size={14} className="menu__check" />}
+                    </button>
+                  )}
+                  {!securityCategory && filter !== 'expiring' && (
+                    <button
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={groupByDate}
+                      className="menu__item"
+                      onClick={() => setGroupByDate((value) => !value)}
+                    >
+                      {t('vault.groupByDate')}
+                      {groupByDate && <Check size={14} className="menu__check" />}
+                    </button>
+                  )}
+                  <div className="menu__label">{t('vault.sortBy')}</div>
+                  {(Object.keys(SORT_MESSAGE_KEYS) as ItemSort[]).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={sort === value}
+                      className="menu__item"
+                      onClick={() => setSort(value)}
+                    >
+                      {t(SORT_MESSAGE_KEYS[value])}
+                      {sort === value && <Check size={14} className="menu__check" />}
+                    </button>
+                  ))}
+                </Menu>
+              )}
               {(dashboardActive || (filter !== 'trash' && filter !== 'passkey')) && (
                 <button
                   type="button"
@@ -1330,6 +1389,43 @@ export function VaultApp() {
               </button>
             </div>
           )}
+
+          <div className="mobile-top-actions">
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setGeneratorOpen(true)}
+              aria-label={t('sidebar.generator')}
+              title={t('sidebar.generator')}
+            >
+              <Wand2 size={19} />
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setSettingsOpen(true)}
+              aria-label={t('settings.title')}
+              title={t('settings.title')}
+            >
+              <Settings size={19} />
+            </button>
+            <button
+              type="button"
+              className={`icon-button mobile-security-badge mobile-security-badge--${mobileSecurityTone} ${
+                securityOpen || securityCategory ? 'is-active' : ''
+              }`}
+              onClick={() => setSecurityOpen(true)}
+              aria-label={t('sidebar.security.label')}
+              title={t('sidebar.security.label')}
+            >
+              <ShieldCheck size={19} />
+              {securityReport.total > 0 && (
+                <span className="mobile-security-badge__score">
+                  {securityReport.score}
+                </span>
+              )}
+            </button>
+          </div>
         </header>
 
         {readOnly && (
@@ -1410,27 +1506,6 @@ export function VaultApp() {
           {!singleEmpty && (
             <section className="list-pane" aria-label={t('vault.listLabel')}>
               <div className="mobile-list-tools">
-                {!securityCategory && (
-                  <div className="mobile-filters" role="group" aria-label={t('vault.filters')}>
-                    {MOBILE_FILTERS.map((entry) => (
-                      <button
-                        key={entry.value}
-                        type="button"
-                        className={`mobile-filter ${
-                          filter === entry.value ? 'is-active' : ''
-                        }`}
-                        aria-pressed={filter === entry.value}
-                        onClick={() => {
-                          setView('vault')
-                          setSecurityCategory(null)
-                          setFilter(entry.value)
-                        }}
-                      >
-                        {t(entry.key)}
-                      </button>
-                    ))}
-                  </div>
-                )}
                 <div className="content__bar">
                   <span
                     className="content__local"
@@ -1439,58 +1514,6 @@ export function VaultApp() {
                     <ShieldCheck size={15} aria-hidden="true" />
                     <span className="sr-only">{t('vault.encryptedLocally')}</span>
                   </span>
-                  <div className="content__bar-actions">
-                    <div className="list-toolbar">
-                      <Menu
-                        label={t('vault.listOptions')}
-                        title={t('vault.listOptions')}
-                        trigger={<ArrowUpDown size={14} />}
-                        triggerClassName="list-toolbar__trigger"
-                      >
-                        {filter !== 'trash' && filteredItems.length > 0 && (
-                          <button
-                            type="button"
-                            role="menuitemcheckbox"
-                            aria-checked={selectionMode}
-                            className="menu__item"
-                            onClick={() => {
-                              if (selectionMode) setSelectedIds(new Set())
-                              setSelectionMode((value) => !value)
-                            }}
-                          >
-                            {t('vault.selectionMode')}
-                            {selectionMode && <Check size={14} className="menu__check" />}
-                          </button>
-                        )}
-                        {!securityCategory && filter !== 'expiring' && (
-                          <button
-                            type="button"
-                            role="menuitemcheckbox"
-                            aria-checked={groupByDate}
-                            className="menu__item"
-                            onClick={() => setGroupByDate((value) => !value)}
-                          >
-                            {t('vault.groupByDate')}
-                            {groupByDate && <Check size={14} className="menu__check" />}
-                          </button>
-                        )}
-                        <div className="menu__label">{t('vault.sortBy')}</div>
-                        {(Object.keys(SORT_MESSAGE_KEYS) as ItemSort[]).map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            role="menuitemradio"
-                            aria-checked={sort === value}
-                            className="menu__item"
-                            onClick={() => setSort(value)}
-                          >
-                            {t(SORT_MESSAGE_KEYS[value])}
-                            {sort === value && <Check size={14} className="menu__check" />}
-                          </button>
-                        ))}
-                      </Menu>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -1822,18 +1845,21 @@ export function VaultApp() {
         </main>
         )}
 
-        <nav className="mobile-tabs" aria-label={t('vault.mainNavigation')}>
+        {createPortal(
+          <nav
+            className={`mobile-tabs ${canCreateFromNav ? 'mobile-tabs--with-create' : ''}`}
+            aria-label={t('vault.mainNavigation')}
+          >
           <button
             type="button"
             className={`mobile-tabs__item ${mobileTab === 'home' ? 'is-active' : ''}`}
             aria-current={mobileTab === 'home' ? 'page' : undefined}
             onClick={() => {
+              closeMobileOverlays()
               setView('dashboard')
-              setSecurityOpen(false)
-              setSettingsOpen(false)
               setSecurityCategory(null)
               setSelectedId(null)
-              setCreateType(null)
+              setSearch('')
             }}
           >
             <LayoutDashboard size={22} />
@@ -1844,56 +1870,62 @@ export function VaultApp() {
             className={`mobile-tabs__item ${mobileTab === 'vault' ? 'is-active' : ''}`}
             aria-current={mobileTab === 'vault' ? 'page' : undefined}
             onClick={() => {
+              closeMobileOverlays()
               setView('vault')
-              setSecurityOpen(false)
-              setSettingsOpen(false)
               setSecurityCategory(null)
               setSelectedId(null)
+              setFilter('all')
+              setSearch('')
             }}
           >
             <KeyRound size={22} />
             {t('vault.vaultTab')}
           </button>
+          {canCreateFromNav && (
+            <button
+              type="button"
+              className="mobile-tabs__item mobile-tab-create"
+              onClick={openCreateFromNav}
+              aria-label={t('vault.newItem')}
+              title={t('vault.newItem')}
+            >
+              <Plus size={24} />
+            </button>
+          )}
           <button
             type="button"
-            className={`mobile-tabs__item ${mobileTab === 'security' ? 'is-active' : ''}`}
-            aria-current={mobileTab === 'security' ? 'page' : undefined}
+            className={`mobile-tabs__item ${mobileTab === 'favorites' ? 'is-active' : ''}`}
+            aria-current={mobileTab === 'favorites' ? 'page' : undefined}
             onClick={() => {
-              setSecurityOpen(true)
-              setSettingsOpen(false)
+              closeMobileOverlays()
+              setView('vault')
+              setSecurityCategory(null)
               setSelectedId(null)
-              setCreateType(null)
+              setFilter('favorites')
+              setSearch('')
             }}
           >
-            <ShieldCheck size={22} />
-            {t('sidebar.security')}
+            <Star size={22} />
+            {t('filter.favorites')}
           </button>
           <button
             type="button"
-            className={`mobile-tabs__item ${mobileTab === 'settings' ? 'is-active' : ''}`}
-            aria-current={mobileTab === 'settings' ? 'page' : undefined}
+            className={`mobile-tabs__item ${mobileTab === 'recent' ? 'is-active' : ''}`}
+            aria-current={mobileTab === 'recent' ? 'page' : undefined}
             onClick={() => {
-              setSettingsOpen(true)
-              setSecurityOpen(false)
+              closeMobileOverlays()
+              setView('vault')
+              setSecurityCategory(null)
               setSelectedId(null)
-              setCreateType(null)
+              setFilter('recent')
+              setSearch('')
             }}
           >
-            <Settings size={22} />
-            {t('settings.title')}
+            <History size={22} />
+            {t('filter.recent')}
           </button>
-        </nav>
-
-        {showMobileFab && (
-          <button
-            type="button"
-            className="mobile-fab"
-            onClick={dashboardActive ? openCreateFromDashboard : openCreate}
-            aria-label={t('vault.newItem')}
-            title={t('vault.newItem')}
-          >
-            <Plus size={24} />
-          </button>
+          </nav>,
+          document.body,
         )}
 
         <footer className="app-footer">

@@ -137,7 +137,17 @@ test.describe('système de design', () => {
       )
     expect(new Set(tops).size).toBe(1)
     await expect(page.locator('.detail-actionbar')).toHaveCount(0)
-    await expect(page.locator('.mobile-tabs')).toBeHidden()
+    await expect(page.locator('.mobile-tabs')).toBeVisible()
+    const topActions = page.locator('.mobile-top-actions')
+    await expect(
+      topActions.getByRole('button', { name: 'Générateur' }),
+    ).toBeVisible()
+    await expect(
+      topActions.getByRole('button', { name: 'Réglages' }),
+    ).toBeVisible()
+    await expect(
+      topActions.getByRole('button', { name: 'Sécurité du coffre' }),
+    ).toBeVisible()
     const back = page.locator('.topbar__back')
     await expect(back).toHaveAttribute('aria-label', 'Retour à Tous les éléments')
     await expect(back).toContainText('Tous les éléments')
@@ -173,22 +183,28 @@ test.describe('système de design', () => {
     await expect(active).toHaveCount(1)
     await expect(active).toContainText('Coffre')
 
-    const favorites = page
-      .locator('.mobile-filters')
-      .getByRole('button', { name: 'Favoris', exact: true })
-    await expect(favorites).toHaveAttribute('aria-pressed', 'false')
-    await favorites.click()
-    await expect(favorites).toHaveAttribute('aria-pressed', 'true')
-    await expect(active).toContainText('Coffre')
-
-    await tabs.getByRole('button', { name: 'Sécurité', exact: true }).click()
+    await tabs.getByRole('button', { name: 'Favoris', exact: true }).click()
     await expect(active).toHaveCount(1)
-    await expect(active).toContainText('Sécurité')
-    await closeDialog(page)
+    await expect(active).toContainText('Favoris')
 
-    await tabs.getByRole('button', { name: 'Réglages', exact: true }).click()
+    await tabs.getByRole('button', { name: 'Récents', exact: true }).click()
     await expect(active).toHaveCount(1)
-    await expect(active).toContainText('Réglages')
+    await expect(active).toContainText('Récents')
+
+    // Les actions globales restent dans la barre haute et la navigation
+    // flottante reste visible au-dessus des pages plein écran.
+    const topActions = page.locator('.mobile-top-actions')
+    await topActions.getByRole('button', { name: 'Sécurité du coffre' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(tabs).toBeVisible()
+    await tabs.getByRole('button', { name: 'Coffre', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    await topActions.getByRole('button', { name: 'Réglages' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(tabs).toBeVisible()
+    await tabs.getByRole('button', { name: 'Accueil', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 
   test('le menu du détail regroupe les actions secondaires', async ({ page }) => {

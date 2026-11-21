@@ -19,7 +19,7 @@ export async function createVault(page: Page): Promise<void> {
 /** Bouton de création visible : action du bureau ou bouton flottant mobile. */
 export async function newItemButton(page: Page): Promise<Locator> {
   const candidates = [
-    page.locator('.mobile-fab'),
+    page.locator('.mobile-tab-create'),
     page
       .locator('.dashboard__quick-actions')
       .getByRole('button', { name: 'Nouvel élément' }),
@@ -41,10 +41,6 @@ export async function showItems(page: Page): Promise<void> {
     .getByRole('button', { name: 'Coffre', exact: true })
   if (await mobileTab.isVisible()) {
     await mobileTab.click()
-    const allChip = page
-      .locator('.mobile-filters')
-      .getByRole('button', { name: 'Tout', exact: true })
-    if (await allChip.isVisible()) await allChip.click()
   } else {
     await page
       .locator('.sidebar')

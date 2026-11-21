@@ -107,11 +107,7 @@ test('les en-têtes de date restent lisibles au défilement mobile', async ({ pa
   const group = page.locator('.item-group').filter({ has: header })
   const firstRow = group.locator('.item-row').first()
   await expect(firstRow).toBeVisible()
-  expect(
-    await page
-      .locator('.mobile-list-tools')
-      .evaluate((element) => getComputedStyle(element).position),
-  ).toBe('static')
+  await expect(page.locator('.mobile-list-tools')).toBeHidden()
   expect(
     await header.evaluate((element) => getComputedStyle(element).position),
   ).toBe('static')

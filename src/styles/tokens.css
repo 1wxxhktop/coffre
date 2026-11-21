@@ -69,6 +69,8 @@
   --z-drawer: 80;
   --z-backdrop: calc(var(--z-drawer) - 1);
   --z-modal: 1000;
+  --z-mobile-nav: calc(var(--z-modal) + 1);
+  --z-sheet: calc(var(--z-modal) + 2);
   --z-menu: 1010;
   --z-toast: 1100;
   --z-skip: 1200;
