@@ -3,6 +3,7 @@ import { useI18n } from '../state/I18nProvider'
 import { useUpdates } from '../state/UpdateProvider'
 import { useSettings } from '../state/SettingsProvider'
 import { progressPercent } from '../lib/updates'
+import { isAndroidRuntime } from '../lib/platform'
 
 /**
  * Carte discrète en bas de la fenêtre quand une mise à jour est trouvée par
@@ -19,6 +20,7 @@ export function UpdateNotice() {
   if (!['available', 'downloading', 'ready', 'installing'].includes(status)) return null
 
   const percent = progressPercent(progress)
+  const android = isAndroidRuntime()
 
   return (
     <aside className="update-notice" role="status" aria-live="polite">
@@ -46,7 +48,7 @@ export function UpdateNotice() {
             : tt('Téléchargement… {percent} %').replace('{percent}', String(percent))}
         </p>
       )}
-      {status === 'ready' && settings.updateInstallMode === 'on-quit' && (
+      {!android && status === 'ready' && settings.updateInstallMode === 'on-quit' && (
         <p className="update-notice__copy">
           {tt('Prête : elle sera installée à la fermeture de Coffre.')}
         </p>
@@ -54,7 +56,9 @@ export function UpdateNotice() {
       {status === 'installing' && (
         <p className="update-notice__copy">
           <LoaderCircle size={14} className="spin" />
-          {tt('Installation… Coffre va redémarrer.')}
+          {android
+            ? tt('Ouverture de l’installateur Android…')
+            : tt('Installation… Coffre va redémarrer.')}
         </p>
       )}
 
@@ -76,7 +80,9 @@ export function UpdateNotice() {
               onClick={() => void install()}
             >
               <RotateCcw size={14} />
-              {tt('Installer et redémarrer')}
+              {android
+                ? tt('Installer la mise à jour')
+                : tt('Installer et redémarrer')}
             </button>
           )}
           <button type="button" className="button button--sm" onClick={later}>

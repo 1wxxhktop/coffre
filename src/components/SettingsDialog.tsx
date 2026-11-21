@@ -650,10 +650,10 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     document: activeItems.filter((item) => item.type === 'document').length,
   }
 
-  // Sur mobile, les réglages de bureau (tray, mises à jour, dossier synchronisé)
-  // n’ont pas de sens et masquent les fonctions réellement disponibles.
+  // Sur mobile, le dossier synchronisé desktop n’a pas de sens ; les mises à
+  // jour Android restent disponibles.
   const pages = isMobileRuntime()
-    ? SETTINGS_PAGES.filter((entry) => entry.id !== 'updates' && entry.id !== 'sync')
+    ? SETTINGS_PAGES.filter((entry) => entry.id !== 'sync')
     : SETTINGS_PAGES
 
   const goToPage = (next: SettingsPage) => {
@@ -1271,8 +1271,18 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                         <Fingerprint size={18} />
                       </span>
                       <div>
-                        <h3>{tt("Trousseau du système")}</h3>
-                        <p>{tt("Déverrouillage rapide par le trousseau de l’appareil.")}</p>
+                        <h3>
+                          {isMobileRuntime()
+                            ? tt('Déverrouillage rapide')
+                            : tt('Trousseau du système')}
+                        </h3>
+                        <p>
+                          {isMobileRuntime()
+                            ? tt('Empreinte digitale ou biométrie de l’appareil.')
+                            : tt(
+                                'Déverrouillage rapide par le trousseau de l’appareil.',
+                              )}
+                        </p>
                       </div>
                     </div>
 
@@ -1290,16 +1300,24 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                               })
                             }}
                           />
-                          <span>{tt("Déverrouiller avec la biométrie (Touch ID / Windows Hello)")}</span>
+                          <span>
+                            {isMobileRuntime()
+                              ? tt('Déverrouiller avec l’empreinte digitale')
+                              : tt(
+                                  'Déverrouiller avec la biométrie (Touch ID / Windows Hello)',
+                                )}
+                          </span>
                         </label>
                         <details className="settings-help">
                           <summary>{tt("En savoir plus")}</summary>
                           <p>
-                            La clé maîtresse est rangée dans un trousseau biométrique séparé
-                            et n’est libérée qu’après une authentification réussie. La clé
-                            reste en place pendant le verrouillage pour permettre le
-                            déverrouillage rapide, puis elle est supprimée si l’option est
-                            désactivée ou le coffre réinitialisé.
+                            {isMobileRuntime()
+                              ? tt(
+                                  'La clé maîtresse est chiffrée par Android Keystore et n’est déchiffrée qu’après une authentification biométrique réussie.',
+                                )
+                              : tt(
+                                  'La clé maîtresse est rangée dans un trousseau biométrique séparé et n’est libérée qu’après une authentification réussie. La clé reste en place pendant le verrouillage pour permettre le déverrouillage rapide, puis elle est supprimée si l’option est désactivée ou le coffre réinitialisé.',
+                                )}
                           </p>
                         </details>
                         {settings.biometricUnlock && (
@@ -2250,7 +2268,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
             {page === 'updates' && (
               <section className="settings__page" aria-labelledby="settings-updates">
                 <UpdateSettings />
-                <ExtensionSettings />
+                {!isMobileRuntime() && <ExtensionSettings />}
               </section>
             )}
 

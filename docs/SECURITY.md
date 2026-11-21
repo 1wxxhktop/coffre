@@ -1968,28 +1968,43 @@ Le build PWA ajoute un service worker Workbox qui :
 - peut contacter le serveur d’origine pour mettre à jour ces ressources ;
 - ne met jamais le contenu du coffre dans le cache HTTP.
 
-Mises à jour de l’application desktop (Réglages → Mises à jour) :
+Mises à jour de l’application (desktop et Android, Réglages → Mises à jour) :
 
 - **désactivées par défaut** : aucune requête tant que l’utilisateur n’a pas
-  cliqué sur « Rechercher maintenant » ou choisi une fréquence ;
-- la recherche lit un manifeste `latest.json` sur `github.com` (releases du
-  projet) : GitHub voit l’adresse IP et la version de Coffre ; aucune donnée
-  du coffre n’est envoyée ;
-- l’adresse et la clé publique sont fixées côté Rust (`updater.rs`) ; la
-  WebView n’a aucune permission `updater:*` ;
-- chaque paquet est signé (minisign) par une clé de release distincte du
-  certificat Apple, et sa signature est vérifiée avant installation ; un
+  cliqué sur « Rechercher maintenant » ou choisi une fréquence. Sur Android,
+  une proposition unique après le premier déverrouillage permet d’activer la
+  recherche au démarrage ; refuser laisse le réglage sur « désactivée » ;
+- la recherche lit un manifeste sur `github.com` (releases du projet) :
+  `latest.json` sur desktop, `android-beta.json` sur Android. GitHub voit
+  l’adresse IP et la version de Coffre ; aucune donnée du coffre n’est
+  envoyée ;
+- l’adresse et les paramètres de confiance sont fixés côté Rust
+  (`updater.rs` pour le desktop, `android_update.rs` pour Android) ; la
+  WebView n’a aucune permission `updater:*` et les commandes Android
+  n’acceptent ni URL ni chemin fournis par la page ;
+- chaque paquet desktop est signé (minisign) par une clé de release distincte
+  du certificat Apple, et sa signature est vérifiée avant installation ; un
   manifeste ou un paquet modifié est refusé ;
+- sur Android, l’APK est téléchargé dans le cache de l’application, son
+  SHA-256 est comparé à l’empreinte publiée, puis l’installateur système est
+  ouvert via un `FileProvider` et `REQUEST_INSTALL_PACKAGES`. Android vérifie
+  que l’APK est signé par la même clé que l’application installée et demande
+  confirmation : aucune installation silencieuse n’est possible. Un build
+  debug, non signé par la clé fixe, ne propose pas de mise à jour ;
 - `requireSignedVersion` exige que la signature couvre la version annoncée :
   un manifeste modifié ne peut pas réinstaller une ancienne version
   authentique, et le canal bêta ne recule jamais côté publication ;
-- avant d’installer, le coffre est verrouillé et les écritures en cours sont
-  terminées ; l’installation « à la fermeture » n’intervient qu’à la sortie
-  de l’application.
+- avant d’installer sur desktop, le coffre est verrouillé et les écritures en
+  cours sont terminées ; l’installation « à la fermeture » n’intervient qu’à
+  la sortie de l’application.
 
 Limite : un attaquant qui obtiendrait la clé privée de signature et l’accès
-aux releases GitHub pourrait publier une mise à jour malveillante. La clé est
-un secret de CI, sauvegardée hors ligne (voir `docs/RELEASE.md` § 3.1).
+aux releases GitHub pourrait publier une mise à jour malveillante. La clé
+desktop est un secret de CI, sauvegardée hors ligne (voir `docs/RELEASE.md`
+§ 3.1). Pour Android, la clé de signature de l’APK, détenue par le mainteneur
+et conservée dans les secrets GitHub, est l’ancre de confiance : un manifeste
+ou un APK d’une autre clé est refusé par Android. Une compromission de cette
+clé ou du dépôt GitHub reste critique.
 
 Le pont natif desktop n’ouvre aucune connexion réseau : il utilise uniquement
 un socket Unix local dans le dossier de données de l’application. Aucune
@@ -2085,7 +2100,7 @@ La WebView n’accède au système que par des commandes IPC explicites :
 | `keychain_store`, `keychain_load`, `keychain_delete` | trousseau de session |
 | `bridge_key_store`, `bridge_key_load`, `bridge_key_delete` | clé d’appairage du pont natif (fichier privé sous macOS, trousseau ailleurs) |
 | `extension_info`, `extension_reveal` | copie gérée de l’extension : état, mise à niveau et ouverture du dossier |
-| `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS et Windows Hello |
+| `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS, Windows Hello et empreinte Android |
 | `autostart_enabled`, `autostart_set`, `startup_is_hidden` | démarrage à l’ouverture de session et lancement masqué |
 | `tray_set_language`, `tray_set_keep_on_close` | libellés du menu et comportement à la fermeture |
 | `vault_read`, `vault_write`, `vault_backup_read`, `vault_backup_write`, `vault_clear` | stockage natif du coffre |
@@ -2105,7 +2120,7 @@ titre, puis `allow-close`, `allow-minimize`, `allow-toggle-maximize` et
 `allow-is-maximized` pour les boutons de la barre intégrée Windows. Elles
 n’ouvrent aucun accès aux fichiers, au réseau ou au trousseau.
 
-Le déverrouillage biométrique desktop ajoute cinq commandes :
+Le déverrouillage biométrique desktop ajoute cinq commandes, tandis qu’Android utilise les commandes du plugin `biometric` (`checkStatus`, `authenticate`, `biometricCipher`) :
 `biometric_available`, `biometric_store`, `biometric_delete`,
 `biometric_confirm` et `biometric_load`. Les clés biométriques sont rangées
 dans le service `app.coffre.desktop.biometric`, distinct de
@@ -2121,6 +2136,14 @@ dans le service `app.coffre.desktop.biometric`, distinct de
   annulation ou un échec ne renvoie aucune clé. La disponibilité est vérifiée à
   l’ouverture des réglages ; sans matériel configuré, l’option n’est pas
   proposée.
+- **Android** : le plugin officiel `tauri-plugin-biometric` déclenche
+  `BiometricPrompt` et `biometricCipher` chiffre la clé maîtresse avec une clé
+  Android Keystore liée à l’authentification. Le chiffré est conservé dans le
+  stockage local de l’application ; il est inutilisable sans l’empreinte (ou la
+  biométrie) de l’appareil. Une annulation ne renvoie aucune clé ; une erreur
+  autre qu’une annulation est remontée à l’interface. La clé Keystore est
+  invalidée si les biométries de l’appareil changent : le mot de passe maître
+  reste alors la voie de secours.
 
 L’écran de verrouillage déclenche le dialogue automatiquement lorsque la fenêtre
 est activée (avec un délai de refroidissement pour éviter une boucle après

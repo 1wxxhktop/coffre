@@ -7,6 +7,7 @@ import { formatDateTime } from '../lib/settings'
 import { isPrerelease, progressPercent, UPDATE_ERROR_TEXTS } from '../lib/updates'
 import { automaticUpdatePreset, isFullyAutomaticUpdate } from '../lib/extensionInstall'
 import { ensureUpdateNotifications } from '../lib/notifications'
+import { isAndroidRuntime } from '../lib/platform'
 
 export function UpdateSettings() {
   const { settings, updateSettings } = useSettings()
@@ -25,6 +26,7 @@ export function UpdateSettings() {
     changeChannel,
   } = useUpdates()
   const [notificationError, setNotificationError] = useState(false)
+  const android = isAndroidRuntime()
 
   const header = (
     <div className="settings-section__head">
@@ -34,13 +36,17 @@ export function UpdateSettings() {
       <div>
         <h3 id="settings-updates">{tt('Mises à jour')}</h3>
         <p>
-          {supported
+          {android
             ? tt(
-                'Nouvelles versions publiées sur GitHub, signées et vérifiées avant installation.',
+                'Mises à jour Android : APK signé, vérifié par SHA-256 avant l’ouverture de l’installateur système.',
               )
-            : tt(
-                'La version Web se met à jour automatiquement à chaque visite, sans action de votre part.',
-              )}
+            : supported
+              ? tt(
+                  'Nouvelles versions publiées sur GitHub, signées et vérifiées avant installation.',
+                )
+              : tt(
+                  'La version Web se met à jour automatiquement à chaque visite, sans action de votre part.',
+                )}
         </p>
       </div>
     </div>
@@ -59,7 +65,15 @@ export function UpdateSettings() {
 
   const configured = info?.configured === true
   const busy = status === 'checking' || status === 'downloading' || status === 'installing'
+  // Sur Android, une nouvelle recherche remplacerait l’APK déjà téléchargé :
+  // laisser l’utilisateur l’installer ou l’ignorer d’abord.
+  const checkBusy = busy || (android && status === 'ready')
   const percent = progressPercent(progress)
+  const canDownload =
+    status === 'available' ||
+    (status === 'error' && (error === 'download-failed' || error === 'checksum-failed'))
+  const canInstall =
+    status === 'ready' || (status === 'error' && error === 'install-failed')
 
   const toggleNotifications = async (enabled: boolean) => {
     if (!enabled) {
@@ -79,7 +93,11 @@ export function UpdateSettings() {
       {info && !configured && (
         <p className="form-error" role="status">
           <AlertTriangle size={16} />
-          {tt(UPDATE_ERROR_TEXTS['not-configured'])}
+          {android
+            ? tt(
+                'Ce build Android de développement n’est pas signé par la clé fixe : les mises à jour sont désactivées.',
+              )
+            : tt(UPDATE_ERROR_TEXTS['not-configured'])}
         </p>
       )}
 
@@ -103,7 +121,7 @@ export function UpdateSettings() {
           type="button"
           className="button button--secondary"
           onClick={() => void check()}
-          disabled={!configured || busy}
+          disabled={!configured || checkBusy}
         >
           {status === 'checking' ? (
             <LoaderCircle size={16} className="spin" />
@@ -150,7 +168,7 @@ export function UpdateSettings() {
             </div>
           )}
           <div className="settings-actions settings-actions--start">
-            {(status === 'available' || (status === 'error' && error === 'download-failed')) && (
+            {canDownload && (
               <button
                 type="button"
                 className="button button--primary"
@@ -160,20 +178,24 @@ export function UpdateSettings() {
                 {tt('Télécharger')}
               </button>
             )}
-            {status === 'ready' && (
+            {canInstall && (
               <button
                 type="button"
                 className="button button--primary"
                 onClick={() => void install()}
               >
                 <RotateCcw size={16} />
-                {tt('Installer et redémarrer')}
+                {android
+                  ? tt('Installer la mise à jour')
+                  : tt('Installer et redémarrer')}
               </button>
             )}
             {status === 'installing' && (
               <span className="settings-copy">
                 <LoaderCircle size={16} className="spin" />
-                {tt('Installation… Coffre va redémarrer.')}
+                {android
+                  ? tt('Ouverture de l’installateur Android…')
+                  : tt('Installation… Coffre va redémarrer.')}
               </span>
             )}
             {status !== 'installing' && (
@@ -187,7 +209,7 @@ export function UpdateSettings() {
               </button>
             )}
           </div>
-          {status === 'ready' && settings.updateInstallMode === 'on-quit' && (
+          {!android && status === 'ready' && settings.updateInstallMode === 'on-quit' && (
             <p className="settings-copy">
               {tt('La mise à jour sera installée à la fermeture de Coffre.')}
             </p>
@@ -195,24 +217,26 @@ export function UpdateSettings() {
         </div>
       )}
 
-      <label className="checkbox update-auto">
-        <input
-          type="checkbox"
-          checked={isFullyAutomaticUpdate(settings)}
-          onChange={(event) =>
-            updateSettings(automaticUpdatePreset(event.target.checked, settings))
-          }
-          disabled={!configured}
-        />
-        <span>
-          <strong>{tt('Mettre à jour automatiquement')}</strong>
-          <small>
-            {tt(
-              'Coffre cherche les nouvelles versions, les télécharge en arrière-plan et les installe à sa fermeture. Les réglages ci-dessous permettent d’ajuster chaque étape.',
-            )}
-          </small>
-        </span>
-      </label>
+      {!android && (
+        <label className="checkbox update-auto">
+          <input
+            type="checkbox"
+            checked={isFullyAutomaticUpdate(settings)}
+            onChange={(event) =>
+              updateSettings(automaticUpdatePreset(event.target.checked, settings))
+            }
+            disabled={!configured}
+          />
+          <span>
+            <strong>{tt('Mettre à jour automatiquement')}</strong>
+            <small>
+              {tt(
+                'Coffre cherche les nouvelles versions, les télécharge en arrière-plan et les installe à sa fermeture. Les réglages ci-dessous permettent d’ajuster chaque étape.',
+              )}
+            </small>
+          </span>
+        </label>
+      )}
 
       <div className="form-grid">
         <label className="field">
@@ -234,37 +258,49 @@ export function UpdateSettings() {
             <option value="continuous">{tt('En continu (1 min)')}</option>
           </select>
         </label>
-        <label className="field">
-          <span className="field__label">{tt('Canal')}</span>
-          <select
-            className="input"
-            value={settings.updateChannel}
-            onChange={(event) =>
-              changeChannel(event.target.value === 'beta' ? 'beta' : 'stable')
-            }
-            disabled={!configured || busy}
-          >
-            <option value="stable">{tt('Stable')}</option>
-            <option value="beta">{tt('Bêta (préversions)')}</option>
-          </select>
-        </label>
-        <label className="field">
-          <span className="field__label">{tt('Installation')}</span>
-          <select
-            className="input"
-            value={settings.updateInstallMode}
-            onChange={(event) =>
-              updateSettings({
-                updateInstallMode: event.target.value === 'on-quit' ? 'on-quit' : 'ask',
-              })
-            }
-            disabled={!configured}
-          >
-            <option value="ask">{tt('Me demander')}</option>
-            <option value="on-quit">{tt('À la fermeture de Coffre')}</option>
-          </select>
-        </label>
+        {!android && (
+          <label className="field">
+            <span className="field__label">{tt('Canal')}</span>
+            <select
+              className="input"
+              value={settings.updateChannel}
+              onChange={(event) =>
+                changeChannel(event.target.value === 'beta' ? 'beta' : 'stable')
+              }
+              disabled={!configured || busy}
+            >
+              <option value="stable">{tt('Stable')}</option>
+              <option value="beta">{tt('Bêta (préversions)')}</option>
+            </select>
+          </label>
+        )}
+        {!android && (
+          <label className="field">
+            <span className="field__label">{tt('Installation')}</span>
+            <select
+              className="input"
+              value={settings.updateInstallMode}
+              onChange={(event) =>
+                updateSettings({
+                  updateInstallMode: event.target.value === 'on-quit' ? 'on-quit' : 'ask',
+                })
+              }
+              disabled={!configured}
+            >
+              <option value="ask">{tt('Me demander')}</option>
+              <option value="on-quit">{tt('À la fermeture de Coffre')}</option>
+            </select>
+          </label>
+        )}
       </div>
+
+      {android && (
+        <p className="settings-copy">
+          {tt(
+            'Les APK Android sont publiés sur le canal bêta, avec la version de test de la PR. Android demande confirmation avant chaque installation.',
+          )}
+        </p>
+      )}
 
       <label className="checkbox">
         <input
@@ -278,15 +314,17 @@ export function UpdateSettings() {
         <span>{tt('Télécharger automatiquement en arrière-plan')}</span>
       </label>
 
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={settings.updateNotify}
-          onChange={(event) => void toggleNotifications(event.target.checked)}
-          disabled={!configured}
-        />
-        <span>{tt('Notification système quand une mise à jour est disponible')}</span>
-      </label>
+      {!android && (
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={settings.updateNotify}
+            onChange={(event) => void toggleNotifications(event.target.checked)}
+            disabled={!configured}
+          />
+          <span>{tt('Notification système quand une mise à jour est disponible')}</span>
+        </label>
+      )}
 
       {notificationError && (
         <p className="form-error" role="status">
@@ -296,7 +334,7 @@ export function UpdateSettings() {
         </p>
       )}
 
-      {settings.updateChannel === 'beta' && (
+      {!android && settings.updateChannel === 'beta' && (
         <>
           <p className="settings-copy">
             {tt(
@@ -330,9 +368,13 @@ export function UpdateSettings() {
       )}
 
       <p className="settings-copy">
-        {tt(
-          'La recherche contacte github.com : GitHub voit votre adresse IP et la version de Coffre. Aucune donnée du coffre n’est envoyée. Chaque paquet est signé et sa signature vérifiée avant installation ; le coffre est verrouillé avant le redémarrage.',
-        )}
+        {android
+          ? tt(
+              'La recherche contacte github.com : GitHub voit votre adresse IP et la version de Coffre. Aucune donnée du coffre n’est envoyée. L’APK est vérifié par SHA-256 et Android demande confirmation avant installation.',
+            )
+          : tt(
+              'La recherche contacte github.com : GitHub voit votre adresse IP et la version de Coffre. Aucune donnée du coffre n’est envoyée. Chaque paquet est signé et sa signature vérifiée avant installation ; le coffre est verrouillé avant le redémarrage.',
+            )}
       </p>
     </section>
   )

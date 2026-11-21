@@ -312,11 +312,12 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   envelopper la clé maîtresse dans le fichier. Le mot de passe maître reste le
   secret racine ; l’enveloppe est révocable, liée au fichier et supprimée lors
   d’un changement de mot de passe ou d’une récupération.
-- **Déverrouillage biométrique desktop** : Touch ID sur macOS et Windows Hello
-  sur Windows. La clé maîtresse est rangée dans un service de trousseau séparé
-  et n’est libérée qu’après une authentification réussie ; sous Windows, le
-  consentement Windows Hello est vérifié avant chaque lecture de l’entrée
-  Credential Manager protégée par DPAPI.
+- **Déverrouillage biométrique** : Touch ID sur macOS, Windows Hello sur
+  Windows et **empreinte digitale sur Android**. La clé maîtresse est rangée
+  dans un service de trousseau séparé sur desktop, ou chiffrée par Android
+  Keystore sur mobile, et n’est libérée qu’après une authentification réussie ;
+  sous Windows, le consentement Windows Hello est vérifié avant chaque lecture
+  de l’entrée Credential Manager protégée par DPAPI.
 - **PWA installable** : fonctionnement hors ligne, icônes, service worker.
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
   de détail persistant. La création passe par une modale ; la lecture et
@@ -356,9 +357,9 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   Sauvegarde et import, Stockage, Zone dangereuse).
 - **Accès rapide global (desktop)** : `⌘⇧Espace` (macOS) ou
   `Ctrl+Shift+Espace` affiche la fenêtre et place le curseur dans la recherche.
-- **Mises à jour (desktop)** : Réglages → Mises à jour. Recherche manuelle ou
-  automatique (au démarrage, chaque jour, chaque semaine, ou **en continu
-  toutes les minutes** ; désactivée par défaut), canal stable ou bêta,
+- **Mises à jour (desktop et Android)** : Réglages → Mises à jour. Recherche
+  manuelle ou automatique (au démarrage, chaque jour, chaque semaine, ou **en
+  continu toutes les minutes** ; désactivée par défaut), canal stable ou bêta,
   téléchargement en arrière-plan optionnel, installation sur confirmation ou à
   la fermeture, « Ignorer cette version », notes de version et progression.
   En canal bêta, la recherche continue est activée automatiquement si aucune
@@ -367,19 +368,26 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   fenêtre. Une notification système optionnelle peut être affichée quand une
   mise à jour est détectée en arrière-plan. Paquets publiés sur les releases
   GitHub, signés (minisign) et vérifiés avant installation ; le coffre est
-  verrouillé avant le redémarrage. Sur le Web, la PWA se met à jour à chaque
-  visite.
+  verrouillé avant le redémarrage. Sur Android, l’APK bêta est téléchargé
+  depuis `android-beta.json`, vérifié par SHA-256 puis confié à l’installateur
+  système ; Android impose sa propre confirmation et vérifie que la signature
+  correspond à l’application installée. La proposition d’activer la recherche
+  apparaît une fois après le premier déverrouillage. Sur le Web, la PWA se met
+  à jour à chaque visite.
 - **Trousseau natif (desktop)** : déverrouillage rapide optionnel par le
   trousseau macOS, Windows ou Linux. La clé maîtresse n’y est écrite que si
   l’option est activée et elle est supprimée au verrouillage.
-- **Touch ID (desktop macOS)** : déverrouillage par empreinte. La clé est rangée
-  dans un trousseau biométrique séparé et n’est libérée qu’après une
-  authentification réussie ; `keychain_load` ne peut pas la lire.
+- **Touch ID (desktop macOS) et empreinte Android** : déverrouillage
+  biométrique. Sur macOS, la clé est rangée dans un trousseau biométrique
+  séparé ; sur Android, elle est chiffrée par Android Keystore et déchiffrée
+  après le dialogue système. `keychain_load` ne peut pas la lire.
 - **Dérivation Argon2id dans un Web Worker** et index de recherche pré-calculé ;
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks
   entre onglets ; les liens externes Tauri s’ouvrent dans le navigateur système.
-- **Thèmes neutres sombre/clair** (noir et blanc) et **mode système**, interface responsive, sélecteurs natifs
+- **Thèmes neutres clair/sombre** et **mode système**, interface responsive,
+  sélecteurs natifs. Le thème clair est proposé par défaut ; un bouton sur
+  l’écran de verrouillage permet de basculer immédiatement.
   habillés, accessibilité clavier et modales avec piège à focus. Les contrôles
   automatisés WCAG 2.2 A/AA et la liste des vérifications manuelles restantes
   sont dans [`docs/ACCESSIBILITY.md`](docs/ACCESSIBILITY.md).
@@ -1485,20 +1493,24 @@ sans Xcode ni signature. Le format Apple ne contient que les connexions
 actives ; le format « Coffre complet » inclut les autres types d’éléments mais
 pas les pièces jointes.
 
-### Android — APK alpha pour la 0.17
+### Android — APK alpha
 
-Un APK Android arm64 de test est produit par la CI et joint à la prochaine
-release. Il permet de tester le coffre local, le déverrouillage, les éléments,
-le générateur et le TOTP.
+Un APK Android arm64 de test est publié dans le canal bêta à chaque PR
+interne, à côté de la bêta macOS. Il permet de tester le coffre local, le
+déverrouillage (mot de passe ou empreinte), les éléments, le générateur, le
+TOTP et les mises à jour intégrées.
 
 ```bash
 bun run mobile:android:build
 ```
 
-L’APK est signé en debug : il est réservé aux tests, sans autofill Android ni
-passkeys pour l’instant. Il a été validé sur un émulateur Android 15 : création,
-redémarrage et déverrouillage du coffre. La version Android complète reste
-planifiée en 0.18. Voir [`docs/ANDROID.md`](docs/ANDROID.md).
+L’APK de la bêta est un build release signé par la clé fixe, sans autofill
+Android ni passkeys pour l’instant. La première installation de cette version
+se fait à la main (l’ancienne bêta ne contient pas encore le mécanisme de mise
+à jour) ; les suivantes sont proposées dans Coffre, téléchargées puis confiées
+à l’installateur Android. Il a été validé sur un émulateur Android 15 :
+création, redémarrage et déverrouillage du coffre. La version Android complète
+reste planifiée en 0.18. Voir [`docs/ANDROID.md`](docs/ANDROID.md).
 
 iOS n’est pas encore initialisé : Xcode, CocoaPods et un compte de signature
 restent nécessaires.

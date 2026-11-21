@@ -8,8 +8,10 @@ import {
   HardDriveDownload,
   KeyRound,
   LoaderCircle,
+  Moon,
   MoreHorizontal,
   ShieldCheck,
+  Sun,
   Trash2,
   Upload,
   Wifi,
@@ -45,10 +47,16 @@ export function AuthScreen() {
     error,
     recordActivity,
   } = useVault()
-  const { settings } = useSettings()
+  const { settings, updateSettings } = useSettings()
   const { t, intl } = useI18n()
   const { toast } = useToast()
   const isSetup = status === 'empty'
+  const systemDark =
+    settings.theme === 'system' &&
+    typeof window !== 'undefined' &&
+    Boolean(window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+  const effectiveTheme =
+    settings.theme === 'system' ? (systemDark ? 'dark' : 'light') : settings.theme
 
   const [vaultName, setVaultName] = useState('Personnel')
   const [password, setPassword] = useState('')
@@ -280,6 +288,21 @@ export function AuthScreen() {
         </section>
 
         <section className="auth__panel" aria-labelledby="auth-title">
+          <button
+            type="button"
+            className="icon-button auth__theme-toggle"
+            onClick={() =>
+              updateSettings({ theme: effectiveTheme === 'dark' ? 'light' : 'dark' })
+            }
+            aria-label={t(
+              effectiveTheme === 'dark' ? 'auth.theme.toLight' : 'auth.theme.toDark',
+            )}
+            title={t(
+              effectiveTheme === 'dark' ? 'auth.theme.toLight' : 'auth.theme.toDark',
+            )}
+          >
+            {effectiveTheme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
           <div className="auth__panel-inner">
             <span className="eyebrow">
               {isSetup ? t('auth.setupEyebrow') : t('auth.lockedEyebrow')}

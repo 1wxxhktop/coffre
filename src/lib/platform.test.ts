@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { isDesktopRuntime, isMobileRuntime, isMobileUserAgent } from './platform'
+import {
+  isAndroidRuntime,
+  isDesktopRuntime,
+  isMobileRuntime,
+  isMobileUserAgent,
+} from './platform'
 
 const original = navigator.userAgent
 
@@ -29,6 +34,15 @@ describe('plateforme d’exécution', () => {
     ;(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {}
     expect(isMobileRuntime()).toBe(true)
     expect(isDesktopRuntime()).toBe(false)
+  })
+
+  it('distingue Android des autres runtimes Tauri', () => {
+    setUserAgent('Mozilla/5.0 (Linux; Android 15)')
+    expect(isAndroidRuntime()).toBe(false)
+    ;(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {}
+    expect(isAndroidRuntime()).toBe(true)
+    setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X)')
+    expect(isAndroidRuntime()).toBe(false)
   })
 
   it('reconnaît le bureau Tauri', () => {
