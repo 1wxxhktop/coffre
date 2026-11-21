@@ -200,13 +200,17 @@ export function LanSyncSettings() {
     setError(null)
     try {
       const result = await lanSyncServe(serializeVault(file, false), referencedBlobIds())
-      await applyRemote(result.file)
-      toast(
-        tt('Fichier reçu de {name} ({count} blob(s)).')
-          .replace('{name}', result.peer.name)
-          .replace('{count}', String(result.blobsReceived)),
-        'info',
-      )
+      if (result.file.trim()) {
+        await applyRemote(result.file)
+        toast(
+          tt('Fichier reçu de {name} ({count} blob(s)).')
+            .replace('{name}', result.peer.name)
+            .replace('{count}', String(result.blobsReceived)),
+          'info',
+        )
+      } else {
+        toast(tt('Coffre envoyé à un nouvel appareil.'), 'success')
+      }
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : tt('Réception impossible.'),
@@ -326,7 +330,7 @@ export function LanSyncSettings() {
           ) : (
             <RefreshCw size={16} />
           )}
-          {tt('Recevoir une synchronisation')}
+          {tt('Recevoir ou partager une synchronisation')}
         </button>
       </div>
 

@@ -7,6 +7,10 @@ appareil. Ce n’est pas encore une application Android complète.
 
 - Création et déverrouillage d’un coffre local.
 - Éléments, dossiers, recherche, générateur et TOTP.
+- Premier import depuis un autre appareil sur le même réseau Wi-Fi, par code
+  d’appairage, avec transfert du coffre chiffré et des pièces jointes blob.
+- Restauration d’un fichier `.coffre` avec un filtre de fichier élargi
+  (`application/octet-stream`, texte, ZIP).
 - Stockage natif dans le dossier de données de l’application, avec les trois
   sauvegardes tournantes.
 - Interface tactile et thème clair/sombre.
@@ -78,7 +82,9 @@ par la création du coffre et sa relecture après redémarrage.
 
 Restent à valider sur appareil réel : les performances Argon2, le clavier
 physique, l’import/export de fichiers, les gros coffres, la rotation d’écran,
-le mode sombre système et la restauration après mise à jour.
+le mode sombre système et la restauration après mise à jour. Le premier import
+par réseau local et le filtre de fichier élargi doivent être confirmés sur un
+appareil Android physique.
 
 ## Prochaines étapes
 
