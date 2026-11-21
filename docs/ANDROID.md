@@ -52,6 +52,16 @@ largeurs 360, 375, 390 et 760 px, l’absence de débordement et l’accessibili
 des nouveaux onglets. Le rendu des zones sûres et de la navigation gestuelle
 reste à confirmer sur un appareil physique.
 
+### Bouton retour Android
+
+`MainActivity` intercepte le retour système et appelle
+`window.__coffreHandleBack`. L’interface ferme alors la couche la plus haute :
+menu, modale, détail, tiroir, recherche, filtre ou catégorie de sécurité.
+Quand il ne reste plus rien à fermer, elle renvoie `false` et l’activité
+termine. Le test `mobile-back.spec.ts` couvre l’ordre de fermeture côté
+WebView ; le geste et le bouton matériels restent à vérifier sur un appareil
+physique.
+
 ## Signature et bêtas
 
 Android n’installe une mise à jour par-dessus l’application existante que si

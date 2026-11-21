@@ -815,6 +815,69 @@ export function VaultApp() {
     !settingsOpen &&
     !readOnly &&
     canCreateInDefault
+
+  // Bouton retour Android : fermer la couche la plus haute avant de quitter.
+  // Le pont natif (MainActivity) appelle cette fonction et ne termine
+  // l’activité que si elle renvoie false.
+  useEffect(() => {
+    const handleBack = () => {
+      if (paletteOpen) {
+        setPaletteOpen(false)
+        return true
+      }
+      const overlay = document.querySelector('.modal-overlay')
+      const menu = document.querySelector('[role="menu"], .menu')
+      if (overlay || menu) {
+        // Les menus écoutent en capture sur document et bloquent la
+        // propagation : une modale parente ne se ferme pas en même temps.
+        document.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+        )
+        return true
+      }
+      if (sidebarOpen) {
+        setSidebarOpen(false)
+        return true
+      }
+      if (selectedId) {
+        setSelectedId(null)
+        return true
+      }
+      if (search) {
+        setSearch('')
+        return true
+      }
+      if (securityCategory) {
+        setSecurityCategory(null)
+        return true
+      }
+      if (filter !== 'all') {
+        setFilter('all')
+        return true
+      }
+      if (view === 'vault') {
+        setView('dashboard')
+        return true
+      }
+      return false
+    }
+
+    window.__coffreHandleBack = handleBack
+    return () => {
+      if (window.__coffreHandleBack === handleBack) {
+        delete window.__coffreHandleBack
+      }
+    }
+  }, [
+    filter,
+    paletteOpen,
+    search,
+    securityCategory,
+    selectedId,
+    sidebarOpen,
+    view,
+  ])
+
   const filterLabel = t(FILTER_MESSAGE_KEYS[filter])
   const securityLabel = securityCategory ? t(SECURITY_CATEGORY_KEYS[securityCategory]) : null
   const heading = dashboardActive
