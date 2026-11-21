@@ -1,13 +1,13 @@
 package app.coffre.desktop
 
 import android.app.Application
-import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.autofill.AutofillManager
 import androidx.core.content.FileProvider
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -47,31 +47,19 @@ class CoffreApplication : Application() {
     }
   }
 
-  /**
-   * Vrai si Coffre est le service de remplissage sélectionné dans Android.
-   * L’identifiant de package diffère entre un build debug (`.debug`) et un
-   * build release : comparer le composant complet, pas seulement la classe.
-   */
+  /** Vrai si Android expose l’Autofill Framework (Android 8+). */
   fun isAutofillSupported(): Boolean =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
+  /** Vrai si Coffre est le service de remplissage sélectionné dans Android. */
+  @Suppress("DEPRECATION")
   fun isAutofillServiceEnabled(): Boolean {
     // `AutofillService` n’existe qu’à partir d’Android 8 : ne pas charger la
     // classe du service sur les anciens appareils.
     if (!isAutofillSupported()) return false
     return try {
-      val expected = ComponentName(this, CoffreAutofillService::class.java)
-      val selected = Settings.Secure.getString(
-        contentResolver,
-        Settings.Secure.AUTOFILL_SERVICE,
-      )
-      if (selected.isNullOrBlank()) {
-        false
-      } else {
-        selected == expected.flattenToString() ||
-          selected == expected.flattenToShortString() ||
-          ComponentName.unflattenFromString(selected) == expected
-      }
+      val manager = getSystemService(AutofillManager::class.java) ?: return false
+      manager.hasEnabledAutofillServices()
     } catch (_: Exception) {
       false
     }

@@ -1,5 +1,6 @@
 package app.coffre.desktop
 
+import android.app.assist.AssistStructure
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
 import android.service.autofill.Dataset
@@ -15,6 +16,10 @@ import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
 import java.util.Locale
 import org.json.JSONObject
+
+// Ces deux hints ne font pas partie des constantes historiques de `View`.
+private const val HINT_NEW_PASSWORD = "newPassword"
+private const val HINT_NEW_USERNAME = "newUsername"
 
 /**
  * Remplissage des identifiants Coffre dans les autres applications.
@@ -52,7 +57,7 @@ class CoffreAutofillService : AutofillService() {
     val passwordIds = mutableListOf<AutofillId>()
     var webDomain: String? = null
 
-    fun visit(node: View?) {
+    fun visit(node: AssistStructure.ViewNode?) {
       if (node == null) return
       if (!node.webDomain.isNullOrBlank()) webDomain = node.webDomain
 
@@ -73,10 +78,10 @@ class CoffreAutofillService : AutofillService() {
         // Les champs « nouveau mot de passe » d’une inscription ne doivent pas
         // recevoir un mot de passe existant.
         val newPassword = hints.any {
-          it.equals(View.AUTOFILL_HINT_NEW_PASSWORD, ignoreCase = true)
+          it.equals(HINT_NEW_PASSWORD, ignoreCase = true)
         }
         val newUsername = hints.any {
-          it.equals(View.AUTOFILL_HINT_NEW_USERNAME, ignoreCase = true)
+          it.equals(HINT_NEW_USERNAME, ignoreCase = true)
         }
 
         val password =
