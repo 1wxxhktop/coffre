@@ -89,6 +89,8 @@
   --surface-topbar: rgba(9, 9, 11, 0.55);
   --surface-footer: rgba(9, 9, 11, 0.55);
   --surface-toolbar: rgba(9, 9, 11, 0.82);
+  /* Barre de navigation flottante : volontairement plus transparente. */
+  --surface-floating-nav: rgba(9, 9, 11, 0.62);
   --surface-auth-panel: linear-gradient(180deg, #18181b, #111113);
   --scrim: rgba(0, 0, 0, 0.68);
   --scrim-soft: rgba(0, 0, 0, 0.55);

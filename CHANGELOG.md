@@ -12,8 +12,10 @@
 - Mobile : **refonte de la coque**. Barre supérieure compacte avec menu,
   titre, recherche/tri et actions **générateur, réglages et badge sécurité**
   à droite ; navigation basse **flottante et persistante** (Accueil, Coffre,
-  Favoris, Récents) avec bouton central de création ; réglages, sécurité et
-  formulaires en pages plein écran ; notifications et zones sûres Android.
+  Favoris, Récents) avec bouton central de création ; barre translucide et
+  barres système Android totalement transparentes pour l’effet flottant ;
+  réglages, sécurité et formulaires en pages plein écran ; notifications et
+  zones sûres Android.
 - Android : le **bouton retour** ferme d’abord la couche courante (modale,
   détail, tiroir, recherche ou filtre), puis revient à l’accueil avant de
   quitter l’application. Le pont natif interroge l’interface et ne termine

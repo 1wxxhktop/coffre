@@ -38,7 +38,9 @@ Sous 768 px, la coque desktop laisse place à une interface tactile :
 - barre supérieure compacte avec menu, titre, recherche/tri et trois actions
   à droite : **générateur**, **réglages** et **badge de sécurité** ;
 - navigation basse **flottante et persistante** : **Accueil**, **Coffre**,
-  **Favoris**, **Récents**, avec un bouton central « Nouvel élément » ;
+  **Favoris**, **Récents**, avec un bouton central « Nouvel élément » ; la
+  barre elle-même est translucide et les barres système Android sont
+  transparentes ;
 - la navigation reste visible sur le détail, les réglages, la sécurité et les
   formulaires ; les actions du haut restent visibles sur le détail ;
 - groupes de dates avec en-tête dans le flux, sans masquer la première ligne

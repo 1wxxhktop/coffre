@@ -2878,7 +2878,7 @@ body:has(.app-shell) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     border: 1px solid var(--border-2);
     border-radius: var(--radius-full);
-    background: var(--surface-toolbar);
+    background: var(--surface-floating-nav);
     box-shadow: var(--shadow-2);
     transition:
       opacity 0.18s ease,
