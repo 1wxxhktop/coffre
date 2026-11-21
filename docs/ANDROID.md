@@ -222,8 +222,8 @@ récentes.
 
 - Le blocage est **actif par défaut**.
 - Le choix est mémorisé dans les préférences natives (`secure_screen`) et
-  appliqué dans `MainActivity.onCreate` et `onResume`, avant le chargement de
-  la WebView.
+  appliqué dans `MainActivity.onCreate` et réappliqué dans
+  `onResume`, dès la création de l’activité.
 - Il se désactive dans **Réglages → Sécurité → Captures d’écran**.
 - `FLAG_SECURE` ne protège pas contre un appareil rooté, un outil de capture
   privilégié ou une caméra externe. Il empêche aussi de projeter ou partager

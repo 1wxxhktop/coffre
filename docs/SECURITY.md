@@ -1665,7 +1665,7 @@ fenêtre, et masque son contenu dans l’aperçu des applications récentes.
 - **Actif par défaut.** Un gestionnaire de mots de passe ne doit pas laisser
   capturer son écran sans choix explicite.
 - Le choix est mémorisé dans les préférences natives (`secure_screen`) et
-  appliqué dans `onCreate` et `onResume`, avant le chargement de la WebView.
+  appliqué dès la création de l’activité et réappliqué à chaque reprise.
   Il survit donc à un redémarrage, même si la WebView n’est pas encore prête.
 - Le réglage est exposé dans **Réglages → Sécurité → Captures d’écran** et par
   deux commandes Tauri (`android_secure_screen_set`,

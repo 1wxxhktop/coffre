@@ -41,7 +41,7 @@ private object AutofillSupport {
  *
  * La protection contre les captures d’écran est mémorisée dans les
  * préférences natives pour être appliquée dès la création de l’activité,
- * avant même le chargement de la WebView.
+ * avant le premier rendu de la WebView.
  */
 class CoffreApplication : Application() {
   companion object {
