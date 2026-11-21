@@ -25,7 +25,7 @@ import org.json.JSONObject
 class PasskeyCredentialActivity : FragmentActivity() {
   companion object {
     const val ACTION_GET_PASSKEY = "app.coffre.desktop.action.GET_PASSKEY"
-    const val EXTRA_CREDENTIAL_ID = "credentialId"
+    const val EXTRA_ITEM_ID = "itemId"
   }
 
   private var finished = false
@@ -41,8 +41,8 @@ class PasskeyCredentialActivity : FragmentActivity() {
     }
     val option = request.credentialOptions
       .firstOrNull { it is GetPublicKeyCredentialOption } as? GetPublicKeyCredentialOption
-    val credentialId = intent.getStringExtra(EXTRA_CREDENTIAL_ID)
-    if (option == null || credentialId.isNullOrEmpty()) {
+    val itemId = intent.getStringExtra(EXTRA_ITEM_ID)
+    if (option == null || itemId.isNullOrEmpty()) {
       cancel()
       return
     }
@@ -78,7 +78,7 @@ class PasskeyCredentialActivity : FragmentActivity() {
 
     val hashBase64 = Base64.encodeToString(clientDataHash, Base64.NO_WRAP)
     authenticate(rpId) {
-      complete(credentialId, rpId, hashBase64)
+      complete(itemId, rpId, hashBase64)
     }
   }
 
@@ -115,8 +115,8 @@ class PasskeyCredentialActivity : FragmentActivity() {
     prompt.authenticate(info.build())
   }
 
-  private fun complete(credentialId: String, rpId: String, hashBase64: String) {
-    val payload = CoffrePasskeyBridge.assert(credentialId, rpId, hashBase64, true)
+  private fun complete(itemId: String, rpId: String, hashBase64: String) {
+    val payload = CoffrePasskeyBridge.assert(itemId, rpId, hashBase64, true)
     if (payload == null) {
       cancel()
       return

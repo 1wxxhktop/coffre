@@ -59,14 +59,14 @@ class CoffreCredentialProviderService : CredentialProviderService() {
         val items = root.optJSONArray("items") ?: continue
         for (index in 0 until items.length()) {
           val item = items.optJSONObject(index) ?: continue
-          val credentialId = item.optString("credentialId")
-          if (credentialId.isEmpty()) continue
+          val itemId = item.optString("itemId")
+          if (itemId.isEmpty()) continue
           val userName = item.optString("userName")
           entries.add(
             PublicKeyCredentialEntry(
               context = applicationContext,
               username = userName.ifBlank { getString(R.string.app_name) },
-              pendingIntent = entryPendingIntent(credentialId),
+              pendingIntent = entryPendingIntent(itemId),
               beginGetPublicKeyCredentialOption = option,
               displayName = userName.takeIf { it.isNotBlank() },
             ),
@@ -120,14 +120,14 @@ class CoffreCredentialProviderService : CredentialProviderService() {
     return ids.toString()
   }
 
-  private fun entryPendingIntent(credentialId: String): PendingIntent {
+  private fun entryPendingIntent(itemId: String): PendingIntent {
     val intent = Intent(this, PasskeyCredentialActivity::class.java).apply {
       action = PasskeyCredentialActivity.ACTION_GET_PASSKEY
-      putExtra(PasskeyCredentialActivity.EXTRA_CREDENTIAL_ID, credentialId)
+      putExtra(PasskeyCredentialActivity.EXTRA_ITEM_ID, itemId)
     }
     return PendingIntent.getActivity(
       this,
-      credentialId.hashCode() and 0x7fffffff,
+      itemId.hashCode() and 0x7fffffff,
       intent,
       PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
