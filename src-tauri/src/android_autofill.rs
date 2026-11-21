@@ -311,7 +311,10 @@ pub extern "system" fn Java_app_coffre_desktop_CoffreAutofillBridge_nativeMatch(
     let payload = Zeroizing::new(match_payload(&domain));
     match env.new_string(payload.as_str()) {
         Ok(value) => value.into_raw(),
-        Err(_) => std::ptr::null_mut(),
+        Err(_) => {
+            let _ = env.exception_clear();
+            std::ptr::null_mut()
+        }
     }
 }
 

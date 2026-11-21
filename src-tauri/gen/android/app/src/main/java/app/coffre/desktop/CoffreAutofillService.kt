@@ -138,10 +138,13 @@ class CoffreAutofillService : AutofillService() {
 
   private fun presentation(item: AutofillItem): RemoteViews =
     RemoteViews(packageName, R.layout.autofill_item).apply {
-      setTextViewText(R.id.autofill_title, item.title.ifBlank { "Coffre" })
+      setTextViewText(
+        R.id.autofill_title,
+        item.title.ifBlank { getString(R.string.app_name) },
+      )
       setTextViewText(
         R.id.autofill_username,
-        item.username.ifBlank { "Connexion Coffre" },
+        item.username.ifBlank { getString(R.string.autofill_login_fallback) },
       )
     }
 

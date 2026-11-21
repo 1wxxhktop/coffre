@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">"Coffre"</string>
+    <string name="main_activity_title">"Coffre"</string>
+    <string name="autofill_service_label">"Coffre"</string>
+    <string name="autofill_login_fallback">"Coffre login"</string>
+</resources>
