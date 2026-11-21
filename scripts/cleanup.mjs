@@ -22,6 +22,7 @@ import { existsSync, lstatSync, readlinkSync, readdirSync, rmSync } from 'node:f
 import { homedir, platform } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mainRepoRoot } from './repo-root.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = new Set(process.argv.slice(2))
@@ -237,7 +238,7 @@ removeDsStore()
 
 // release/ est volontairement exclu : il doit toujours conserver la dernière
 // version collectée. On se contente de rappeler son état.
-const releaseDir = join(ROOT, 'release')
+const releaseDir = join(mainRepoRoot(ROOT), 'release')
 if (existsSync(releaseDir)) {
   let target = ''
   try {
