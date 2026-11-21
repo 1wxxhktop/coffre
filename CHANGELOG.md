@@ -2,6 +2,12 @@
 
 ## Non publié
 
+- Android : **remplissage automatique** des identifiants dans le navigateur et
+  les formulaires web des autres applications (Autofill Framework, Android 8+).
+  Le service lit un cache **en mémoire**, limité aux domaines correspondants et
+  expirant avec le verrouillage automatique ; rien n’est écrit sur le disque et
+  Coffre ne capture pas les mots de passe saisis ailleurs. Désactivé par
+  défaut ; nécessite de laisser le coffre déverrouillé en arrière-plan.
 - Android : **déverrouillage par empreinte digitale**. La clé maîtresse est
   chiffrée par Android Keystore via `biometricCipher` et n’est déchiffrée
   qu’après le dialogue biométrique. Le mot de passe maître reste la solution de

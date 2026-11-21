@@ -24,6 +24,18 @@ describe('préférences de saisie', () => {
   })
 })
 
+describe('remplissage Android', () => {
+  it('est désactivé par défaut', () => {
+    stubSettings({})
+    expect(loadSettings().androidAutofill).toBe(false)
+  })
+
+  it('reprend une activation explicite', () => {
+    stubSettings({ androidAutofill: true })
+    expect(loadSettings().androidAutofill).toBe(true)
+  })
+})
+
 describe('préférences de sauvegarde', () => {
   it('reprend une configuration valide', () => {
     stubSettings({

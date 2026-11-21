@@ -14,6 +14,7 @@ use tauri::plugin::Plugin;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 mod alias_service;
+mod android_autofill;
 mod android_update;
 #[cfg(desktop)]
 mod autotype;
@@ -832,6 +833,11 @@ pub fn run() {
             android_update::android_updater_download,
             android_update::android_updater_install,
             android_update::android_updater_discard,
+            android_autofill::android_autofill_publish,
+            android_autofill::android_autofill_touch,
+            android_autofill::android_autofill_clear,
+            android_autofill::android_autofill_status,
+            android_autofill::android_autofill_open_settings,
             biometric_available,
             biometric_confirm,
             biometric_store,

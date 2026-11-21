@@ -55,12 +55,34 @@ déverrouillé, même réseau Wi-Fi, aucun accès Internet.
 3. Vérifier avec `ssh-keygen -Y verify` et l’allowed_signers.
 4. Vérifier que `COFFRE_PASSWORD` n’est pas utilisé en production.
 
-## 5. Mobile et QR (hors périmètre actuel)
+## 5. Mobile et QR
 
 1. Initialiser les cibles iOS/Android.
 2. Scanner le QR d’appairage avec la caméra.
 3. Vérifier les limites mémoire sur un coffre volumineux.
 4. Vérifier l’absence de réseau implicite.
+
+### Remplissage Android
+
+1. Installer l’APK **signé** de la bêta, puis ouvrir **Réglages →
+   Remplissage Android**.
+2. Désactiver le verrouillage en arrière-plan, choisir Coffre dans Android,
+   activer le remplissage, laisser le coffre déverrouillé.
+3. Dans Chrome, ouvrir un formulaire dont le domaine correspond à un élément :
+   la proposition Coffre apparaît et remplit l’identifiant et le mot de passe.
+4. Ouvrir un formulaire d’un domaine voisin (`evil.example` pour
+   `example.com`) : aucune proposition.
+5. Ouvrir un formulaire d’inscription avec un champ « nouveau mot de passe » :
+   il n’est pas rempli.
+6. Verrouiller Coffre puis revenir au formulaire : plus aucune proposition.
+7. Laisser le coffre en arrière-plan au-delà du délai d’inactivité, puis
+   revenir au formulaire : le cache natif a expiré.
+8. Tuer le processus Coffre puis rouvrir le formulaire : aucune proposition
+   avant un nouveau déverrouillage.
+9. Vérifier qu’aucune boîte « Enregistrer ce mot de passe ? » n’est proposée
+   par Coffre après une saisie dans une autre application.
+10. Vérifier le rendu en thème clair et sombre, et sur un appareil Android 8
+    ou 9 pour l’API minimale.
 
 ## 6. Audit externe
 

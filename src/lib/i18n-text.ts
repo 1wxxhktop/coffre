@@ -910,6 +910,58 @@ export const EN_TEXT: Record<string, string> = {
     "Updates",
   "Mises à jour Android":
     "Android updates",
+  "Remplissage Android":
+    "Android autofill",
+  "Propose les connexions du coffre dans les formulaires des autres applications et du navigateur.":
+    "Offers vault logins in forms in other apps and in the browser.",
+  "Service de remplissage":
+    "Autofill service",
+  "Coffre doit être choisi dans les réglages Android, puis le coffre doit rester déverrouillé.":
+    "Coffre must be selected in Android settings, and the vault must stay unlocked.",
+  "Coffre est le service de remplissage sélectionné.":
+    "Coffre is the selected autofill service.",
+  "Coffre n’est pas encore le service de remplissage d’Android.":
+    "Coffre is not Android's autofill service yet.",
+  "Le remplissage Android nécessite Android 8 ou une version plus récente.":
+    "Android autofill requires Android 8 or later.",
+  "Choisir Coffre dans Android":
+    "Choose Coffre in Android",
+  "Actualiser l’état":
+    "Refresh status",
+  "Verrouillage en arrière-plan":
+    "Background lock",
+  "Le coffre se verrouille dès que vous quittez Coffre : le cache de remplissage est vidé avant que le navigateur puisse l’utiliser.":
+    "The vault locks as soon as you leave Coffre: the autofill cache is cleared before the browser can use it.",
+  "Désactivez ce verrouillage pour permettre le remplissage. Le coffre restera protégé par le délai d’inactivité.":
+    "Disable this lock to allow autofill. The vault remains protected by the inactivity timeout.",
+  "Désactiver le verrouillage en arrière-plan":
+    "Disable background lock",
+  "Sans cette modification, le remplissage ne peut pas fonctionner : le cache est effacé dès la sortie de Coffre.":
+    "Without this change, autofill cannot work: the cache is cleared as soon as you leave Coffre.",
+  "Autoriser le remplissage":
+    "Allow autofill",
+  "Les connexions restent en mémoire uniquement et ne sont jamais écrites sur le disque.":
+    "Logins stay in memory only and are never written to disk.",
+  "Proposer les connexions de Coffre dans les formulaires":
+    "Offer Coffre logins in forms",
+  "Le coffre est déverrouillé : les connexions sont disponibles pour le remplissage.":
+    "The vault is unlocked: logins are available for autofill.",
+  "Seules les connexions dont l’adresse correspond exactement au domaine du formulaire sont proposées. Les applications natives sans domaine web ne reçoivent rien pour l’instant. Coffre ne propose jamais d’enregistrer un mot de passe saisi dans une autre application.":
+    "Only logins whose address exactly matches the form's domain are offered. Native apps without a web domain receive nothing for now. Coffre never offers to save a password typed in another app.",
+  "Le cache expire après le délai de verrouillage automatique, même si Android met Coffre en veille.":
+    "The cache expires after the auto-lock timeout, even if Android puts Coffre to sleep.",
+  "Le verrouillage automatique est désactivé : le cache reste disponible jusqu’au verrouillage manuel de Coffre.":
+    "Auto-lock is disabled: the cache stays available until Coffre is locked manually.",
+  "Choisissez Coffre dans Android pour que le remplissage apparaisse dans les autres applications.":
+    "Choose Coffre in Android so autofill appears in other apps.",
+  "Remplissage Android désactivé.":
+    "Android autofill disabled.",
+  "Remplissage Android activé.":
+    "Android autofill enabled.",
+  "Impossible d’ouvrir les réglages Android.":
+    "Unable to open Android settings.",
+  "Verrouillage en arrière-plan désactivé.":
+    "Background lock disabled.",
   "Coffre peut vérifier au démarrage si une nouvelle version est publiée sur GitHub. Aucune donnée du coffre n’est envoyée.":
     "Coffre can check at launch whether a new version is published on GitHub. No vault data is sent.",
   "Vérifier au démarrage":

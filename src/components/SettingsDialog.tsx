@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
+  Smartphone,
   Trash2,
   Upload,
   Wand2,
@@ -32,6 +33,7 @@ import { TemplateSettings } from './TemplateSettings'
 import { ActivitySettings } from './ActivitySettings'
 import { BlobStorageSettings } from './BlobStorageSettings'
 import { UpdateSettings } from './UpdateSettings'
+import { AndroidAutofillSettings } from './AndroidAutofillSettings'
 import { ExtensionSettings } from './ExtensionSettings'
 import { BackupSettings } from './BackupSettings'
 import { SshAgentSettings } from './SshAgentSettings'
@@ -53,7 +55,11 @@ import { keychainAvailable } from '../lib/keychain'
 import { biometricAvailable } from '../lib/biometrics'
 import { prfSupported } from '../lib/prf'
 import { isTauriRuntime } from '../lib/external'
-import { isDesktopRuntime, isMobileRuntime } from '../lib/platform'
+import {
+  isAndroidRuntime,
+  isDesktopRuntime,
+  isMobileRuntime,
+} from '../lib/platform'
 import { getAutostartEnabled, setAutostartEnabled } from '../lib/systemIntegration'
 import { ensureNotificationPermission } from '../lib/notifications'
 import { LOCALES, type Locale } from '../lib/i18n'
@@ -87,6 +93,7 @@ type SettingsPage =
   | 'general'
   | 'sync'
   | 'security'
+  | 'autofill'
   | 'templates'
   | 'activity'
   | 'backup'
@@ -102,6 +109,7 @@ const SETTINGS_PAGES: Array<{
   { id: 'general', label: 'Général', icon: SlidersHorizontal },
   { id: 'sync', label: 'Synchronisation', icon: Cloud },
   { id: 'security', label: 'Sécurité', icon: ShieldCheck },
+  { id: 'autofill', label: 'Remplissage Android', icon: Smartphone },
   { id: 'templates', label: 'Modèles', icon: LayoutTemplate },
   { id: 'activity', label: 'Journal d’activité', icon: History },
   { id: 'backup', label: 'Sauvegarde et import', icon: Archive },
@@ -655,9 +663,11 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
 
   // Sur mobile, le dossier synchronisé desktop n’a pas de sens ; les mises à
   // jour Android restent disponibles.
-  const pages = isMobileRuntime()
-    ? SETTINGS_PAGES.filter((entry) => entry.id !== 'sync')
-    : SETTINGS_PAGES
+  const pages = SETTINGS_PAGES.filter((entry) => {
+    if (entry.id === 'sync') return !isMobileRuntime()
+    if (entry.id === 'autofill') return isAndroidRuntime()
+    return true
+  })
 
   const goToPage = (next: SettingsPage) => {
     setPage(next)
@@ -716,6 +726,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
             </button>
 
             {page === 'templates' && <TemplateSettings />}
+
+            {page === 'autofill' && <AndroidAutofillSettings />}
 
             {page === 'activity' && <ActivitySettings />}
 

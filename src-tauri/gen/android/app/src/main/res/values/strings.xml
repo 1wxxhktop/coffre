@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">"Coffre"</string>
     <string name="main_activity_title">"Coffre"</string>
+    <string name="autofill_service_label">"Coffre"</string>
 </resources>

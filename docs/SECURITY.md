@@ -1603,6 +1603,53 @@ pendant que le coffre est verrouillé.
   dans `localStorage` ni dans le journal d’activité. Aucune requête réseau n’est
   effectuée.
 
+### 2.30 Remplissage Android (Autofill Framework)
+
+Le service `CoffreAutofillService` expose les connexions du coffre aux
+formulaires web d’Android, via l’`AutofillService` système (Android 8+).
+
+- **Cache en mémoire seulement.** La WebView publie les connexions utilisables
+  dans un `static` Rust (`android_autofill.rs`), lu par le service via JNI.
+  Aucun fichier, aucune préférence et aucune trace ne contient les mots de
+  passe. Le cache est vidé au verrouillage, à la désactivation du réglage et à
+  la mort du processus.
+- **Publication conditionnelle.** Le pont React ne publie que si le réglage
+  `androidAutofill` est actif et que l’état du coffre est `unlocked`. Un
+  changement d’élément remplace le cache ; un verrouillage le supprime.
+- **Expiration native.** La durée de validité est fixée par le délai de
+  verrouillage automatique (plafonnée à 24 h) et vérifiée dans Rust, pas dans
+  la WebView : les minuteurs ralentis en arrière-plan ne prolongent pas le
+  cache. Le passage en arrière-plan le prolonge une dernière fois.
+- **Correspondance de domaine.** Le service ne fournit à Rust qu’un domaine
+  (`ViewNode.webDomain`) ; Rust applique `login_allows_host` (hôte exact,
+  tolérance `www.`, pas de sous-domaine tiers, HTTPS non dégradé en HTTP). Un
+  domaine vide ou une application native sans domaine ne reçoit aucune
+  proposition. Le service ne renvoie jamais la liste complète des connexions.
+- **Pas de capture.** `onSaveRequest` ne fait rien : Coffre ne propose jamais
+  d’enregistrer un mot de passe saisi dans une autre application.
+- **Mémoire.** Les chaînes du cache Rust sont effacées par `zeroize` lorsqu’il
+  est remplacé ou vidé ; le nombre d’entrées, la taille des champs et le nombre
+  d’URL sont plafonnés. Les copies Java/Kotlin nécessaires au `Dataset` restent
+  soumises au ramasse-miettes d’Android, comme pour tout service de
+  remplissage.
+- **Surface Tauri.** Cinq commandes dédiées (`android_autofill_publish`,
+  `android_autofill_touch`, `android_autofill_clear`,
+  `android_autofill_status`, `android_autofill_open_settings`) sont autorisées
+  à la fenêtre ; aucune n’accepte d’URL, de chemin ou de nom de package. Le
+  service est protégé par `BIND_AUTOFILL_SERVICE` ; seul le système Android
+  peut le lier.
+- **Hameçonnage par domaine déclaré.** Android ne vérifie pas le domaine
+  qu’une WebView déclare : une application malveillante peut présenter un
+  formulaire en prétendant être `example.com` et recevoir le mot de passe si
+  l’utilisateur choisit la proposition. C’est une limite du modèle Autofill,
+  identique chez les autres gestionnaires ; l’utilisateur doit vérifier
+  l’application. Une vérification par Digital Asset Links pourra réduire ce
+  risque pour les applications natives.
+- **Limites.** Un processus tué perd le cache ; les applications natives sans
+  domaine web, les codes TOTP et l’enregistrement ne sont pas couverts. Sur un
+  build debug, le service porte le package `…debug` et doit être sélectionné
+  séparément du build signé.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)
@@ -2101,6 +2148,7 @@ La WebView n’accède au système que par des commandes IPC explicites :
 | `bridge_key_store`, `bridge_key_load`, `bridge_key_delete` | clé d’appairage du pont natif (fichier privé sous macOS, trousseau ailleurs) |
 | `extension_info`, `extension_reveal` | copie gérée de l’extension : état, mise à niveau et ouverture du dossier |
 | `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS, Windows Hello et empreinte Android |
+| `android_autofill_publish`, `android_autofill_touch`, `android_autofill_clear`, `android_autofill_status`, `android_autofill_open_settings` | cache mémoire du remplissage Android et écran système de sélection du service |
 | `autostart_enabled`, `autostart_set`, `startup_is_hidden` | démarrage à l’ouverture de session et lancement masqué |
 | `tray_set_language`, `tray_set_keep_on_close` | libellés du menu et comportement à la fermeture |
 | `vault_read`, `vault_write`, `vault_backup_read`, `vault_backup_write`, `vault_clear` | stockage natif du coffre |
