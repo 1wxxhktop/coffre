@@ -90,6 +90,29 @@ export function UpdateSettings() {
     <section className="settings-section" aria-labelledby="settings-updates">
       {header}
 
+      {android && configured && settings.updateCheck === 'off' && (
+        <div className="update-callout" role="status">
+          <div>
+            <strong>{tt('Recherche automatique désactivée')}</strong>
+            <p>
+              {tt(
+                'Activez-la pour être prévenu des nouvelles bêtas Android au démarrage.',
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="button button--primary button--sm"
+            onClick={() => {
+              updateSettings({ updateCheck: 'launch' })
+              void check()
+            }}
+          >
+            {tt('Activer au démarrage')}
+          </button>
+        </div>
+      )}
+
       {info && !configured && (
         <p className="form-error" role="status">
           <AlertTriangle size={16} />

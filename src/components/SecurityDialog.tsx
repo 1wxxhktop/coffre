@@ -149,6 +149,7 @@ export function SecurityDialog({
       title={t('security.title')}
       description={t('security.description')}
       size="lg"
+      fullscreen
       onClose={onClose}
       footer={
         <div className="modal__footer-actions">

@@ -8,10 +8,16 @@ import { useI18n } from '../state/I18nProvider'
  * Le dialogue de chargement occupe immédiatement le rôle `dialog` : Échap et
  * les tests d’interface n’attendent pas le chunk pour pouvoir fermer.
  */
-export function DialogLoading({ onClose }: { onClose: () => void }) {
+export function DialogLoading({
+  onClose,
+  fullscreen = false,
+}: {
+  onClose: () => void
+  fullscreen?: boolean
+}) {
   const { t } = useI18n()
   return (
-    <Modal title={t('common.loading')} size="sm" onClose={onClose}>
+    <Modal title={t('common.loading')} size="sm" fullscreen={fullscreen} onClose={onClose}>
       <div className="history-empty" role="status">
         <LoaderCircle size={22} className="spin" />
       </div>

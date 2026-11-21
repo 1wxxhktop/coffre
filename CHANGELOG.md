@@ -9,6 +9,24 @@
 - Interface : le thème **clair devient le défaut** des nouvelles installations,
   et un bouton sur l’écran de verrouillage permet de basculer immédiatement
   entre clair et sombre.
+- Mobile : **refonte de la coque**. Barre supérieure compacte avec menu,
+  titre, recherche/tri et actions **générateur, réglages et badge sécurité**
+  à droite ; navigation basse **flottante et persistante** (Accueil, Coffre,
+  Favoris, Récents) avec bouton central de création ; barre translucide sans
+  flou et barres système Android totalement transparentes pour l’effet
+  flottant ; réglages, sécurité et formulaires en pages plein écran ;
+  notifications et zones sûres Android.
+- Mobile : **une seule notification à la fois** (les piles de bandeaux
+  sombres masquaient le bas de l’écran) et retour en haut de la liste au
+  changement d’onglet, de filtre ou de recherche.
+- Android : le **bouton retour** ferme d’abord la couche courante (modale,
+  détail, tiroir, recherche ou filtre), puis revient à l’accueil avant de
+  quitter l’application. Le pont natif interroge l’interface et ne termine
+  l’activité qu’au dernier niveau.
+- Liste : suppression de `content-visibility` sur les lignes, tri intégré à
+  la barre de recherche mobile et en-têtes de date remis dans le flux. Les
+  groupes de dates ne masquent plus leur première ligne et ne laissent plus
+  d’espace vide pendant le défilement, sur mobile comme sur desktop.
 - Android : **mises à jour intégrées**. Coffre lit `android-beta.json` sur
   GitHub, télécharge l’APK, vérifie son SHA-256, puis ouvre l’installateur
   système. Android vérifie que la signature correspond à l’application

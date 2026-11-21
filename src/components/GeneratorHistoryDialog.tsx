@@ -116,6 +116,7 @@ export function GeneratorHistoryDialog({
       title={tt('Historique du générateur')}
       description={tt('Secrets générés localement, jamais en clair.')}
       size="md"
+      fullscreen
       onClose={onClose}
       footer={
         <>

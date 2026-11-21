@@ -686,3 +686,56 @@
   right: var(--space-3);
   z-index: var(--z-raised);
 }
+
+/* Connexion mobile : formulaire plein écran, sans carte flottante. */
+@media (max-width: 767px) {
+  .auth,
+  .is-tauri-mobile .auth {
+    padding: 0;
+  }
+
+  .auth__header {
+    padding: var(--space-4) var(--space-5) 0;
+    padding-top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
+  }
+
+  .is-tauri-mobile .auth__header {
+    padding-top: calc(var(--space-4) + max(env(safe-area-inset-top, 0px), 24px));
+  }
+
+  .auth__main {
+    display: block;
+    padding: 0;
+  }
+
+  .auth__panel {
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .auth__panel-inner {
+    padding: var(--space-5) var(--space-5)
+      calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .auth__title {
+    font-family: var(--font-sans);
+    font-size: var(--display-sm);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  .auth__actions {
+    align-items: stretch;
+  }
+
+  .auth__footer {
+    padding: var(--space-4) var(--space-5)
+      calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  }
+}
