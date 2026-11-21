@@ -7,6 +7,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { NativeBridge } from './components/NativeBridge'
 import { BackupScheduler } from './components/BackupScheduler'
 import { UpdateNotice } from './components/UpdateNotice'
+import { AndroidUpdateOptIn } from './components/AndroidUpdateOptIn'
 import { ExtensionOnboarding } from './components/ExtensionOnboarding'
 import { WindowTitlebar } from './components/WindowTitlebar'
 import { UpdateProvider } from './state/UpdateProvider'
@@ -50,7 +51,12 @@ function Root() {
   if (status === 'loading') return <Splash />
   if (status === 'error') return <ErrorScreen />
   if (status === 'empty' || status === 'locked') return <AuthScreen />
-  return <VaultApp />
+  return (
+    <>
+      <VaultApp />
+      <AndroidUpdateOptIn />
+    </>
+  )
 }
 
 function Splash() {

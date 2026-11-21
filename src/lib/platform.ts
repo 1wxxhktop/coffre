@@ -10,6 +10,11 @@ export function isMobileUserAgent(userAgent: string): boolean {
   return /Android|iPhone|iPad|iPod/i.test(userAgent)
 }
 
+export function isAndroidRuntime(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return isTauriRuntime() && /Android/i.test(navigator.userAgent)
+}
+
 export function isMobileRuntime(): boolean {
   if (!isTauriRuntime() || typeof navigator === 'undefined') return false
   return isMobileUserAgent(navigator.userAgent)

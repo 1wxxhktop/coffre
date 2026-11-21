@@ -650,10 +650,10 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
     document: activeItems.filter((item) => item.type === 'document').length,
   }
 
-  // Sur mobile, les réglages de bureau (tray, mises à jour, dossier synchronisé)
-  // n’ont pas de sens et masquent les fonctions réellement disponibles.
+  // Sur mobile, le dossier synchronisé desktop n’a pas de sens ; les mises à
+  // jour Android restent disponibles.
   const pages = isMobileRuntime()
-    ? SETTINGS_PAGES.filter((entry) => entry.id !== 'updates' && entry.id !== 'sync')
+    ? SETTINGS_PAGES.filter((entry) => entry.id !== 'sync')
     : SETTINGS_PAGES
 
   const goToPage = (next: SettingsPage) => {
@@ -2268,7 +2268,7 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
             {page === 'updates' && (
               <section className="settings__page" aria-labelledby="settings-updates">
                 <UpdateSettings />
-                <ExtensionSettings />
+                {!isMobileRuntime() && <ExtensionSettings />}
               </section>
             )}
 

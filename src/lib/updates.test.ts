@@ -97,14 +97,19 @@ describe('versions et progression', () => {
     expect(updateErrorCode('message inattendu')).toBe('check-failed')
     for (const code of [
       'not-configured',
+      'invalid-channel',
       'check-failed',
       'download-failed',
+      'checksum-failed',
+      'checksum-missing',
+      'unsupported',
       'install-failed',
       'no-update',
       'not-downloaded',
       'busy',
     ]) {
       expect(UPDATE_ERROR_TEXTS[code]).toBeTruthy()
+      expect(updateErrorCode(`${code}: détail`)).toBe(code)
     }
   })
 })

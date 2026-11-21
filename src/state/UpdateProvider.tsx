@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { isDesktopRuntime } from '../lib/platform'
+import { isAndroidRuntime, isDesktopRuntime } from '../lib/platform'
 import type { AppSettings } from '../lib/types'
 import {
   checkForUpdate,
@@ -42,7 +42,7 @@ export type UpdateStatus =
   | 'error'
 
 interface UpdateContextValue {
-  /** Vrai dans l’application desktop. */
+  /** Vrai dans l’application desktop ou Android. */
   supported: boolean
   info: UpdaterInfo | null
   status: UpdateStatus
@@ -67,7 +67,7 @@ const UpdateContext = createContext<UpdateContextValue | null>(null)
  * par son service worker : ce fournisseur reste inactif.
  */
 export function UpdateProvider({ children }: { children: ReactNode }) {
-  const supported = isDesktopRuntime()
+  const supported = isDesktopRuntime() || isAndroidRuntime()
   const { settings, updateSettings } = useSettings()
   const { prepareForRestart } = useVault()
   const [info, setInfo] = useState<UpdaterInfo | null>(null)
@@ -129,7 +129,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     try {
       await downloadUpdate()
       setStatus('ready')
-      if (settingsRef.current.updateInstallMode === 'on-quit') {
+      if (!isAndroidRuntime() && settingsRef.current.updateInstallMode === 'on-quit') {
         await setInstallOnExit(true).catch(() => undefined)
       }
     } catch (reason) {
@@ -146,7 +146,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       )
       if (busy) return
       // Une mise à jour déjà téléchargée n’est pas remplacée en silence.
-      if (!manual && statusRef.current === 'ready') return
+      // Sur Android, une recherche manuelle remplacerait l’APK en attente
+      // d’installation : demander de l’installer ou de l’ignorer d’abord.
+      if (statusRef.current === 'ready' && (!manual || isAndroidRuntime())) return
       checkedThisLaunch.current = true
       setStatus('checking')
       setError(null)
@@ -189,14 +191,24 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const check = useCallback(() => runCheck(true), [runCheck])
 
   const install = useCallback(async () => {
-    if (!supported || statusRef.current !== 'ready') return
+    // `error` permet de rouvrir l’installateur après un échec d’installation :
+    // l’APK déjà téléchargé reste disponible.
+    if (
+      !supported ||
+      (statusRef.current !== 'ready' && statusRef.current !== 'error')
+    ) {
+      return
+    }
     setStatus('installing')
     setError(null)
     try {
-      // Le coffre est verrouillé et les écritures en cours terminées avant que
-      // l’application soit remplacée et redémarrée.
-      await prepareForRestart()
+      // Sur Android, l’installateur système prend le relais : ne pas verrouiller
+      // le coffre ni redémarrer l’application depuis la WebView. Le statut
+      // revient à « prête » pour permettre de rouvrir l’installateur si
+      // l’utilisateur annule.
+      if (!isAndroidRuntime()) await prepareForRestart()
       await installUpdate()
+      if (isAndroidRuntime()) setStatus('ready')
     } catch (reason) {
       setError(updateErrorCode(reason))
       setStatus('error')

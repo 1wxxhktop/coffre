@@ -908,6 +908,16 @@ export const EN_TEXT: Record<string, string> = {
     'The copied code will be dated and no longer offered. You can restore it from the item.',
   "Mises à jour":
     "Updates",
+  "Mises à jour Android":
+    "Android updates",
+  "Coffre peut vérifier au démarrage si une nouvelle version est publiée sur GitHub. Aucune donnée du coffre n’est envoyée.":
+    "Coffre can check at launch whether a new version is published on GitHub. No vault data is sent.",
+  "Vérifier au démarrage":
+    "Check at launch",
+  "Mises à jour Android : APK signé, vérifié par SHA-256 avant l’ouverture de l’installateur système.":
+    "Android updates: signed APK, verified by SHA-256 before opening the system installer.",
+  "Les APK Android sont publiés sur le canal bêta, avec la version de test de la PR. Android demande confirmation avant chaque installation.":
+    "Android APKs are published on the beta channel, with the PR test version. Android asks for confirmation before each installation.",
   "Nouvelles versions publiées sur GitHub, signées et vérifiées avant installation.":
     "New versions published on GitHub, signed and verified before installation.",
   "La version Web se met à jour automatiquement à chaque visite, sans action de votre part.":
@@ -938,6 +948,10 @@ export const EN_TEXT: Record<string, string> = {
     "Downloading… {percent}%",
   "Installer et redémarrer":
     "Install and restart",
+  "Installer la mise à jour":
+    "Install the update",
+  "Ouverture de l’installateur Android…":
+    "Opening the Android installer…",
   "Installation… Coffre va redémarrer.":
     "Installing… Coffre will restart.",
   "Ignorer cette version":
@@ -984,6 +998,8 @@ export const EN_TEXT: Record<string, string> = {
     "Stop skipping",
   "La recherche contacte github.com : GitHub voit votre adresse IP et la version de Coffre. Aucune donnée du coffre n’est envoyée. Chaque paquet est signé et sa signature vérifiée avant installation ; le coffre est verrouillé avant le redémarrage.":
     "Checking contacts github.com: GitHub sees your IP address and Coffre version. No vault data is sent. Every package is signed and its signature verified before installation; the vault is locked before restarting.",
+  "La recherche contacte github.com : GitHub voit votre adresse IP et la version de Coffre. Aucune donnée du coffre n’est envoyée. L’APK est vérifié par SHA-256 et Android demande confirmation avant installation.":
+    "Checking contacts github.com: GitHub sees your IP address and Coffre version. No vault data is sent. The APK is verified by SHA-256 and Android asks for confirmation before installation.",
   "Coffre {version} est disponible":
     "Coffre {version} is available",
   "Plus tard":
@@ -998,6 +1014,14 @@ export const EN_TEXT: Record<string, string> = {
     "Cannot reach the update server. Check your connection and try again.",
   "Téléchargement impossible, ou signature du paquet invalide. Rien n’a été installé.":
     "Download failed, or the package signature is invalid. Nothing was installed.",
+  "Le fichier téléchargé ne correspond pas à l’empreinte SHA-256 publiée. Rien n’a été installé.":
+    "The downloaded file does not match the published SHA-256 checksum. Nothing was installed.",
+  "Le manifeste de mise à jour ne contient pas d’empreinte SHA-256.":
+    "The update manifest does not contain a SHA-256 checksum.",
+  "Les mises à jour ne sont pas disponibles sur cette plateforme.":
+    "Updates are not available on this platform.",
+  "Ce build Android de développement n’est pas signé par la clé fixe : les mises à jour sont désactivées.":
+    "This Android development build is not signed with the fixed key: updates are disabled.",
   "Installation impossible. Coffre reste dans sa version actuelle.":
     "Installation failed. Coffre stays on its current version.",
   "Cette mise à jour n’est plus disponible. Relancez une recherche.":

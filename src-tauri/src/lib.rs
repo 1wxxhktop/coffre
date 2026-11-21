@@ -14,6 +14,7 @@ use tauri::plugin::Plugin;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 mod alias_service;
+mod android_update;
 #[cfg(desktop)]
 mod autotype;
 mod backup_store;
@@ -78,7 +79,10 @@ mod updater {
     #[tauri::command]
     pub fn updater_info(app: tauri::AppHandle) -> UpdaterInfo {
         UpdaterInfo {
-            configured: false,
+            // L’APK Android suit le canal bêta et se met à jour via
+            // `android_update.rs`. Un build debug local n’est pas signé par la
+            // clé fixe : il ne peut pas s’installer par-dessus la bêta.
+            configured: cfg!(target_os = "android") && !cfg!(debug_assertions),
             current_version: app.package_info().version.to_string(),
         }
     }
@@ -824,6 +828,10 @@ pub fn run() {
             extension_store::bridge_key_delete,
             extension_store::extension_info,
             extension_store::extension_reveal,
+            android_update::android_updater_check,
+            android_update::android_updater_download,
+            android_update::android_updater_install,
+            android_update::android_updater_discard,
             biometric_available,
             biometric_confirm,
             biometric_store,

@@ -7,6 +7,10 @@
   ],
   "permissions": [
     "allow-alias-create",
+    "allow-android-updater-check",
+    "allow-android-updater-discard",
+    "allow-android-updater-download",
+    "allow-android-updater-install",
     "allow-autostart-enabled",
     "allow-autostart-set",
     "allow-autotype-active-window",

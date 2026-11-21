@@ -16,15 +16,17 @@ appareil. Ce n’est pas encore une application Android complète.
 - Stockage natif dans le dossier de données de l’application, avec les trois
   sauvegardes tournantes.
 - Interface tactile et thème clair/sombre.
+- **Mises à jour intégrées** : lecture du manifeste bêta, téléchargement de
+  l’APK, contrôle SHA-256 et ouverture de l’installateur Android.
 
 ## Ce qui n’est pas encore là
 
 - Autofill Android (remplissage dans les applications et le navigateur).
 - Passkeys via Credential Manager.
-- Tray, auto-type, mises à jour automatiques et extension navigateur.
+- Tray, auto-type et extension navigateur.
 - Publication Play Store.
-- Notification « nouvelle version disponible » dans l’application : les
-  bêtas et les releases se téléchargent à la main (voir ci-dessous).
+- Mise à jour silencieuse : Android exige la confirmation de l’utilisateur
+  pour installer un APK hors magasin.
 
 L’APK reste une **alpha** : ne pas l’utiliser seul pour un coffre contenant de
 vrais secrets, sans sauvegarde sur un autre appareil.
@@ -84,6 +86,31 @@ Adresse fixe de la dernière bêta :
 Elle s’installe par-dessus la bêta ou la release précédente. La PR reçoit un
 commentaire avec le lien. Sans clé configurée, le job l’indique et ne publie
 rien.
+
+### Mises à jour intégrées
+
+Coffre peut proposer lui-même les nouvelles bêtas Android :
+
+1. la recherche lit `android-beta.json` sur la release `canal-beta` ;
+2. si la version distante est plus récente, la carte « Mise à jour » apparaît ;
+3. le téléchargement écrit l’APK dans le cache de l’application et vérifie
+   son SHA-256 avec l’empreinte publiée ;
+4. « Installer la mise à jour » confie le fichier à l’installateur Android via
+   un `FileProvider` et `REQUEST_INSTALL_PACKAGES` ;
+5. Android vérifie que l’APK est signé par la même clé que l’application
+   installée, puis demande confirmation.
+
+La recherche reste **désactivée par défaut**, conformément à la règle du
+projet sur les appels réseau. Après le premier déverrouillage, une proposition
+unique permet de l’activer « au démarrage » ; le réglage reste modifiable dans
+Réglages → Mises à jour. Aucune donnée du coffre n’est envoyée ; GitHub voit
+l’adresse IP et la version de Coffre.
+
+Un build **debug** local n’est pas signé par la clé fixe : `updater_info`
+indique qu’il ne peut pas installer de mise à jour, pour éviter de télécharger
+un APK qui serait refusé par Android. La première installation de la version
+avec ce mécanisme reste manuelle : les bêtas antérieures ne contiennent pas le
+code de mise à jour.
 
 ## Construire localement
 
@@ -148,11 +175,13 @@ par la création du coffre et sa relecture après redémarrage.
 Restent à valider sur appareil réel : les performances Argon2, le clavier
 physique, l’import/export de fichiers, les gros coffres, la rotation d’écran,
 le mode sombre système et la restauration après mise à jour. Le premier import
-par réseau local, le filtre de fichier élargi et le déverrouillage par
-empreinte digitale doivent être confirmés sur un appareil Android physique.
+par réseau local, le filtre de fichier élargi, le déverrouillage par empreinte
+digitale et le parcours complet de mise à jour (téléchargement, SHA-256,
+installateur Android, conservation du coffre) doivent être confirmés sur un
+appareil Android physique.
 
 ## Prochaines étapes
 
 La version Android complète reste planifiée en 0.18 : Autofill Framework,
-Credential Manager/passkeys, biométrie Keystore, validation multi-appareils et
-publication Play Store.
+Credential Manager/passkeys, validation multi-appareils et publication Play
+Store.

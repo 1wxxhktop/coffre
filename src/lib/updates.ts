@@ -1,15 +1,17 @@
 /**
- * Mises à jour de l’application desktop.
+ * Mises à jour de l’application desktop et Android.
  *
- * La recherche, le téléchargement et l’installation passent par les commandes
- * Rust de `src-tauri/src/updater.rs` : l’adresse (releases GitHub) et la clé de
- * signature y sont fixées, la WebView ne peut pas les changer. Aucune requête
- * n’est faite tant que l’utilisateur n’a pas cliqué sur « Rechercher » ou
- * choisi une fréquence (désactivée par défaut ; le canal bêta propose la
- * recherche continue).
+ * Sur desktop, la recherche, le téléchargement et l’installation passent par
+ * les commandes Rust de `src-tauri/src/updater.rs` : l’adresse (releases
+ * GitHub) et la clé de signature y sont fixées, la WebView ne peut pas les
+ * changer. Sur Android, `src-tauri/src/android_update.rs` lit
+ * `android-beta.json`, vérifie le SHA-256 de l’APK puis ouvre l’installateur
+ * système. Aucune requête n’est faite tant que l’utilisateur n’a pas cliqué
+ * sur « Rechercher » ou choisi une fréquence (désactivée par défaut).
  */
 
 import { invoke } from './invoke'
+import { isAndroidRuntime } from './platform'
 import type { AppSettings } from './types'
 
 export type UpdateChannel = AppSettings['updateChannel']
@@ -42,6 +44,11 @@ export const UPDATE_ERROR_TEXTS: Record<string, string> = {
     'Impossible de joindre le serveur de mises à jour. Vérifiez la connexion et réessayez.',
   'download-failed':
     'Téléchargement impossible, ou signature du paquet invalide. Rien n’a été installé.',
+  'checksum-failed':
+    'Le fichier téléchargé ne correspond pas à l’empreinte SHA-256 publiée. Rien n’a été installé.',
+  'checksum-missing':
+    'Le manifeste de mise à jour ne contient pas d’empreinte SHA-256.',
+  unsupported: 'Les mises à jour ne sont pas disponibles sur cette plateforme.',
   'install-failed': 'Installation impossible. Coffre reste dans sa version actuelle.',
   'no-update': 'Cette mise à jour n’est plus disponible. Relancez une recherche.',
   'not-downloaded': 'Téléchargez la mise à jour avant de l’installer.',
@@ -121,6 +128,9 @@ export function updateErrorCode(error: unknown): string {
     'invalid-channel',
     'check-failed',
     'download-failed',
+    'checksum-failed',
+    'checksum-missing',
+    'unsupported',
     'install-failed',
     'no-update',
     'not-downloaded',
@@ -131,27 +141,38 @@ export function updateErrorCode(error: unknown): string {
 }
 
 export function updaterInfo(): Promise<UpdaterInfo> {
+  // La commande native renvoie la version réelle de l’APK (les bêtas portent
+  // une version différente de `package.json`) et indique si ce build peut
+  // installer une mise à jour.
   return invoke<UpdaterInfo>('updater_info')
 }
 
 export function checkForUpdate(
   channel: UpdateChannel,
 ): Promise<UpdateDescription | null> {
+  if (isAndroidRuntime()) {
+    // L’APK Android est publié sur le canal bêta, même quand le réglage
+    // desktop est resté sur « stable ».
+    return invoke<UpdateDescription | null>('android_updater_check', {
+      channel: 'beta',
+    })
+  }
   return invoke<UpdateDescription | null>('updater_check', { channel })
 }
 
 export function downloadUpdate(): Promise<void> {
-  return invoke<void>('updater_download')
+  return invoke<void>(isAndroidRuntime() ? 'android_updater_download' : 'updater_download')
 }
 
 export function installUpdate(): Promise<void> {
-  return invoke<void>('updater_install')
+  return invoke<void>(isAndroidRuntime() ? 'android_updater_install' : 'updater_install')
 }
 
 export function setInstallOnExit(enabled: boolean): Promise<void> {
+  if (isAndroidRuntime()) return Promise.resolve()
   return invoke<void>('updater_install_on_exit', { enabled })
 }
 
 export function discardUpdate(): Promise<void> {
-  return invoke<void>('updater_discard')
+  return invoke<void>(isAndroidRuntime() ? 'android_updater_discard' : 'updater_discard')
 }

@@ -2,6 +2,7 @@ import { AlertTriangle, Download, LoaderCircle, RefreshCw, RotateCcw } from 'luc
 import { useI18n } from '../state/I18nProvider'
 import { useUpdates } from '../state/UpdateProvider'
 import { progressPercent, UPDATE_ERROR_TEXTS } from '../lib/updates'
+import { isAndroidRuntime } from '../lib/platform'
 
 /**
  * Bas de la fenêtre, à droite : état des mises à jour puis numéro de version.
@@ -14,6 +15,7 @@ export function UpdateStatus() {
   const version = info?.currentVersion || __APP_VERSION__
   const active = supported && info?.configured === true
   const percent = progressPercent(progress)
+  const android = isAndroidRuntime()
 
   let state: React.ReactNode = null
   if (active) {
@@ -52,14 +54,18 @@ export function UpdateStatus() {
           onClick={() => void install()}
         >
           <RotateCcw size={13} />
-          {tt('Redémarrer pour mettre à jour')}
+          {android
+            ? tt('Installer la mise à jour')
+            : tt('Redémarrer pour mettre à jour')}
         </button>
       )
     } else if (status === 'installing') {
       state = (
         <span className="update-status__text" role="status">
           <LoaderCircle size={13} className="spin" />
-          {tt('Installation…')}
+          {android
+            ? tt('Ouverture de l’installateur Android…')
+            : tt('Installation…')}
         </span>
       )
     } else if (status === 'error') {
