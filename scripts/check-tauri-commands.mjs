@@ -23,12 +23,32 @@ function sourceFiles(dir) {
   return files
 }
 
-// Commandes appelées par l’interface : invoke('nom') ou invoke<T>('nom').
+// Commandes appelées par l’interface : invoke('nom') ou invoke<T>('nom'), et
+// appels passant par une fonction intermédiaire du même fichier dont le premier
+// paramètre est `command` (par exemple nativeInvoke('vault_read', …)).
+const LITERAL_CALL = (name) =>
+  new RegExp(`\\b${name}(?:<[^(]*>)?\\(\\s*['"]([a-z0-9_]+)['"]`, 'g')
+const WRAPPER = /\bfunction\s+([A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*\(\s*command\s*:/g
+const INDIRECT_INVOKE = /\binvoke(?:<[^(]*>)?\(\s*([A-Za-z_$][\w$]*)\s*[,)]/g
+
 const invoked = new Map()
+const unverifiable = []
 for (const file of sourceFiles('src')) {
   const text = read(file)
-  for (const match of text.matchAll(/\binvoke(?:<[^(]*>)?\(\s*['"]([a-z0-9_]+)['"]/g)) {
-    if (!invoked.has(match[1])) invoked.set(match[1], file)
+  const record = (command) => {
+    if (!invoked.has(command)) invoked.set(command, file)
+  }
+  for (const match of text.matchAll(LITERAL_CALL('invoke'))) record(match[1])
+
+  const wrappers = [...text.matchAll(WRAPPER)].map((match) => match[1])
+  for (const wrapper of wrappers) {
+    for (const match of text.matchAll(LITERAL_CALL(wrapper))) record(match[1])
+  }
+  // Un invoke(variable) hors d’un intermédiaire reconnu échapperait au contrôle.
+  for (const match of text.matchAll(INDIRECT_INVOKE)) {
+    if (match[1] !== 'command' || wrappers.length === 0) {
+      unverifiable.push(`  ${file} : invoke(${match[1]}) — commande non vérifiable`)
+    }
   }
 }
 
@@ -79,6 +99,13 @@ for (const command of [...declared].sort()) {
   }
 }
 
+if (unverifiable.length > 0) {
+  console.error(
+    'Appels Tauri indirects non vérifiables : passer par invoke(\'nom\') ou par une fonction dont le premier paramètre s’appelle `command`.',
+  )
+  console.error(unverifiable.join('\n'))
+  process.exit(1)
+}
 if (problems.length > 0) {
   console.error('Commandes Tauri injoignables :')
   console.error(problems.join('\n'))

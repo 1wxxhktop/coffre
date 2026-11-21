@@ -12,6 +12,13 @@
 - Synchronisation locale : l’action **Recevoir ou partager une
   synchronisation** peut servir un premier coffre à un nouvel appareil sans
   exiger de fichier entrant.
+- Contrôle des commandes de l’application (`bun run lint`) : couvre aussi les
+  commandes appelées par une fonction intermédiaire (stockage, sauvegardes,
+  synchronisation), soit 71 commandes au lieu de 52, et refuse un appel
+  indirect qu’il ne sait pas vérifier.
+- Documentation de sécurité : la reconnexion de l’extension réémet la clé
+  existante ; la limite (pas de rotation ni de révocation sélective) est
+  décrite dans `docs/SECURITY.md`.
 
 ## 0.17.0 — 21 novembre 2026
 
