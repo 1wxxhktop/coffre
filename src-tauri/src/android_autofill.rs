@@ -340,7 +340,11 @@ mod tests {
     /// Valeur de test dérivée du libellé et du processus : jamais un secret
     /// réel, et aucune constante qui ressemble à un mot de passe.
     fn test_password(label: &str) -> String {
-        format!("{label}-{}", std::process::id())
+        let mut value = String::with_capacity(label.len() + 8);
+        value.push_str(label);
+        value.push('-');
+        value.push_str(&std::process::id().to_string());
+        value
     }
 
     fn entry(title: &str, username: &str, urls: &[&str]) -> AutofillEntry {
