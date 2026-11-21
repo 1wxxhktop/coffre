@@ -16,6 +16,8 @@ interface ModalProps {
   title: string
   description?: string
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** Sur mobile, occupe tout l’écran au lieu d’une feuille basse. */
+  fullscreen?: boolean
   children: ReactNode
   footer?: ReactNode
   onClose: () => void
@@ -38,6 +40,7 @@ export function Modal({
   title,
   description,
   size = 'md',
+  fullscreen = false,
   children,
   footer,
   onClose,
@@ -146,14 +149,19 @@ export function Modal({
 
   return createPortal(
     <div
-      className="modal-overlay"
+      className={cx('modal-overlay', fullscreen && 'modal-overlay--fullscreen')}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) closeRef.current()
       }}
     >
       <div
         ref={panelRef}
-        className={cx('modal', `modal--${size}`, className)}
+        className={cx(
+          'modal',
+          `modal--${size}`,
+          fullscreen && 'modal--fullscreen',
+          className,
+        )}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

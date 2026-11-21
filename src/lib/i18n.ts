@@ -420,6 +420,8 @@ const fr = {
   'vault.viewAll': 'Voir tous les éléments',
   'vault.showAll': 'Tout afficher',
   'vault.all': 'Tout',
+  'vault.vaultTab': 'Coffre',
+  'vault.filters': 'Filtres',
   'vault.mainNavigation': 'Navigation principale',
   'vault.emptyVault.title': 'Votre coffre est vide',
   'vault.emptyVault.copy':
@@ -946,6 +948,8 @@ const en: Record<MessageKey, string> = {
   'vault.viewAll': 'View all items',
   'vault.showAll': 'Show all',
   'vault.all': 'All',
+  'vault.vaultTab': 'Vault',
+  'vault.filters': 'Filters',
   'vault.mainNavigation': 'Main navigation',
   'vault.emptyVault.title': 'Your vault is empty',
   'vault.emptyVault.copy':

@@ -60,6 +60,10 @@
   color: var(--state-danger-text);
 }
 
+.settings__nav-chevron {
+  display: none;
+}
+
 .settings__content {
   min-width: 0;
   overflow-y: auto;
@@ -995,4 +999,74 @@
   margin-top: var(--space-5);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-1);
+}
+
+/* Réglages mobiles : page plein écran et liste de sections native. */
+@media (max-width: 767px) {
+  .settings__nav {
+    overflow: hidden;
+    padding-right: 0;
+    border: 1px solid var(--border-1);
+    border-radius: var(--radius-lg);
+    background: var(--surface-subtle);
+  }
+
+  .settings__nav-item {
+    min-height: 52px;
+    padding: 0 var(--space-3);
+    border-bottom: 1px solid var(--border-1);
+    border-radius: 0;
+  }
+
+  .settings__nav-item:last-child {
+    border-bottom: 0;
+  }
+
+  .settings__nav-item.is-active {
+    box-shadow: none;
+  }
+
+  .settings__nav-item--danger {
+    margin-top: var(--space-3);
+    border-top: 1px solid var(--border-1);
+    border-radius: var(--radius-md);
+  }
+
+  .settings__nav-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settings__nav-chevron {
+    display: block;
+    flex: none;
+    margin-left: auto;
+    color: var(--text-3);
+  }
+
+  .settings__back {
+    min-height: 44px;
+    margin-bottom: var(--space-2);
+  }
+
+  .settings__page-head h3 {
+    font-size: var(--text-xl);
+  }
+
+  .settings-section {
+    padding: var(--space-3);
+  }
+}
+
+/* Bandeau de mise à jour au-dessus de la navigation mobile. */
+@media (max-width: 767px) {
+  .update-notice {
+    right: var(--space-3);
+    bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+    left: var(--space-3);
+    width: auto;
+  }
 }

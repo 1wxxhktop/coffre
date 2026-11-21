@@ -746,3 +746,73 @@
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
 }
+
+/* Tableau de bord mobile : accueil compact, sans grande carte éditoriale. */
+@media (max-width: 767px) {
+  .content--dashboard {
+    padding: var(--space-3) var(--space-4)
+      calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .dashboard {
+    gap: var(--space-3);
+  }
+
+  .dashboard__hero {
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+
+  .dashboard__hero .eyebrow {
+    display: none;
+  }
+
+  .dashboard__hero h2 {
+    margin-top: 0;
+    font-family: var(--font-sans);
+    font-size: var(--display-sm);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .dashboard__quick-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .dashboard__quick-actions .button {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    line-height: 1.25;
+    white-space: normal;
+  }
+
+  .dashboard__quick-actions .button--primary {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard__health {
+    flex-direction: row;
+    align-items: center;
+    max-width: none;
+    gap: var(--space-3);
+  }
+
+  .dashboard__ring-wrap {
+    width: 84px;
+    height: 84px;
+  }
+
+  .dashboard__health-copy {
+    min-width: 0;
+  }
+
+  .dashboard-card {
+    padding: var(--space-3);
+  }
+}

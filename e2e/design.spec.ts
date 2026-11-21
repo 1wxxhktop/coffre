@@ -4,6 +4,7 @@ import {
   clickItemMenu,
   closeDialog,
   createVault,
+  newItemButton,
   openSettings,
 } from './helpers'
 
@@ -156,15 +157,29 @@ test.describe('système de design', () => {
   test('un seul onglet mobile est actif à la fois', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await createVault(page)
+    await addLogin(page)
+    await closeDialog(page)
 
     const tabs = page.locator('.mobile-tabs')
     const active = tabs.locator('.mobile-tabs__item.is-active')
     await expect(active).toHaveCount(1)
+    await expect(active).toContainText('Coffre')
+
+    await tabs.getByRole('button', { name: 'Accueil', exact: true }).click()
+    await expect(active).toHaveCount(1)
     await expect(active).toContainText('Accueil')
 
-    await tabs.getByRole('button', { name: 'Tout', exact: true }).click()
+    await tabs.getByRole('button', { name: 'Coffre', exact: true }).click()
     await expect(active).toHaveCount(1)
-    await expect(active).toContainText('Tout')
+    await expect(active).toContainText('Coffre')
+
+    const favorites = page
+      .locator('.mobile-filters')
+      .getByRole('button', { name: 'Favoris', exact: true })
+    await expect(favorites).toHaveAttribute('aria-pressed', 'false')
+    await favorites.click()
+    await expect(favorites).toHaveAttribute('aria-pressed', 'true')
+    await expect(active).toContainText('Coffre')
 
     await tabs.getByRole('button', { name: 'Sécurité', exact: true }).click()
     await expect(active).toHaveCount(1)
@@ -414,7 +429,8 @@ test('les actions et les champs restent dans la largeur sur mobile', async ({
   }
   await closeDialog(page)
 
-  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
+  const trigger = await newItemButton(page)
+  await trigger.click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Titre', { exact: true }).fill('Site mobile')
   await dialog.getByLabel('Ajouter un champ prédéfini').selectOption('IBAN')

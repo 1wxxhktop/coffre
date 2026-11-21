@@ -13,18 +13,38 @@ export async function createVault(page: Page): Promise<void> {
   await page.getByRole('checkbox').check()
   await page.getByRole('button', { name: 'Créer mon coffre' }).click()
 
-  await expect(page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' })).toBeVisible({
-    timeout: 45_000,
-  })
+  await expect(page.locator('.dashboard')).toBeVisible({ timeout: 45_000 })
+}
+
+/** Bouton de création visible : action du bureau ou bouton flottant mobile. */
+export async function newItemButton(page: Page): Promise<Locator> {
+  const candidates = [
+    page.locator('.mobile-fab'),
+    page
+      .locator('.dashboard__quick-actions')
+      .getByRole('button', { name: 'Nouvel élément' }),
+    page
+      .locator('.empty__actions')
+      .getByRole('button', { name: 'Ajouter un élément' }),
+    page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }),
+  ]
+  for (const candidate of candidates) {
+    if (await candidate.isVisible()) return candidate
+  }
+  return candidates[candidates.length - 1]
 }
 
 /** Affiche la liste « Tous les éléments », quel que soit le palier responsive. */
 export async function showItems(page: Page): Promise<void> {
   const mobileTab = page
     .locator('.mobile-tabs')
-    .getByRole('button', { name: 'Tout', exact: true })
+    .getByRole('button', { name: 'Coffre', exact: true })
   if (await mobileTab.isVisible()) {
     await mobileTab.click()
+    const allChip = page
+      .locator('.mobile-filters')
+      .getByRole('button', { name: 'Tout', exact: true })
+    if (await allChip.isVisible()) await allChip.click()
   } else {
     await page
       .locator('.sidebar')
@@ -45,7 +65,8 @@ export async function addLogin(
   password = 's3cret!',
   url = '',
 ): Promise<Locator> {
-  await page.locator('.topbar').getByRole('button', { name: 'Nouvel élément' }).click()
+  const trigger = await newItemButton(page)
+  await trigger.click()
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByRole('heading', { name: 'Nouvel élément' })).toBeVisible()
 

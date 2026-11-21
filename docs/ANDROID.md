@@ -31,6 +31,27 @@ appareil. Ce n’est pas encore une application Android complète.
 L’APK reste une **alpha** : ne pas l’utiliser seul pour un coffre contenant de
 vrais secrets, sans sauvegarde sur un autre appareil.
 
+## Interface mobile
+
+Sous 768 px, la coque desktop laisse place à une interface tactile :
+
+- barre supérieure compacte avec menu, titre, recherche et tri ; le bouton
+  « Nouvel élément » devient un bouton flottant sur la liste ;
+- quatre onglets bas : **Accueil**, **Coffre**, **Sécurité**, **Réglages** ;
+- filtres **Tout / Favoris / Récents** en chips au-dessus de la liste ;
+- réglages, sécurité et formulaires d’élément en pages plein écran, avec
+  pied d’action fixe et libellés visibles ;
+- notifications au-dessus de la barre d’onglets et du bouton flottant ;
+- zones sûres (`env(safe-area-inset-*)`) pour la barre d’état et la navigation
+  gestuelle Android.
+
+La grille desktop, les colonnes redimensionnables et les raccourcis clavier
+restent inchangés au-dessus de 768 px. Les tests `design.spec.ts`,
+`dashboard.spec.ts`, `layout.spec.ts` et `accessibility.spec.ts` couvrent les
+largeurs 360, 375, 390 et 760 px, l’absence de débordement et l’accessibilité
+des nouveaux onglets. Le rendu des zones sûres et de la navigation gestuelle
+reste à confirmer sur un appareil physique.
+
 ## Signature et bêtas
 
 Android n’installe une mise à jour par-dessus l’application existante que si

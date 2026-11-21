@@ -9,6 +9,12 @@
 - Interface : le thème **clair devient le défaut** des nouvelles installations,
   et un bouton sur l’écran de verrouillage permet de basculer immédiatement
   entre clair et sombre.
+- Mobile : **refonte de la coque**. Barre supérieure compacte, navigation à
+  quatre onglets (Accueil, Coffre, Sécurité, Réglages) et bouton flottant
+  « Nouvel élément » ; filtres Tout/Favoris/Récents en chips ; réglages,
+  sécurité et formulaires en pages plein écran ; notifications replacées
+  au-dessus du bouton flottant ; zones sûres Android et libellés d’action
+  restaurés.
 - Android : **mises à jour intégrées**. Coffre lit `android-beta.json` sur
   GitHub, télécharge l’APK, vérifie son SHA-256, puis ouvre l’installateur
   système. Android vérifie que la signature correspond à l’application

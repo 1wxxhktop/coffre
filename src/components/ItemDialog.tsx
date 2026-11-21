@@ -286,6 +286,7 @@ function DialogSurface({
       title={title}
       description={subtitle}
       size="lg"
+      fullscreen
       onClose={onClose}
       footer={footer ?? actions}
     >
@@ -3032,6 +3033,7 @@ export function ItemDialog({
             'Aperçu en mémoire, sans écriture en clair sur le disque.',
           )}`}
           size="xl"
+          fullscreen
           onClose={closePreview}
           footer={
             <div className="modal__footer-actions">

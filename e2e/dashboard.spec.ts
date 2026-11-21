@@ -73,16 +73,14 @@ test('le tableau de bord est accessible sur mobile et sans débordement', async 
 
   await page.getByRole('button', { name: 'Accueil' }).click()
   await expect(page.locator('.dashboard')).toBeVisible()
-  const accueil = page.getByRole('button', { name: 'Accueil' })
+  const accueil = page.locator('.mobile-tabs').getByRole('button', { name: 'Accueil' })
   await expect(accueil).toHaveAttribute('aria-current', 'page')
-  await expect(page.getByRole('button', { name: 'Tout', exact: true })).not.toHaveAttribute(
-    'aria-current',
-    'page',
-  )
-  await expect(page.getByRole('button', { name: 'Sécurité', exact: true })).not.toHaveAttribute(
-    'aria-current',
-    'page',
-  )
+  await expect(
+    page.locator('.mobile-tabs').getByRole('button', { name: 'Coffre', exact: true }),
+  ).not.toHaveAttribute('aria-current', 'page')
+  await expect(
+    page.locator('.mobile-tabs').getByRole('button', { name: 'Sécurité', exact: true }),
+  ).not.toHaveAttribute('aria-current', 'page')
 
   const metrics = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -93,7 +91,13 @@ test('le tableau de bord est accessible sur mobile et sans débordement', async 
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.innerWidth)
   expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.innerHeight)
 
-  await page.getByRole('button', { name: 'Tout', exact: true }).click()
+  await page
+    .locator('.mobile-tabs')
+    .getByRole('button', { name: 'Coffre', exact: true })
+    .click()
+  await expect(
+    page.locator('.mobile-filters').getByRole('button', { name: 'Tout', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.item-row').filter({ hasText: 'GitHub' })).toBeVisible()
   await expect(page.locator('.dashboard')).toHaveCount(0)
 })
