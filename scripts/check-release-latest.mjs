@@ -16,9 +16,11 @@ import {
 } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mainRepoRoot } from './repo-root.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const releaseDir = join(ROOT, 'release')
+// release/ vit à la racine du dépôt principal, même depuis un worktree.
+const releaseDir = join(mainRepoRoot(ROOT), 'release')
 const packageVersion = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version
 
 if (!existsSync(releaseDir)) {
