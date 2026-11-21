@@ -19,9 +19,10 @@
   détail, tiroir, recherche ou filtre), puis revient à l’accueil avant de
   quitter l’application. Le pont natif interroge l’interface et ne termine
   l’activité qu’au dernier niveau.
-- Liste : suppression de `content-visibility` sur les lignes et barre de
-  filtres mobile non collante. Les en-têtes de date ne laissent plus d’espace
-  vide pendant le défilement, sur mobile comme sur desktop.
+- Liste : suppression de `content-visibility` sur les lignes, barre de
+  filtres mobile non collante et en-têtes de date remis dans le flux. Les
+  groupes de dates ne masquent plus leur première ligne et ne laissent plus
+  d’espace vide pendant le défilement, sur mobile comme sur desktop.
 - Android : **mises à jour intégrées**. Coffre lit `android-beta.json` sur
   GitHub, télécharge l’APK, vérifie son SHA-256, puis ouvre l’installateur
   système. Android vérifie que la signature correspond à l’application

@@ -39,6 +39,8 @@ Sous 768 px, la coque desktop laisse place à une interface tactile :
   « Nouvel élément » devient un bouton flottant sur la liste ;
 - quatre onglets bas : **Accueil**, **Coffre**, **Sécurité**, **Réglages** ;
 - filtres **Tout / Favoris / Récents** en chips au-dessus de la liste ;
+- groupes de dates avec en-tête dans le flux, sans masquer la première ligne
+  ni créer de vide au défilement ;
 - réglages, sécurité et formulaires d’élément en pages plein écran, avec
   pied d’action fixe et libellés visibles ;
 - notifications au-dessus de la barre d’onglets et du bouton flottant ;

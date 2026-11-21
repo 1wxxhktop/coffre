@@ -769,9 +769,9 @@ body:has(.app-shell) {
 }
 
 .item-group__title {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
+  /* Pas de sticky : sous un en-tête collant, la première ligne du groupe
+     passe dessous et peut laisser un vide pendant le défilement. Le libellé
+     reste dans le flux, avec les éléments qu’il décrit. */
   padding: var(--space-1) var(--space-2);
   background: var(--surface-1);
   color: var(--text-3);

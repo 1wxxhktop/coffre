@@ -113,6 +113,9 @@ test('les en-têtes de date restent lisibles au défilement mobile', async ({ pa
       .evaluate((element) => getComputedStyle(element).position),
   ).toBe('static')
   expect(
+    await header.evaluate((element) => getComputedStyle(element).position),
+  ).toBe('static')
+  expect(
     await firstRow.evaluate(
       (element) => getComputedStyle(element).contentVisibility,
     ),
