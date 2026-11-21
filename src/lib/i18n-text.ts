@@ -914,6 +914,12 @@ export const EN_TEXT: Record<string, string> = {
     "Coffre can check at launch whether a new version is published on GitHub. No vault data is sent.",
   "Vérifier au démarrage":
     "Check at launch",
+  "Recherche automatique désactivée":
+    "Automatic check is off",
+  "Activez-la pour être prévenu des nouvelles bêtas Android au démarrage.":
+    "Turn it on to be notified of new Android betas at launch.",
+  "Activer au démarrage":
+    "Turn on at launch",
   "Mises à jour Android : APK signé, vérifié par SHA-256 avant l’ouverture de l’installateur système.":
     "Android updates: signed APK, verified by SHA-256 before opening the system installer.",
   "Les APK Android sont publiés sur le canal bêta, avec la version de test de la PR. Android demande confirmation avant chaque installation.":
