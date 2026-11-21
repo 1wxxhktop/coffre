@@ -1617,14 +1617,16 @@ formulaires web d’Android, via l’`AutofillService` système (Android 8+).
   `androidAutofill` est actif et que l’état du coffre est `unlocked`. Un
   changement d’élément remplace le cache ; un verrouillage le supprime.
 - **Expiration native.** La durée de validité est fixée par le délai de
-  verrouillage automatique (plafonnée à 24 h) et vérifiée dans Rust, pas dans
-  la WebView : les minuteurs ralentis en arrière-plan ne prolongent pas le
-  cache. Le passage en arrière-plan le prolonge une dernière fois.
-- **Correspondance de domaine.** Le service ne fournit à Rust qu’un domaine
-  (`ViewNode.webDomain`) ; Rust applique `login_allows_host` (hôte exact,
-  tolérance `www.`, pas de sous-domaine tiers, HTTPS non dégradé en HTTP). Un
-  domaine vide ou une application native sans domaine ne reçoit aucune
-  proposition. Le service ne renvoie jamais la liste complète des connexions.
+  verrouillage automatique (plafonnée à 24 h ; aucune expiration si le délai
+  est désactivé) et vérifiée dans Rust, pas dans la WebView : les minuteurs
+  ralentis en arrière-plan ne prolongent pas le cache. L’activité récente le
+  rafraîchit ; le passage en arrière-plan le prolonge une dernière fois.
+- **Correspondance de domaine.** Le service ne fournit à Rust qu’un service
+  (`ViewNode.webDomain`, ou `schéma://domaine` quand Android 9+ expose
+  `webScheme`) ; Rust applique `login_allows_host` (hôte exact, tolérance
+  `www.`, pas de sous-domaine tiers, HTTPS non dégradé en HTTP). Un domaine
+  vide ou une application native sans domaine ne reçoit aucune proposition. Le
+  service ne renvoie jamais la liste complète des connexions.
 - **Pas de capture.** `onSaveRequest` ne fait rien : Coffre ne propose jamais
   d’enregistrer un mot de passe saisi dans une autre application.
 - **Mémoire.** Les chaînes du cache Rust sont effacées par `zeroize` lorsqu’il

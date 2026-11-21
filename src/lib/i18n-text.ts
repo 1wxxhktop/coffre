@@ -934,6 +934,8 @@ export const EN_TEXT: Record<string, string> = {
     "The vault locks as soon as you leave Coffre: the autofill cache is cleared before the browser can use it.",
   "Désactivez ce verrouillage pour permettre le remplissage. Le coffre restera protégé par le délai d’inactivité.":
     "Disable this lock to allow autofill. The vault remains protected by the inactivity timeout.",
+  "Désactivez ce verrouillage pour permettre le remplissage. Le coffre ne sera alors verrouillé que manuellement.":
+    "Disable this lock to allow autofill. The vault will then only lock manually.",
   "Désactiver le verrouillage en arrière-plan":
     "Disable background lock",
   "Sans cette modification, le remplissage ne peut pas fonctionner : le cache est effacé dès la sortie de Coffre.":

@@ -38,8 +38,11 @@ export function AndroidAutofillBridge() {
 
     const entries = toAutofillEntries(items)
     const ttlSeconds = autofillTtlSeconds(settings.autoLockMinutes)
+    // Empêche un `touch` tardif de republier après le verrouillage.
+    let active = true
 
     const publish = () => {
+      if (!active) return
       void publishAndroidAutofill(entries, ttlSeconds).catch(() => undefined)
     }
 
@@ -57,7 +60,7 @@ export function AndroidAutofillBridge() {
         .then((valid) => {
           // Le cache a expiré pendant une veille ou une longue suspension :
           // republier les entrées encore présentes dans la WebView.
-          if (!valid) publishAndroidAutofill(entries, ttlSeconds).catch(() => undefined)
+          if (active && !valid) publish()
         })
         .catch(() => undefined)
     }
@@ -87,6 +90,7 @@ export function AndroidAutofillBridge() {
     document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
+      active = false
       window.clearInterval(interval)
       for (const event of activityEvents) {
         window.removeEventListener(event, onActivity)

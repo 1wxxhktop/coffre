@@ -176,9 +176,13 @@ export function AndroidAutofillSettings() {
             </div>
           </div>
           <p className="settings-copy">
-            {tt(
-              'Désactivez ce verrouillage pour permettre le remplissage. Le coffre restera protégé par le délai d’inactivité.',
-            )}
+            {minutes > 0
+              ? tt(
+                  'Désactivez ce verrouillage pour permettre le remplissage. Le coffre restera protégé par le délai d’inactivité.',
+                )
+              : tt(
+                  'Désactivez ce verrouillage pour permettre le remplissage. Le coffre ne sera alors verrouillé que manuellement.',
+                )}
           </p>
           <div className="settings-actions settings-actions--start">
             <button

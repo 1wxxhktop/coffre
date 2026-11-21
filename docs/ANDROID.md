@@ -164,7 +164,8 @@ plus récent.
 1. Ouvrir **Réglages → Remplissage Android**.
 2. **Désactiver « Verrouiller quand Coffre passe en arrière-plan »** : sans
    cela, le cache est vidé dès que l’on quitte Coffre, avant que le navigateur
-   puisse l’utiliser. Le verrouillage automatique par inactivité reste actif.
+   puisse l’utiliser. Le verrouillage automatique par inactivité reste actif
+   s’il est configuré.
 3. Appuyer sur **Choisir Coffre dans Android** et sélectionner **Coffre**.
 4. Activer **Proposer les connexions de Coffre dans les formulaires**.
 5. Laisser le coffre déverrouillé, puis ouvrir un formulaire de connexion dans
@@ -186,8 +187,8 @@ comme identifiant (un champ e-mail générique seul peut être une newsletter).
   déverrouillé, puis vidé au verrouillage, à la désactivation ou à la fin du
   processus ;
 - sa durée de validité suit le **verrouillage automatique** (plafonnée à un
-  jour) et est vérifiée côté Rust : Android peut endormir la WebView sans
-  prolonger le cache ;
+  jour ; aucune expiration si le verrouillage est désactivé) et est vérifiée
+  côté Rust : Android peut endormir la WebView sans prolonger le cache ;
 - Coffre **ne capture pas** les mots de passe saisis dans les autres
   applications (`onSaveRequest` ne fait rien) ;
 - les secrets sont plafonnés et effacés de la mémoire Rust (`zeroize`) quand
