@@ -45,25 +45,52 @@ export function AndroidAutofillBridge() {
 
     publish()
 
-    // Battement de sécurité : la validité native reste alignée sur le délai
-    // de verrouillage même pendant une longue session au premier plan.
+    // La validité native suit l’activité réelle, comme le verrouillage
+    // automatique. Sans cela, le dernier battement pourrait dater de 60 s et
+    // expirer aussitôt après le passage en arrière-plan.
+    let lastTouch = 0
+    const refreshValidity = (force = false) => {
+      const now = Date.now()
+      if (!force && now - lastTouch < 10_000) return
+      lastTouch = now
+      void touchAndroidAutofill(ttlSeconds)
+        .then((valid) => {
+          // Le cache a expiré pendant une veille ou une longue suspension :
+          // republier les entrées encore présentes dans la WebView.
+          if (!valid) publishAndroidAutofill(entries, ttlSeconds).catch(() => undefined)
+        })
+        .catch(() => undefined)
+    }
+
     const interval = window.setInterval(() => {
-      if (!document.hidden) {
-        void touchAndroidAutofill(ttlSeconds).catch(() => undefined)
-      }
+      if (!document.hidden) refreshValidity()
     }, 60_000)
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      'pointerdown',
+      'keydown',
+      'touchstart',
+    ]
+    const onActivity = () => refreshValidity()
+    for (const event of activityEvents) {
+      window.addEventListener(event, onActivity, { passive: true })
+    }
 
     const onVisibility = () => {
       if (document.hidden) {
-        void touchAndroidAutofill(ttlSeconds).catch(() => undefined)
+        refreshValidity(true)
       } else {
         publish()
+        refreshValidity(true)
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
       window.clearInterval(interval)
+      for (const event of activityEvents) {
+        window.removeEventListener(event, onActivity)
+      }
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [status, items, settings.androidAutofill, settings.autoLockMinutes])

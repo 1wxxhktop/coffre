@@ -80,10 +80,17 @@ export async function publishAndroidAutofill(
   })
 }
 
-/** Prolonge le cache sans renvoyer les secrets. */
-export async function touchAndroidAutofill(ttlSeconds: number): Promise<void> {
-  if (!androidAutofillSupported()) return
-  await invoke('android_autofill_touch', { ttlSeconds })
+/**
+ * Prolonge le cache sans renvoyer les secrets. `false` signifie que le cache
+ * a expiré (ou n’existe plus) et que l’appelant doit republier les entrées.
+ */
+export async function touchAndroidAutofill(ttlSeconds: number): Promise<boolean> {
+  if (!androidAutofillSupported()) return false
+  try {
+    return await invoke<boolean>('android_autofill_touch', { ttlSeconds })
+  } catch {
+    return false
+  }
 }
 
 /** Vide immédiatement le cache. */

@@ -33,7 +33,10 @@ class CoffreAutofillService : AutofillService() {
     val title: String,
     val username: String,
     val password: String,
-  )
+  ) {
+    // Ne jamais laisser un mot de passe apparaître dans une trace.
+    override fun toString(): String = "AutofillItem(title=$title, username=$username)"
+  }
 
   private data class Form(
     val usernameIds: List<AutofillId>,
@@ -42,7 +45,10 @@ class CoffreAutofillService : AutofillService() {
   )
 
   private class FormVisitor {
-    val usernameIds = mutableListOf<AutofillId>()
+    // Identifiant explicite (« username », « identifiant »…), puis champs
+    // e-mail plus faibles, utilisés seulement si un mot de passe les accompagne.
+    val strongUsernameIds = mutableListOf<AutofillId>()
+    val emailIds = mutableListOf<AutofillId>()
     val passwordIds = mutableListOf<AutofillId>()
     var webDomain: String? = null
 
@@ -51,8 +57,16 @@ class CoffreAutofillService : AutofillService() {
       if (!node.webDomain.isNullOrBlank()) webDomain = node.webDomain
 
       val id = node.autofillId
-      if (id != null && node.isEnabled && node.visibility == View.VISIBLE) {
-        val hints = node.autofillHints?.map { it.lowercase(Locale.ROOT) } ?: emptyList()
+      val hints = node.autofillHints?.map { it.lowercase(Locale.ROOT) } ?: emptyList()
+      val inputClass = node.inputType and InputType.TYPE_MASK_CLASS
+      // Les WebViews exposent parfois des champs sans type Android : un
+      // `autofillHints` explicite suffit alors à les reconnaître.
+      val editable =
+        inputClass == InputType.TYPE_CLASS_TEXT ||
+          inputClass == InputType.TYPE_CLASS_NUMBER ||
+          node.className?.toString().orEmpty().contains("EditText") ||
+          hints.isNotEmpty()
+      if (id != null && editable && node.isEnabled && node.visibility == View.VISIBLE) {
         val variation = node.inputType and InputType.TYPE_MASK_VARIATION
         val label = "${node.hint ?: ""} ${node.idEntry ?: ""}"
           .lowercase(Locale.ROOT)
@@ -76,26 +90,34 @@ class CoffreAutofillService : AutofillService() {
               label.contains("passwd") ||
               label.contains("mot de passe"))
 
-        val username =
+        val strongUsername =
           !newUsername &&
-            (hints.any {
-              it.equals(View.AUTOFILL_HINT_USERNAME, ignoreCase = true) ||
-                it.equals(View.AUTOFILL_HINT_EMAIL_ADDRESS, ignoreCase = true)
-            } ||
-              variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
-              variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS ||
+            (hints.any { it.equals(View.AUTOFILL_HINT_USERNAME, ignoreCase = true) } ||
               label.contains("username") ||
               label.contains("user name") ||
-              label.contains("email") ||
-              label.contains("e-mail") ||
               label.contains("identifiant") ||
               label.contains("utilisateur") ||
-              label.contains("courriel") ||
               label.contains("login"))
 
-        // Un champ « e-mail » seul peut être une newsletter : il n’est rempli
-        // que si un mot de passe est présent dans le même formulaire.
-        if (password) passwordIds.add(id) else if (username) usernameIds.add(id)
+        val emailUsername =
+          !newUsername &&
+            (hints.any { it.equals(View.AUTOFILL_HINT_EMAIL_ADDRESS, ignoreCase = true) } ||
+              variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+              variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS ||
+              label.contains("email") ||
+              label.contains("e-mail") ||
+              label.contains("courriel"))
+
+        // Un champ e-mail peut être une newsletter : il n’est proposé seul que
+        // s’il est explicitement marqué comme identifiant. Avec un mot de
+        // passe, il complète le couple identifiant / mot de passe.
+        if (password) {
+          passwordIds.add(id)
+        } else if (strongUsername) {
+          strongUsernameIds.add(id)
+        } else if (emailUsername) {
+          emailIds.add(id)
+        }
       }
 
       for (index in 0 until node.childCount) visit(node.getChildAt(index))
@@ -108,7 +130,12 @@ class CoffreAutofillService : AutofillService() {
     for (index in 0 until structure.windowNodeCount) {
       visitor.visit(structure.getWindowNodeAt(index).rootViewNode)
     }
-    return Form(visitor.usernameIds, visitor.passwordIds, visitor.webDomain)
+    val usernameIds = if (visitor.passwordIds.isEmpty()) {
+      visitor.strongUsernameIds.toList()
+    } else {
+      (visitor.strongUsernameIds + visitor.emailIds).distinct()
+    }
+    return Form(usernameIds, visitor.passwordIds, visitor.webDomain)
   }
 
   private fun itemsOf(payload: String?): List<AutofillItem> {
@@ -156,7 +183,15 @@ class CoffreAutofillService : AutofillService() {
     try {
       val form = formOf(request)
       val domain = form?.webDomain?.trim()
-      if (form == null || domain.isNullOrEmpty() || form.passwordIds.isEmpty()) {
+      if (form == null || domain.isNullOrEmpty()) {
+        callback.onSuccess(null)
+        return
+      }
+
+      val usernameId = form.usernameIds.firstOrNull()
+      val passwordId = form.passwordIds.firstOrNull()
+      // Un formulaire à deux étapes peut ne demander que l’identifiant.
+      if (usernameId == null && passwordId == null) {
         callback.onSuccess(null)
         return
       }
@@ -167,10 +202,12 @@ class CoffreAutofillService : AutofillService() {
         return
       }
 
-      val usernameId = form.usernameIds.firstOrNull()
-      val passwordId = form.passwordIds.first()
       val response = FillResponse.Builder()
+      var added = 0
       for (item in items) {
+        // Sans champ de mot de passe, une entrée sans identifiant ne
+        // remplirait rien.
+        if (passwordId == null && item.username.isEmpty()) continue
         val row = presentation(item)
         val dataset = Dataset.Builder(row)
         if (item.username.isNotEmpty()) {
@@ -178,8 +215,15 @@ class CoffreAutofillService : AutofillService() {
             dataset.setValue(it, AutofillValue.forText(item.username), row)
           }
         }
-        dataset.setValue(passwordId, AutofillValue.forText(item.password), row)
+        passwordId?.let {
+          dataset.setValue(it, AutofillValue.forText(item.password), row)
+        }
         response.addDataset(dataset.build())
+        added += 1
+      }
+      if (added == 0) {
+        callback.onSuccess(null)
+        return
       }
       callback.onSuccess(response.build())
     } catch (_: Exception) {

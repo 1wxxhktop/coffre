@@ -109,12 +109,20 @@ describe('remplissage Android', () => {
   })
 
   it('prolonge et vide le cache', async () => {
-    await touchAndroidAutofill(60)
+    invoke.mockResolvedValue(true)
+    await expect(touchAndroidAutofill(60)).resolves.toBe(true)
     await clearAndroidAutofill()
     expect(invoke).toHaveBeenNthCalledWith(1, 'android_autofill_touch', {
       ttlSeconds: 60,
     })
     expect(invoke).toHaveBeenNthCalledWith(2, 'android_autofill_clear')
+  })
+
+  it('signale un cache expiré ou une commande en échec', async () => {
+    invoke.mockResolvedValue(false)
+    await expect(touchAndroidAutofill(60)).resolves.toBe(false)
+    invoke.mockRejectedValue(new Error('refusé'))
+    await expect(touchAndroidAutofill(60)).resolves.toBe(false)
   })
 
   it('lit l’état du service', async () => {
@@ -145,7 +153,7 @@ describe('remplissage Android', () => {
     platform.android = false
     expect(androidAutofillSupported()).toBe(false)
     await publishAndroidAutofill([], 60)
-    await touchAndroidAutofill(60)
+    await expect(touchAndroidAutofill(60)).resolves.toBe(false)
     await clearAndroidAutofill()
     await expect(openAndroidAutofillSettings()).resolves.toBe(false)
     await expect(androidAutofillStatus()).resolves.toEqual({

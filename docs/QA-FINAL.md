@@ -74,14 +74,17 @@ déverrouillé, même réseau Wi-Fi, aucun accès Internet.
    `example.com`) : aucune proposition.
 5. Ouvrir un formulaire d’inscription avec un champ « nouveau mot de passe » :
    il n’est pas rempli.
-6. Verrouiller Coffre puis revenir au formulaire : plus aucune proposition.
-7. Laisser le coffre en arrière-plan au-delà du délai d’inactivité, puis
+6. Ouvrir un formulaire de connexion à deux étapes avec un champ explicitement
+   marqué « identifiant » : la proposition remplit l’identifiant sans toucher
+   au reste. Un champ e-mail générique seul ne doit rien proposer.
+7. Verrouiller Coffre puis revenir au formulaire : plus aucune proposition.
+8. Laisser le coffre en arrière-plan au-delà du délai d’inactivité, puis
    revenir au formulaire : le cache natif a expiré.
-8. Tuer le processus Coffre puis rouvrir le formulaire : aucune proposition
+9. Tuer le processus Coffre puis rouvrir le formulaire : aucune proposition
    avant un nouveau déverrouillage.
-9. Vérifier qu’aucune boîte « Enregistrer ce mot de passe ? » n’est proposée
-   par Coffre après une saisie dans une autre application.
-10. Vérifier le rendu en thème clair et sombre, et sur un appareil Android 8
+10. Vérifier qu’aucune boîte « Enregistrer ce mot de passe ? » n’est proposée
+    par Coffre après une saisie dans une autre application.
+11. Vérifier le rendu en thème clair et sombre, et sur un appareil Android 8
     ou 9 pour l’API minimale.
 
 ## 6. Audit externe

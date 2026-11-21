@@ -118,13 +118,16 @@ pub fn publish(entries: Vec<AutofillEntry>, ttl_seconds: u64) {
 /// Prolonge la validité du cache sans renvoyer les secrets.
 ///
 /// Un cache déjà expiré n’est jamais ressuscité : le battement de la WebView
-/// peut arriver après l’échéance si Android a suspendu ses minuteurs.
-pub fn touch(ttl_seconds: u64) {
+/// peut arriver après l’échéance si Android a suspendu ses minuteurs. Le
+/// booléen indique si le cache est encore utilisable ; l’interface republie
+/// les entrées lorsqu’il ne l’est plus.
+pub fn touch(ttl_seconds: u64) -> bool {
     let now = Instant::now();
     if let Ok(mut cache) = CACHE.lock() {
         match cache.as_mut() {
             Some(current) if !cache_is_expired(current, now) => {
                 current.expires_at = expiry(ttl_seconds, now);
+                return true;
             }
             Some(_) => {
                 *cache = None;
@@ -132,6 +135,7 @@ pub fn touch(ttl_seconds: u64) {
             None => {}
         }
     }
+    false
 }
 
 /// Vide immédiatement le cache (verrouillage, désactivation du réglage).
@@ -250,8 +254,8 @@ pub fn android_autofill_publish(
 
 /// Prolonge la validité du cache (passage en arrière-plan, battement visible).
 #[tauri::command]
-pub fn android_autofill_touch(ttl_seconds: u64) {
-    touch(ttl_seconds);
+pub fn android_autofill_touch(ttl_seconds: u64) -> bool {
+    touch(ttl_seconds)
 }
 
 /// Vide le cache au verrouillage ou à la désactivation du remplissage.
@@ -456,7 +460,7 @@ mod tests {
             )],
             1,
         );
-        touch(60);
+        assert!(touch(60));
         let payload = match_payload("example.com");
         assert!(payload.contains("secret"));
     }
@@ -475,7 +479,7 @@ mod tests {
             5,
             old,
         );
-        touch(60);
+        assert!(!touch(60));
         let payload = match_payload("example.com");
         let value: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert_eq!(value["unlocked"], false);

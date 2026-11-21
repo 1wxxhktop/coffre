@@ -173,7 +173,10 @@ plus récent.
 Le service ne reçoit que les connexions dont une adresse correspond au domaine
 du formulaire, avec la même règle que l’extension (`loginAllowsHost`) : hôte
 exact, tolérance `www.` uniquement, pas de sous-domaine tiers. Un formulaire
-sans domaine web (application native) ne reçoit aucune proposition.
+sans domaine web (application native) ne reçoit aucune proposition. Les
+formulaires à deux étapes qui ne demandent que l’identifiant reçoivent une
+proposition d’identifiant seule lorsque le champ est explicitement marqué
+comme identifiant (un champ e-mail générique seul peut être une newsletter).
 
 **Garanties :**
 
@@ -196,6 +199,8 @@ sans domaine web (application native) ne reçoit aucune proposition.
   déverrouiller Coffre avant de remplir ;
 - le service ne propose rien pour les applications natives sans domaine web ;
 - le remplissage des codes TOTP n’est pas encore pris en charge ;
+- Android ne fournit que le domaine, sans port : une connexion enregistrée
+  avec un port explicite (`http://localhost:3000`) ne correspond pas ;
 - une application malveillante peut déclarer un domaine web qui n’est pas le
   sien dans une WebView. Android ne fournit pas de preuve cryptographique du
   domaine (Digital Asset Links) : vérifier l’application avant de choisir une
