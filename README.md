@@ -327,7 +327,8 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   et en garde une copie à jour dans un dossier fixe (Réglages → Mises à jour →
   Extension navigateur). Chargée une fois depuis ce dossier, elle se recharge
   d’elle-même après chaque mise à jour de Coffre. L’association avec
-  l’application n’est demandée qu’une fois.
+  l’application n’est demandée qu’une fois ; « Révoquer les extensions
+  associées » l’annule pour tous les navigateurs.
 - **Palette de commandes** : `⌘K` / `Ctrl+K` ouvre une
   recherche unique pour ouvrir un élément ou lancer une action (nouvel élément,
   générateur, bilan de sécurité, réglages, verrouillage). Elle ne lit jamais les
