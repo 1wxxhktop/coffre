@@ -773,8 +773,14 @@ dossier partagé ni service cloud :
 1. dans **Réglages → Synchronisation → Synchronisation locale**, créer un code
    d’appairage sur le premier appareil ;
 2. scanner le QR code ou coller le code `coffre-lan://pair/…` sur le second ;
-3. lancer **Recevoir une synchronisation** sur un appareil, puis
+3. lancer **Recevoir ou partager une synchronisation** sur un appareil, puis
    **Synchroniser** sur l’autre.
+
+Pour un **premier démarrage sur Android**, l’écran de création propose
+**Synchroniser depuis un autre appareil** : collez le code d’appairage créé sur
+le desktop, puis lancez **Recevoir ou partager une synchronisation** sur
+celui-ci. L’Android reçoit le coffre chiffré et ses pièces jointes, puis demande
+le mot de passe maître pour l’importer.
 
 Le transport utilise Noise `XX_25519_ChaChaPoly_BLAKE2s` ; les clés statiques
 des appareils sont conservées localement et un appareil non appairé est refusé
@@ -782,7 +788,8 @@ avant tout échange de fichier. Le port TCP `47823` n’est ouvert que pendant l
 fenêtre de réception (deux minutes). Pendant cette fenêtre, l’appareil
 s’annonce en mDNS sous `_coffre._tcp.local.` ; le bouton **Découvrir les
 appareils** liste les pairs connus et permet de mettre à jour leur adresse si
-elle a changé. Les applications mobiles et le scan caméra restent à faire.
+elle a changé. Le premier import mobile est disponible ; le scan caméra du QR
+code reste à faire.
 
 ## Démarrage rapide
 

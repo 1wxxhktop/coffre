@@ -672,3 +672,9 @@
     scrollbar-color: var(--scrollbar) transparent;
   }
 }
+
+.auth__lan-waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

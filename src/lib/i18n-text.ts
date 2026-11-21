@@ -436,6 +436,8 @@ export const EN_TEXT: Record<string, string> = {
   'Nom de cet appareil': 'This device’s name',
   'Créer un code d’appairage': 'Create a pairing code',
   'Recevoir une synchronisation': 'Receive a sync',
+  'Recevoir ou partager une synchronisation': 'Receive or share a sync',
+  'Coffre envoyé à un nouvel appareil.': 'Vault sent to a new device.',
   'Code d’appairage': 'Pairing code',
   'Scannez ce code ou copiez-le sur l’autre appareil.':
     'Scan this code or copy it to the other device.',

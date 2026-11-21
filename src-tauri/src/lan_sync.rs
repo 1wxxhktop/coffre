@@ -1232,6 +1232,57 @@ mod tests {
     }
 
     #[test]
+    fn un_demandeur_sans_coffre_recoit_le_fichier_et_les_blobs() {
+        let root = std::env::temp_dir().join(format!(
+            "coffre-lan-bootstrap-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let dir_a = root.join("a");
+        let dir_b = root.join("b");
+        std::fs::create_dir_all(&dir_a).unwrap();
+        std::fs::create_dir_all(&dir_b).unwrap();
+        let payload = vec![4u8; 257];
+        std::fs::write(dir_a.join("blob1"), &payload).unwrap();
+
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let responder = test_identity();
+        let initiator = test_identity();
+        let source = "{\"format\":\"coffre\"}".to_string();
+        let expected = source.clone();
+
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut stream = handshake_stream(stream, &responder, false).unwrap();
+            let request: SyncMessage = read_json(&mut stream).unwrap();
+            assert!(request.file.is_empty());
+            write_json(&mut stream, &SyncMessage { file: source }).unwrap();
+            exchange_blobs_responder(&mut stream, &dir_a, &["blob1".into()]).unwrap()
+        });
+
+        let stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let mut stream = handshake_stream(stream, &initiator, true).unwrap();
+        write_json(
+            &mut stream,
+            &SyncMessage {
+                file: String::new(),
+            },
+        )
+        .unwrap();
+        let reply: SyncMessage = read_json(&mut stream).unwrap();
+        let received = exchange_blobs_initiator(&mut stream, &dir_b, &[]).unwrap();
+        assert_eq!(reply.file, expected);
+        assert_eq!(received, 1);
+        assert_eq!(server.join().unwrap(), 0);
+        assert_eq!(std::fs::read(dir_b.join("blob1")).unwrap(), payload);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn les_trames_post_handshake_sont_chiffrees() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();

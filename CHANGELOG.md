@@ -2,6 +2,16 @@
 
 ## Non publié
 
+- Android : premier démarrage possible par **synchronisation locale**. Un
+  nouvel appareil rejoint le coffre d’un appareil déjà configuré avec un code
+  d’appairage, reçoit le fichier chiffré et ses pièces jointes, puis l’importe
+  avec le mot de passe maître.
+- Android : le sélecteur de fichier accepte désormais les `.coffre` dont le
+  type MIME est générique (`application/octet-stream`, texte, ZIP) en plus du
+  JSON, ce qui permet de restaurer un fichier exporté.
+- Synchronisation locale : l’action **Recevoir ou partager une
+  synchronisation** peut servir un premier coffre à un nouvel appareil sans
+  exiger de fichier entrant.
 - Extension : bouton **Révoquer les extensions associées** (Réglages → Mises à
   jour → Extension navigateur). Il efface la clé d’association côté
   application : un navigateur perdu ou plus sûr ne peut plus utiliser Coffre,

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Trash2,
   Upload,
+  Wifi,
   WifiOff,
 } from 'lucide-react'
 import { Brand } from './Brand'
@@ -20,6 +21,7 @@ import { PasswordStrength } from './PasswordStrength'
 import { Modal } from './Modal'
 import { ConfirmDialog } from './ConfirmDialog'
 import { RecoveryUnlockDialog } from './RecoveryUnlockDialog'
+import { LanVaultRestoreDialog } from './LanVaultRestoreDialog'
 import { useVault } from '../state/VaultProvider'
 import { useI18n } from '../state/I18nProvider'
 import { useSettings } from '../state/SettingsProvider'
@@ -28,6 +30,7 @@ import { estimateEntropy } from '../lib/strength'
 import { biometricSupported } from '../lib/biometrics'
 import { pluralKey } from '../lib/i18n'
 import { formatDateTime } from '../lib/settings'
+import { lanSyncAvailable } from '../lib/lanSync'
 
 export function AuthScreen() {
   const {
@@ -64,6 +67,7 @@ export function AuthScreen() {
   const lastAutoBioRef = useRef(0)
   const biometricUnlockRef = useRef<() => Promise<void>>(async () => undefined)
   const [showRestore, setShowRestore] = useState(false)
+  const [showLanRestore, setShowLanRestore] = useState(false)
   const [showReset, setShowReset] = useState(false)
   const [showRecovery, setShowRecovery] = useState(false)
 
@@ -493,6 +497,16 @@ export function AuthScreen() {
                 <Upload size={15} />
                 {t('auth.action.restore')}
               </button>
+              {isSetup && lanSyncAvailable() && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setShowLanRestore(true)}
+                >
+                  <Wifi size={15} />
+                  {t('auth.action.lanRestore')}
+                </button>
+              )}
               {!isSetup && file?.recovery && (
                 <button
                   type="button"
@@ -539,6 +553,10 @@ export function AuthScreen() {
         <span className="auth__footer-dot" />
         <span>{t('auth.footer.offline')}</span>
       </footer>
+
+      {showLanRestore && (
+        <LanVaultRestoreDialog onClose={() => setShowLanRestore(false)} />
+      )}
 
       {showRestore && (
         <RestoreDialog
@@ -625,7 +643,7 @@ function RestoreDialog({ replacing, onClose, onImport }: RestoreDialogProps) {
         <label className="file-drop">
           <input
             type="file"
-            accept=".coffre,.json,application/json"
+            accept=".coffre,.json,application/json,application/octet-stream,text/plain,application/zip,application/x-coffre,*/*"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
           <Upload size={22} />

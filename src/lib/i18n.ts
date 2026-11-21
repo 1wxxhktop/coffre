@@ -164,6 +164,7 @@ const fr = {
   'auth.action.create': 'Créer mon coffre',
   'auth.action.unlock': 'Déverrouiller',
   'auth.action.restore': 'Restaurer un fichier .coffre',
+  'auth.action.lanRestore': 'Synchroniser depuis un autre appareil',
   'auth.action.recovery': 'Déverrouiller avec une phrase de récupération',
   'auth.action.more': 'Autres options',
   'auth.action.erase': 'Effacer le coffre local…',
@@ -171,6 +172,31 @@ const fr = {
     'Modèle de chiffrement inspiré du projet open source Proton Pass. Coffre sous licence GPL-3.0, sans aucun service distant.',
   'auth.footer.local': 'Local-first · Aucune connexion',
   'auth.footer.offline': 'Fait pour rester hors ligne',
+  'auth.lan.title': 'Recevoir le coffre par le réseau local',
+  'auth.lan.description':
+    'Associez cet appareil à un appareil déjà configuré sur le même réseau Wi-Fi. Le coffre chiffré et ses pièces jointes sont transférés directement, sans Internet.',
+  'auth.lan.code': 'Code d’appairage',
+  'auth.lan.codeHint':
+    'Sur l’autre appareil, ouvrez Réglages → Synchronisation → Synchronisation locale, créez un code puis copiez-le ici.',
+  'auth.lan.pair': 'Associer',
+  'auth.lan.paired': 'Appareil associé : {name}',
+  'auth.lan.instructions':
+    'Sur l’autre appareil, cliquez sur « Recevoir une synchronisation ». La réception se fera automatiquement ici.',
+  'auth.lan.waiting': 'En attente de l’autre appareil…',
+  'auth.lan.receivedToast': 'Coffre reçu par le réseau local.',
+  'auth.lan.empty': 'L’autre appareil n’a pas envoyé de coffre.',
+  'auth.lan.receiveError': 'Réception impossible.',
+  'auth.lan.timeout':
+    'Délai dépassé. Vérifiez que les deux appareils sont sur le même réseau.',
+  'auth.lan.pairError': 'Appairage impossible.',
+  'auth.lan.retry': 'Réessayer',
+  'auth.lan.received':
+    'Coffre reçu. Saisissez son mot de passe maître pour l’importer.',
+  'auth.lan.blobs': 'Pièces jointes reçues : {count}.',
+  'auth.lan.password': 'Mot de passe maître du coffre',
+  'auth.lan.import': 'Importer et déverrouiller',
+  'auth.lan.importError': 'Import impossible',
+  'auth.lan.success': 'Coffre importé et déverrouillé',
   'auth.restore.title': 'Restaurer un coffre',
   'auth.restore.description':
     'Choisissez un fichier .coffre exporté depuis Coffre, puis saisissez son mot de passe maître.',
@@ -667,6 +693,7 @@ const en: Record<MessageKey, string> = {
   'auth.action.create': 'Create my vault',
   'auth.action.unlock': 'Unlock',
   'auth.action.restore': 'Restore a .coffre file',
+  'auth.action.lanRestore': 'Sync from another device',
   'auth.action.recovery': 'Unlock with a recovery phrase',
   'auth.action.more': 'More options',
   'auth.action.erase': 'Erase the local vault…',
@@ -674,6 +701,31 @@ const en: Record<MessageKey, string> = {
     'Encryption model inspired by the open source Proton Pass project. Coffre is licensed GPL-3.0, with no remote service.',
   'auth.footer.local': 'Local-first · No connection',
   'auth.footer.offline': 'Built to stay offline',
+  'auth.lan.title': 'Receive the vault over the local network',
+  'auth.lan.description':
+    'Pair this device with a configured device on the same Wi-Fi network. The encrypted vault and its attachments are transferred directly, without the Internet.',
+  'auth.lan.code': 'Pairing code',
+  'auth.lan.codeHint':
+    'On the other device, open Settings → Sync → Local sync, create a code and paste it here.',
+  'auth.lan.pair': 'Pair',
+  'auth.lan.paired': 'Paired device: {name}',
+  'auth.lan.instructions':
+    'On the other device, click “Receive a sync”. Reception will then happen automatically here.',
+  'auth.lan.waiting': 'Waiting for the other device…',
+  'auth.lan.receivedToast': 'Vault received over the local network.',
+  'auth.lan.empty': 'The other device did not send a vault.',
+  'auth.lan.receiveError': 'Reception failed.',
+  'auth.lan.timeout':
+    'Timed out. Check that both devices are on the same network.',
+  'auth.lan.pairError': 'Pairing failed.',
+  'auth.lan.retry': 'Retry',
+  'auth.lan.received':
+    'Vault received. Enter its master password to import it.',
+  'auth.lan.blobs': 'Attachments received: {count}.',
+  'auth.lan.password': 'Vault master password',
+  'auth.lan.import': 'Import and unlock',
+  'auth.lan.importError': 'Import failed',
+  'auth.lan.success': 'Vault imported and unlocked',
   'auth.restore.title': 'Restore a vault',
   'auth.restore.description':
     'Choose a .coffre file exported from Coffre, then enter its master password.',
