@@ -289,6 +289,10 @@ Le 13 novembre 2026, l’APK debug `0.16.0` a été testé sur un émulateur
 Aucun crash ni écran blanc n’a été observé. Le stockage natif a été sollicité
 par la création du coffre et sa relecture après redémarrage.
 
+Le 21 novembre 2026, la bêta `0.18.0-beta.151.1` a été validée sur appareil
+physique avec le design mobile de #163, le remplissage Android de #164 et le
+blocage des captures d’écran de #165.
+
 Restent à valider sur appareil réel : les performances Argon2, le clavier
 physique, l’import/export de fichiers, les gros coffres, la rotation d’écran,
 le mode sombre système et la restauration après mise à jour. Le premier import
