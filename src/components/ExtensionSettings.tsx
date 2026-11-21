@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { FolderOpen, Puzzle } from 'lucide-react'
+import { FolderOpen, Puzzle, Unlink } from 'lucide-react'
 import { useI18n } from '../state/I18nProvider'
 import { useToast } from '../state/ToastProvider'
 import {
   extensionInstallInfo,
+  hasExtensionPairing,
   revealExtensionFolder,
+  revokeExtensionPairing,
   type ExtensionInstallInfo,
 } from '../lib/extensionInstall'
+import { ConfirmDialog } from './ConfirmDialog'
 
 /**
  * Réglages → Mises à jour : dossier de l’extension tenu à jour par
@@ -17,16 +20,32 @@ export function ExtensionSettings() {
   const { t, tt } = useI18n()
   const { toast } = useToast()
   const [info, setInfo] = useState<ExtensionInstallInfo | null>(null)
+  const [paired, setPaired] = useState(false)
+  const [confirmRevoke, setConfirmRevoke] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void extensionInstallInfo().then((next) => {
       if (!cancelled) setInfo(next)
     })
+    void hasExtensionPairing().then((next) => {
+      if (!cancelled) setPaired(next)
+    })
     return () => {
       cancelled = true
     }
   }, [])
+
+  const revoke = async () => {
+    const revoked = await revokeExtensionPairing()
+    if (revoked) {
+      setPaired(false)
+      toast(tt('Extensions dissociées. Associez de nouveau celles que vous utilisez.'), 'success')
+    } else {
+      toast(tt('La révocation a échoué : l’association est conservée.'), 'error')
+    }
+    setConfirmRevoke(false)
+  }
 
   if (!info) return null
 
@@ -101,6 +120,39 @@ export function ExtensionSettings() {
             'Ce build n’embarque pas l’extension (build local ou de développement). Utilisez une version publiée de Coffre.',
           )}
         </p>
+      )}
+
+      {paired && (
+        <div className="extension-revoke">
+          <p className="settings-copy">
+            {tt(
+              'Une extension est associée à Coffre. Si un navigateur associé n’est plus sûr ou n’est plus utilisé, révoquez l’association : toutes les extensions devront être associées de nouveau.',
+            )}
+          </p>
+          <div className="settings-actions">
+            <button
+              type="button"
+              className="button button--danger"
+              onClick={() => setConfirmRevoke(true)}
+            >
+              <Unlink size={16} />
+              {tt('Révoquer les extensions associées')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmRevoke && (
+        <ConfirmDialog
+          title={tt('Révoquer les extensions associées ?')}
+          description={tt(
+            'La clé d’association est effacée. Chaque navigateur devra être associé de nouveau, avec confirmation dans Coffre. Votre coffre et vos éléments ne changent pas.',
+          )}
+          confirmLabel={tt('Révoquer')}
+          tone="danger"
+          onConfirm={revoke}
+          onClose={() => setConfirmRevoke(false)}
+        />
       )}
     </section>
   )

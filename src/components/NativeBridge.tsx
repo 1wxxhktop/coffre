@@ -9,7 +9,7 @@ import { useSettings } from '../state/SettingsProvider'
 import { isTauriRuntime } from '../lib/external'
 import { isMobileRuntime } from '../lib/platform'
 import { deleteBridgeKey, loadBridgeKey, storeBridgeKey } from '../lib/keychain'
-import { extensionInstallInfo } from '../lib/extensionInstall'
+import { BRIDGE_FORGET_EVENT, extensionInstallInfo } from '../lib/extensionInstall'
 import { generateTotp, isTotpUri, parseTotpUri } from '../lib/totp'
 import { confirmSensitiveFill } from '../lib/biometrics'
 import {
@@ -1250,8 +1250,8 @@ export function NativeBridge() {
       sessionsRef.current.clear()
       if (pendingPairingRef.current) rejectPairing('rejected')
     }
-    window.addEventListener('coffre:bridge-forget', forget)
-    return () => window.removeEventListener('coffre:bridge-forget', forget)
+    window.addEventListener(BRIDGE_FORGET_EVENT, forget)
+    return () => window.removeEventListener(BRIDGE_FORGET_EVENT, forget)
   }, [rejectPairing])
 
   if (!pendingPairing) return null

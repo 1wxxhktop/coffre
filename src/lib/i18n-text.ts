@@ -1198,6 +1198,18 @@ export const EN_TEXT: Record<string, string> = {
     "Coffre looks for new versions, downloads them in the background and installs them when it quits. The settings below let you adjust each step.",
   "La clé du pont natif n’a pas pu être enregistrée.":
     "The native bridge key could not be saved.",
+  "Extensions dissociées. Associez de nouveau celles que vous utilisez.":
+    "Extensions unpaired. Pair the ones you use again.",
+  "La révocation a échoué : l’association est conservée.":
+    "Revocation failed: the pairing is kept.",
+  "Une extension est associée à Coffre. Si un navigateur associé n’est plus sûr ou n’est plus utilisé, révoquez l’association : toutes les extensions devront être associées de nouveau.":
+    "An extension is paired with Coffre. If a paired browser is no longer safe or no longer used, revoke the pairing: every extension will need to be paired again.",
+  "Révoquer les extensions associées":
+    "Revoke paired extensions",
+  "Révoquer les extensions associées ?":
+    "Revoke paired extensions?",
+  "La clé d’association est effacée. Chaque navigateur devra être associé de nouveau, avec confirmation dans Coffre. Votre coffre et vos éléments ne changent pas.":
+    "The pairing key is erased. Each browser will need to be paired again, with confirmation in Coffre. Your vault and items are unchanged.",
 }
 
 /** Traduit un texte source ; renvoie le texte tel quel s’il est inconnu. */

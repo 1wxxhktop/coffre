@@ -12,6 +12,10 @@
 - Synchronisation locale : l’action **Recevoir ou partager une
   synchronisation** peut servir un premier coffre à un nouvel appareil sans
   exiger de fichier entrant.
+- Extension : bouton **Révoquer les extensions associées** (Réglages → Mises à
+  jour → Extension navigateur). Il efface la clé d’association côté
+  application : un navigateur perdu ou plus sûr ne peut plus utiliser Coffre,
+  et chaque extension doit être associée de nouveau avec confirmation.
 - `bun run release:status` et `bun run clean` trouvent le dossier `release/`
   de la racine du dépôt même lancés depuis un worktree, au lieu de le signaler
   absent.

@@ -990,3 +990,9 @@
 .extension-steps li + li {
   margin-top: var(--space-1);
 }
+
+.extension-revoke {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-1);
+}
