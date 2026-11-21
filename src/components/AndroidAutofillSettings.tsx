@@ -160,7 +160,7 @@ export function AndroidAutofillSettings() {
         </div>
       </section>
 
-      {backgroundLock && (
+      {backgroundLock && supported && (
         <section className="settings-section">
           <div className="settings-section__head">
             <span className="settings-section__icon">

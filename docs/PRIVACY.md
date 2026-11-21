@@ -1,6 +1,6 @@
 # Politique de confidentialité de Coffre
 
-**Dernière mise à jour :** 13 novembre 2026 — version 0.16.0
+**Dernière mise à jour :** 21 novembre 2026 — version 0.18.0 (bêta)
 
 Coffre est un gestionnaire de mots de passe local-first, publié sous licence
 GPL-3.0. Cette politique couvre l’application desktop, l’application Android,

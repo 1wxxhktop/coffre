@@ -337,12 +337,18 @@ mod tests {
         guard
     }
 
-    fn entry(title: &str, username: &str, password: &str, urls: &[&str]) -> AutofillEntry {
+    /// Valeur de test dérivée du libellé et du processus : jamais un secret
+    /// réel, et aucune constante qui ressemble à un mot de passe.
+    fn test_password(label: &str) -> String {
+        format!("{label}-{}", std::process::id())
+    }
+
+    fn entry(title: &str, username: &str, urls: &[&str]) -> AutofillEntry {
         AutofillEntry {
             id: title.to_lowercase(),
             title: title.into(),
             username: username.into(),
-            password: password.into(),
+            password: test_password(title),
             urls: urls.iter().map(|url| (*url).into()).collect(),
         }
     }
@@ -352,13 +358,8 @@ mod tests {
         let _guard = guard();
         publish(
             vec![
-                entry(
-                    "Exemple",
-                    "alice",
-                    "secret-a",
-                    &["https://example.com/login"],
-                ),
-                entry("Autre", "bob", "secret-b", &["https://autre.example/login"]),
+                entry("Exemple", "alice", &["https://example.com/login"]),
+                entry("Autre", "bob", &["https://autre.example/login"]),
             ],
             0,
         );
@@ -367,23 +368,16 @@ mod tests {
         assert_eq!(value["unlocked"], true);
         assert_eq!(value["items"].as_array().unwrap().len(), 1);
         assert_eq!(value["items"][0]["username"], "alice");
-        assert_eq!(value["items"][0]["password"], "secret-a");
+        assert_eq!(value["items"][0]["password"], test_password("Exemple"));
+        assert!(!payload.contains(&test_password("Autre")));
     }
 
     #[test]
     fn refuse_une_page_http_pour_un_element_https() {
         let _guard = guard();
-        publish(
-            vec![entry(
-                "Exemple",
-                "alice",
-                "secret",
-                &["https://example.com"],
-            )],
-            0,
-        );
-        assert!(match_payload("https://example.com").contains("secret"));
-        assert!(!match_payload("http://example.com").contains("secret"));
+        publish(vec![entry("Exemple", "alice", &["https://example.com"])], 0);
+        assert!(match_payload("https://example.com").contains(&test_password("Exemple")));
+        assert!(!match_payload("http://example.com").contains(&test_password("Exemple")));
     }
 
     #[test]
@@ -391,13 +385,8 @@ mod tests {
         let _guard = guard();
         publish(
             vec![
-                entry("Sans www", "alice", "secret", &["https://example.com"]),
-                entry(
-                    "Sous-domaine",
-                    "bob",
-                    "secret",
-                    &["https://login.example.com"],
-                ),
+                entry("Sans www", "alice", &["https://example.com"]),
+                entry("Sous-domaine", "bob", &["https://login.example.com"]),
             ],
             0,
         );
@@ -405,30 +394,22 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert_eq!(value["items"].as_array().unwrap().len(), 1);
         assert_eq!(value["items"][0]["title"], "Sans www");
-        assert_eq!(
-            match_payload("login.example.com")
-                .matches("Sous-domaine")
-                .count(),
-            1
-        );
-        assert_eq!(match_payload("evil.example").matches("secret").count(), 0);
+        assert!(match_payload("login.example.com").contains(&test_password("Sous-domaine")));
+        assert!(!match_payload("evil.example").contains(&test_password("Sans www")));
     }
 
     #[test]
     fn ne_propose_rien_sans_domaine_ni_sans_mot_de_passe() {
         let _guard = guard();
-        publish(
-            vec![
-                entry("Sans mot de passe", "alice", "", &["https://example.com"]),
-                entry("Sans adresse", "bob", "secret", &[]),
-            ],
-            0,
-        );
+        let mut sans_mot_de_passe = entry("Sans mot de passe", "alice", &["https://example.com"]);
+        sans_mot_de_passe.password.clear();
+        let sans_adresse = entry("Sans adresse", "bob", &[]);
+        publish(vec![sans_mot_de_passe, sans_adresse], 0);
         let payload = match_payload("");
         let value: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert_eq!(value["unlocked"], true);
         assert_eq!(value["items"].as_array().unwrap().len(), 0);
-        assert!(!payload.contains("secret"));
+        assert!(!payload.contains(&test_password("Sans mot de passe")));
     }
 
     #[test]
@@ -436,12 +417,7 @@ mod tests {
         let _guard = guard();
         let old = Instant::now() - Duration::from_secs(10);
         publish_at(
-            vec![entry(
-                "Exemple",
-                "alice",
-                "secret",
-                &["https://example.com"],
-            )],
+            vec![entry("Exemple", "alice", &["https://example.com"])],
             5,
             old,
         );
@@ -450,15 +426,7 @@ mod tests {
         assert_eq!(value["unlocked"], false);
         assert!(!unlocked());
 
-        publish(
-            vec![entry(
-                "Exemple",
-                "alice",
-                "secret",
-                &["https://example.com"],
-            )],
-            0,
-        );
+        publish(vec![entry("Exemple", "alice", &["https://example.com"])], 0);
         assert!(unlocked());
         clear();
         assert!(!unlocked());
@@ -467,18 +435,10 @@ mod tests {
     #[test]
     fn prolonge_la_validite_sans_renvoyer_les_secrets() {
         let _guard = guard();
-        publish(
-            vec![entry(
-                "Exemple",
-                "alice",
-                "secret",
-                &["https://example.com"],
-            )],
-            1,
-        );
+        publish(vec![entry("Exemple", "alice", &["https://example.com"])], 1);
         assert!(touch(60));
         let payload = match_payload("example.com");
-        assert!(payload.contains("secret"));
+        assert!(payload.contains(&test_password("Exemple")));
     }
 
     #[test]
@@ -486,12 +446,7 @@ mod tests {
         let _guard = guard();
         let old = Instant::now() - Duration::from_secs(10);
         publish_at(
-            vec![entry(
-                "Exemple",
-                "alice",
-                "secret",
-                &["https://example.com"],
-            )],
+            vec![entry("Exemple", "alice", &["https://example.com"])],
             5,
             old,
         );
@@ -499,23 +454,25 @@ mod tests {
         let payload = match_payload("example.com");
         let value: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert_eq!(value["unlocked"], false);
-        assert!(!payload.contains("secret"));
+        assert!(!payload.contains(&test_password("Exemple")));
     }
 
     #[test]
     fn plafonne_les_entrees_et_les_champs() {
         let _guard = guard();
-        let long = "x".repeat(MAX_FIELD_CHARS + 100);
-        publish(vec![entry("Long", &long, &long, &[&long])], 0);
+        let seed = std::process::id().to_string();
+        let long = seed.repeat((MAX_FIELD_CHARS / seed.len()) + 2);
+        let mut sample = entry("Long", &long, &[&long]);
+        sample.password = long.clone();
+        publish(vec![sample], 0);
         let payload = match_payload("example.com");
-        assert!(!payload.contains(&"x".repeat(MAX_FIELD_CHARS + 1)));
+        assert!(!payload.contains(&long));
 
         let many: Vec<AutofillEntry> = (0..(MAX_ENTRIES + 10))
             .map(|index| {
                 entry(
                     &format!("Entrée {index}"),
                     "alice",
-                    "secret",
                     &["https://example.com"],
                 )
             })
