@@ -409,7 +409,8 @@ après la stable et rattaché à la 0.17 pour ne pas retarder la release.
 - Passkeys via Credential Manager / provider Android 14+.
 - Sync dossier, LAN, QR d’appairage.
 - CXP Android (Play Services 26.21+).
-- Mode voyage, verrouillage, capture d’écran bloquée, presse-papiers.
+- Mode voyage, verrouillage, **capture d’écran bloquée (livrée)**,
+  presse-papiers.
 - Play Store : fiche, politique de confidentialité, data safety.
 
 **Sortie :** bêta Android publique, autofill et passkeys validés sur appareils réels.
@@ -589,7 +590,8 @@ Orion dans `install_native_hosts` et une reconnexion réellement testée.
 5. **Passkeys** : `CredentialManager` / provider Android 14+ ; création, assertion, confirmation.
 6. **Sync** : SAF pour dossier, LAN, QR d’appairage ; file d’attente hors ligne.
 7. **CXP** : `ProviderEventsManager` import/export (Play Services 26.21+), CXF.
-8. **Sécurité** : `FLAG_SECURE`, presse-papiers, pas de backup des clés, mode voyage, verrouillage.
+8. **Sécurité** : `FLAG_SECURE` **livré** (blocage des captures, désactivable),
+   presse-papiers, pas de backup des clés, mode voyage, verrouillage.
 9. **Distribution** : Play Store, data safety, politique de confidentialité, bêta fermée puis publique.
 10. **Validation** : Pixel, Samsung, Android 10–16, modes sombre/clair, TalkBack.
 

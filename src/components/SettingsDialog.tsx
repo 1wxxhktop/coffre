@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Cloud,
   Download,
+  EyeOff,
   FileKey2,
   FileSpreadsheet,
   Fingerprint,
@@ -1383,6 +1384,52 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                         système, puis supprimée dès que le coffre est verrouillé. Le
                         déverrouillage rapide s’applique donc après un rechargement ou un
                         redémarrage de l’application.
+                      </p>
+                    </details>
+                  </section>
+                )}
+
+                {isAndroidRuntime() && (
+                  <section className="settings-section">
+                    <div className="settings-section__head">
+                      <span className="settings-section__icon">
+                        <EyeOff size={18} />
+                      </span>
+                      <div>
+                        <h3>{tt('Captures d’écran')}</h3>
+                        <p>
+                          {tt(
+                            'Masque le coffre dans les captures, les enregistrements et l’aperçu des applications récentes.',
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={settings.androidSecureScreen}
+                        onChange={(event) =>
+                          updateSettings({
+                            androidSecureScreen: event.target.checked,
+                          })
+                        }
+                      />
+                      <span>
+                        {tt('Bloquer les captures d’écran et l’enregistrement')}
+                      </span>
+                    </label>
+                    <p className="field__hint">
+                      {tt(
+                        'Actif par défaut. Le réglage est appliqué dès le démarrage de l’application.',
+                      )}
+                    </p>
+                    <details className="settings-help">
+                      <summary>{tt('En savoir plus')}</summary>
+                      <p>
+                        {tt(
+                          'Le blocage utilise FLAG_SECURE d’Android. Désactivez-le si vous devez capturer ou partager l’écran de Coffre ; un appareil rooté ou un outil de capture privilégié peut contourner cette protection.',
+                        )}
                       </p>
                     </details>
                   </section>

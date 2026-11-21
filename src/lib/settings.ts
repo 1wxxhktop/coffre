@@ -93,6 +93,10 @@ export function loadSettings(): AppSettings {
         typeof parsed.androidAutofill === 'boolean'
           ? parsed.androidAutofill
           : DEFAULT_SETTINGS.androidAutofill,
+      androidSecureScreen:
+        typeof parsed.androidSecureScreen === 'boolean'
+          ? parsed.androidSecureScreen
+          : DEFAULT_SETTINGS.androidSecureScreen,
       expiryNotifications:
         typeof parsed.expiryNotifications === 'boolean'
           ? parsed.expiryNotifications

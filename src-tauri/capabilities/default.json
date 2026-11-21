@@ -12,6 +12,8 @@
     "allow-android-autofill-publish",
     "allow-android-autofill-status",
     "allow-android-autofill-touch",
+    "allow-android-secure-screen-enabled",
+    "allow-android-secure-screen-set",
     "allow-android-updater-check",
     "allow-android-updater-discard",
     "allow-android-updater-download",

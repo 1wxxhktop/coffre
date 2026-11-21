@@ -3,6 +3,7 @@ package app.coffre.desktop
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
@@ -19,6 +20,7 @@ class MainActivity : TauriActivity() {
       navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
     )
     super.onCreate(savedInstanceState)
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       window.isStatusBarContrastEnforced = false
       window.isNavigationBarContrastEnforced = false
@@ -43,9 +45,38 @@ class MainActivity : TauriActivity() {
         }
       },
     )
+
+    val app = application as CoffreApplication
+    app.attachActivity(this)
+    applySecureScreen(app.isSecureScreenEnabled())
+  }
+
+  override fun onResume() {
+    super.onResume()
+    // Tauri ou le système peuvent recréer la fenêtre : réappliquer le drapeau.
+    applySecureScreen((application as CoffreApplication).isSecureScreenEnabled())
+  }
+
+  override fun onDestroy() {
+    (application as CoffreApplication).detachActivity(this)
+    super.onDestroy()
   }
 
   override fun onWebViewCreate(webView: WebView) {
     coffreWebView = webView
+  }
+
+  /** Bloque captures d’écran, enregistrements et aperçu dans les récents. */
+  fun applySecureScreen(enabled: Boolean) {
+    try {
+      if (enabled) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+      } else {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+      }
+    } catch (_: Exception) {
+      // Fenêtre déjà détruite : le drapeau sera réappliqué à la prochaine
+      // création de l’activité depuis la préférence native.
+    }
   }
 }

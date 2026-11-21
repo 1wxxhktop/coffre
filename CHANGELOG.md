@@ -8,6 +8,10 @@
   expirant avec le verrouillage automatique ; rien n’est écrit sur le disque et
   Coffre ne capture pas les mots de passe saisis ailleurs. Désactivé par
   défaut ; nécessite de laisser le coffre déverrouillé en arrière-plan.
+- Android : **captures d’écran bloquées par défaut** avec `FLAG_SECURE`. Les
+  captures, les enregistrements et l’aperçu dans les applications récentes sont
+  masqués ; le choix est mémorisé côté natif et appliqué dès le démarrage. Il
+  peut être désactivé dans Réglages → Sécurité.
 - Android : **déverrouillage par empreinte digitale**. La clé maîtresse est
   chiffrée par Android Keystore via `biometricCipher` et n’est déchiffrée
   qu’après le dialogue biométrique. Le mot de passe maître reste la solution de

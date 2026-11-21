@@ -1,6 +1,7 @@
 package app.coffre.desktop
 
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -9,6 +10,7 @@ import android.os.Looper
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import java.io.File
+import java.lang.ref.WeakReference
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -36,8 +38,18 @@ private object AutofillSupport {
  * appelle `installApk` par JNI. L’application peut démarrer l’installateur
  * avec `FLAG_ACTIVITY_NEW_TASK` ; le fichier est partagé par le FileProvider
  * déclaré dans le manifeste.
+ *
+ * La protection contre les captures d’écran est mémorisée dans les
+ * préférences natives pour être appliquée dès la création de l’activité,
+ * avant même le chargement de la WebView.
  */
 class CoffreApplication : Application() {
+  companion object {
+    private const val PREFS = "coffre"
+    private const val SECURE_SCREEN = "secure_screen"
+    private var currentActivity: WeakReference<MainActivity>? = null
+  }
+
   fun installApk(path: String): Boolean {
     return try {
       val file = File(path)
@@ -99,6 +111,38 @@ class CoffreApplication : Application() {
       }
     }
     return false
+  }
+
+  fun attachActivity(activity: MainActivity) {
+    currentActivity = WeakReference(activity)
+  }
+
+  fun detachActivity(activity: MainActivity) {
+    if (currentActivity?.get() === activity) currentActivity = null
+  }
+
+  /** Vrai par défaut : un gestionnaire de mots de passe ne se laisse pas capturer. */
+  fun isSecureScreenEnabled(): Boolean =
+    getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+      .getBoolean(SECURE_SCREEN, true)
+
+  /**
+   * Mémorise le choix puis l’applique à l’activité courante. Appelée par JNI
+   * depuis un thread de commande Tauri : le changement de fenêtre est renvoyé
+   * sur le thread principal.
+   */
+  fun setSecureScreen(enabled: Boolean): Boolean {
+    getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+      .edit()
+      .putBoolean(SECURE_SCREEN, enabled)
+      .apply()
+    val activity = currentActivity?.get()
+    if (activity != null) {
+      Handler(Looper.getMainLooper()).post {
+        activity.applySecureScreen(enabled)
+      }
+    }
+    return true
   }
 
   private fun launchInstaller(file: File): Boolean {

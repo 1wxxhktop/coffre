@@ -387,6 +387,10 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   n’est jamais écrit sur le disque et expire avec le verrouillage automatique ;
   désactivé par défaut. Les applications natives sans domaine web et les codes
   TOTP ne sont pas encore couverts.
+- **Captures d’écran bloquées sur Android** : `FLAG_SECURE` masque Coffre dans
+  les captures, les enregistrements et l’aperçu des applications récentes. Le
+  blocage est actif par défaut, mémorisé côté natif et désactivable dans
+  Réglages → Sécurité.
 - **Dérivation Argon2id dans un Web Worker** et index de recherche pré-calculé ;
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks

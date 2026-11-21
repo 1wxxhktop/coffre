@@ -964,6 +964,16 @@ export const EN_TEXT: Record<string, string> = {
     "Unable to open Android settings.",
   "Verrouillage en arrière-plan désactivé.":
     "Background lock disabled.",
+  "Captures d’écran":
+    "Screenshots",
+  "Masque le coffre dans les captures, les enregistrements et l’aperçu des applications récentes.":
+    "Hides the vault in screenshots, recordings and the recent apps preview.",
+  "Bloquer les captures d’écran et l’enregistrement":
+    "Block screenshots and screen recording",
+  "Actif par défaut. Le réglage est appliqué dès le démarrage de l’application.":
+    "On by default. The setting is applied as soon as the app starts.",
+  "Le blocage utilise FLAG_SECURE d’Android. Désactivez-le si vous devez capturer ou partager l’écran de Coffre ; un appareil rooté ou un outil de capture privilégié peut contourner cette protection.":
+    "Blocking uses Android's FLAG_SECURE. Disable it if you need to capture or share the Coffre screen; a rooted device or a privileged capture tool can bypass this protection.",
   "Coffre peut vérifier au démarrage si une nouvelle version est publiée sur GitHub. Aucune donnée du coffre n’est envoyée.":
     "Coffre can check at launch whether a new version is published on GitHub. No vault data is sent.",
   "Vérifier au démarrage":

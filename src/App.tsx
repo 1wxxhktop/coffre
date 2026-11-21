@@ -9,6 +9,7 @@ import { BackupScheduler } from './components/BackupScheduler'
 import { UpdateNotice } from './components/UpdateNotice'
 import { AndroidUpdateOptIn } from './components/AndroidUpdateOptIn'
 import { AndroidAutofillBridge } from './components/AndroidAutofillBridge'
+import { AndroidSecureScreenBridge } from './components/AndroidSecureScreenBridge'
 import { ExtensionOnboarding } from './components/ExtensionOnboarding'
 import { WindowTitlebar } from './components/WindowTitlebar'
 import { UpdateProvider } from './state/UpdateProvider'
@@ -37,6 +38,7 @@ export default function App() {
               <NativeBridge />
               <BackupScheduler />
               <AndroidAutofillBridge />
+              <AndroidSecureScreenBridge />
               <Root />
               <UpdateNotice />
             </UpdateProvider>
