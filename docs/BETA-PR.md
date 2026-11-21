@@ -110,6 +110,14 @@ curl -fsSL https://github.com/1wxxhktop/coffre/releases/download/canal-beta/late
 La stable devient `latest` ; le canal bêta bascule aussi dessus puisqu’elle est
 plus récente que la dernière bêta.
 
+## Bêta Android
+
+Le même workflow construit un **APK Android signé** avec la clé fixe et le
+publie dans `canal-beta` (`Coffre_beta_android-arm64.apk` et
+`android-beta.json`). Les jobs Android ne sont pas des vérifications requises :
+la PR reste fusionnable pendant leur construction. Détails, clé de signature
+et changement d’identifiant : [ANDROID.md § Signature et bêtas](ANDROID.md).
+
 ## Limites
 
 - Publication automatique réservée aux **PR du dépôt** : les secrets de

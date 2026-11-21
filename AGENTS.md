@@ -55,8 +55,10 @@ Elles viennent du mainteneur ; elles ne se négocient pas au fil d’une tâche.
   seulement ; pas de notarisation, pas de magasin d’extensions payant. Le
   travail qui en dépend (AutoFill macOS, passkeys système, Safari, iOS) est
   hors programme.
-- **Le mot de passe de la clé de signature des mises à jour** est tapé par le
-  mainteneur lui-même ; un agent ne le voit ni ne le manipule jamais.
+- **Les mots de passe des clés de signature** (mises à jour desktop, APK
+  Android) sont tapés par le mainteneur lui-même ; un agent ne les voit ni ne
+  les manipule jamais. Ces clés ne sont **jamais remplacées** : une autre clé
+  empêcherait les applications installées d’accepter les mises à jour.
 - **Espace disque limité** : ne pas laisser de cache de build ni de copie de
   release derrière soi (voir § 5).
 - **Jamais `git stash` nu** : la pile est partagée entre worktrees. Préférer

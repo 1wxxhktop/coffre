@@ -165,3 +165,113 @@ jobs:
             echo
             echo "Dans Coffre : Réglages → Mises à jour → canal Bêta → Rechercher maintenant."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # --- Bêta Android ----------------------------------------------------------
+  # Même version que la bêta macOS du même run. L’APK n’est publié que s’il est
+  # signé avec la clé fixe : un APK debug ne s’installerait pas par-dessus la
+  # bêta précédente. Ces jobs ne bloquent pas la PR (checks non requis).
+
+  android-version:
+    name: Version bêta Android
+    if: (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      ref: ${{ steps.version.outputs.ref }}
+    steps:
+      - name: Récupérer la PR
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || format('refs/pull/{0}/head', inputs.pr) }}
+          persist-credentials: false
+
+      - name: Calculer la version bêta
+        id: version
+        env:
+          REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || format('refs/pull/{0}/head', inputs.pr) }}
+        run: |
+          VERSION="$(node -e 'const raw=require("./package.json").version.split("-")[0].split(".").map(Number); console.log(`${raw[0]}.${raw[1] + 1}.0-beta.${process.env.GITHUB_RUN_NUMBER}.${process.env.GITHUB_RUN_ATTEMPT}`)')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "Version bêta Android : $VERSION"
+
+  android:
+    name: Bêta Android (APK)
+    needs: android-version
+    permissions:
+      contents: read
+    uses: ./.github/workflows/android-build.yml
+    with:
+      version: ${{ needs.android-version.outputs.version }}
+      ref: ${{ needs.android-version.outputs.ref }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+  android-publish:
+    name: Bêta Android
+    needs: [android-version, android]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Clé Android absente
+        if: needs.android.outputs.signed != 'true'
+        run: |
+          echo "::warning::Aucune clé Android fixe : bêta Android non publiée. Lancez scripts/setup-android-key.sh (voir docs/ANDROID.md)."
+          {
+            echo "### Bêta Android non publiée"
+            echo
+            echo "La clé de signature fixe n’est pas configurée (scripts/setup-android-key.sh)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Télécharger l’APK
+        if: needs.android.outputs.signed == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: coffre-android-apk
+          path: android
+
+      - name: Préparer la bêta
+        if: needs.android.outputs.signed == 'true'
+        env:
+          VERSION: ${{ needs.android-version.outputs.version }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+          PR_TITLE: ${{ github.event.pull_request.title || 'workflow_dispatch' }}
+          COMMIT: ${{ needs.android-version.outputs.ref }}
+        run: |
+          cp android/coffre-android-arm64.apk Coffre_beta_android-arm64.apk
+          SHA="$(sha256sum Coffre_beta_android-arm64.apk | cut -d' ' -f1)"
+          URL="https://github.com/${{ github.repository }}/releases/download/canal-beta/Coffre_beta_android-arm64.apk"
+          node -e '
+            const fs = require("fs")
+            fs.writeFileSync("android-beta.json", JSON.stringify({
+              version: process.env.VERSION,
+              url: process.argv[1],
+              sha256: process.argv[2],
+              notes: `Bêta PR #${process.env.PR_NUMBER} — ${process.env.PR_TITLE} — commit ${process.env.COMMIT}`,
+              pub_date: new Date().toISOString(),
+            }, null, 2) + "\n")
+          ' "$URL" "$SHA"
+          cat android-beta.json
+
+      - name: Publier dans le canal bêta
+        if: needs.android.outputs.signed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload canal-beta \
+            Coffre_beta_android-arm64.apk android-beta.json \
+            --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Commenter la PR
+        if: needs.android.outputs.signed == 'true' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          VERSION: ${{ needs.android-version.outputs.version }}
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "Bêta Android **$VERSION** publiée : https://github.com/$GITHUB_REPOSITORY/releases/download/canal-beta/Coffre_beta_android-arm64.apk — elle s’installe par-dessus la bêta précédente (même clé de signature)."
