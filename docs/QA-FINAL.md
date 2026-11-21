@@ -87,6 +87,20 @@ déverrouillé, même réseau Wi-Fi, aucun accès Internet.
 11. Vérifier le rendu en thème clair et sombre, et sur un appareil Android 8
     ou 9 pour l’API minimale.
 
+### Captures d’écran Android
+
+1. Laisser le blocage actif, puis tenter une capture d’écran : Android doit
+   refuser ou produire une image noire.
+2. Lancer un enregistrement d’écran : la fenêtre Coffre doit rester noire.
+3. Ouvrir le sélecteur d’applications récentes : l’aperçu de Coffre doit être
+   masqué.
+4. Désactiver **Réglages → Sécurité → Captures d’écran**, refaire une capture :
+   elle doit fonctionner.
+5. Réactiver, tuer l’application, la relancer : le blocage doit être appliqué
+   dès l’écran de déverrouillage.
+6. Vérifier qu’un partage d’écran (cast) ne montre pas le contenu tant que le
+   blocage est actif.
+
 ## 6. Audit externe
 
 - parseurs KDBX, CXF, partages et blobs ;

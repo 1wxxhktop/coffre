@@ -22,6 +22,9 @@ appareil. Ce n’est pas encore une application Android complète.
   coffre sont proposées dans les formulaires web du navigateur et des
   applications. Désactivé par défaut ; le cache reste en mémoire et expire avec
   le verrouillage automatique.
+- **Captures d’écran bloquées par défaut** (`FLAG_SECURE`) : captures,
+  enregistrements et aperçu dans les applications récentes masqués. Désactivable
+  dans Réglages → Sécurité.
 
 ## Ce qui n’est pas encore là
 
@@ -210,6 +213,22 @@ comme identifiant (un champ e-mail générique seul peut être une newsletter).
 - deux services de remplissage peuvent coexister (build debug `…debug` et
   build signé) : sélectionner celui de l’APK installé.
 
+### Captures d’écran
+
+Coffre applique `WindowManager.LayoutParams.FLAG_SECURE` à la fenêtre de
+l’activité. Android bloque alors les captures d’écran et les enregistrements
+de cette fenêtre, et affiche un aperçu vide dans le sélecteur d’applications
+récentes.
+
+- Le blocage est **actif par défaut**.
+- Le choix est mémorisé dans les préférences natives (`secure_screen`) et
+  appliqué dans `MainActivity.onCreate` et réappliqué dans
+  `onResume`, dès la création de l’activité.
+- Il se désactive dans **Réglages → Sécurité → Captures d’écran**.
+- `FLAG_SECURE` ne protège pas contre un appareil rooté, un outil de capture
+  privilégié ou une caméra externe. Il empêche aussi de projeter ou partager
+  l’écran de Coffre ; désactivez-le temporairement si vous en avez besoin.
+
 ## Construire localement
 
 Prérequis : Java 21, SDK Android (plateforme 37.0, build-tools 36) et NDK
@@ -270,18 +289,23 @@ Le 13 novembre 2026, l’APK debug `0.16.0` a été testé sur un émulateur
 Aucun crash ni écran blanc n’a été observé. Le stockage natif a été sollicité
 par la création du coffre et sa relecture après redémarrage.
 
+Le 21 novembre 2026, la bêta `0.18.0-beta.151.1` a été validée sur appareil
+physique avec le design mobile de #163, le remplissage Android de #164 et le
+blocage des captures d’écran de #165.
+
 Restent à valider sur appareil réel : les performances Argon2, le clavier
 physique, l’import/export de fichiers, les gros coffres, la rotation d’écran,
 le mode sombre système et la restauration après mise à jour. Le premier import
 par réseau local, le filtre de fichier élargi, le déverrouillage par empreinte
 digitale, le parcours complet de mise à jour (téléchargement, SHA-256,
-installateur Android, conservation du coffre) et le **remplissage automatique**
+installateur Android, conservation du coffre), le **remplissage automatique**
 (sélection du service, proposition sur un formulaire, expiration après le
-délai, absence de proposition sur un domaine voisin) doivent être confirmés
-sur un appareil Android physique.
+délai, absence de proposition sur un domaine voisin) et le **blocage des
+captures d’écran** (capture, enregistrement, aperçu des récents, désactivation
+et réactivation) doivent être confirmés sur un appareil Android physique.
 
 ## Prochaines étapes
 
 La version Android complète reste planifiée en 0.18 : validation du
-remplissage sur appareils réels, Credential Manager/passkeys, validation
-multi-appareils et publication Play Store.
+remplissage et du blocage des captures sur appareils réels, Credential
+Manager/passkeys, validation multi-appareils et publication Play Store.

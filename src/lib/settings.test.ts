@@ -36,6 +36,18 @@ describe('remplissage Android', () => {
   })
 })
 
+describe('captures d’écran Android', () => {
+  it('sont bloquées par défaut', () => {
+    stubSettings({})
+    expect(loadSettings().androidSecureScreen).toBe(true)
+  })
+
+  it('respecte une désactivation explicite', () => {
+    stubSettings({ androidSecureScreen: false })
+    expect(loadSettings().androidSecureScreen).toBe(false)
+  })
+})
+
 describe('préférences de sauvegarde', () => {
   it('reprend une configuration valide', () => {
     stubSettings({

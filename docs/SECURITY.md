@@ -1656,6 +1656,28 @@ formulaires web d’Android, via l’`AutofillService` système (Android 8+).
   build debug, le service porte le package `…debug` et doit être sélectionné
   séparément du build signé.
 
+### 2.31 Protection contre les captures d’écran (Android)
+
+`MainActivity` ajoute `WindowManager.LayoutParams.FLAG_SECURE` à la fenêtre.
+Android bloque alors les captures d’écran et les enregistrements de cette
+fenêtre, et masque son contenu dans l’aperçu des applications récentes.
+
+- **Actif par défaut.** Un gestionnaire de mots de passe ne doit pas laisser
+  capturer son écran sans choix explicite.
+- Le choix est mémorisé dans les préférences natives (`secure_screen`) et
+  appliqué dès la création de l’activité et réappliqué à chaque reprise.
+  Il survit donc à un redémarrage, même si la WebView n’est pas encore prête.
+- Le réglage est exposé dans **Réglages → Sécurité → Captures d’écran** et par
+  deux commandes Tauri (`android_secure_screen_set`,
+  `android_secure_screen_enabled`). Aucune donnée du coffre ne transite par ces
+  commandes : seulement un booléen.
+- **Limites.** `FLAG_SECURE` ne protège pas contre un appareil rooté, un outil
+  de capture privilégié ou une caméra externe. Il empêche aussi la projection
+  et le partage d’écran de Coffre ; l’utilisateur peut le désactiver
+  temporairement s’il en a besoin.
+- Le drapeau ne modifie ni le chiffrement, ni le stockage, ni les requêtes
+  réseau.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)
@@ -2155,6 +2177,7 @@ La WebView n’accède au système que par des commandes IPC explicites :
 | `extension_info`, `extension_reveal` | copie gérée de l’extension : état, mise à niveau et ouverture du dossier |
 | `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS, Windows Hello et empreinte Android |
 | `android_autofill_publish`, `android_autofill_touch`, `android_autofill_clear`, `android_autofill_status`, `android_autofill_open_settings` | cache mémoire du remplissage Android et écran système de sélection du service |
+| `android_secure_screen_set`, `android_secure_screen_enabled` | blocage des captures d’écran Android (`FLAG_SECURE`) |
 | `autostart_enabled`, `autostart_set`, `startup_is_hidden` | démarrage à l’ouverture de session et lancement masqué |
 | `tray_set_language`, `tray_set_keep_on_close` | libellés du menu et comportement à la fermeture |
 | `vault_read`, `vault_write`, `vault_backup_read`, `vault_backup_write`, `vault_clear` | stockage natif du coffre |

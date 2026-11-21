@@ -13,6 +13,8 @@ fn main() {
             "android_autofill_clear",
             "android_autofill_status",
             "android_autofill_open_settings",
+            "android_secure_screen_set",
+            "android_secure_screen_enabled",
             "biometric_available",
             "biometric_confirm",
             "biometric_store",

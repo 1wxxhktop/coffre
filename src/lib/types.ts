@@ -683,6 +683,12 @@ export interface AppSettings {
    * la fenêtre du coffre.
    */
   androidAutofill: boolean
+  /**
+   * Android : bloquer les captures d’écran et l’enregistrement avec
+   * `FLAG_SECURE`. Actif par défaut ; le réglage natif est mémorisé pour
+   * s’appliquer dès le démarrage.
+   */
+  androidSecureScreen: boolean
   /** Afficher des notifications locales pour les échéances proches. */
   expiryNotifications: boolean
   /** Vérifier les mots de passe dans les fuites connues, en k-anonymat. */
@@ -736,6 +742,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   keychainUnlock: false,
   biometricUnlock: false,
   androidAutofill: false,
+  androidSecureScreen: true,
   expiryNotifications: false,
   breachCheck: false,
   backupFrequency: 'off',

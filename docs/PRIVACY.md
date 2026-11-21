@@ -24,6 +24,9 @@ l’application web installable et l’extension de navigateur.
   les préférences d’affichage. L’extension ne stocke aucun identifiant, mot de
   passe, TOTP ni contenu de coffre.
 - Les journaux d’activité restent locaux et ne contiennent aucun secret.
+- Sur Android, le choix de bloquer les captures d’écran est mémorisé sous forme
+  d’un simple booléen dans les préférences natives ; aucune image ni contenu du
+  coffre n’est enregistré.
 
 Ces données restent sur l’appareil, sauf si l’utilisateur choisit un dossier
 synchronisé (iCloud, Dropbox, Nextcloud, etc.) ou la synchronisation sur le
