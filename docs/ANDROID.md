@@ -199,8 +199,9 @@ comme identifiant (un champ e-mail générique seul peut être une newsletter).
   déverrouiller Coffre avant de remplir ;
 - le service ne propose rien pour les applications natives sans domaine web ;
 - le remplissage des codes TOTP n’est pas encore pris en charge ;
-- Android ne fournit que le domaine, sans port : une connexion enregistrée
-  avec un port explicite (`http://localhost:3000`) ne correspond pas ;
+- Android ne fournit jamais le port : une connexion enregistrée avec un port
+  explicite (`http://localhost:3000`) ne correspond pas. Le schéma n’est
+  fourni qu’à partir d’Android 9 ; sur Android 8, Coffre suppose HTTPS ;
 - une application malveillante peut déclarer un domaine web qui n’est pas le
   sien dans une WebView. Android ne fournit pas de preuve cryptographique du
   domaine (Digital Asset Links) : vérifier l’application avant de choisir une

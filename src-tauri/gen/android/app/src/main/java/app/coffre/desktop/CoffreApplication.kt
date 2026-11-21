@@ -13,14 +13,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * Contexte d’application exposé à Rust par `ndk_context`.
- *
- * La commande `android_updater_install` télécharge l’APK dans le cache, puis
- * appelle `installApk` par JNI. L’application peut démarrer l’installateur
- * avec `FLAG_ACTIVITY_NEW_TASK` ; le fichier est partagé par le FileProvider
- * déclaré dans le manifeste.
- */
-/**
  * Accès à `AutofillManager` par réflexion : la classe n’existe pas sur
  * Android 7 et `CoffreApplication` doit rester chargeable sur ces appareils.
  */
@@ -37,6 +29,14 @@ private object AutofillSupport {
   }
 }
 
+/**
+ * Contexte d’application exposé à Rust par `ndk_context`.
+ *
+ * La commande `android_updater_install` télécharge l’APK dans le cache, puis
+ * appelle `installApk` par JNI. L’application peut démarrer l’installateur
+ * avec `FLAG_ACTIVITY_NEW_TASK` ; le fichier est partagé par le FileProvider
+ * déclaré dans le manifeste.
+ */
 class CoffreApplication : Application() {
   fun installApk(path: String): Boolean {
     return try {

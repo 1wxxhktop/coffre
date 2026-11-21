@@ -16,11 +16,12 @@ object CoffreAutofillBridge {
     }.getOrDefault(false)
 
   /**
-   * Renvoie une charge utile JSON `{ unlocked, items }` pour ce domaine, ou
-   * `null` si la bibliothèque native n’est pas disponible.
+   * Renvoie une charge utile JSON `{ unlocked, items }` pour ce service
+   * (`domaine` ou `schéma://domaine`), ou `null` si la bibliothèque native
+   * n’est pas disponible.
    */
-  external fun nativeMatch(webDomain: String): String?
+  external fun nativeMatch(service: String): String?
 
-  fun match(webDomain: String): String? =
-    if (loaded) runCatching { nativeMatch(webDomain) }.getOrNull() else null
+  fun match(service: String): String? =
+    if (loaded) runCatching { nativeMatch(service) }.getOrNull() else null
 }

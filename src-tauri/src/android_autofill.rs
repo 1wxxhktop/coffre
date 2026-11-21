@@ -177,12 +177,12 @@ struct MatchPayload {
 
 /// Charge utile JSON lue par le service Android.
 ///
-/// `web_domain` est le domaine fourni par Android (`example.com`, sans schéma).
-/// Un domaine vide ne propose rien : le service ne doit pas exposer la liste
-/// complète des connexions à une application qui ne présente pas de formulaire
-/// web identifiable.
+/// `service` est le domaine fourni par Android, ou `schéma://domaine` lorsque
+/// le schéma est disponible (Android 9+). Une valeur vide ne propose rien : le
+/// service ne doit pas exposer la liste complète des connexions à une
+/// application qui ne présente pas de formulaire web identifiable.
 #[cfg(any(target_os = "android", test))]
-pub fn match_payload(web_domain: &str) -> String {
+pub fn match_payload(service: &str) -> String {
     let now = Instant::now();
     let mut guard = match CACHE.lock() {
         Ok(guard) => guard,
@@ -197,14 +197,14 @@ pub fn match_payload(web_domain: &str) -> String {
     let Some(cache) = guard.as_ref() else {
         return r#"{"unlocked":false,"items":[]}"#.to_string();
     };
-    let domain = web_domain.trim();
-    let items: Vec<AutofillEntry> = if domain.is_empty() {
+    let service = service.trim();
+    let items: Vec<AutofillEntry> = if service.is_empty() {
         Vec::new()
     } else {
         cache
             .entries
             .iter()
-            .filter(|entry| entry.urls.iter().any(|url| login_allows_host(url, domain)))
+            .filter(|entry| entry.urls.iter().any(|url| login_allows_host(url, service)))
             .take(MAX_MATCHES)
             .cloned()
             .collect()
@@ -306,13 +306,13 @@ pub fn android_autofill_open_settings() -> Result<bool, String> {
 pub extern "system" fn Java_app_coffre_desktop_CoffreAutofillBridge_nativeMatch(
     mut env: jni::JNIEnv<'_>,
     _this: jni::objects::JObject<'_>,
-    web_domain: jni::objects::JString<'_>,
+    service: jni::objects::JString<'_>,
 ) -> jni::sys::jstring {
-    let domain = env
-        .get_string(&web_domain)
+    let service = env
+        .get_string(&service)
         .map(|value| value.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let payload = Zeroizing::new(match_payload(&domain));
+    let payload = Zeroizing::new(match_payload(&service));
     match env.new_string(payload.as_str()) {
         Ok(value) => value.into_raw(),
         Err(_) => {
@@ -368,6 +368,22 @@ mod tests {
         assert_eq!(value["items"].as_array().unwrap().len(), 1);
         assert_eq!(value["items"][0]["username"], "alice");
         assert_eq!(value["items"][0]["password"], "secret-a");
+    }
+
+    #[test]
+    fn refuse_une_page_http_pour_un_element_https() {
+        let _guard = guard();
+        publish(
+            vec![entry(
+                "Exemple",
+                "alice",
+                "secret",
+                &["https://example.com"],
+            )],
+            0,
+        );
+        assert!(match_payload("https://example.com").contains("secret"));
+        assert!(!match_payload("http://example.com").contains("secret"));
     }
 
     #[test]

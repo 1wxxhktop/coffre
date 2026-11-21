@@ -1,6 +1,7 @@
 package app.coffre.desktop
 
 import android.app.assist.AssistStructure
+import android.os.Build
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
 import android.service.autofill.Dataset
@@ -46,7 +47,8 @@ class CoffreAutofillService : AutofillService() {
   private data class Form(
     val usernameIds: List<AutofillId>,
     val passwordIds: List<AutofillId>,
-    val webDomain: String?,
+    /** Domaine, ou `schéma://domaine` quand Android fournit le schéma. */
+    val webService: String?,
   )
 
   private class FormVisitor {
@@ -56,10 +58,16 @@ class CoffreAutofillService : AutofillService() {
     val emailIds = mutableListOf<AutofillId>()
     val passwordIds = mutableListOf<AutofillId>()
     var webDomain: String? = null
+    var webScheme: String? = null
 
     fun visit(node: AssistStructure.ViewNode?) {
       if (node == null) return
       if (!node.webDomain.isNullOrBlank()) webDomain = node.webDomain
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+        !node.webScheme.isNullOrBlank()
+      ) {
+        webScheme = node.webScheme
+      }
 
       val id = node.autofillId
       val hints = node.autofillHints?.map { it.lowercase(Locale.ROOT) } ?: emptyList()
@@ -140,7 +148,12 @@ class CoffreAutofillService : AutofillService() {
     } else {
       (visitor.strongUsernameIds + visitor.emailIds).distinct()
     }
-    return Form(usernameIds, visitor.passwordIds, visitor.webDomain)
+    val service = when {
+      visitor.webDomain.isNullOrBlank() -> null
+      !visitor.webScheme.isNullOrBlank() -> "${visitor.webScheme}://${visitor.webDomain}"
+      else -> visitor.webDomain
+    }
+    return Form(usernameIds, visitor.passwordIds, service)
   }
 
   private fun itemsOf(payload: String?): List<AutofillItem> {
@@ -187,8 +200,8 @@ class CoffreAutofillService : AutofillService() {
   ) {
     try {
       val form = formOf(request)
-      val domain = form?.webDomain?.trim()
-      if (form == null || domain.isNullOrEmpty()) {
+      val service = form?.webService?.trim()
+      if (form == null || service.isNullOrEmpty()) {
         callback.onSuccess(null)
         return
       }
@@ -201,7 +214,7 @@ class CoffreAutofillService : AutofillService() {
         return
       }
 
-      val items = itemsOf(CoffreAutofillBridge.match(domain))
+      val items = itemsOf(CoffreAutofillBridge.match(service))
       if (items.isEmpty()) {
         callback.onSuccess(null)
         return

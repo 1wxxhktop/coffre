@@ -1645,11 +1645,10 @@ formulaires web d’Android, via l’`AutofillService` système (Android 8+).
   identique chez les autres gestionnaires ; l’utilisateur doit vérifier
   l’application. Une vérification par Digital Asset Links pourra réduire ce
   risque pour les applications natives.
-- **Schéma et port indisponibles.** Android ne transmet que le domaine, sans
-  schéma ni port. Coffre suppose HTTPS et ne peut pas refuser un formulaire
-  servi en HTTP ni distinguer deux ports sur le même hôte. La règle
-  anti-dégradation HTTPS de l’extension ne s’applique donc pas exactement au
-  remplissage Android.
+- **Schéma et port.** Android 9+ fournit le schéma de la page : Coffre refuse
+  alors un élément HTTPS sur une page HTTP, comme l’extension. Sur Android 8,
+  seul le domaine est fourni et Coffre suppose HTTPS. Le port n’est jamais
+  transmis : deux services sur le même hôte ne peuvent pas être distingués.
 - **Limites.** Un processus tué perd le cache ; les applications natives sans
   domaine web, les codes TOTP et l’enregistrement ne sont pas couverts. Sur un
   build debug, le service porte le package `…debug` et doit être sélectionné
