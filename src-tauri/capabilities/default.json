@@ -22,6 +22,8 @@
     "allow-biometric-delete",
     "allow-biometric-load",
     "allow-biometric-store",
+    "biometric:default",
+    "biometric:allow-biometric-cipher",
     "allow-blob-decrypt",
     "allow-blob-encrypt",
     "allow-blob-export-to",

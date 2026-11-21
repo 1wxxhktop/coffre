@@ -167,6 +167,8 @@ const fr = {
   'auth.action.lanRestore': 'Synchroniser depuis un autre appareil',
   'auth.action.recovery': 'Déverrouiller avec une phrase de récupération',
   'auth.action.more': 'Autres options',
+  'auth.theme.toLight': 'Passer en thème clair',
+  'auth.theme.toDark': 'Passer en thème sombre',
   'auth.action.erase': 'Effacer le coffre local…',
   'auth.fineprint':
     'Modèle de chiffrement inspiré du projet open source Proton Pass. Coffre sous licence GPL-3.0, sans aucun service distant.',
@@ -696,6 +698,8 @@ const en: Record<MessageKey, string> = {
   'auth.action.lanRestore': 'Sync from another device',
   'auth.action.recovery': 'Unlock with a recovery phrase',
   'auth.action.more': 'More options',
+  'auth.theme.toLight': 'Switch to light theme',
+  'auth.theme.toDark': 'Switch to dark theme',
   'auth.action.erase': 'Erase the local vault…',
   'auth.fineprint':
     'Encryption model inspired by the open source Proton Pass project. Coffre is licensed GPL-3.0, with no remote service.',

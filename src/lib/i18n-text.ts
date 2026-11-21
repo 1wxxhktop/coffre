@@ -140,6 +140,14 @@ export const EN_TEXT: Record<string, string> = {
   Sécurité: 'Security',
   'Thème sombre, clair ou aligné sur le système.': 'Dark, light or system theme.',
   'Trousseau du système': 'System keychain',
+  'Déverrouillage rapide': 'Quick unlock',
+  'Empreinte digitale ou biométrie de l’appareil.':
+    'Fingerprint or device biometrics.',
+  'Déverrouiller avec l’empreinte digitale': 'Unlock with fingerprint',
+  'La clé maîtresse est chiffrée par Android Keystore et n’est déchiffrée qu’après une authentification biométrique réussie.':
+    'The master key is encrypted with Android Keystore and only decrypted after successful biometric authentication.',
+  'La clé maîtresse est rangée dans un trousseau biométrique séparé et n’est libérée qu’après une authentification réussie. La clé reste en place pendant le verrouillage pour permettre le déverrouillage rapide, puis elle est supprimée si l’option est désactivée ou le coffre réinitialisé.':
+    'The master key is stored in a separate biometric keychain and is only released after successful authentication. It stays in place while the vault is locked for quick unlock, then is removed when the option is disabled or the vault is reset.',
   'Une seconde clé optionnelle, jamais stockée en clair.':
     'An optional second key, never stored in clear.',
   'Verrouillage automatique': 'Auto-lock',

@@ -989,6 +989,9 @@ pub fn run() {
             Ok(())
         });
 
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_biometric::init());
+
     builder
         .build(tauri::generate_context!())
         .expect("impossible de démarrer Coffre")

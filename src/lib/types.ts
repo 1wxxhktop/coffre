@@ -715,7 +715,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   language: 'fr',
-  theme: 'dark',
+  theme: 'light',
   autoFormat: true,
   autoLockMinutes: 5,
   clipboardClearSeconds: 30,

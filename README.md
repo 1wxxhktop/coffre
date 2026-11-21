@@ -312,11 +312,12 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
   envelopper la clé maîtresse dans le fichier. Le mot de passe maître reste le
   secret racine ; l’enveloppe est révocable, liée au fichier et supprimée lors
   d’un changement de mot de passe ou d’une récupération.
-- **Déverrouillage biométrique desktop** : Touch ID sur macOS et Windows Hello
-  sur Windows. La clé maîtresse est rangée dans un service de trousseau séparé
-  et n’est libérée qu’après une authentification réussie ; sous Windows, le
-  consentement Windows Hello est vérifié avant chaque lecture de l’entrée
-  Credential Manager protégée par DPAPI.
+- **Déverrouillage biométrique** : Touch ID sur macOS, Windows Hello sur
+  Windows et **empreinte digitale sur Android**. La clé maîtresse est rangée
+  dans un service de trousseau séparé sur desktop, ou chiffrée par Android
+  Keystore sur mobile, et n’est libérée qu’après une authentification réussie ;
+  sous Windows, le consentement Windows Hello est vérifié avant chaque lecture
+  de l’entrée Credential Manager protégée par DPAPI.
 - **PWA installable** : fonctionnement hors ligne, icônes, service worker.
 - **Interface desktop en colonnes** : barre latérale, liste compacte et panneau
   de détail persistant. La création passe par une modale ; la lecture et
@@ -372,14 +373,17 @@ Le détail de cette analyse est dans [docs/PROTON-PASS.md](docs/PROTON-PASS.md).
 - **Trousseau natif (desktop)** : déverrouillage rapide optionnel par le
   trousseau macOS, Windows ou Linux. La clé maîtresse n’y est écrite que si
   l’option est activée et elle est supprimée au verrouillage.
-- **Touch ID (desktop macOS)** : déverrouillage par empreinte. La clé est rangée
-  dans un trousseau biométrique séparé et n’est libérée qu’après une
-  authentification réussie ; `keychain_load` ne peut pas la lire.
+- **Touch ID (desktop macOS) et empreinte Android** : déverrouillage
+  biométrique. Sur macOS, la clé est rangée dans un trousseau biométrique
+  séparé ; sur Android, elle est chiffrée par Android Keystore et déchiffrée
+  après le dialogue système. `keychain_load` ne peut pas la lire.
 - **Dérivation Argon2id dans un Web Worker** et index de recherche pré-calculé ;
   la liste est paginée pour les très gros coffres.
 - **Une seule session à la fois** : instance desktop unique et verrou Web Locks
   entre onglets ; les liens externes Tauri s’ouvrent dans le navigateur système.
-- **Thèmes neutres sombre/clair** (noir et blanc) et **mode système**, interface responsive, sélecteurs natifs
+- **Thèmes neutres clair/sombre** et **mode système**, interface responsive,
+  sélecteurs natifs. Le thème clair est proposé par défaut ; un bouton sur
+  l’écran de verrouillage permet de basculer immédiatement.
   habillés, accessibilité clavier et modales avec piège à focus. Les contrôles
   automatisés WCAG 2.2 A/AA et la liste des vérifications manuelles restantes
   sont dans [`docs/ACCESSIBILITY.md`](docs/ACCESSIBILITY.md).

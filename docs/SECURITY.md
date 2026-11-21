@@ -2085,7 +2085,7 @@ La WebView n’accède au système que par des commandes IPC explicites :
 | `keychain_store`, `keychain_load`, `keychain_delete` | trousseau de session |
 | `bridge_key_store`, `bridge_key_load`, `bridge_key_delete` | clé d’appairage du pont natif (fichier privé sous macOS, trousseau ailleurs) |
 | `extension_info`, `extension_reveal` | copie gérée de l’extension : état, mise à niveau et ouverture du dossier |
-| `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS et Windows Hello |
+| `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS, Windows Hello et empreinte Android |
 | `autostart_enabled`, `autostart_set`, `startup_is_hidden` | démarrage à l’ouverture de session et lancement masqué |
 | `tray_set_language`, `tray_set_keep_on_close` | libellés du menu et comportement à la fermeture |
 | `vault_read`, `vault_write`, `vault_backup_read`, `vault_backup_write`, `vault_clear` | stockage natif du coffre |
@@ -2105,7 +2105,7 @@ titre, puis `allow-close`, `allow-minimize`, `allow-toggle-maximize` et
 `allow-is-maximized` pour les boutons de la barre intégrée Windows. Elles
 n’ouvrent aucun accès aux fichiers, au réseau ou au trousseau.
 
-Le déverrouillage biométrique desktop ajoute cinq commandes :
+Le déverrouillage biométrique desktop ajoute cinq commandes, tandis qu’Android utilise les commandes du plugin `biometric` (`checkStatus`, `authenticate`, `biometricCipher`) :
 `biometric_available`, `biometric_store`, `biometric_delete`,
 `biometric_confirm` et `biometric_load`. Les clés biométriques sont rangées
 dans le service `app.coffre.desktop.biometric`, distinct de
@@ -2121,6 +2121,14 @@ dans le service `app.coffre.desktop.biometric`, distinct de
   annulation ou un échec ne renvoie aucune clé. La disponibilité est vérifiée à
   l’ouverture des réglages ; sans matériel configuré, l’option n’est pas
   proposée.
+- **Android** : le plugin officiel `tauri-plugin-biometric` déclenche
+  `BiometricPrompt` et `biometricCipher` chiffre la clé maîtresse avec une clé
+  Android Keystore liée à l’authentification. Le chiffré est conservé dans le
+  stockage local de l’application ; il est inutilisable sans l’empreinte (ou la
+  biométrie) de l’appareil. Une annulation ne renvoie aucune clé ; une erreur
+  autre qu’une annulation est remontée à l’interface. La clé Keystore est
+  invalidée si les biométries de l’appareil changent : le mot de passe maître
+  reste alors la voie de secours.
 
 L’écran de verrouillage déclenche le dialogue automatiquement lorsque la fenêtre
 est activée (avec un délai de refroidissement pour éviter une boucle après

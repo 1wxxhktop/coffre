@@ -6,6 +6,8 @@ appareil. Ce n’est pas encore une application Android complète.
 ## Ce qui fonctionne
 
 - Création et déverrouillage d’un coffre local.
+- **Déverrouillage par empreinte digitale** (BiometricPrompt) : la clé maîtresse
+  est chiffrée par Android Keystore et n’est déchiffrée qu’après authentification.
 - Éléments, dossiers, recherche, générateur et TOTP.
 - Premier import depuis un autre appareil sur le même réseau Wi-Fi, par code
   d’appairage, avec transfert du coffre chiffré et des pièces jointes blob.
@@ -19,7 +21,6 @@ appareil. Ce n’est pas encore une application Android complète.
 
 - Autofill Android (remplissage dans les applications et le navigateur).
 - Passkeys via Credential Manager.
-- Déverrouillage biométrique et Keystore.
 - Tray, auto-type, mises à jour automatiques et extension navigateur.
 - Publication Play Store.
 - Notification « nouvelle version disponible » dans l’application : les
@@ -147,8 +148,8 @@ par la création du coffre et sa relecture après redémarrage.
 Restent à valider sur appareil réel : les performances Argon2, le clavier
 physique, l’import/export de fichiers, les gros coffres, la rotation d’écran,
 le mode sombre système et la restauration après mise à jour. Le premier import
-par réseau local et le filtre de fichier élargi doivent être confirmés sur un
-appareil Android physique.
+par réseau local, le filtre de fichier élargi et le déverrouillage par
+empreinte digitale doivent être confirmés sur un appareil Android physique.
 
 ## Prochaines étapes
 

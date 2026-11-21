@@ -2,6 +2,13 @@
 
 ## Non publié
 
+- Android : **déverrouillage par empreinte digitale**. La clé maîtresse est
+  chiffrée par Android Keystore via `biometricCipher` et n’est déchiffrée
+  qu’après le dialogue biométrique. Le mot de passe maître reste la solution de
+  secours ; une biométrie modifiée invalide la clé.
+- Interface : le thème **clair devient le défaut** des nouvelles installations,
+  et un bouton sur l’écran de verrouillage permet de basculer immédiatement
+  entre clair et sombre.
 - Android : **bêta à chaque PR**. Le workflow Bêta PR publie un APK Android
   signé dans le canal bêta (`Coffre_beta_android-arm64.apk`), à côté de la
   bêta macOS, avec la même version.

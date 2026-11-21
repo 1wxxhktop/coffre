@@ -24,3 +24,15 @@ test('suit le thème système quand il est sélectionné', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 })
+
+test('démarre en thème clair et bascule depuis l’écran de verrouillage', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await page.getByRole('button', { name: 'Passer en thème sombre' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(
+    page.getByRole('button', { name: 'Passer en thème clair' }),
+  ).toBeVisible()
+})
