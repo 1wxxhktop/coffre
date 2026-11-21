@@ -12,6 +12,9 @@
 - Synchronisation locale : l’action **Recevoir ou partager une
   synchronisation** peut servir un premier coffre à un nouvel appareil sans
   exiger de fichier entrant.
+- `bun run release:status` et `bun run clean` trouvent le dossier `release/`
+  de la racine du dépôt même lancés depuis un worktree, au lieu de le signaler
+  absent.
 - Contrôle des commandes de l’application (`bun run lint`) : couvre aussi les
   commandes appelées par une fonction intermédiaire (stockage, sauvegardes,
   synchronisation), soit 71 commandes au lieu de 52, et refuse un appel
