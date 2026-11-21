@@ -11,6 +11,41 @@ import { invoke } from './invoke'
 import { keychainAvailable } from './keychain'
 import type { AppSettings } from './types'
 
+/** Événement qui vide la clé et les sessions du pont natif en mémoire. */
+export const BRIDGE_FORGET_EVENT = 'coffre:bridge-forget'
+
+/** Vrai si une extension est associée (clé d’appairage enregistrée). */
+export async function hasExtensionPairing(): Promise<boolean> {
+  if (!keychainAvailable()) return false
+  try {
+    return Boolean(await invoke<string | null>('bridge_key_load'))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Révoque toutes les extensions associées : la clé d’appairage est effacée
+ * côté application, puis la clé et les sessions en mémoire sont vidées. Une
+ * extension qui détient encore l’ancienne clé ne peut plus rien déchiffrer et
+ * doit être associée de nouveau ; la reconnexion ne peut pas réémettre une
+ * clé qui n’existe plus.
+ *
+ * Renvoie faux si la clé n’a pas pu être effacée : rien n’est alors annoncé
+ * comme révoqué.
+ */
+export async function revokeExtensionPairing(): Promise<boolean> {
+  if (!keychainAvailable()) return false
+  try {
+    await invoke('bridge_key_delete')
+  } catch {
+    return false
+  }
+  if (await hasExtensionPairing()) return false
+  window.dispatchEvent(new Event(BRIDGE_FORGET_EVENT))
+  return true
+}
+
 export interface ExtensionInstallInfo {
   /** Faux si ce build n’embarque pas l’extension (build de développement). */
   available: boolean

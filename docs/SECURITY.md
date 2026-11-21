@@ -684,13 +684,17 @@ longueur entre stdin/stdout et un socket local.
   possèdent déjà la clé restent donc valides. Si le navigateur ne persiste
   toujours rien, la clé reste en mémoire pour la session et le popup l’indique ;
   aucune clé n’est recréée silencieusement.
-- **Limite : pas de rotation ni de révocation sélective.** La reconnexion
-  réémet la clé existante au lieu d’en créer une nouvelle : un navigateur
-  associé auparavant garde donc l’accès au pont tant que cette clé existe. La
-  seule façon de l’invalider aujourd’hui est la suppression des données de
-  Coffre, qui efface la clé et impose une nouvelle association partout. Un
-  bouton « Révoquer les extensions associées » (effacer la clé côté
-  application) reste à ajouter. Ce risque est borné : le pont ne répond que
+- **Révocation.** La reconnexion réémet la clé existante au lieu d’en créer
+  une nouvelle : un navigateur associé auparavant garde donc l’accès au pont
+  tant que cette clé existe. Réglages → Mises à jour → Extension navigateur →
+  **Révoquer les extensions associées** efface la clé côté application
+  (`bridge_key_delete`), puis vide la clé et les sessions en mémoire. Une
+  extension qui détient encore l’ancienne clé reçoit `unpaired` à sa requête
+  suivante, oublie sa copie et doit être associée de nouveau avec
+  confirmation ; la reconnexion ne peut plus réémettre une clé effacée. La
+  révocation n’est annoncée qu’après avoir vérifié que la clé a disparu.
+  Limite restante : la révocation est globale, pas sélective par navigateur
+  (une seule clé partagée). Le risque est borné : le pont ne répond que
   lorsque l’application est déverrouillée, et seulement aux extensions dont
   l’identifiant est autorisé par le manifeste d’hôte natif.
 - **Copie gérée de l’extension** : l’application embarque l’extension et en
