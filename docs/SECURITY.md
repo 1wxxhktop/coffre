@@ -684,6 +684,15 @@ longueur entre stdin/stdout et un socket local.
   possèdent déjà la clé restent donc valides. Si le navigateur ne persiste
   toujours rien, la clé reste en mémoire pour la session et le popup l’indique ;
   aucune clé n’est recréée silencieusement.
+- **Limite : pas de rotation ni de révocation sélective.** La reconnexion
+  réémet la clé existante au lieu d’en créer une nouvelle : un navigateur
+  associé auparavant garde donc l’accès au pont tant que cette clé existe. La
+  seule façon de l’invalider aujourd’hui est la suppression des données de
+  Coffre, qui efface la clé et impose une nouvelle association partout. Un
+  bouton « Révoquer les extensions associées » (effacer la clé côté
+  application) reste à ajouter. Ce risque est borné : le pont ne répond que
+  lorsque l’application est déverrouillée, et seulement aux extensions dont
+  l’identifiant est autorisé par le manifeste d’hôte natif.
 - **Copie gérée de l’extension** : l’application embarque l’extension et en
   recopie les fichiers dans `extension/` de son dossier de données, au
   démarrage, quand la version diffère. L’utilisateur charge ce dossier une fois
