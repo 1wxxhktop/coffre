@@ -298,6 +298,11 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/android-build.yml
+    # Clé fixe : l’APK de la release s’installe par-dessus les bêtas et les
+    # versions précédentes signées avec la même clé.
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
   android-assets:
     name: Ajouter l’APK Android
@@ -315,9 +320,14 @@ jobs:
       - name: Préparer l’asset
         run: |
           version="${GITHUB_REF_NAME#v}"
-          mv android/coffre-android-arm64-debug.apk \
-            "android/coffre-${version}-android-arm64-debug.apk"
-          (cd android && sha256sum coffre-*-android-arm64-debug.apk > SHA256SUMS-android)
+          # Signé avec la clé fixe : coffre-<version>-android-arm64.apk. Sans
+          # clé : APK de test debug, nommé comme tel.
+          for kind in android-arm64 android-arm64-debug; do
+            if [[ -f "android/coffre-${kind}.apk" ]]; then
+              mv "android/coffre-${kind}.apk" "android/coffre-${version}-${kind}.apk"
+            fi
+          done
+          (cd android && sha256sum coffre-*-android-arm64*.apk > SHA256SUMS-android)
           ls -lh android
 
       - name: Ajouter l’APK à la release
@@ -325,6 +335,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "$GITHUB_REF_NAME" \
-            android/coffre-*-android-arm64-debug.apk \
+            android/coffre-*-android-arm64*.apk \
             android/SHA256SUMS-android \
             --clobber --repo "$GITHUB_REPOSITORY"

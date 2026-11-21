@@ -14,6 +14,12 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Clé de signature fixe des APK publiés (bêtas et releases). Elle vient des
+// secrets GitHub (scripts/setup-android-key.sh) : la même clé signe chaque
+// version, ce qui permet d’installer une mise à jour par-dessus la précédente
+// sans désinstaller l’application ni perdre son coffre local.
+val coffreKeystore: String? = System.getenv("COFFRE_ANDROID_KEYSTORE")
+
 android {
     compileSdk = 37
     namespace = "app.coffre.desktop"
@@ -24,6 +30,17 @@ android {
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        if (coffreKeystore != null) {
+            create("coffre") {
+                storeFile = file(coffreKeystore)
+                storeType = "pkcs12"
+                storePassword = System.getenv("COFFRE_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("COFFRE_ANDROID_KEY_ALIAS") ?: "coffre"
+                keyPassword = System.getenv("COFFRE_ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -40,8 +57,14 @@ android {
             }
         }
         getByName("release") {
+            // Sans clé fixe, l’APK release reste non signé (builds de forks).
+            signingConfigs.findByName("coffre")?.let { signingConfig = it }
+            // Réduction du code désactivée : les règles ProGuard du projet sont
+            // vides et l’APK ne peut pas être testé sur appareil en CI. Mieux
+            // vaut un APK un peu plus gros qu’une classe utilisée par la
+            // WebView ou JNI retirée par erreur.
             optimization {
-               enable = true
+               enable = false
             }
             proguardFiles(
                 *fileTree(".") {

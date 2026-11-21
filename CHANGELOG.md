@@ -2,6 +2,17 @@
 
 ## Non publié
 
+- Android : **bêta à chaque PR**. Le workflow Bêta PR publie un APK Android
+  signé dans le canal bêta (`Coffre_beta_android-arm64.apk`), à côté de la
+  bêta macOS, avec la même version.
+- Android : **clé de signature fixe** (`scripts/setup-android-key.sh`, créée
+  une fois par le mainteneur). Avec elle, l’APK est un build release non
+  débogable, et chaque version s’installe par-dessus la précédente sans
+  désinstaller l’application ni perdre le coffre local. L’APK signé s’appelle
+  `app.coffre.desktop` ; l’ancien APK de test `app.coffre.desktop.debug` reste
+  à part.
+- `bun run release:update` récupère aussi l’APK Android d’une version publiée
+  depuis sa release GitHub, quand son tag désigne le commit collecté.
 - Android : premier démarrage possible par **synchronisation locale**. Un
   nouvel appareil rejoint le coffre d’un appareil déjà configuré avec un code
   d’appairage, reçoit le fichier chiffré et ses pièces jointes, puis l’importe

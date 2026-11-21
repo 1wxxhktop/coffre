@@ -1,7 +1,31 @@
 name: Android APK
 
+# APK Android arm64. Avec la clé fixe (secrets ANDROID_KEYSTORE_*, créés par
+# scripts/setup-android-key.sh), l’APK est un build release signé, non
+# débogable : chaque version s’installe par-dessus la précédente. Sans clé
+# (fork, Dependabot), l’APK reste un build de test debug, jamais publié.
 on:
   workflow_call:
+    inputs:
+      version:
+        description: Version à injecter (bêta) ; vide = version du dépôt
+        required: false
+        type: string
+        default: ''
+      ref:
+        description: Commit ou référence à construire ; vide = celui de l’appelant
+        required: false
+        type: string
+        default: ''
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+    outputs:
+      signed:
+        description: true si l’APK est signé avec la clé fixe
+        value: ${{ jobs.build.outputs.signed }}
   workflow_dispatch:
 
 permissions:
@@ -19,13 +43,17 @@ env:
 
 jobs:
   build:
-    name: APK de test arm64
+    name: APK Android arm64
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # Le build release optimisé est plus long que le build debug.
+    timeout-minutes: 60
+    outputs:
+      signed: ${{ steps.key.outputs.signed }}
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.ref }}
           persist-credentials: false
 
       - name: Installer Java
@@ -79,22 +107,78 @@ jobs:
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
 
-      - name: Construire l’APK
-        run: bunx tauri android build --debug --apk --target aarch64 --ci
-
-      - name: Préparer l’artefact
+      - name: Préparer la clé de signature
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          apk="$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)"
-          test -n "$apk"
-          cp "$apk" coffre-android-arm64-debug.apk
-          sha256sum coffre-android-arm64-debug.apk > SHA256SUMS-android
-          ls -lh coffre-android-arm64-debug.apk SHA256SUMS-android
+          if [[ -n "$KEYSTORE_BASE64" && -n "$KEYSTORE_PASSWORD" ]]; then
+            KEYSTORE="$RUNNER_TEMP/coffre-android.p12"
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            chmod 600 "$KEYSTORE"
+            echo "COFFRE_ANDROID_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Clé fixe disponible : build release signé."
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Clé Android absente : APK de test debug, non publiable."
+          fi
+
+      - name: Construire l’APK
+        env:
+          COFFRE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          COFFRE_BUILD_VERSION: ${{ inputs.version }}
+          SIGNED: ${{ steps.key.outputs.signed }}
+        run: |
+          ARGS=(--apk --target aarch64 --ci)
+          [[ "$SIGNED" == "true" ]] || ARGS=(--debug "${ARGS[@]}")
+          if [[ -n "$COFFRE_BUILD_VERSION" ]]; then
+            CONFIG="$(node -e 'console.log(JSON.stringify({ version: process.env.COFFRE_BUILD_VERSION }))')"
+            ARGS+=(--config "$CONFIG")
+          fi
+          bunx tauri android build "${ARGS[@]}"
+
+      - name: Vérifier et préparer l’APK
+        env:
+          SIGNED: ${{ steps.key.outputs.signed }}
+          EXPECTED_CERT: ${{ vars.COFFRE_ANDROID_CERT_SHA256 }}
+        run: |
+          if [[ "$SIGNED" == "true" ]]; then
+            apk="$(find src-tauri/gen/android/app/build/outputs/apk -path '*release*' -name '*.apk' ! -name '*unsigned*' | head -1)"
+            name=coffre-android-arm64.apk
+          else
+            apk="$(find src-tauri/gen/android/app/build/outputs/apk -path '*debug*' -name '*.apk' | head -1)"
+            name=coffre-android-arm64-debug.apk
+          fi
+          test -n "$apk" || { echo "APK introuvable." >&2; exit 1; }
+          cp "$apk" "$name"
+          if [[ "$SIGNED" == "true" ]]; then
+            # Refuser un APK signé par une autre clé que celle déclarée : il ne
+            # s’installerait pas par-dessus la version précédente.
+            APKSIGNER="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
+            CERT="$("$APKSIGNER" verify --print-certs "$name" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':' | tr 'A-F' 'a-f')"
+            WANT="$(printf '%s' "$EXPECTED_CERT" | tr -d ': ' | tr 'A-F' 'a-f')"
+            test -n "$CERT" || { echo "Signature de l’APK illisible." >&2; exit 1; }
+            if [[ -n "$WANT" && "$CERT" != "$WANT" ]]; then
+              echo "Certificat inattendu : $CERT (attendu $WANT)." >&2
+              exit 1
+            fi
+            echo "Certificat de signature : $CERT"
+          fi
+          sha256sum "$name" > SHA256SUMS-android
+          echo "APK_NAME=$name" >> "$GITHUB_ENV"
+          ls -lh "$name" SHA256SUMS-android
+
+      - name: Effacer la clé du runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/coffre-android.p12"
 
       - name: Conserver l’APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coffre-android-apk
           path: |
-            coffre-android-arm64-debug.apk
+            ${{ env.APK_NAME }}
             SHA256SUMS-android
           if-no-files-found: error

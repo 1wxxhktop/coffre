@@ -115,9 +115,31 @@ if [[ ! -d "$TMP/coffre-android-apk" ]]; then
       rm -rf "$TMP/coffre-android-apk"
       echo "APK Android : artefact indisponible, dossier android ignoré."
     fi
-  else
-    echo "APK Android : aucun build réussi pour $SHORT, dossier android ignoré."
   fi
+fi
+
+# Pour une version publiée, l’APK est construit par le workflow de release
+# lui-même (pas par un run « Android APK » séparé) : le prendre dans la release
+# GitHub correspondante, si elle existe (brouillon compris) et si son tag
+# désigne exactement le commit collecté.
+RELEASE_SHA="$(gh api "repos/$REPO/commits/v$VERSION" --jq .sha 2>/dev/null || true)"
+if [[ ! -d "$TMP/coffre-android-apk" && -n "$RELEASE_SHA" && "$RELEASE_SHA" != "$SHA" ]]; then
+  echo "APK Android : la release v$VERSION vient d’un autre commit (${RELEASE_SHA:0:7}), APK non repris."
+fi
+if [[ ! -d "$TMP/coffre-android-apk" && "$RELEASE_SHA" == "$SHA" ]] \
+  && gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+  mkdir -p "$TMP/coffre-android-apk"
+  if gh release download "v$VERSION" --repo "$REPO" --dir "$TMP/coffre-android-apk" \
+    --pattern "coffre-$VERSION-android-*.apk" --pattern 'SHA256SUMS-android' 2>/dev/null \
+    && compgen -G "$TMP/coffre-android-apk/*.apk" >/dev/null; then
+    echo "APK Android : release v$VERSION"
+  else
+    rm -rf "$TMP/coffre-android-apk"
+  fi
+fi
+
+if [[ ! -d "$TMP/coffre-android-apk" ]]; then
+  echo "APK Android : aucun build pour $SHORT ni dans la release v$VERSION, dossier android ignoré."
 fi
 
 rm -rf "$BUILD"
@@ -182,7 +204,9 @@ linux/     Paquets .deb, .rpm et AppImage, outils en ligne de commande.
 extension/ Extension navigateur (Chromium) à charger en mode développeur
            (chrome://extensions → « Charger l’extension non empaquetée »).
 web/       Application Web (PWA) à servir en HTTPS.
-android/   APK Android arm64 de test, signé en debug.
+android/   APK Android arm64. « -android-arm64.apk » : signé avec la clé
+           fixe, s’installe par-dessus la version précédente. « -debug » :
+           APK de test, à désinstaller avant d’installer une autre version.
 sbom/      Nomenclatures logicielles CycloneDX.
 
 outils/    coffre-cli (lecture, TOTP, coffre run --env), coffre-git-sign
