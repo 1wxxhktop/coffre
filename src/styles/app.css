@@ -2869,7 +2869,7 @@ body:has(.app-shell) {
     padding: 0 var(--space-1);
     grid-template-columns: repeat(4, minmax(0, 1fr));
     border: 1px solid var(--border-2);
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-xl);
     background: var(--surface-floating-nav);
     box-shadow: var(--shadow-2);
     -webkit-backdrop-filter: blur(20px) saturate(1.8);

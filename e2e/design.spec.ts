@@ -173,9 +173,11 @@ test.describe('système de design', () => {
     const home = await nav.evaluate((element) => ({
       background: getComputedStyle(element).backgroundColor,
       backdrop: getComputedStyle(element).backdropFilter,
+      radius: getComputedStyle(element).borderRadius,
     }))
     expect(home.background).toBe('rgba(255, 255, 255, 0.72)')
     expect(home.backdrop).toContain('blur(20px)')
+    expect(home.radius).toBe('20px')
     // Le contenu doit défiler sous la barre : pas de bande blanche réservée.
     const mainPadding = await page
       .locator('.app-main')

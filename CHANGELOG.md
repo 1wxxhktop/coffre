@@ -3,7 +3,8 @@
 ## Non publié
 
 - Interface mobile : la barre de navigation flottante utilise un **verre
-  dépoli** (fond translucide, flou et saturation) et le contenu défile dessous.
+  dépoli** (fond translucide, flou et saturation), avec le rayon des grandes
+  surfaces (`--radius-xl`) et non une pilule, et le contenu défile dessous.
   La bande blanche réservée sous la barre a été supprimée : l’accueil et les
   pages modales se comportent comme la page Sécurité. L’icône de lancement
   Android utilise désormais le **cadenas Coffre** des versions macOS et
