@@ -3,4 +3,7 @@
     <string name="main_activity_title">"Coffre"</string>
     <string name="autofill_service_label">"Coffre"</string>
     <string name="autofill_login_fallback">"Connexion Coffre"</string>
+    <string name="passkey_service_label">"Coffre"</string>
+    <string name="passkey_unlock_title">"Déverrouiller Coffre"</string>
+    <string name="passkey_prompt_title">"Utiliser une passkey Coffre"</string>
 </resources>

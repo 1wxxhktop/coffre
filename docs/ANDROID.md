@@ -26,13 +26,19 @@ appareil. Ce n’est pas encore une application Android complète.
 - **Captures d’écran bloquées par défaut** (`FLAG_SECURE`) : captures,
   enregistrements et aperçu dans les applications récentes masqués. Désactivable
   dans Réglages → Sécurité.
+- **Passkeys Android (Android 14+)** : fournisseur Credential Manager pour
+  signer les passkeys du coffre dans les navigateurs compatibles, après
+  authentification. Désactivé par défaut ; création depuis Android non encore
+  disponible.
 
 ## Ce qui n’est pas encore là
 
 - Remplissage des applications natives sans domaine web (nécessite une
   correspondance par package ou des associations de domaines).
 - Enregistrement d’un mot de passe saisi dans une autre application.
-- Passkeys via Credential Manager.
+- Création de passkeys directement depuis Android : l’assertion Credential
+  Manager est livrée, la création reste à faire depuis le site avec
+  l’extension.
 - Tray, auto-type et extension navigateur.
 - Publication Play Store.
 - Mise à jour silencieuse : Android exige la confirmation de l’utilisateur
@@ -230,6 +236,50 @@ récentes.
   privilégié ou une caméra externe. Il empêche aussi de projeter ou partager
   l’écran de Coffre ; désactivez-le temporairement si vous en avez besoin.
 
+### Passkeys Android
+
+Coffre peut être sélectionné comme **fournisseur de passkeys** dans Android 14+
+(Credential Manager). Cette première version permet de **se connecter** avec
+les passkeys déjà présentes dans le coffre ; la création depuis Android reste
+à faire.
+
+1. Ouvrir **Réglages → Sécurité → Passkeys Android**.
+2. Désactiver **Verrouiller quand Coffre passe en arrière-plan** : le cache est
+   vidé dès la sortie de Coffre.
+3. Appuyer sur **Choisir Coffre dans Android** et sélectionner Coffre comme
+   fournisseur de passkeys.
+4. Activer **Proposer les passkeys de Coffre dans Android**, puis laisser le
+   coffre déverrouillé.
+5. Dans Chrome, choisir une passkey Coffre sur un site dont la passkey existe
+   déjà dans le coffre. Android demande l’authentification système avant la
+   signature.
+
+**Fonctionnement et garanties :**
+
+- les passkeys sont publiées dans un cache **en mémoire** Rust quand le coffre
+  est déverrouillé ; la clé privée ne quitte jamais Rust et n’est jamais
+  écrite sur le disque ;
+- Kotlin ne reçoit que les métadonnées de sélection, puis une assertion
+  signée ; le drapeau UV est positionné après l’authentification système ;
+- l’origine est vérifiée avec la liste publique des navigateurs privilégiés de
+  Google (`assets/privileged-apps.json`) ; cette copie doit être mise à jour
+  lors des changements de signature des navigateurs ;
+- la signature porte sur le `clientDataHash` fourni par Android, pas sur un
+  `clientDataJSON` recalculé ;
+- le cache expire avec le verrouillage automatique et est vidé au verrouillage
+  ou à la désactivation du réglage.
+
+**Limites :**
+
+- Android 14+ et navigateurs de la liste de confiance uniquement ;
+- les applications natives sans Digital Asset Links ne sont pas prises en
+  charge ;
+- la création de passkeys depuis Android n’est pas encore proposée ; elle se
+  fait depuis le site avec l’extension Coffre ;
+- un processus tué ou un coffre verrouillé ne propose rien : une entrée
+  « Déverrouiller Coffre » ouvre l’application ; relancer la connexion après
+  déverrouillage.
+
 ## Construire localement
 
 Prérequis : Java 21, SDK Android (plateforme 37.0, build-tools 36) et NDK
@@ -303,10 +353,13 @@ installateur Android, conservation du coffre), le **remplissage automatique**
 (sélection du service, proposition sur un formulaire, expiration après le
 délai, absence de proposition sur un domaine voisin) et le **blocage des
 captures d’écran** (capture, enregistrement, aperçu des récents, désactivation
-et réactivation) doivent être confirmés sur un appareil Android physique.
+et réactivation) doivent être confirmés sur un appareil Android physique. Les
+passkeys Credential Manager (sélection du fournisseur, liste de navigateurs de
+confiance, authentification, signature et absence de création) doivent aussi
+être validées sur appareil réel.
 
 ## Prochaines étapes
 
-La version Android complète reste planifiée en 0.18 : validation du
-remplissage et du blocage des captures sur appareils réels, Credential
-Manager/passkeys, validation multi-appareils et publication Play Store.
+La version Android complète reste planifiée en 0.18 : validation des passkeys,
+du remplissage et du blocage des captures sur appareils réels, création de
+passkeys depuis Android, validation multi-appareils et publication Play Store.

@@ -35,6 +35,7 @@ import { ActivitySettings } from './ActivitySettings'
 import { BlobStorageSettings } from './BlobStorageSettings'
 import { UpdateSettings } from './UpdateSettings'
 import { AndroidAutofillSettings } from './AndroidAutofillSettings'
+import { AndroidPasskeysSettings } from './AndroidPasskeysSettings'
 import { ExtensionSettings } from './ExtensionSettings'
 import { BackupSettings } from './BackupSettings'
 import { SshAgentSettings } from './SshAgentSettings'
@@ -1388,6 +1389,8 @@ export function SettingsDialog({ onClose, onImported }: SettingsDialogProps) {
                     </details>
                   </section>
                 )}
+
+                {isAndroidRuntime() && <AndroidPasskeysSettings />}
 
                 {isAndroidRuntime() && (
                   <section className="settings-section">

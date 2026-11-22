@@ -15,6 +15,7 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 mod alias_service;
 mod android_autofill;
+mod android_passkeys;
 mod android_secure_screen;
 mod android_update;
 #[cfg(desktop)]
@@ -839,6 +840,10 @@ pub fn run() {
             android_autofill::android_autofill_clear,
             android_autofill::android_autofill_status,
             android_autofill::android_autofill_open_settings,
+            android_passkeys::android_passkeys_publish,
+            android_passkeys::android_passkeys_touch,
+            android_passkeys::android_passkeys_clear,
+            android_passkeys::android_passkeys_open_settings,
             android_secure_screen::android_secure_screen_set,
             android_secure_screen::android_secure_screen_enabled,
             biometric_available,

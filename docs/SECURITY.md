@@ -1678,6 +1678,46 @@ fenêtre, et masque son contenu dans l’aperçu des applications récentes.
 - Le drapeau ne modifie ni le chiffrement, ni le stockage, ni les requêtes
   réseau.
 
+### 2.32 Passkeys Android (Credential Manager)
+
+Le fournisseur `CoffreCredentialProviderService` (Android 14+) signe les
+passkeys déjà présentes dans le coffre. Cette version ne crée pas de passkey
+depuis Android.
+
+- **Cache mémoire seulement.** La WebView publie les passkeys actives dans un
+  cache Rust (`android_passkeys.rs`) quand le réglage est actif et le coffre
+  déverrouillé. Les clés privées ne sortent jamais de Rust : Kotlin ne reçoit
+  que les métadonnées de sélection, puis une assertion signée. Les entrées sont
+  effacées par `zeroize` au remplacement, au verrouillage et à la fermeture.
+- **Signature.** L’activité `PasskeyCredentialActivity` vérifie l’origine avec
+  la liste publique des navigateurs privilégiés de Google
+  (`assets/privileged-apps.json`), demande une authentification système
+  (`BiometricPrompt`, biométrie ou verrouillage de l’appareil), puis signe le
+  `clientDataHash` fourni par Android. Le drapeau UV est positionné ; le
+  `clientDataJSON` renvoyé est un espace réservé, comme le recommande Android
+  pour les appels de navigateurs privilégiés.
+- **Origine et RP ID.** Seuls les navigateurs de la liste de confiance peuvent
+  présenter une origine. Les applications natives sans Digital Asset Links ne
+  sont pas prises en charge. Le RP ID de la passkey doit correspondre à la
+  demande ; la validation d’origine de l’extension n’est pas réutilisée car
+  Android autorise les Related Origin Requests.
+- **Pas de création, pas de capture.** Le fournisseur ne propose aucune entrée
+  de création : une passkey ne peut pas être créée puis perdue si la WebView
+  n’est pas disponible. Aucun mot de passe n’est enregistré.
+- **Durée de vie.** Le cache expire avec le verrouillage automatique
+  (plafonné à 24 h ; aucune expiration si l’auto-lock est désactivé) et est
+  vidé au verrouillage ou à la désactivation du réglage. Un coffre verrouillé
+  ne propose rien.
+- **Surface Tauri.** Quatre commandes (`android_passkeys_publish`,
+  `android_passkeys_touch`, `android_passkeys_clear`,
+  `android_passkeys_open_settings`) sont autorisées à la fenêtre ; aucune
+  n’accepte d’URL, de chemin ou de nom de package.
+- **Limites.** La liste de navigateurs est une copie locale à mettre à jour
+  lors des changements de signature ; un navigateur absent de la liste est
+  refusé. Le fournisseur doit être sélectionné par l’utilisateur et le coffre
+  laissé déverrouillé en arrière-plan. Un appareil rooté ou un outil
+  privilégié peut contourner les protections du système.
+
 ## 3. Stockage local
 
 ### 3.1 Application desktop (Tauri)
@@ -2178,6 +2218,7 @@ La WebView n’accède au système que par des commandes IPC explicites :
 | `biometric_available`, `biometric_confirm`, `biometric_store`, `biometric_delete`, `biometric_load` | Touch ID macOS, Windows Hello et empreinte Android |
 | `android_autofill_publish`, `android_autofill_touch`, `android_autofill_clear`, `android_autofill_status`, `android_autofill_open_settings` | cache mémoire du remplissage Android et écran système de sélection du service |
 | `android_secure_screen_set`, `android_secure_screen_enabled` | blocage des captures d’écran Android (`FLAG_SECURE`) |
+| `android_passkeys_publish`, `android_passkeys_touch`, `android_passkeys_clear`, `android_passkeys_open_settings` | cache mémoire des passkeys Android et écran système des fournisseurs |
 | `autostart_enabled`, `autostart_set`, `startup_is_hidden` | démarrage à l’ouverture de session et lancement masqué |
 | `tray_set_language`, `tray_set_keep_on_close` | libellés du menu et comportement à la fermeture |
 | `vault_read`, `vault_write`, `vault_backup_read`, `vault_backup_write`, `vault_clear` | stockage natif du coffre |

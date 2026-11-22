@@ -110,6 +110,25 @@ déverrouillé, même réseau Wi-Fi, aucun accès Internet.
    d’applications et dans l’aperçu des récents ; elle doit être le cadenas
    blanc/noir, comme sur macOS et Windows.
 
+### Passkeys Android
+
+1. Android 14+, installer l’APK signé, choisir Coffre comme fournisseur de
+   passkeys dans **Réglages → Sécurité → Passkeys Android**.
+2. Désactiver le verrouillage en arrière-plan, activer les passkeys, laisser le
+   coffre déverrouillé.
+3. Dans Chrome, se connecter à un site dont la passkey existe déjà dans le
+   coffre : Coffre apparaît, demande l’authentification système, puis le site
+   accepte la connexion.
+4. Vérifier qu’un site sans passkey ne propose pas Coffre.
+5. Vérifier qu’une application native non privilégiée ne reçoit pas de
+   passkey.
+6. Verrouiller Coffre puis réessayer : aucune proposition tant que le coffre
+   n’est pas rouvert.
+7. Vérifier qu’aucune création de passkey n’est proposée par Coffre depuis
+   Android (comportement attendu de cette version).
+8. Vérifier qu’une passkey créée depuis le site avec l’extension apparaît bien
+   dans le fournisseur après déverrouillage.
+
 ## 6. Audit externe
 
 - parseurs KDBX, CXF, partages et blobs ;

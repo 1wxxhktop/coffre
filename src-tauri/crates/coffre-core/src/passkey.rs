@@ -43,6 +43,19 @@ pub struct PasskeyAssertion {
     pub sign_count: u32,
 }
 
+/// Assertion signée sur l’empreinte `clientDataHash` fournie par le système.
+///
+/// Utilisée par le fournisseur Android : le navigateur a déjà construit son
+/// `clientDataJSON`, et le fournisseur ne doit pas le recalculer.
+#[derive(Debug)]
+pub struct PasskeyAssertionWithHash {
+    pub credential_id: String,
+    pub user_handle: String,
+    pub authenticator_data: String,
+    pub signature: String,
+    pub sign_count: u32,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredPasskey {
@@ -93,15 +106,18 @@ fn secure_origin(origin: &str) -> Result<Url, CoreError> {
 }
 
 /// Vérifie que `rp_id` est l’hôte de l’origine ou un parent enregistrable.
+fn valid_rp_id_value(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 253
+        && !value.contains('/')
+        && !is_ip_address(value)
+        && !is_public_suffix(value)
+        && (value == "localhost" || value.contains('.'))
+}
+
 pub fn validate_rp_id(rp_id: &str, origin: &str) -> Result<String, CoreError> {
     let value = rp_id.trim().to_lowercase();
-    if value.is_empty() || value.len() > 253 || value.contains('/') {
-        return Err(CoreError::InvalidFormat("RP ID invalide".into()));
-    }
-    if is_ip_address(&value) || is_public_suffix(&value) {
-        return Err(CoreError::InvalidFormat("RP ID non autorisé".into()));
-    }
-    if value != "localhost" && !value.contains('.') {
+    if !valid_rp_id_value(&value) {
         return Err(CoreError::InvalidFormat("RP ID non autorisé".into()));
     }
     let url = secure_origin(origin)?;
@@ -315,6 +331,60 @@ pub fn assert_passkey(
     })
 }
 
+/// Signe une assertion avec l’empreinte fournie par le système Android.
+///
+/// Le drapeau UV est positionné lorsque l’utilisateur a confirmé son identité
+/// dans l’activité du fournisseur.
+pub fn assert_passkey_with_hash(
+    item: &StoredPasskey,
+    rp_id: &str,
+    client_data_hash: &[u8],
+    user_verified: bool,
+) -> Result<PasskeyAssertionWithHash, CoreError> {
+    if item.kind != "passkey" {
+        return Err(CoreError::InvalidFormat("élément passkey attendu".into()));
+    }
+    let rp_id = rp_id.trim().to_lowercase();
+    if !valid_rp_id_value(&rp_id) {
+        return Err(CoreError::InvalidFormat("RP ID non autorisé".into()));
+    }
+    if item.rp_id.to_lowercase() != rp_id {
+        return Err(CoreError::InvalidFormat(
+            "cette passkey n’appartient pas à ce domaine".into(),
+        ));
+    }
+    if client_data_hash.len() != 32 {
+        return Err(CoreError::InvalidFormat(
+            "clientDataHash WebAuthn invalide".into(),
+        ));
+    }
+    let private_der = Zeroizing::new(
+        STANDARD
+            .decode(&item.private_key)
+            .map_err(|_| CoreError::InvalidFormat("clé privée PKCS#8 invalide".into()))?,
+    );
+    let signing_key = SigningKey::from_pkcs8_der(&private_der)
+        .map_err(|_| CoreError::InvalidFormat("clé privée PKCS#8 invalide".into()))?;
+
+    let rp_hash = sha256(item.rp_id.to_lowercase().as_bytes());
+    let mut authenticator_data = Vec::with_capacity(37);
+    authenticator_data.extend_from_slice(&rp_hash);
+    let flags = 0x01 | if user_verified { 0x04 } else { 0 };
+    authenticator_data.push(flags);
+    authenticator_data.extend_from_slice(&item.sign_count.to_be_bytes());
+    let mut message = authenticator_data.clone();
+    message.extend_from_slice(client_data_hash);
+    let signature: Signature = signing_key.sign(&message);
+
+    Ok(PasskeyAssertionWithHash {
+        credential_id: item.credential_id.clone(),
+        user_handle: item.user_handle.clone(),
+        authenticator_data: to_base64url(&authenticator_data),
+        signature: to_base64url(signature.to_der().as_bytes()),
+        sign_count: item.sign_count,
+    })
+}
+
 /// Vérifie une assertion DER sur `authenticatorData || SHA-256(clientData)`.
 pub fn verify_assertion(
     public_key_pkcs8: &str,
@@ -380,6 +450,43 @@ mod tests {
             &signature,
         )
         .expect("signature valide");
+    }
+
+    #[test]
+    fn signe_l_empreinte_android_avec_uv() {
+        let created = create_passkey(
+            "example.com",
+            "https://example.com",
+            "Y2hhbGxlbmdl",
+            Some("dXNlcg"),
+        )
+        .expect("création");
+        let item = StoredPasskey {
+            kind: "passkey".into(),
+            rp_id: "example.com".into(),
+            user_handle: created.user_handle.clone(),
+            credential_id: created.credential_id.clone(),
+            private_key: created.private_key.clone(),
+            sign_count: 0,
+        };
+        let client_data_hash = [7u8; 32];
+        let assertion = assert_passkey_with_hash(&item, "example.com", &client_data_hash, true)
+            .expect("assertion");
+        let authenticator_data = URL_SAFE_NO_PAD
+            .decode(&assertion.authenticator_data)
+            .unwrap();
+        assert_eq!(authenticator_data[32] & 0x04, 0x04);
+        let signature = URL_SAFE_NO_PAD.decode(&assertion.signature).unwrap();
+        let signature = Signature::from_der(&signature).unwrap();
+        let signing_key =
+            SigningKey::from_pkcs8_der(&STANDARD.decode(&created.private_key).unwrap()).unwrap();
+        let mut message = authenticator_data;
+        message.extend_from_slice(&client_data_hash);
+        signing_key
+            .verifying_key()
+            .verify(&message, &signature)
+            .expect("signature valide");
+        assert!(assert_passkey_with_hash(&item, "autre.example", &client_data_hash, true).is_err());
     }
 
     #[test]

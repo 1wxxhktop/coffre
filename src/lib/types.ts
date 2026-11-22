@@ -684,6 +684,11 @@ export interface AppSettings {
    */
   androidAutofill: boolean
   /**
+   * Android : publier les passkeys au fournisseur Credential Manager.
+   * Désactivé par défaut ; les clés privées restent en mémoire dans Rust.
+   */
+  androidPasskeys: boolean
+  /**
    * Android : bloquer les captures d’écran et l’enregistrement avec
    * `FLAG_SECURE`. Actif par défaut ; le réglage natif est mémorisé pour
    * s’appliquer dès le démarrage.
@@ -742,6 +747,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   keychainUnlock: false,
   biometricUnlock: false,
   androidAutofill: false,
+  androidPasskeys: false,
   androidSecureScreen: true,
   expiryNotifications: false,
   breachCheck: false,

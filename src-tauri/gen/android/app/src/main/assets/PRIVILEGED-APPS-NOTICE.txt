@@ -1,0 +1,7 @@
+Liste publique des applications privilégiées pour les passkeys.
+
+Source : https://www.gstatic.com/gpm-passkeys-privileged-apps/apps.json
+Utilisée par Google Password Manager pour vérifier qu'un navigateur peut
+présenter l'origine d'une page à un fournisseur de passkeys. Coffre embarque
+cette copie pour que la vérification reste hors ligne ; elle doit être mise à
+jour lors des changements de signature des navigateurs.

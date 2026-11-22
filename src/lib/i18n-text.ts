@@ -910,6 +910,22 @@ export const EN_TEXT: Record<string, string> = {
     "Updates",
   "Mises à jour Android":
     "Android updates",
+  "Passkeys Android":
+    "Android passkeys",
+  "Signe avec les passkeys du coffre dans les navigateurs compatibles (Android 14+).":
+    "Signs in with vault passkeys in supported browsers (Android 14+).",
+  "Le coffre se verrouille dès que vous quittez Coffre : le cache des passkeys est vidé avant que le navigateur puisse l’utiliser.":
+    "The vault locks as soon as you leave Coffre: the passkey cache is cleared before the browser can use it.",
+  "Sans cette modification, les passkeys ne peuvent pas être proposées hors de Coffre.":
+    "Without this change, passkeys cannot be offered outside Coffre.",
+  "Proposer les passkeys de Coffre dans Android":
+    "Offer Coffre passkeys in Android",
+  "Le coffre est déverrouillé : les passkeys peuvent être proposées par le navigateur.":
+    "The vault is unlocked: the browser can offer passkeys.",
+  "Coffre doit être choisi comme fournisseur de passkeys dans Android. Seuls les navigateurs de la liste de confiance peuvent présenter une origine ; les applications natives sans Digital Asset Links ne sont pas prises en charge.":
+    "Coffre must be selected as the passkey provider in Android. Only browsers in the trusted list can present an origin; native apps without Digital Asset Links are not supported.",
+  "La création d’une passkey depuis Android n’est pas encore disponible : créez-la depuis le site avec l’extension Coffre, puis elle apparaîtra ici.":
+    "Creating a passkey from Android is not available yet: create it on the site with the Coffre extension, then it will appear here.",
   "Remplissage Android":
     "Android autofill",
   "Propose les connexions du coffre dans les formulaires des autres applications et du navigateur.":

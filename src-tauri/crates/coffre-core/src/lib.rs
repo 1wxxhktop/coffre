@@ -35,8 +35,8 @@ pub use format::{
 };
 pub use merge::{MergeConflict, MergeError, MergeErrorCode, MergeResult, merge};
 pub use passkey::{
-    CreatedPasskey, PasskeyAssertion, StoredPasskey, assert_passkey, create_passkey,
-    validate_rp_id, verify_assertion,
+    CreatedPasskey, PasskeyAssertion, PasskeyAssertionWithHash, StoredPasskey, assert_passkey,
+    assert_passkey_with_hash, create_passkey, validate_rp_id, verify_assertion,
 };
 pub use totp::{TotpAlgorithm, TotpConfig, parse_totp_uri};
 
