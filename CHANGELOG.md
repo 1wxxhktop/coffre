@@ -2,6 +2,11 @@
 
 ## Non publié
 
+- Interface mobile : la barre de navigation flottante reste **lisible et
+  translucide sur l’accueil** comme sur les pages modales (voile sombre très
+  léger en thème clair). L’icône de lancement Android utilise désormais le
+  **cadenas Coffre** des versions macOS et Windows, avec icônes adaptative et
+  ronde ; un contrôle de lint empêche le retour de l’icône Tauri.
 - Android : **remplissage automatique** des identifiants dans le navigateur et
   les formulaires web des autres applications (Autofill Framework, Android 8+).
   Le service lit un cache **en mémoire**, limité aux domaines correspondants et

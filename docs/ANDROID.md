@@ -15,7 +15,8 @@ appareil. Ce n’est pas encore une application Android complète.
   (`application/octet-stream`, texte, ZIP).
 - Stockage natif dans le dossier de données de l’application, avec les trois
   sauvegardes tournantes.
-- Interface tactile et thème clair/sombre.
+- Interface tactile et thème clair/sombre ; **icône de lancement Coffre**
+  (cadenas identique à macOS/Windows, déclinaisons ronde et adaptative).
 - **Mises à jour intégrées** : lecture du manifeste bêta, téléchargement de
   l’APK, contrôle SHA-256 et ouverture de l’installateur Android.
 - **Remplissage Android (Autofill Framework, Android 8+)** : les connexions du

@@ -10,8 +10,9 @@
   --surface-topbar: rgba(255, 255, 255, 0.72);
   --surface-footer: rgba(255, 255, 255, 0.76);
   --surface-toolbar: rgba(255, 255, 255, 0.88);
-  /* Barre de navigation flottante : volontairement plus transparente. */
-  --surface-floating-nav: rgba(255, 255, 255, 0.52);
+  /* Voile sombre très léger : la barre reste lisible sur fond blanc sans
+     paraître opaque. */
+  --surface-floating-nav: rgba(9, 9, 11, 0.06);
   --surface-auth-panel: linear-gradient(180deg, #ffffff, #fafafa);
   --scrim: rgba(9, 9, 11, 0.32);
   --scrim-soft: rgba(9, 9, 11, 0.26);

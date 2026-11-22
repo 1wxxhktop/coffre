@@ -164,6 +164,23 @@ test.describe('système de design', () => {
     await expect(page.locator('.mobile-tabs')).toBeVisible()
   })
 
+  test('la barre mobile garde la même transparence sur l’accueil et la sécurité', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await createVault(page)
+    const nav = page.locator('.mobile-tabs')
+    const home = await nav.evaluate((element) => getComputedStyle(element).backgroundColor)
+    expect(home).toBe('rgba(9, 9, 11, 0.06)')
+
+    await page.locator('.mobile-security-badge').click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    const security = await nav.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    )
+    expect(security).toBe(home)
+  })
+
   test('un seul onglet mobile est actif à la fois', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await createVault(page)
