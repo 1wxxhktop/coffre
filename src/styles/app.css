@@ -2343,10 +2343,6 @@ body:has(.app-shell) {
 }
 
 @media (max-width: 767px) {
-  .app-main {
-    padding-bottom: 62px;
-  }
-
   .list-pane {
     padding: var(--space-3) var(--space-3) calc(var(--space-3) + 62px);
   }
@@ -2796,10 +2792,6 @@ body:has(.app-shell) {
     font-size: var(--text-sm);
   }
 
-  .app-main {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
-  }
-
   .list-pane {
     padding: var(--space-3) var(--space-3)
       calc(var(--space-3) + 108px + env(safe-area-inset-bottom, 0px));
@@ -2877,11 +2869,11 @@ body:has(.app-shell) {
     padding: 0 var(--space-1);
     grid-template-columns: repeat(4, minmax(0, 1fr));
     border: 1px solid var(--border-2);
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-xl);
     background: var(--surface-floating-nav);
     box-shadow: var(--shadow-2);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    backdrop-filter: blur(20px) saturate(1.8);
     transition:
       opacity 0.18s ease,
       transform 0.18s ease;

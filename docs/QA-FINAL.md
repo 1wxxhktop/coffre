@@ -101,6 +101,15 @@ déverrouillé, même réseau Wi-Fi, aucun accès Internet.
 6. Vérifier qu’un partage d’écran (cast) ne montre pas le contenu tant que le
    blocage est actif.
 
+### Interface mobile
+
+1. Sur l’accueil, vérifier que la barre de navigation basse est en verre
+   dépoli et que le contenu défile dessous (pas de bande blanche réservée).
+2. Ouvrir la page Sécurité : la barre doit conserver la même transparence.
+3. Vérifier l’icône Coffre sur l’écran d’accueil Android, dans le sélecteur
+   d’applications et dans l’aperçu des récents ; elle doit être le cadenas
+   blanc/noir, comme sur macOS et Windows.
+
 ## 6. Audit externe
 
 - parseurs KDBX, CXF, partages et blobs ;
