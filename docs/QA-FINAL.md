@@ -103,8 +103,8 @@ déverrouillé, même réseau Wi-Fi, aucun accès Internet.
 
 ### Interface mobile
 
-1. Sur l’accueil, vérifier que la barre de navigation basse laisse voir le fond
-   et reste distincte du contenu (voile translucide, pas de bande blanche).
+1. Sur l’accueil, vérifier que la barre de navigation basse est en verre
+   dépoli et que le contenu défile dessous (pas de bande blanche réservée).
 2. Ouvrir la page Sécurité : la barre doit conserver la même transparence.
 3. Vérifier l’icône Coffre sur l’écran d’accueil Android, dans le sélecteur
    d’applications et dans l’aperçu des récents ; elle doit être le cadenas

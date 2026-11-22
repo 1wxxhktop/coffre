@@ -170,15 +170,24 @@ test.describe('système de design', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await createVault(page)
     const nav = page.locator('.mobile-tabs')
-    const home = await nav.evaluate((element) => getComputedStyle(element).backgroundColor)
-    expect(home).toBe('rgba(9, 9, 11, 0.06)')
+    const home = await nav.evaluate((element) => ({
+      background: getComputedStyle(element).backgroundColor,
+      backdrop: getComputedStyle(element).backdropFilter,
+    }))
+    expect(home.background).toBe('rgba(255, 255, 255, 0.72)')
+    expect(home.backdrop).toContain('blur(20px)')
+    // Le contenu doit défiler sous la barre : pas de bande blanche réservée.
+    const mainPadding = await page
+      .locator('.app-main')
+      .evaluate((element) => getComputedStyle(element).paddingBottom)
+    expect(mainPadding).toBe('0px')
 
     await page.locator('.mobile-security-badge').click()
     await expect(page.getByRole('dialog')).toBeVisible()
     const security = await nav.evaluate(
       (element) => getComputedStyle(element).backgroundColor,
     )
-    expect(security).toBe(home)
+    expect(security).toBe(home.background)
   })
 
   test('un seul onglet mobile est actif à la fois', async ({ page }) => {
